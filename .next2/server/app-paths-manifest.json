@@ -1,0 +1,6 @@
+{
+  "/api/gas2/get/route": "app/api/gas2/get/route.js",
+  "/api/gas2/save/route": "app/api/gas2/save/route.js",
+  "/intake/page": "app/intake/page.js",
+  "/page": "app/page.js"
+}
