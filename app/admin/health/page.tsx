@@ -9,35 +9,53 @@ export default function HealthPage(){
   const [env, setEnv] = useState<{ NEXT_PUBLIC_GAS_BASE?: string; GAS_BASE?: string }>({});
 
   useEffect(() => {
+    // In a client component, only NEXT_PUBLIC_* exists at runtime
     setEnv({
       NEXT_PUBLIC_GAS_BASE: process.env.NEXT_PUBLIC_GAS_BASE,
-      GAS_BASE: process.env.GAS_BASE as any
+      GAS_BASE: undefined as any, // won’t be available on the client
     });
 
     (async () => {
       const out: Row[] = [];
-      // Search ping
+
+      // Search
       try {
         const r = await searchJobs('1');
-        out.push({ label:'GET /search', ok: !!r.ok, msg: r.ok?'ok':'fail' });
+        out.push({ label:'GET /search', ok: !!r.ok, msg: r.ok ? 'ok' : 'fail' });
       } catch (e:any){ out.push({ label:'GET /search', ok:false, msg:e?.message }); }
 
       // Get
       try {
         const r = await getJob('1');
-        out.push({ label:'GET /get?tag=1', ok: !!r.ok, msg: r.ok? (r.exists?'exists':'not found') : 'fail' });
+        out.push({ label:'GET /get?tag=1', ok: !!r.ok, msg: r.ok ? (r.exists ? 'exists' : 'not found') : 'fail' });
       } catch (e:any){ out.push({ label:'GET /get', ok:false, msg:e?.message }); }
 
       // Save (safe dummy)
       try {
-        const r = await saveJob({ tag:'HEALTH-CHECK', status:'Dropped Off', dropoff:'2025-01-01', customer:'Health', phone:'0000000', email:'x@x', address:'-', city:'-', state:'-', zip:'-' , county:'-', sex:'Doe', processType:'Standard Processing' });
-        out.push({ label:'POST /save', ok: !!r.ok, msg: r.ok?'ok':'fail' });
+        const r = await saveJob({
+          tag:'HEALTH-CHECK',
+          status:'Dropped Off',
+          dropoff:'2025-01-01',
+          customer:'Health',
+          phone:'0000000',
+          email:'x@x',
+          address:'-',
+          city:'-',
+          state:'-',
+          zip:'-',
+          county:'-',
+          sex:'Doe',
+          processType:'Standard Processing'
+        });
+        out.push({ label:'POST /save', ok: !!r.ok, msg: r.ok ? 'ok' : 'fail' });
       } catch (e:any){ out.push({ label:'POST /save', ok:false, msg:e?.message }); }
 
-      // Progress (harmless if tag missing)
+      // Progress
       try {
         const r = await progress('HEALTH-CHECK');
-        out.push({ label:'POST /progress', ok: !!r.ok, msg: r.ok?(r.nextStatus||'ok'):'fail') });
+        // If your progress() type doesn’t declare nextStatus, either add `nextStatus?: string` to its type
+        // or just show 'ok' on success.
+        out.push({ label:'POST /progress', ok: !!r.ok, msg: r.ok ? ( (r as any).nextStatus ?? 'ok' ) : 'fail' });
       } catch (e:any){ out.push({ label:'POST /progress', ok:false, msg:e?.message }); }
 
       setRows(out);
@@ -60,7 +78,7 @@ export default function HealthPage(){
           <tr key={i}>
             <td>{r.label}</td>
             <td style={{color:r.ok?'#065f46':'#b91c1c', fontWeight:700}}>
-              {r.ok ? 'OK' : 'FAIL'} {r.msg? `— ${r.msg}`:''}
+              {r.ok ? 'OK' : 'FAIL'} {r.msg ? `— ${r.msg}` : ''}
             </td>
           </tr>
         ))}
