@@ -78,6 +78,7 @@ async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
 // Accept string or structured params
 export type SearchParams = string | { q?: string; status?: string; limit?: number };
 
+
 export async function searchJobs(params: SearchParams) {
   const qs = new URLSearchParams({ action: 'search' });
   if (typeof params === 'string') {
@@ -88,21 +89,23 @@ export async function searchJobs(params: SearchParams) {
     if (params.limit != null) qs.set('limit', String(params.limit));
   }
   const path = `${PROXY}?${qs.toString()}`;
-  const j = await fetchJSON<{ ok: boolean; rows?: Job[]; jobs?: Job[]; results?: Job[]; total?: number; error?: string }>(path);
+  const j = await fetchJSON<{ ok: boolean; rows?: Job[]; jobs?: Job[]; results?: Job[]; total?: number; error?: string ; error?: string }>(path);
   return { ...j, rows: j.rows || j.results || j.jobs || [] };
 }
 
+
 export async function getJob(tag: string) {
   const path = urlForGet({ action: 'get', tag });
-  return fetchJSON<{ ok: boolean; exists?: boolean; job?: Job; error?: string }>(path);
+  return fetchJSON<{ ok: boolean; exists?: boolean; job?: Job; error?: string ; error?: string }>(path);
 }
 
 export async function saveJob(job: Job) {
-  return fetchJSON<{ ok: boolean; error?: string }>(PROXY, {
+  return fetchJSON<{ ok: boolean; error?: string ; error?: string }>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'save', job }),
   });
 }
+
 
 export async function progress(input: { tag: string } | string) {
   const tag = typeof input === 'string' ? input : input.tag;
@@ -112,9 +115,9 @@ export async function progress(input: { tag: string } | string) {
   });
 }
 
-// NO STATUS FLIP — just increments attempts and appends notes
+
 export async function logCallSimple(payload: { tag: string; reason?: string; notes?: string }) {
-  return fetchJSON<{ ok: boolean; error?: string }>(PROXY, {
+  return fetchJSON<{ ok: boolean; error?: string ; error?: string }>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'log-call', ...payload }),
   });
@@ -122,7 +125,7 @@ export async function logCallSimple(payload: { tag: string; reason?: string; not
 
 // STATUS FLIP to "Called" in the appropriate column (meat/cape/webbs)
 export async function markCalled(payload: { tag: string; scope?: 'auto' | 'meat' | 'cape' | 'webbs'; notes?: string }) {
-  return fetchJSON<{ ok: boolean; error?: string }>(PROXY, {
+  return fetchJSON<{ ok: boolean; error?: string ; error?: string }>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'markCalled', tag: payload.tag, scope: payload.scope || 'auto', notes: payload.notes || '' }),
   });

@@ -113,6 +113,12 @@ const asBool = (v: any): boolean => {
   return ['true','yes','y','1','on','paid','x','✓','✔'].includes(s);
 };
 
+type AnyRec = Record<string, any>;
+const pickCut = (obj: unknown, key: string): boolean => {
+  return asBool(obj && typeof obj === 'object' ? (obj as AnyRec)[key] : undefined);
+};
+
+
 
 /* ---- Fixed status choices + guards ---- */
 const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
@@ -181,16 +187,16 @@ export default function IntakePage() {
             webbsStatus: coerce(j.webbsStatus || (j.webbsOrder ? 'Dropped Off' : ''), STATUS_WEBBS),
 
             hind: {
-              'Hind - Steak': asBool(j?.hind)?.['Hind - Steak'],
-              'Hind - Roast': asBool(j?.hind)?.['Hind - Roast'],
-              'Hind - Grind': asBool(j?.hind)?.['Hind - Grind'],
-              'Hind - None' : asBool(j?.hind)?.['Hind - None'],
+              'Hind - Steak': pickCut(j?.hind, 'Hind - Steak'),
+              'Hind - Roast': pickCut(j?.hind, 'Hind - Roast'),
+              'Hind - Grind': pickCut(j?.hind, 'Hind - Grind'),
+              'Hind - None' : pickCut(j?.hind, 'Hind - None'),
             },
             front: {
-              'Front - Steak': asBool(j?.front)?.['Front - Steak'],
-              'Front - Roast': asBool(j?.front)?.['Front - Roast'],
-              'Front - Grind': asBool(j?.front)?.['Front - Grind'],
-              'Front - None' : asBool(j?.front)?.['Front - None'],
+              'Front - Steak': pickCut(j?.front, 'Front - Steak'),
+              'Front - Roast': pickCut(j?.front, 'Front - Roast'),
+              'Front - Grind': pickCut(j?.front, 'Front - Grind'),
+              'Front - None' : pickCut(j?.front, 'Front - None'),
             },
 
             // Confirmation mapping (preserve if sheet uses other header)
@@ -463,7 +469,7 @@ export default function IntakePage() {
                         Paid: v,
                         paid: v,
                         paidProcessing: v ? true : prev.paidProcessing,
-                        paidSpecialty: v ? true : prev.paidSpecialty,
+                        paidSpecialty: hasSpecialty ? (v ? true : prev.paidSpecialty) : false,
                       }));
                     }}
                   />
@@ -986,5 +992,4 @@ export default function IntakePage() {
     </div>
   );
 }
-
 
