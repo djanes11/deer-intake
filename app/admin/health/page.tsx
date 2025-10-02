@@ -25,19 +25,19 @@ export default function HealthPage(){
       // Get
       try {
         const r = await getJob('1');
-        out.push({ label:'GET /get?tag=1', ok: !!r.ok, msg: r.ok? (r.exists?'exists':'not found') : (r.error||'fail') });
+        out.push({ label:'GET /get?tag=1', ok: !!r.ok, msg: r.ok? (r.exists?'exists':'not found') : 'fail' });
       } catch (e:any){ out.push({ label:'GET /get', ok:false, msg:e?.message }); }
 
       // Save (safe dummy)
       try {
         const r = await saveJob({ tag:'HEALTH-CHECK', status:'Dropped Off', dropoff:'2025-01-01', customer:'Health', phone:'0000000', email:'x@x', address:'-', city:'-', state:'-', zip:'-' , county:'-', sex:'Doe', processType:'Standard Processing' });
-        out.push({ label:'POST /save', ok: !!r.ok, msg: r.ok?'ok':(r.error||'fail') });
+        out.push({ label:'POST /save', ok: !!r.ok, msg: r.ok?'ok':'fail' });
       } catch (e:any){ out.push({ label:'POST /save', ok:false, msg:e?.message }); }
 
       // Progress (harmless if tag missing)
       try {
         const r = await progress('HEALTH-CHECK');
-        out.push({ label:'POST /progress', ok: !!r.ok, msg: r.ok?(r.nextStatus||'ok'):(r.error||'fail') });
+        out.push({ label:'POST /progress', ok: !!r.ok, msg: r.ok?(r.nextStatus||'ok'):'fail') });
       } catch (e:any){ out.push({ label:'POST /progress', ok:false, msg:e?.message }); }
 
       setRows(out);
