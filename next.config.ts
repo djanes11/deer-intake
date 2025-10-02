@@ -2,9 +2,9 @@
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
-  typedRoutes: false,   // ← this must be present and false
-  // Leave output/distDir alone (default .next)
+  // leave output/distDir alone (defaults are good for Vercel)
+  typedRoutes: false,            // <- hard off
+  experimental: { typedRoutes: false }, // <- belt & suspenders, neutralizes old settings
 };
 
 export default config;
-
