@@ -10,6 +10,10 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Mobile viewport for sane scaling */}
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
       {/* Add the watermark class here */}
       <body className="watermark">
         <header className="site-header">
@@ -18,6 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <img src="/mcafee-logo.png" alt="McAfee Custom Deer Processing" />
               <Link href="/">McAfee Deer Processing</Link>
             </div>
+
+            {/* Mobile toggle (CSS-only) */}
+            <label htmlFor="nav-check" className="menu-toggle" aria-label="Toggle menu">☰ Menu</label>
+            <input id="nav-check" type="checkbox" aria-hidden="true" />
 
             <nav className="menu" aria-label="Primary">
               <Link href="/" className="item">Home</Link>
@@ -42,3 +50,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

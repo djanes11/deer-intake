@@ -1,4 +1,4 @@
-// lib/api.ts — hardened fetch + stable types + specialtyPounds auto-calc
+// lib/api.ts — stable types, hardened fetch, mobile-safe, Vercel-friendly
 
 export type Job = {
   tag?: string;
@@ -22,34 +22,36 @@ export type Job = {
 
   steak?: string; steakOther?: string; burgerSize?: string; steaksPerPackage?: string; beefFat?: boolean;
 
+  hind?: {
+    'Hind - Steak'?: boolean; 'Hind - Roast'?: boolean; 'Hind - Grind'?: boolean; 'Hind - None'?: boolean;
+  };
+  front?: {
+    'Front - Steak'?: boolean; 'Front - Roast'?: boolean; 'Front - Grind'?: boolean; 'Front - None'?: boolean;
+  };
   hindRoastCount?: string; frontRoastCount?: string;
+
   backstrapPrep?: string; backstrapThickness?: string; backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
   summerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
   slicedJerkyLbs?: string | number;
-  specialtyPounds?: string; // <-- we will set this automatically on save
+  specialtyPounds?: string; // computed on save
 
   notes?: string;
 
   webbsOrder?: boolean; webbsFormNumber?: string; webbsPounds?: string;
 
-  price?: number | string;            // total (optional if you compute elsewhere)
-  priceProcessing?: number | string;  // optional
-  priceSpecialty?: number | string;   // optional
+  price?: number | string;
+  priceProcessing?: number | string;
+  priceSpecialty?: number | string;
 
   Paid?: boolean; paid?: boolean; paidProcessing?: boolean; paidSpecialty?: boolean;
 };
 
 const PROXY = '/api/gas2';
 
-/* ---------- utils ---------- */
-
-function urlForGet(params: Record<string, string>) {
-  const q = new URLSearchParams(params).toString();
-  return `${PROXY}?${q}`;
-}
+/* ---------------- utils ---------------- */
 
 function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
   const ctrl = new AbortController();
@@ -70,7 +72,7 @@ async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
 
     const text = await res.text().catch(() => '');
     let data: any = null;
-    try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON text */ }
+    try { data = text ? JSON.parse(text) : null; } catch { /* upstream returned text */ }
 
     if (!res.ok) {
       const msg = (data && data.error) ? data.error : (text || `HTTP ${res.status}`);
@@ -90,17 +92,38 @@ function toInt(val: any): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/* ---------- API wrappers ---------- */
+/* ---------------- API wrappers ---------------- */
 
-// keep simple: search by string; returns rows[] normalized
-export async function searchJobs(q: string) {
-  const path = urlForGet({ action: 'search', q });
+// Accepts either a string query or an object of params (status/limit/q/etc)
+type SearchParams =
+  | string
+  | { q?: string; status?: string; limit?: number; [k: string]: string | number | undefined };
+
+export async function searchJobs(params: SearchParams) {
+  const qs = new URLSearchParams();
+  qs.set('action', 'search');
+
+  if (typeof params === 'string') {
+    if (params.trim()) qs.set('q', params.trim());
+  } else if (params && typeof params === 'object') {
+    if (params.q) qs.set('q', String(params.q));
+    if (params.status) qs.set('status', String(params.status));
+    if (params.limit != null) qs.set('limit', String(params.limit));
+    // pass through any extra filters
+    Object.entries(params).forEach(([k, v]) => {
+      if (['q', 'status', 'limit'].includes(k)) return;
+      if (v == null) return;
+      qs.set(k, String(v));
+    });
+  }
+
+  const path = `${PROXY}?${qs.toString()}`;
   const j = await fetchJSON<{ ok: boolean; rows?: Job[]; jobs?: Job[]; results?: Job[]; total?: number }>(path);
   return { ...j, rows: j.rows || j.results || j.jobs || [] };
 }
 
 export async function getJob(tag: string) {
-  const path = urlForGet({ action: 'get', tag });
+  const path = `${PROXY}?${new URLSearchParams({ action: 'get', tag }).toString()}`;
   return fetchJSON<{ ok: boolean; exists?: boolean; job?: Job }>(path);
 }
 
@@ -108,7 +131,7 @@ export async function getJob(tag: string) {
  * Auto-compute specialtyPounds every time you save.
  * - Sums Summer Sausage + Summer Sausage + Cheese + Jerky (numbers only)
  * - Writes result as string into `specialtyPounds`
- * - If all three are zero/empty, leaves any existing `specialtyPounds` as-is
+ * - If all three are zero/empty, preserves existing specialtyPounds (if any)
  */
 export async function saveJob(job: Job) {
   const ss  = toInt(job.summerSausageLbs);
@@ -127,11 +150,12 @@ export async function saveJob(job: Job) {
   });
 }
 
-// progress requires an object with { tag }
-export async function progress(payload: { tag: string }) {
+// Accepts either a string tag or an object { tag }
+export async function progress(arg: string | { tag: string }) {
+  const tag = typeof arg === 'string' ? arg : arg?.tag;
   return fetchJSON<{ ok: boolean; nextStatus?: string }>(PROXY, {
     method: 'POST',
-    body: JSON.stringify({ action: 'progress', tag: payload.tag }),
+    body: JSON.stringify({ action: 'progress', tag }),
   });
 }
 
@@ -155,4 +179,3 @@ export async function markCalled(payload: { tag: string; scope?: 'auto' | 'meat'
     }),
   });
 }
-
