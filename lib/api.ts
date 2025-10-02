@@ -154,7 +154,16 @@ export async function getJob(tag: string) {
  * - Writes result as string into `specialtyPounds`
  * - If all three are zero/empty, preserves existing specialtyPounds (if any)
  */
-export async function saveJob(job: Job) {
+// Return shape includes error?: string so callers can read res.error safely
+type SaveResult = { ok: boolean; error?: string };
+
+export async function saveJob(job: Job): Promise<SaveResult> {
+  const toInt = (val: any) => {
+    const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
+  // Auto-calc specialtyPounds from SS/SSC/Jerky
   const ss  = toInt(job.summerSausageLbs);
   const ssc = toInt(job.summerSausageCheeseLbs);
   const jer = toInt(job.slicedJerkyLbs);
@@ -165,7 +174,7 @@ export async function saveJob(job: Job) {
     specialtyPounds: pounds > 0 ? String(pounds) : (job.specialtyPounds ?? ''),
   };
 
-  return fetchJSON<{ ok: boolean }>(PROXY, {
+  return fetchJSON<SaveResult>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'save', job: payload }),
   });
