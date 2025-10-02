@@ -104,10 +104,11 @@ export async function saveJob(job: Job) {
   });
 }
 
-export async function progress(payload: { tag: string }) {
+export async function progress(input: { tag: string } | string) {
+  const tag = typeof input === 'string' ? input : input.tag;
   return fetchJSON<{ ok: boolean; nextStatus?: string; error?: string }>(PROXY, {
     method: 'POST',
-    body: JSON.stringify({ action: 'progress', tag: payload.tag }),
+    body: JSON.stringify({ action: 'progress', tag }),
   });
 }
 
