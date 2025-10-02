@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { progress, saveJob, getJob, searchJobs } from '@/lib/api';
+import { progress, saveJob, getJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
+
+// Opt out of static prerender; this page depends on URL params & client-only hooks
+export const dynamic = 'force-dynamic';
 
 /* ---------------- Types ---------------- */
 type CutsBlock = {
@@ -118,8 +121,6 @@ const pickCut = (obj: unknown, key: string): boolean => {
   return asBool(obj && typeof obj === 'object' ? (obj as AnyRec)[key] : undefined);
 };
 
-
-
 /* ---- Fixed status choices + guards ---- */
 const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
 const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
@@ -128,8 +129,17 @@ const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up']
 const coerce = (v: string | undefined, list: readonly string[]) =>
   list.includes(String(v)) ? String(v) : list[0];
 
+/* ===== Suspense wrapper to satisfy Next 15 CSR bailout rules ===== */
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="form-card"><div style={{padding:16}}>Loading…</div></div>}>
+      <IntakePage />
+    </Suspense>
+  );
+}
+
 /* --------------- Component -------------- */
-export default function IntakePage() {
+function IntakePage() {
   const sp = useSearchParams();
   const tagFromUrl = sp.get('tag') ?? '';
 
@@ -199,7 +209,7 @@ export default function IntakePage() {
               'Front - None' : pickCut(j?.front, 'Front - None'),
             },
 
-            // Confirmation mapping (preserve if sheet uses other header)
+            // Confirmation mapping
             confirmation:
               j.confirmation ??
               j['Confirmation #'] ??
@@ -207,7 +217,7 @@ export default function IntakePage() {
               prev.confirmation ??
               '',
 
-            // PAID flags: load both split and legacy
+            // Paid flags: load both split and legacy
             Paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
             paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
             paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
@@ -426,42 +436,46 @@ export default function IntakePage() {
                     type="checkbox"
                     checked={!!job.paidProcessing}
                     onChange={(e) => {
-                  const v = e.target.checked;
-                  setJob((prev) => ({
-                    ...prev,
-                    Paid: v,
-                    paid: v,
-                    paidProcessing: v ? true : prev.paidProcessing,
-                    paidSpecialty: hasSpecialty ? (v ? true : prev.paidSpecialty) : false,
-                  }));
-                }}
+                      const v = e.target.checked;
+                      setJob((prev) => ({
+                        ...prev,
+                        Paid: v,
+                        paid: v,
+                        paidProcessing: v ? true : prev.paidProcessing,
+                        paidSpecialty: asBool(prev.specialtyProducts) ? (v ? true : prev.paidSpecialty) : false,
+                      }));
+                    }}
                   />
                   <span className="badge">{job.paidProcessing ? 'Processing Paid' : 'Processing Unpaid'}</span>
                 </div>
 
-                {hasSpecialty && (
-                <div className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={!!job.paidSpecialty}
-                    onChange={(e) => {
-                      const v = e.target.checked;
-                      setJob((prev) => ({
-                        ...prev,
-                        paidSpecialty: v,
-                        Paid: v && !!prev.paidProcessing,
-                        paid: v && !!prev.paidProcessing,
-                      }));
-                    }}
-                  />
-                  <span className="badge">{job.paidSpecialty ? 'Specialty Paid' : 'Specialty Unpaid'}</span>
-                </div>
+                {asBool(job.specialtyProducts) && (
+                  <div className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={!!job.paidSpecialty}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        setJob((prev) => ({
+                          ...prev,
+                          paidSpecialty: v,
+                          Paid: v && !!prev.paidProcessing,
+                          paid: v && !!prev.paidProcessing,
+                        }));
+                      }}
+                    />
+                    <span className="badge">{job.paidSpecialty ? 'Specialty Paid' : 'Specialty Unpaid'}</span>
+                  </div>
                 )}
 
                 <div className={`pill ${((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'on' : ''}`}>
                   <input
                     type="checkbox"
-                    checked={hasSpecialty ? (asBool(job.Paid) || (asBool(job.paidProcessing) && asBool(job.paidSpecialty))) : (asBool(job.Paid) || asBool(job.paidProcessing))}
+                    checked={
+                      asBool(job.specialtyProducts)
+                        ? (asBool(job.Paid) || (asBool(job.paidProcessing) && asBool(job.paidSpecialty)))
+                        : (asBool(job.Paid) || asBool(job.paidProcessing))
+                    }
                     onChange={(e) => {
                       const v = e.target.checked;
                       setJob((prev) => ({
@@ -469,7 +483,7 @@ export default function IntakePage() {
                         Paid: v,
                         paid: v,
                         paidProcessing: v ? true : prev.paidProcessing,
-                        paidSpecialty: hasSpecialty ? (v ? true : prev.paidSpecialty) : false,
+                        paidSpecialty: asBool(prev.specialtyProducts) ? (v ? true : prev.paidSpecialty) : false,
                       }));
                     }}
                   />
