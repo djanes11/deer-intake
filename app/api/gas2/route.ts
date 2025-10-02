@@ -1,117 +1,50 @@
 // app/api/gas2/route.ts
-// Simple pass-through proxy to your Apps Script Web App.
-// - Supports GET/POST
-// - Adds optional API token automatically
-// - 60s upstream timeout with good error messages
+import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'nodejs'; // ensure Node runtime (not edge)
-export const dynamic = 'force-dynamic';
+const GAS_BASE = process.env.GAS_BASE!;
+const GAS_TOKEN = process.env.GAS_TOKEN!;
 
-const GAS_BASE =
-  process.env.NEXT_PUBLIC_GAS_BASE?.trim() ||
-  process.env.GAS_BASE?.trim();
-
-const GAS_TOKEN =
-  process.env.NEXT_PUBLIC_GAS_TOKEN?.trim() ||
-  process.env.GAS_TOKEN?.trim() ||
-  ''; // leave blank if not using tokens
-
-function buildUpstreamURL(req: Request, extraQS: Record<string, string> = {}) {
-  if (!GAS_BASE) throw new Error('Missing GAS_BASE/NEXT_PUBLIC_GAS_BASE');
+function buildGetUrl(params: URLSearchParams) {
   const url = new URL(GAS_BASE);
-  // pass existing query
-  const inQ = new URL(req.url).searchParams;
-  inQ.forEach((v, k) => url.searchParams.set(k, v));
-  // apply extra params
-  Object.entries(extraQS).forEach(([k, v]) => url.searchParams.set(k, v));
-  if (GAS_TOKEN) url.searchParams.set('token', GAS_TOKEN);
+  // forward all incoming params
+  for (const [k, v] of params) url.searchParams.set(k, v);
+  // inject token as query param (what GAS expects)
+  url.searchParams.set('token', GAS_TOKEN);
   return url.toString();
 }
 
-function withTimeout(ms: number) {
-  const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), ms);
-  return { signal: ctrl.signal, cancel: () => clearTimeout(id) };
-}
-
-async function passthrough(req: Request, init?: RequestInit) {
-  const { signal, cancel } = withTimeout(60000); // 60s
+export async function GET(req: NextRequest) {
   try {
-    const upstreamURL = buildUpstreamURL(req);
-    const res = await fetch(upstreamURL, {
-      ...init,
-      signal,
-      // never send browser cookies upstream; Apps Script doesn’t need them
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store',
-      redirect: 'follow',
+    const url = buildGetUrl(req.nextUrl.searchParams);
+    const r = await fetch(url, { cache: 'no-store' });
+    const text = await r.text();
+    return new NextResponse(text, {
+      status: r.status,
+      headers: { 'content-type': r.headers.get('content-type') || 'application/json' },
     });
-
-    const text = await res.text().catch(() => '');
-    // Try JSON first; if not JSON, pass back text
-    try {
-      const json = text ? JSON.parse(text) : {};
-      return new Response(JSON.stringify(json), {
-        status: res.status,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } catch {
-      // Not JSON from Apps Script — return as text for visibility
-      return new Response(text || `Upstream HTTP ${res.status}`, {
-        status: res.status,
-        headers: { 'Content-Type': 'text/plain' },
-      });
-    }
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      return new Response('Upstream timeout', { status: 504 });
-    }
-    return new Response(err?.message || 'Proxy error', { status: 502 });
-  } finally {
-    cancel();
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || 'proxy GET failed' }, { status: 500 });
   }
 }
 
-export async function GET(req: Request) {
-  return passthrough(req);
-}
-
-export async function POST(req: Request) {
-  // We POST to GAS with JSON body and the same query string.
-  // GAS Web App prefers action in body, which your frontend already sends.
-  const body = await req.text().catch(() => '');
-  const { signal, cancel } = withTimeout(60000);
+export async function POST(req: NextRequest) {
   try {
-    const upstreamURL = buildUpstreamURL(req);
-    const res = await fetch(upstreamURL, {
+    const body = (await req.json().catch(() => ({}))) || {};
+    // inject token into body
+    const payload = { ...body, token: GAS_TOKEN };
+    const r = await fetch(GAS_BASE, {
       method: 'POST',
-      body,
-      signal,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
       cache: 'no-store',
     });
-
-    const text = await res.text().catch(() => '');
-    try {
-      const json = text ? JSON.parse(text) : {};
-      return new Response(JSON.stringify(json), {
-        status: res.status,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } catch {
-      return new Response(text || `Upstream HTTP ${res.status}`, {
-        status: res.status,
-        headers: { 'Content-Type': 'text/plain' },
-      });
-    }
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
-      return new Response('Upstream timeout', { status: 504 });
-    }
-    return new Response(err?.message || 'Proxy error', { status: 502 });
-  } finally {
-    cancel();
+    const text = await r.text();
+    return new NextResponse(text, {
+      status: r.status,
+      headers: { 'content-type': r.headers.get('content-type') || 'application/json' },
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || 'proxy POST failed' }, { status: 500 });
   }
 }
+
