@@ -172,9 +172,10 @@ export async function saveJob(job: Job) {
 }
 
 // Accepts either a string tag or an object { tag }
+// Now returns { ok, nextStatus?, error? } so callers can read res.error safely
 export async function progress(arg: string | { tag: string }) {
   const tag = typeof arg === 'string' ? arg : arg?.tag;
-  return fetchJSON<{ ok: boolean; nextStatus?: string }>(PROXY, {
+  return fetchJSON<{ ok: boolean; nextStatus?: string; error?: string }>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'progress', tag }),
   });
