@@ -1,8 +1,12 @@
 'use client';
+import { Suspense } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useScanner } from '@/lib/useScanner';
 import { progress, saveJob, getJob } from '@/lib/api';
+
+// Ensure this page never gets statically prerendered (depends on URL params & client hooks)
+export const dynamic = 'force-dynamic';
 
 type CutsBlock = {
   'Hind - Steak'?: boolean; 'Hind - Roast'?: boolean; 'Hind - Grind'?: boolean; 'Hind - None'?: boolean;
@@ -36,7 +40,6 @@ const suggestedPrice = (proc?:string, beef?:boolean, webbs?:boolean) => {
   return base ? base + (beef?5:0) + (webbs?20:0) : 0;
 };
 
-// NEW: include specialty in live total
 const toInt = (val:any) => {
   const n = parseInt(String(val ?? '').replace(/[^0-9]/g,''), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -49,7 +52,16 @@ const specialtyPrice = (job: Job) => {
 };
 const calcTotal = (job: Job) => suggestedPrice(job.processType, !!job.beefFat, !!job.webbsOrder) + specialtyPrice(job);
 
-export default function ButcherIntake() {
+// Outer page component wrapped in Suspense so useSearchParams is legal
+export default function Page() {
+  return (
+    <Suspense fallback={<main className="page-wrap butcher-mode"><div style={{padding:16}}>Loading…</div></main>}>
+      <ButcherIntakeInner />
+    </Suspense>
+  );
+}
+
+function ButcherIntakeInner() {
   const sp = useSearchParams();
   const router = useRouter();
   const tag = sp.get('tag') || '';
@@ -80,7 +92,7 @@ export default function ButcherIntake() {
   useScanner(async (scanned) => {
     if (scanned !== tag) return;
     try {
-      const res = await progress(scanned);
+      const res = await progress(scanned); // accepts string or { tag }
       if (res?.ok && res.nextStatus === 'Finished') {
         setMsg('Finished ✓');
         setTimeout(()=> router.replace('/scan'), 800);
@@ -98,7 +110,7 @@ export default function ButcherIntake() {
   const setVal = (k: keyof Job, v:any) => setJob(p=>({ ...p, [k]: v }));
   const toggle = (path: string) => {
     setJob(p => {
-      const next = { ...p };
+      const next = { ...p } as Job;
       if (path.startsWith('hind.') || path.startsWith('front.')) {
         const [block, key] = path.split('.') as ['hind'|'front', keyof NonNullable<CutsBlock>];
         next[block] = { ...(p[block]||{}), [key]: !p[block]?.[key] };
@@ -183,7 +195,7 @@ export default function ButcherIntake() {
             <div className="row"><span className="label">Status</span><span className="badge">{job.status || '—'}</span></div>
             <div className="row"><span className="label">Paid</span><button className={'pill ' + (job.Paid?'on':'')} onClick={()=>toggle('Paid')}>{job.Paid ? 'PAID' : 'UNPAID'}</button></div>
             <div className="row"><span className="label">Process</span><span className="val">{job.processType || '—'}</span></div>
-            <div className="row price"><span className="label">Price</span><span className="money">${price.toFixed(2)}</span></div>
+            <div className="row price"><span className="label">Price</span><span className="money">${ (suggestedPrice(job.processType, !!job.beefFat, !!job.webbsOrder) + specialtyPrice(job)).toFixed(2) }</span></div>
           </div>
           <div className="who">
             <div className="name">{job.customer || '—'}</div>
@@ -191,13 +203,9 @@ export default function ButcherIntake() {
           </div>
         </div>
 
-        {/* cards & actions unchanged */}
+        {/* ...rest of your UI/cards/actions remain unchanged... */}
 
       </div>
-
-      {/* existing styles unchanged */}
     </main>
   );
 }
-
-
