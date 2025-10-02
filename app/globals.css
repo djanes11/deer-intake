@@ -106,32 +106,45 @@ body::before{
 .site-header .item:hover { background: #f2f5f7; border-color: #e6e9ec; }
 .site-header .item.active { background: var(--brand); color: #ffffff; }
 
-/* Dropdown for Reports */
-.site-header .dropdown { position: relative; }
-.site-header .dropdown > .item::after{
-  content:"▾"; margin-left:6px; opacity:.8;
+/* --- Details-based dropdown (mobile & desktop) --- */
+.menu .dd { position: relative; }
+.menu .dd > summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-block;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: #0b0f12;
 }
-.site-header .dropdown-menu{
-  position: absolute; right: 0; top: calc(100% + 8px);
+.menu .dd > summary::-webkit-details-marker { display: none; }
+.menu .dd > summary::after { content: "▾"; margin-left: 6px; opacity: .8; }
+.menu .dd[open] > summary { background: #f2f5f7; border-color: #e6e9ec; }
+
+.menu .dd .dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
   min-width: 220px;
-  background: #ffffff;                /* white dropdown */
+  background: #ffffff;
   border: 1px solid #e6e9ec;
-  border-radius: var(--radius);
+  border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,.12);
   padding: 6px;
-  display: none;
+  z-index: 20;
 }
-.site-header .dropdown:focus-within .dropdown-menu,
-.site-header .dropdown:hover .dropdown-menu { display: block; }
-.site-header .dropdown-menu a{
+.menu .dd .dropdown-menu a {
   display: block;
   padding: 10px 12px;
-  color: #0b0f12;                    /* black text */
+  color: #0b0f12;
   text-decoration: none;
   border-radius: 10px;
 }
-.site-header .dropdown-menu a:hover{
-  background: #f2f5f7;
+.menu .dd .dropdown-menu a:hover { background: #f2f5f7; }
+
+/* Desktop hover can still reveal the menu via <details open> */
+@media (min-width: 761px) {
+  .menu .dd:hover .dropdown-menu { display: block; }
 }
 
 /* --- Mobile nav behavior --- */
@@ -146,13 +159,16 @@ body::before{
     margin-top: 8px;
   }
   #nav-check:checked ~ .menu { display: flex; } /* show when toggled */
-  .site-header .dropdown-menu {
-    position: static; inset: auto; display: none !important; /* flatten dropdown on mobile */
+
+  /* Dropdown stacks inside the flow on mobile */
+  .menu .dd .dropdown-menu {
+    position: static;
+    top: auto; right: auto;
+    box-shadow: none;
+    border-radius: 10px;
     border: 1px solid #e6e9ec;
+    margin-top: 4px;
   }
-  .site-header .dropdown:focus-within .dropdown-menu,
-  .site-header .dropdown:hover .dropdown-menu { display: none !important; }
-  .site-header .dropdown.open .dropdown-menu { display: block !important; }
 }
 
 /* -------- Main Layout -------- */
@@ -241,6 +257,25 @@ input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: #2e3740;
   box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* --- Checkbox sizing: compact, touch-friendly --- */
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;              /* override generic input min-height */
+  margin: 0 6px 0 0;
+  vertical-align: -2px;
+  accent-color: #2f6f3f;      /* hunter green */
+}
+@media (max-width: 640px) {
+  input[type="checkbox"] { width: 18px; height: 18px; }
+  .checkbox-row, .form-row { gap: 8px; }
+  label.checkbox, .checkbox label { font-size: 15px; }
+}
+/* If any checkbox lives inside a "pill" style, neutralize the pill chrome */
+.checkbox-pill, .pill.checkbox, label.pill input[type="checkbox"] {
+  padding: 0; border: none; background: transparent;
 }
 
 /* Home “cards” grid helper */
@@ -368,10 +403,7 @@ input:focus, select:focus, textarea:focus {
 /* =========================
    WATERMARK (logo on every page)
    ========================= */
-.watermark {
-  position: relative;
-}
-
+.watermark { position: relative; }
 /* Fixed, subtle logo behind content */
 .watermark::after {
   content: "";
@@ -386,65 +418,30 @@ input:focus, select:focus, textarea:focus {
   mix-blend-mode: soft-light; /* keeps it tasteful on dark */
   filter: grayscale(100%);
 }
-
 /* Ensure main content sits above watermark */
 main { position: relative; z-index: 1; }
 
 /* =========================
    HOME (hero + tiles)
    ========================= */
-.card-ghost {
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: 0;
-  margin-bottom: 10px;
-}
+.card-ghost { background: transparent; border: none; box-shadow: none; padding: 0; margin-bottom: 10px; }
+.hero { margin-top: 8px; margin-bottom: 8px; }
+.hero-kicker { color: var(--brand-2); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; margin-bottom: 6px; }
+.hero-title { margin: 0 0 6px 0; font-size: 42px; line-height: 1.1; color: var(--text); }
+.hero-sub { margin: 0; color: var(--text-dim); font-size: 16px; }
 
-.hero {
-  margin-top: 8px;
-  margin-bottom: 8px;
-}
-
-.hero-kicker {
-  color: var(--brand-2);
-  font-weight: 800;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  font-size: 12px;
-  margin-bottom: 6px;
-}
-
-.hero-title {
-  margin: 0 0 6px 0;
-  font-size: 42px;
-  line-height: 1.1;
-  color: var(--text);
-}
-
-.hero-sub {
-  margin: 0;
-  color: var(--text-dim);
-  font-size: 16px;
-}
-
-/* Action tiles */
 .tile-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   margin-top: 14px;
 }
-
-@media (max-width: 980px) {
-  .tile-grid { grid-template-columns: 1fr 1fr; }
-}
+@media (max-width: 980px) { .tile-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) {
   .tile-grid { grid-template-columns: 1fr; }
   .hero-title { font-size: 34px; }
   .hero-sub { font-size: 15px; }
 }
-
 .tile {
   display: grid;
   grid-template-rows: auto auto 1fr;
@@ -458,28 +455,11 @@ main { position: relative; z-index: 1; }
   transition: transform .08s ease, border-color .15s ease, background .15s ease;
   outline: none;
 }
-.tile:hover {
-  transform: translateY(-1px);
-  border-color: rgba(137,192,150,.3);
-  background: var(--bg-elev-2);
-}
-.tile:focus {
-  box-shadow: 0 0 0 3px var(--ring);
-}
-
-.tile-emoji {
-  font-size: 28px;
-  line-height: 1;
-}
-.tile-title {
-  font-weight: 900;
-  color: #fff;
-  font-size: 18px;
-}
-.tile-sub {
-  color: var(--text-dim);
-  font-size: 14px;
-}
+.tile:hover { transform: translateY(-1px); border-color: rgba(137,192,150,.3); background: var(--bg-elev-2); }
+.tile:focus { box-shadow: 0 0 0 3px var(--ring); }
+.tile-emoji { font-size: 28px; line-height: 1; }
+.tile-title { font-weight: 900; color: #fff; font-size: 18px; }
+.tile-sub { color: var(--text-dim); font-size: 14px; }
 
 /* Accent variant */
 .tile-alt {
