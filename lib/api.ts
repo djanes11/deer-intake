@@ -1,4 +1,4 @@
-// lib/api.ts — hardened against AbortError + clearer errors + flexible search params
+// lib/api.ts — deploy-safe typings, flexible params, and clear errors
 
 export type Job = {
   tag?: string;
@@ -27,7 +27,14 @@ export type Job = {
   webbsOrder?: boolean; webbsFormNumber?: string; webbsPounds?: string;
   price?: number | string; priceProcessing?: number | string; priceSpecialty?: number | string;
   Paid?: boolean; paid?: boolean; paidProcessing?: boolean; paidSpecialty?: boolean;
+
+  // maps returned by API for cut selections
+  hind?: Record<string, any>;
+  front?: Record<string, any>;
 };
+
+// Unified response type: merges payload fields with { ok, error? }
+type ApiResponse<T = {}> = T & { ok: boolean; error?: string };
 
 const PROXY = '/api/gas2';
 
@@ -53,7 +60,6 @@ async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
       keepalive: false,
     });
 
-    // Read raw text first so we can show upstream HTML or text errors
     const text = await res.text().catch(() => '');
     let data: any = null;
     try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
@@ -75,9 +81,9 @@ async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
 
 /* ---------- API wrappers ---------- */
 
-// Accept string or structured params
 export type SearchParams = string | { q?: string; status?: string; limit?: number };
 
+type SearchResult = { rows?: Job[]; jobs?: Job[]; results?: Job[]; total?: number };
 
 export async function searchJobs(params: SearchParams) {
   const qs = new URLSearchParams({ action: 'search' });
@@ -89,35 +95,34 @@ export async function searchJobs(params: SearchParams) {
     if (params.limit != null) qs.set('limit', String(params.limit));
   }
   const path = `${PROXY}?${qs.toString()}`;
-  const j = await fetchJSON<{ ok: boolean; rows?: Job[]; jobs?: Job[]; results?: Job[]; total?: number; error?: string ; error?: string }>(path);
+  const j = await fetchJSON<ApiResponse<SearchResult>>(path);
   return { ...j, rows: j.rows || j.results || j.jobs || [] };
 }
 
-
 export async function getJob(tag: string) {
   const path = urlForGet({ action: 'get', tag });
-  return fetchJSON<{ ok: boolean; exists?: boolean; job?: Job; error?: string ; error?: string }>(path);
+  return fetchJSON<ApiResponse<{ exists?: boolean; job?: Job }>>(path);
 }
 
 export async function saveJob(job: Job) {
-  return fetchJSON<{ ok: boolean; error?: string ; error?: string }>(PROXY, {
+  return fetchJSON<ApiResponse>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'save', job }),
   });
 }
 
-
+// Accept string or { tag } for backwards compatibility
 export async function progress(input: { tag: string } | string) {
   const tag = typeof input === 'string' ? input : input.tag;
-  return fetchJSON<{ ok: boolean; nextStatus?: string; error?: string }>(PROXY, {
+  return fetchJSON<ApiResponse<{ nextStatus?: string }>>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'progress', tag }),
   });
 }
 
-
+// NO STATUS FLIP — just increments attempts and appends notes
 export async function logCallSimple(payload: { tag: string; reason?: string; notes?: string }) {
-  return fetchJSON<{ ok: boolean; error?: string ; error?: string }>(PROXY, {
+  return fetchJSON<ApiResponse>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'log-call', ...payload }),
   });
@@ -125,7 +130,7 @@ export async function logCallSimple(payload: { tag: string; reason?: string; not
 
 // STATUS FLIP to "Called" in the appropriate column (meat/cape/webbs)
 export async function markCalled(payload: { tag: string; scope?: 'auto' | 'meat' | 'cape' | 'webbs'; notes?: string }) {
-  return fetchJSON<{ ok: boolean; error?: string ; error?: string }>(PROXY, {
+  return fetchJSON<ApiResponse>(PROXY, {
     method: 'POST',
     body: JSON.stringify({ action: 'markCalled', tag: payload.tag, scope: payload.scope || 'auto', notes: payload.notes || '' }),
   });
