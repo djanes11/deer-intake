@@ -1,4 +1,4 @@
-// lib/api.ts — stable types, hardened fetch, mobile-safe, Vercel-friendly
+// lib/api.ts — stable types, hardened fetch, Vercel-friendly
 
 export type Job = {
   tag?: string;
@@ -94,22 +94,30 @@ function toInt(val: any): number {
 
 /* ---------------- API wrappers ---------------- */
 
-// Accepts either a string query or an object of params (status/limit/q/etc)
+// Accepts either a string or an object of filters; always returns { ok, rows, total?, error? }
 type SearchParams =
   | string
   | { q?: string; status?: string; limit?: number; [k: string]: string | number | undefined };
 
-export async function searchJobs(params: SearchParams) {
+type SearchResult = {
+  ok: boolean;
+  rows: Job[];
+  total?: number;
+  error?: string;
+};
+
+export async function searchJobs(params: SearchParams): Promise<SearchResult> {
   const qs = new URLSearchParams();
   qs.set('action', 'search');
 
   if (typeof params === 'string') {
-    if (params.trim()) qs.set('q', params.trim());
+    const q = params.trim();
+    if (q) qs.set('q', q);
   } else if (params && typeof params === 'object') {
     if (params.q) qs.set('q', String(params.q));
     if (params.status) qs.set('status', String(params.status));
     if (params.limit != null) qs.set('limit', String(params.limit));
-    // pass through any extra filters
+    // pass any extra filters through
     Object.entries(params).forEach(([k, v]) => {
       if (['q', 'status', 'limit'].includes(k)) return;
       if (v == null) return;
@@ -118,8 +126,21 @@ export async function searchJobs(params: SearchParams) {
   }
 
   const path = `${PROXY}?${qs.toString()}`;
-  const j = await fetchJSON<{ ok: boolean; rows?: Job[]; jobs?: Job[]; results?: Job[]; total?: number }>(path);
-  return { ...j, rows: j.rows || j.results || j.jobs || [] };
+  const j = await fetchJSON<{
+    ok: boolean;
+    rows?: Job[];
+    jobs?: Job[];
+    results?: Job[];
+    total?: number;
+    error?: string;
+  }>(path);
+
+  return {
+    ok: !!j.ok,
+    rows: j.rows || j.results || j.jobs || [],
+    total: j.total,
+    error: j.error,
+  };
 }
 
 export async function getJob(tag: string) {
