@@ -2,14 +2,9 @@
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
-  // Do NOT static export (you have API routes)
-  // output: undefined,
-
-  // Use default build dir that Vercel expects
-  // distDir: '.next',
-
-  // Kill typedRoutes completely
-  typedRoutes: false,
+  typedRoutes: false,   // ← this must be present and false
+  // Leave output/distDir alone (default .next)
 };
 
 export default config;
+
