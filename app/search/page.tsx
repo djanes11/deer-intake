@@ -1,123 +1,163 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import type { Job } from '@/lib/api';
 import { searchJobs } from '@/lib/api';
 
-type Row = {
-  row?: number;
-  tag: string;
-  customer?: string; // sometimes "Customer Name"
-  name?: string;     // sometimes "Customer"
-  phone?: string;
-  status?: string;
-  dropoff?: string;
-  url?: string;      // optional deep-link from backend
-};
-
 export default function SearchPage() {
+  const router = useRouter();
+
   const [q, setQ] = useState('');
+  const [rows, setRows] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string>('');
-  const [rows, setRows] = useState<Row[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const debounced = useDebounced(q, 300);
 
-  // keep it simple: require 2+ chars before searching
-  const debouncedQ = useMemo(() => q.trim(), [q]);
-
+  // Only search when there is a non-empty query
   useEffect(() => {
-    const t = setTimeout(async () => {
-      setErr('');
-      if (debouncedQ.length < 2) {
+    let cancelled = false;
+    const run = async () => {
+      const term = debounced.trim();
+      if (!term) {
         setRows([]);
+        setErr(null);
+        setLoading(false);
         return;
       }
+      setLoading(true);
+      setErr(null);
       try {
-        setLoading(true);
-        // explicit object call matches our helper -> /api/gas/search
-        const res = await searchJobs({ q: debouncedQ, limit: 50, offset: 0 });
-        if (!res?.ok) {
-          setErr(res?.error || 'Search failed');
-          setRows([]);
-        } else {
-          setRows((res.rows || []) as Row[]);
-        }
+        const res = await searchJobs(term);
+        if (!cancelled) setRows(res.rows || []);
       } catch (e: any) {
-        setErr(e?.message || 'Search failed');
-        setRows([]);
+        if (!cancelled) {
+          setErr(e?.message || 'Search failed');
+          setRows([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }, 250);
-    return () => clearTimeout(t);
-  }, [debouncedQ]);
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced]);
+
+  const openTag = (tag: string) => {
+    if (!tag) return;
+    router.push(`/intake?tag=${encodeURIComponent(tag)}`);
+  };
+
+  const canShowResults = q.trim().length > 0;
 
   return (
-    <div className="wrap">
-      <h2>Search</h2>
+    <main>
+      <h1>Search</h1>
+      <p className="muted" style={{ marginTop: 4, marginBottom: 12 }}>
+        Type a <b>tag</b>, <b>name</b>, <b>phone</b>, or status text. Shortcuts: <code>@report</code> (ready to call) · <code>@recall</code> (called).
+      </p>
 
-      <div className="bar">
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by tag, name, or phone…"
-          aria-label="Search"
-        />
-        <div className="hint">Type at least 2 characters</div>
+      <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            // no-op; we already debounce on type
+          }}
+          style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+        >
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="e.g. 12345 or Jane Doe or (555) 123-4567"
+            aria-label="Search query"
+            style={{ flex: 1 }}
+          />
+          <button className="btn" type="submit">Search</button>
+        </form>
       </div>
 
-      {err && <div className="err">{err}</div>}
-      {loading && <div className="muted">Searching…</div>}
-      {!loading && !err && debouncedQ && rows.length === 0 && (
-        <div className="muted">No matches.</div>
+      {/* Before typing, keep the page clean */}
+      {!canShowResults && (
+        <div className="card" style={{ padding: 14 }}>
+          Start typing to search…
+        </div>
       )}
 
-      {rows.length > 0 && (
-        <table className="tbl">
-          <thead>
-            <tr>
-              <th>Tag</th>
-              <th>Customer</th>
-              <th>Phone</th>
-              <th>Status</th>
-              <th>Drop-off</th>
-              <th>Open</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => {
-              const tag = r.tag;
-              const customer = r.customer || r.name || '—';
-              // open the butcher-friendly intake by default
-              const href = `/intake?tag=${encodeURIComponent(r.tag)}`;
-              return (
-                <tr key={`${tag}-${r.row ?? i}`}>
-                  <td>{tag}</td>
-                  <td>{customer}</td>
-                  <td>{r.phone || ''}</td>
-                  <td>{r.status || ''}</td>
-                  <td>{r.dropoff || ''}</td>
-                  <td><Link href={href}>Open</Link></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+      {/* Results / states only render after user typed something */}
+      {canShowResults && (
+        <>
+          {loading && <div className="card">Loading…</div>}
+          {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
 
-      <style jsx>{`
-        .wrap { max-width: 900px; margin: 16px auto; padding: 12px; font-family: Arial, sans-serif; }
-        h2 { margin: 0 0 8px; }
-        .bar { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; margin-bottom: 10px; }
-        input { width: 100%; padding: 8px 10px; border: 1px solid #d8e3f5; border-radius: 8px; }
-        .hint { font-size: 12px; color: #6b7280; }
-        .muted { color: #6b7280; font-size: 14px; margin-top: 8px; }
-        .err { color: #b91c1c; margin-top: 8px; }
-        .tbl { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; vertical-align: middle; }
-        thead th { background: #f3f4f6; }
-        tbody tr:hover { background: #fafafa; }
-      `}</style>
-    </div>
+          {!loading && !err && (
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <table className="table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: 110 }}>Tag</th>
+                    <th>Customer</th>
+                    <th style={{ width: 160 }}>Phone</th>
+                    <th style={{ width: 140 }}>Drop-off</th>
+                    <th>Status</th>
+                    <th>Caping</th>
+                    <th>Webbs</th>
+                    <th style={{ width: 110 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ padding: 14 }}>No results.</td>
+                    </tr>
+                  )}
+                  {rows.map((r) => (
+                    <tr
+                      key={r.tag}
+                      onDoubleClick={() => openTag(r.tag!)}
+                      style={{ cursor: 'pointer' }}
+                      title="Double-click to open"
+                    >
+                      <td><strong>{r.tag}</strong></td>
+                      <td>{r.customer || '—'}</td>
+                      <td>{r.phone || '—'}</td>
+                      <td>{r.dropoff || '—'}</td>
+                      <td>{r.status || '—'}</td>
+                      <td>{r.capingStatus || '—'}</td>
+                      <td>{r.webbsStatus || '—'}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openTag(r.tag!);
+                          }}
+                        >
+                          Open
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </main>
   );
 }
+
+/* ---- tiny hook: debounce any string value ---- */
+function useDebounced(value: string, delay = 300) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return v;
+}
+
 

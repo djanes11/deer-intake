@@ -67,8 +67,12 @@ type Job = {
   webbsPounds?: string;
 
   price?: number | string; // optional override
+
+  // legacy + new paid flags
   Paid?: boolean;
   paid?: boolean;
+  paidProcessing?: boolean;  // NEW
+  paidSpecialty?: boolean;   // NEW
 };
 
 /* --------------- Helpers --------------- */
@@ -87,8 +91,8 @@ const normProc = (s?: string) => {
   return '';
 };
 
-// Mirrors PrintSheet logic: base (proc) + beefFat + webbs (NO specialty add-ons)
-const suggestedPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
+// Base (processing) price only: process type + beef fat + webbs fee
+const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
   const p = normProc(proc);
   const base =
     p === 'Caped' ? 150 :
@@ -97,32 +101,18 @@ const suggestedPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 };
 
-const moneyNumber = (val: unknown): number => {
-  if (val instanceof Date) return NaN as any;
-  if (typeof val === 'string') {
-    const cleaned = val.replace(/[^0-9.\-]/g,'').trim();
-    if (!cleaned) return NaN as any;
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : (NaN as any);
-  }
-  const n = Number(val);
-  return Number.isFinite(n) ? n : (NaN as any);
-};
-
-const normalizedPrice = (job: Job): number => {
-  let n = moneyNumber(job.price);
-  if (!Number.isFinite(n) || n <= 0 || n > 10000) {
-    n = suggestedPrice(job.processType, !!job.beefFat, !!job.webbsOrder);
-  }
-  if (!Number.isFinite(n) || n < 0) n = 0;
-  return n;
-};
-
-// Keep your int parsing for specialty fields (not part of printed/base price)
+// For specialty fields, parse int lbs
 const toInt = (val: any) => {
   const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
+
+const asBool = (v: any): boolean => {
+  if (typeof v === 'boolean') return v;
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['true','yes','y','1','on','paid','x','✓','✔'].includes(s);
+};
+
 
 /* ---- Fixed status choices + guards ---- */
 const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
@@ -140,9 +130,9 @@ export default function IntakePage() {
   const [job, setJob] = useState<Job>({
     tag: tagFromUrl || '',
     dropoff: todayISO(),
-    status: 'Dropped Off',         // default for brand-new tags
-    capingStatus: '',              // set to Dropped Off only if Caped on new
-    webbsStatus: '',               // set to Dropped Off only if Webbs on new
+    status: 'Dropped Off',
+    capingStatus: '',
+    webbsStatus: '',
     hind: {
       'Hind - Steak': false,
       'Hind - Roast': false,
@@ -159,6 +149,8 @@ export default function IntakePage() {
     webbsOrder: false,
     Paid: false,
     paid: false,
+    paidProcessing: false, // NEW
+    paidSpecialty: false,  // NEW
     specialtyProducts: false,
   });
 
@@ -178,8 +170,7 @@ export default function IntakePage() {
       try {
         const res = await getJob(tagFromUrl);
         if (res?.exists && res.job) {
-          const j: Job = res.job;
-          // Existing job: take server values; coerce statuses to allowed sets.
+          const j: any = res.job;
           setJob((prev) => ({
             ...prev,
             ...j,
@@ -188,45 +179,65 @@ export default function IntakePage() {
             status: coerce(j.status || prev.status || 'Dropped Off', STATUS_MAIN),
             capingStatus: coerce(j.capingStatus || (j.processType === 'Caped' ? 'Dropped Off' : ''), STATUS_CAPE),
             webbsStatus: coerce(j.webbsStatus || (j.webbsOrder ? 'Dropped Off' : ''), STATUS_WEBBS),
+
             hind: {
-              'Hind - Steak': !!j?.hind?.['Hind - Steak'],
-              'Hind - Roast': !!j?.hind?.['Hind - Roast'],
-              'Hind - Grind': !!j?.hind?.['Hind - Grind'],
-              'Hind - None' : !!j?.hind?.['Hind - None'],
+              'Hind - Steak': asBool(j?.hind)?.['Hind - Steak'],
+              'Hind - Roast': asBool(j?.hind)?.['Hind - Roast'],
+              'Hind - Grind': asBool(j?.hind)?.['Hind - Grind'],
+              'Hind - None' : asBool(j?.hind)?.['Hind - None'],
             },
             front: {
-              'Front - Steak': !!j?.front?.['Front - Steak'],
-              'Front - Roast': !!j?.front?.['Front - Roast'],
-              'Front - Grind': !!j?.front?.['Front - Grind'],
-              'Front - None' : !!j?.front?.['Front - None'],
+              'Front - Steak': asBool(j?.front)?.['Front - Steak'],
+              'Front - Roast': asBool(j?.front)?.['Front - Roast'],
+              'Front - Grind': asBool(j?.front)?.['Front - Grind'],
+              'Front - None' : asBool(j?.front)?.['Front - None'],
             },
-            Paid: !!(j.Paid ?? j.paid),
-            paid: !!(j.Paid ?? j.paid),
-            specialtyProducts: !!j.specialtyProducts,
-          }));
-        } else {
-          // New tag (no server record): ensure defaults
-          setJob((p) => ({
-            ...p,
-            tag: tagFromUrl,
-            dropoff: p.dropoff || todayISO(),
-            status: p.status || 'Dropped Off',
-            capingStatus: p.processType === 'Caped' ? 'Dropped Off' : '',
-            webbsStatus: p.webbsOrder ? 'Dropped Off' : '',
+
+            // Confirmation mapping (preserve if sheet uses other header)
+            confirmation:
+              j.confirmation ??
+              j['Confirmation #'] ??
+              j['Confirmation'] ??
+              prev.confirmation ??
+              '',
+
+            // PAID flags: load both split and legacy
+            Paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
+            paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
+            paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+            paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
+
+            specialtyProducts: asBool(j.specialtyProducts),
           }));
         }
       } catch (e: any) {
         setMsg(`Load failed: ${e?.message || e}`);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tagFromUrl]);
 
-  // Derived UI toggles
-  const basePrice = useMemo(() => normalizedPrice(job), [job]); // matches PrintSheet
+  // Derived UI toggles + pricing
+  const processingPrice = useMemo(
+    () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
+    [job.processType, job.beefFat, job.webbsOrder]
+  );
+
+  const specialtyPrice = useMemo(() => {
+    if (!job.specialtyProducts) return 0;
+    const ss  = toInt(job.summerSausageLbs);
+    const ssc = toInt(job.summerSausageCheeseLbs);
+    const jer = toInt(job.slicedJerkyLbs);
+    return ss * 4.25 + ssc * 4.60 + jer * 15.0;
+  }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
+
+  const totalPrice = processingPrice + specialtyPrice;
+
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
   const isWholeBackstrap = job.backstrapPrep === 'Whole';
+  const hasSpecialty = asBool(job.specialtyProducts);
+
   const needsBackstrapOther = !isWholeBackstrap && job.backstrapThickness === 'Other';
   const needsSteakOther = job.steak === 'Other';
   const capedOn = job.processType === 'Caped';
@@ -252,12 +263,10 @@ export default function IntakePage() {
     if (!job.city) missing.push('City');
     if (!job.state) missing.push('State');
     if (!job.zip) missing.push('Zip');
-
     if (!job.county) missing.push('County Killed');
     if (!job.dropoff) missing.push('Drop-off Date');
     if (!job.sex) missing.push('Deer Sex');
     if (!job.processType) missing.push('Process Type');
-
     return missing;
   };
 
@@ -274,11 +283,17 @@ export default function IntakePage() {
       status: coerce(job.status, STATUS_MAIN),
       capingStatus: job.processType === 'Caped' ? coerce(job.capingStatus, STATUS_CAPE) : '',
       webbsStatus: job.webbsOrder ? coerce(job.webbsStatus, STATUS_WEBBS) : '',
-      Paid: !!(job.Paid ?? job.paid),
-      paid: !!(job.Paid ?? job.paid),
-      summerSausageLbs: String(toInt(job.summerSausageLbs)),
-      summerSausageCheeseLbs: String(toInt(job.summerSausageCheeseLbs)),
-      slicedJerkyLbs: String(toInt(job.slicedJerkyLbs)),
+
+      // keep legacy 'Paid' in sync, and send split flags
+      Paid: !!(job.Paid ?? job.paid ?? (job.paidProcessing && job.paidSpecialty)),
+      paid: !!(job.Paid ?? job.paid ?? (job.paidProcessing && job.paidSpecialty)),
+      paidProcessing: !!job.paidProcessing,
+      paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
+
+      // numeric normalizations for specialty lbs
+      summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
+      summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
+      slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
     };
     try {
       setBusy(true);
@@ -290,7 +305,20 @@ export default function IntakePage() {
       setMsg('Saved ✓');
       if (job.tag) {
         const fresh = await getJob(job.tag);
-        if (fresh?.exists && fresh.job) setJob((p) => ({ ...p, ...fresh.job }));
+        if (fresh?.exists && fresh.job) {
+          const j: any = fresh.job;
+          setJob((p) => ({
+            ...p,
+            ...j,
+            // preserve/mirror confirmation & paid flags
+            confirmation:
+              j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? p.confirmation ?? '',
+            Paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
+            paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
+            paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+            paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
+          }));
+        }
       }
     } catch (e: any) {
       setMsg(e?.message || String(e));
@@ -312,12 +340,12 @@ export default function IntakePage() {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="wrap">
+    <div className="form-card">
       {/* ------- SCREEN UI ONLY ------- */}
       <div className="screen-only">
         <h2>Deer Intake</h2>
 
-        {/* Summary bar */}
+        {/* Summary bar with split pricing (unchanged look) */}
         <div className="summary">
           <div className="row">
             <div className="col">
@@ -328,30 +356,28 @@ export default function IntakePage() {
                 onChange={(e) => setVal('tag', e.target.value)}
                 placeholder="e.g. 1234"
               />
+              <div className="muted" style={{fontSize:12}}>Deer Tag</div>
             </div>
+
             <div className="col price">
-              <label>Price (preview)</label>
-              <div className="money">{basePrice.toFixed(2)}</div>
-              <div className="muted" style={{fontSize:12}}>Excludes specialty products</div>
+              <label>Processing Price</label>
+              <div className="money">{processingPrice.toFixed(2)}</div>
+              <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
             </div>
-            <div className="col">
-              <label>Paid</label>
-              <div className={`pill ${job.Paid ? 'on' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={!!(job.Paid ?? job.paid)}
-                  onChange={(e) => {
-                    const v = e.target.checked;
-                    setJob((p) => ({ ...p, Paid: v, paid: v }));
-                  }}
-                />
-                <span className="badge">{job.Paid ? 'PAID' : 'UNPAID'}</span>
-              </div>
+
+            <div className="col price">
+              <label>Specialty Price</label>
+              <div className="money">{specialtyPrice.toFixed(2)}</div>
+              <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
             </div>
           </div>
 
-          {/* Status row — NOW DROPDOWNS */}
           <div className="row small">
+            <div className="col total">
+              <label>Total (preview)</label>
+              <div className="money total">{totalPrice.toFixed(2)}</div>
+            </div>
+
             <div className="col">
               <label>Status</label>
               <select
@@ -385,6 +411,66 @@ export default function IntakePage() {
                 </select>
               </div>
             )}
+
+            <div className="col">
+              <label>Paid</label>
+              <div className="pillrow">
+                <div className={`pill ${job.paidProcessing ? 'on' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={!!job.paidProcessing}
+                    onChange={(e) => {
+                  const v = e.target.checked;
+                  setJob((prev) => ({
+                    ...prev,
+                    Paid: v,
+                    paid: v,
+                    paidProcessing: v ? true : prev.paidProcessing,
+                    paidSpecialty: hasSpecialty ? (v ? true : prev.paidSpecialty) : false,
+                  }));
+                }}
+                  />
+                  <span className="badge">{job.paidProcessing ? 'Processing Paid' : 'Processing Unpaid'}</span>
+                </div>
+
+                {hasSpecialty && (
+                <div className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={!!job.paidSpecialty}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setJob((prev) => ({
+                        ...prev,
+                        paidSpecialty: v,
+                        Paid: v && !!prev.paidProcessing,
+                        paid: v && !!prev.paidProcessing,
+                      }));
+                    }}
+                  />
+                  <span className="badge">{job.paidSpecialty ? 'Specialty Paid' : 'Specialty Unpaid'}</span>
+                </div>
+                )}
+
+                <div className={`pill ${((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'on' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={hasSpecialty ? (asBool(job.Paid) || (asBool(job.paidProcessing) && asBool(job.paidSpecialty))) : (asBool(job.Paid) || asBool(job.paidProcessing))}
+                    onChange={(e) => {
+                      const v = e.target.checked;
+                      setJob((prev) => ({
+                        ...prev,
+                        Paid: v,
+                        paid: v,
+                        paidProcessing: v ? true : prev.paidProcessing,
+                        paidSpecialty: v ? true : prev.paidSpecialty,
+                      }));
+                    }}
+                  />
+                  <span className="badge">{((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'Paid in Full' : 'Unpaid'}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -801,7 +887,6 @@ export default function IntakePage() {
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
 
-          {/* Print button triggers the print-only layout below */}
           <button
             className="btn"
             type="button"
@@ -828,7 +913,7 @@ export default function IntakePage() {
         h2 { margin: 8px 0; }
         h3 { margin: 16px 0 8px; }
 
-        label { font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px; }
+        label { font-size: 12px; font-weight: 700; color: #0b0f12; display: block; margin-bottom: 4px; }
         input, select, textarea {
           width: 100%; padding: 6px 8px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box;
         }
@@ -837,18 +922,35 @@ export default function IntakePage() {
         .grid { display: grid; gap: 8px; grid-template-columns: repeat(12, 1fr); }
         .c3{grid-column: span 3} .c4{grid-column: span 4} .c6{grid-column: span 6} .c8{grid-column: span 8}
 
-        .rowInline { display: flex; align-items: center; padding-top: 22px; }
+        .rowInline { display: flex; align-items: center; padding-top: 22px; gap: 8px; }
         .checks { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .chk { display: inline-flex; align-items: center; gap: 6px; }
         .muted { color: #6b7280; font-size: 12px; }
 
         .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
-        .summary .row.small { margin-top: 6px; }
+        .summary .row.small { margin-top: 6px; grid-template-columns: repeat(4, 1fr); }
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
+        .summary .total .money.total { font-weight: 900; }
 
-        .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 2px solid #eab308; background: #fff7db; border-radius: 999px; }
+        /* Paid pills row - horizontal */
+        .pillrow {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: nowrap;
+        }
+        .pill { 
+          display: inline-flex; 
+          align-items: center; 
+          gap: 8px; 
+          padding: 6px 10px; 
+          border: 2px solid #eab308; 
+          background: #fff7db; 
+          border-radius: 999px; 
+          white-space: nowrap;
+        }
         .pill.on { border-color: #10b981; background: #ecfdf5; }
         .badge { font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
 
@@ -869,12 +971,20 @@ export default function IntakePage() {
           .print-only { display: block !important; }
         }
 
+        /* allow wrap on narrow screens so UI doesn’t overflow */
+        @media (max-width: 900px) {
+          .summary .row.small { grid-template-columns: 1fr 1fr; }
+        }
         @media (max-width: 720px) {
           .grid { grid-template-columns: 1fr; }
           .summary .row { grid-template-columns: 1fr; }
+          .summary .row.small { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
+          .pillrow { flex-wrap: wrap; }
         }
       `}</style>
     </div>
   );
 }
+
+

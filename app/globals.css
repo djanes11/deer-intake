@@ -1,105 +1,445 @@
-/* ===== Theme tokens ===== */
+/* =========================
+   Global Dark Theme + Hunter Green
+   ========================= */
 :root{
-  --border:#d8e3f5;
-  --ink:#0f172a;
-  --muted:#6b7280;
-  --brand:#155acb;
+  /* Core palette */
+  --bg:           #0c0f10;   /* page background (dark) */
+  --bg-elev:      #121517;   /* cards / panels */
+  --bg-elev-2:    #171b1d;
+  --text:         #e7ecf0;   /* primary text on dark */
+  --text-dim:     #b5c0c8;
 
-  /* muted camo palette */
-  --camo-base:#f6f8f4;  /* paper-tinted base */
-  --camo-1:#e8eee6;     /* sage */
-  --camo-2:#e9efe9;     /* pale mint */
-  --camo-3:#eceee7;     /* lichen */
-  --camo-4:#e7ebe2;     /* olive-gray */
+  /* HUNTER GREEN accents */
+  --brand:        #2f6f3f;   /* hunter green */
+  --brand-strong: #235532;   /* darker hover */
+  --brand-2:      #89c096;   /* minty secondary */
+
+  --border:       #23292d;
+  --ring:         rgba(47,111,63,.35);
+  --shadow:       0 6px 24px rgba(0,0,0,.35);
+
+  --radius:       12px;
+  --radius-lg:    16px;
+  --pad:          14px;
+  --pad-lg:       18px;
+
+  --wrap: 1100px;
 }
 
-/* ===== Reset / base ===== */
 * { box-sizing: border-box; }
-html, body {
+html, body { height: 100%; }
+html { color-scheme: dark; }
+body {
   margin: 0;
-  padding: 0;
-  color: var(--ink);
-  background: var(--camo-base) !important; /* force base so old rules can't override */
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.45;
 }
 
-/* ===== Camo background layer (behind everything) ===== */
+/* Subtle dark “fabric” texture (no image) */
 body::before{
+  content:"";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(18px 18px at 24px 24px, rgba(255,255,255,.025) 20%, transparent 21%) 0 0/120px 120px,
+    radial-gradient(22px 20px at 90px 60px, rgba(255,255,255,.02) 18%, transparent 19%) 0 0/120px 120px,
+    radial-gradient(16px 16px at 50px 100px, rgba(0,0,0,.25) 20%, transparent 21%) 0 0/120px 120px;
+  opacity: .6;
+}
+
+#___next, #__next, body > div, .site-root, main { position: relative; z-index: 1; }
+
+/* -------- Top Nav: WHITE header, BLACK text -------- */
+.site-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e6e9ec;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.site-header .wrap {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+.site-header .brand {
+  display: flex; align-items: center; gap: 10px; font-weight: 800;
+}
+.site-header .brand img { height: 28px; }
+.site-header .brand a { color: #0b0f12; text-decoration: none; } /* black */
+.site-header .menu {
+  display: flex; align-items: center; gap: 6px;
+  position: relative;
+}
+.site-header .item {
+  color: #0b0f12;                /* black text in header */
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.site-header .item:hover { background: #f2f5f7; border-color: #e6e9ec; }
+.site-header .item.active { background: var(--brand); color: #ffffff; }
+
+/* Dropdown for Reports */
+.site-header .dropdown { position: relative; }
+.site-header .dropdown > .item::after{
+  content:"▾"; margin-left:6px; opacity:.8;
+}
+.site-header .dropdown-menu{
+  position: absolute; right: 0; top: calc(100% + 8px);
+  min-width: 220px;
+  background: #ffffff;                /* white dropdown */
+  border: 1px solid #e6e9ec;
+  border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  padding: 6px;
+  display: none;
+}
+.site-header .dropdown:focus-within .dropdown-menu,
+.site-header .dropdown:hover .dropdown-menu { display: block; }
+.site-header .dropdown-menu a{
+  display: block;
+  padding: 10px 12px;
+  color: #0b0f12;                    /* black text */
+  text-decoration: none;
+  border-radius: 10px;
+}
+.site-header .dropdown-menu a:hover{
+  background: #f2f5f7;
+}
+
+/* -------- Main Layout -------- */
+main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
+
+/* Headings */
+h1,h2,h3 { color: var(--text); margin: 0 0 10px; }
+h1 { font-size: 40px; letter-spacing:.2px; }
+h2 { font-size: 26px; }
+h3 { font-size: 18px; color: var(--text-dim); }
+
+/* Links (hunter green) */
+a { color: var(--brand); }
+a:hover { color: var(--brand-2); }
+
+/* Generic card style */
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--pad-lg);
+  box-shadow: var(--shadow);
+}
+
+/* Generic button */
+.btn {
+  -webkit-appearance: none; appearance: none;
+  background: var(--brand);
+  color: #ffffff;
+  font-weight: 800;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+.btn:hover { background: var(--brand-strong); }
+.btn:focus { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+.btn.secondary {
+  background: var(--bg-elev);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* Tables (reports) */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.table th, .table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.table th { color: var(--text-dim); font-weight: 700; }
+.table tr:hover td { background: var(--bg-elev-2); }
+
+/* Inputs (dark context) */
+input, select, textarea {
+  background: #0f1416;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+input::placeholder, textarea::placeholder { color: #87939b; }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #2e3740;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+/* Home “cards” grid helper */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.home-grid .card h4 { margin: 0; }
+.home-grid .card p { margin: 6px 0 0; color: var(--text-dim); }
+
+/* Print stays clean and light */
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  body::before, .site-header { display: none !important; }
+  a { color: #000 !important; text-decoration: none; }
+}
+
+/* ===== Light form card on dark site ===== */
+.form-card{
+  background: #ffffff;                 /* white container */
+  color: #0b0f12;                      /* black text inside */
+  border: 1px solid #e6e9ec;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  padding: 14px;
+}
+
+/* Make all the usual form elements readable in the light card */
+.form-card h1,.form-card h2,.form-card h3,
+.form-card p,.form-card span,.form-card div,
+.form-card th,.form-card td { color: #0b0f12; }
+
+.form-card .muted { color: #374151; }  /* darker grey for helper text */
+
+/* Inputs/selects/textarea go back to light theme when inside the form card */
+.form-card input,
+.form-card select,
+.form-card textarea{
+  background: #ffffff;
+  color: #0b0f12;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+}
+
+.form-card input::placeholder,
+.form-card textarea::placeholder{ color: #64748b; }
+
+.form-card input:focus,
+.form-card select:focus,
+.form-card textarea:focus{
+  outline: none;
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(47,111,63,.25);  /* hunter green focus ring */
+}
+
+/* The intake “summary” bar looks nicer slightly off-white in the card */
+.form-card .summary{
+  background: #f8fafc;
+  border-color: #e6e9ec;
+}
+
+/* Buttons read well against the light card */
+.form-card .btn { background: var(--brand); color:#fff; }
+.form-card .btn:hover { background: var(--brand-strong); }
+
+/* ===== Force black-on-white for report & simple pages ===== */
+.light-page { color: #0b0f12; }
+.light-page * { color: #0b0f12 !important; }
+.light-page .muted { color: #374151 !important; }
+
+.light-page table th,
+.light-page table td { color: #0b0f12 !important; }
+
+.light-page input,
+.light-page select,
+.light-page textarea{
+  background:#fff;
+  color:#0b0f12;
+  border:1px solid #cbd5e1;
+}
+
+.light-page a { color: var(--brand-strong) !important; }
+.light-page a:hover { color: var(--brand) !important; }
+
+/* ===== Scan page: dark page, white headings,
+         BUT light status bar with BLACK text ===== */
+.scan-page,
+.scan-page .scan-title,
+.scan-page .scan-subtitle {
+  color: #ffffff !important;
+}
+
+/* Light bar pieces should be black text */
+.scan-page .status,
+.scan-page .notice,
+.scan-page .bar {
+  background: #e5e7eb !important;   /* light gray */
+  color: #0b0f12 !important;         /* black text */
+  border-radius: 10px;
+}
+
+/* If the bar contains spans/strong/etc, enforce black */
+.scan-page .status *, 
+.scan-page .notice *, 
+.scan-page .bar * {
+  color: #0b0f12 !important;
+}
+
+/* Inputs (if any) on scan page */
+.scan-page input,
+.scan-page select,
+.scan-page textarea {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border: 1px solid #334155 !important;
+}
+.scan-page input::placeholder,
+.scan-page textarea::placeholder { color:#cbd5e1 !important; }
+
+/* Buttons/links */
+.scan-page .btn { color:#ffffff !important; }
+.scan-page a { color:#ffffff !important; text-decoration: underline; }
+
+/* =========================
+   WATERMARK (logo on every page)
+   ========================= */
+.watermark {
+  position: relative;
+}
+
+/* Fixed, subtle logo behind content */
+.watermark::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: -1;              /* keep behind app content */
   pointer-events: none;
-
-  /* layered, subtle camo + faint linen texture */
+  z-index: 0;                 /* behind everything (header already has higher z) */
   background:
-    radial-gradient(1000px 700px at 8% 14%,  var(--camo-1) 0%, transparent 70%),
-    radial-gradient(900px  600px at 85% 18%, var(--camo-2) 0%, transparent 68%),
-    radial-gradient(1100px 760px at 18% 86%, var(--camo-3) 0%, transparent 72%),
-    radial-gradient(900px  640px at 78% 78%, var(--camo-4) 0%, transparent 62%),
-    /* linen */
-    repeating-linear-gradient(0deg,  rgba(0,0,0,.02) 0 2px, rgba(0,0,0,0) 2px 6px),
-    repeating-linear-gradient(90deg, rgba(0,0,0,.02) 0 2px, rgba(0,0,0,0) 2px 6px),
-    var(--camo-base);
-  background-attachment: fixed,fixed,fixed,fixed,fixed,fixed,fixed !important;
-  filter: saturate(.95) contrast(1.02);
+    radial-gradient(transparent, rgba(0,0,0,.45) 70%) center/100% 100% no-repeat,
+    url('/mcafee-logo.png') center 60% / 420px auto no-repeat; /* tweak size/position as you like */
+  opacity: 0.8;              /* overall strength of the watermark */
+  mix-blend-mode: soft-light; /* keeps it tasteful on dark */
+  filter: grayscale(100%);
 }
 
-/* ===== Header (glass) + logo sizing ===== */
-.site-header{
-  position: sticky; top: 0; z-index: 50;
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: saturate(120%) blur(6px);
-  border-bottom: 1px solid var(--border);
-}
-.site-header .wrap{
-  max-width: 1100px; margin: 0 auto; padding: 10px 12px;
-  display: flex; align-items: center; gap: 16px; justify-content: space-between;
-}
-.site-header .brand{
-  display: flex; align-items: center; gap: 10px;
-  font-weight: 800; font-size: 16px; color: var(--brand);
-}
-/* lock the logo so global img rules can't blow it up */
-.site-header .brand img{
-  width: 34px !important;
-  height: 34px !important;
-  object-fit: contain;
-  display: block;
-  flex: 0 0 34px;
+/* Ensure main content sits above watermark */
+main { position: relative; z-index: 1; }
+
+/* =========================
+   HOME (hero + tiles)
+   ========================= */
+.card-ghost {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  margin-bottom: 10px;
 }
 
-/* ===== Optional menu pills (if you use them) ===== */
-.menu { display:flex; gap:8px; flex-wrap:wrap; }
-.menu .item{
-  padding:6px 10px; border:1px solid transparent; border-radius:8px; font-weight:600;
-}
-.menu .item:hover{ background:#f5f8ff; border-color:var(--border); }
-.menu .item.active{ background:#155acb; color:#fff; border-color:#155acb; }
-
-/* ===== Content container “cards” ===== */
-.page-wrap{ max-width: 980px; margin: 16px auto; padding: 12px; }
-.page-wrap > *{
-  background: rgba(255,255,255,0.94);
-  border: 1px solid rgba(216,227,245,0.9);
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(15,23,42,.06);
-  padding: 12px;
+.hero {
+  margin-top: 8px;
+  margin-bottom: 8px;
 }
 
-/* ===== Forms (unchanged look) ===== */
-input, select, textarea{
-  border:1px solid var(--border);
-  border-radius:8px;
-  background:#fbfdff;
-  padding:6px 8px;
+.hero-kicker {
+  color: var(--brand-2);
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-size: 12px;
+  margin-bottom: 6px;
 }
-label{ font-size:12px; font-weight:700; color:#334155; margin-bottom:4px; display:block; }
-a{ text-decoration:none; color:inherit; }
 
-/* ===== Print stays plain ===== */
-@media print{
-  @page { size: Letter; margin: 0.5in; }
-  header.site-header{ display: none !important; }
-  body{ background: #fff !important; }
-  .page-wrap > *{ border: none; box-shadow: none; }
+.hero-title {
+  margin: 0 0 6px 0;
+  font-size: 42px;
+  line-height: 1.1;
+  color: var(--text);
 }
+
+.hero-sub {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+}
+
+/* Action tiles */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (max-width: 980px) {
+  .tile-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 640px) {
+  .tile-grid { grid-template-columns: 1fr; }
+}
+
+.tile {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 6px;
+  text-decoration: none;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+  transition: transform .08s ease, border-color .15s ease, background .15s ease;
+  outline: none;
+}
+.tile:hover {
+  transform: translateY(-1px);
+  border-color: rgba(137,192,150,.3);
+  background: var(--bg-elev-2);
+}
+.tile:focus {
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.tile-emoji {
+  font-size: 28px;
+  line-height: 1;
+}
+.tile-title {
+  font-weight: 900;
+  color: #fff;
+  font-size: 18px;
+}
+.tile-sub {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* Accent variant */
+.tile-alt {
+  background: linear-gradient(0deg, rgba(47,111,63,.12), rgba(47,111,63,.12)), var(--bg-elev);
+  border-color: rgba(47,111,63,.35);
+}
+
+/* Optional: slightly narrower max width so hero + tiles feel balanced */
+main { max-width: 1040px; }
+
+/* Ensure light tables never turn dark on hover */
+.light-page .table tr:hover td {
+  background: #f2f5f7 !important;
+  color: #0b0f12 !important;
+}
+
+

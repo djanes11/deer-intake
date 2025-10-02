@@ -8,7 +8,7 @@ export interface PrintSheetProps {
   job?: AnyRec | null;
 }
 
-// ---- Helpers (pure) ----
+/* ---------------- Helpers (pure) ---------------- */
 function jget(job: AnyRec | null | undefined, keys: string[]): string {
   if (!job) return "";
   for (const k of keys) {
@@ -23,22 +23,6 @@ function asPounds(x: any): string {
   return Number.isFinite(n) && n > 0 ? String(n) : "";
 }
 
-function moneyNumber(val: any): number {
-  if (val instanceof Date) return Number.NaN;
-  if (typeof val === "string") {
-    const cleaned = val.replace(/[^0-9.\-]/g, "").trim();
-    if (!cleaned) return Number.NaN;
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : Number.NaN;
-  }
-  const n = Number(val);
-  return Number.isFinite(n) ? n : Number.NaN;
-}
-
-function moneyFormat(n: number): string {
-  return Number.isFinite(n) ? "$" + n.toFixed(2) : "$0.00";
-}
-
 function normProc(s: any): string {
   s = String(s || "").toLowerCase();
   if (s.includes("cape") && !s.includes("skull")) return "Caped";
@@ -48,22 +32,14 @@ function normProc(s: any): string {
   return "";
 }
 
-function suggestedPrice(proc: any, beef: boolean, webbs: boolean): number {
+// Processing price only (proc + beef fat + webbs fee)
+function suggestedProcessingPrice(proc: any, beef: boolean, webbs: boolean): number {
   const p = normProc(proc);
   let base =
     p === "Caped" ? 150 :
     (["Standard Processing", "Skull-Cap", "European"].includes(p) ? 130 : 0);
-  if (!base) return Number.NaN;
+  if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-}
-
-function normalizedPrice(job: AnyRec | null | undefined): number {
-  let n = moneyNumber(job && (job as any).price);
-  if (!Number.isFinite(n) || n <= 0 || n > 10000) {
-    n = suggestedPrice(job && (job as any).processType, !!(job && (job as any).beefFat), !!(job && (job as any).webbsOrder));
-  }
-  if (!Number.isFinite(n) || n < 0) n = 0;
-  return n;
 }
 
 function hasSpecialty(job: AnyRec | null | undefined): boolean {
@@ -74,12 +50,16 @@ function hasSpecialty(job: AnyRec | null | undefined): boolean {
   return !!(has || ss || ssc || jer);
 }
 
-// ---- Component ----
+function money(n: number): string {
+  return "$" + (Number.isFinite(n) ? n.toFixed(2) : "0.00");
+}
+
+/* ---------------- Component ---------------- */
 export default function PrintSheet({ tag, job }: PrintSheetProps) {
   const pageCount = useMemo(() => (hasSpecialty(job) ? 2 : 1), [job]);
   const pages = Array.from({ length: pageCount }, (_, i) => i);
 
-  // Barcode rendering (identical to provided HTML behavior)
+  // Barcode rendering
   useEffect(() => {
     const render = () => {
       try {
@@ -93,19 +73,18 @@ export default function PrintSheet({ tag, job }: PrintSheetProps) {
         const JsBarcode: any = (window as any).JsBarcode;
         if (!JsBarcode) return;
         document.querySelectorAll<SVGSVGElement>("svg#tagBarcode").forEach((svg) => {
-         // inside useEffect → render() → JsBarcode options
-JsBarcode(svg, code, {
-  format: "CODE128",
-  lineColor: "#111",
-  width: 1.25,
-  height: 18,       // was 24 (or 36 earlier) → ~half height
-  displayValue: true,
-  font: "monospace",
-  fontSize: 10,     // was 11; optional tweak to keep proportions nice
-  textMargin: 2,
-  margin: 0,
-});
-
+          // inside useEffect → render() → JsBarcode options
+          JsBarcode(svg, code, {
+            format: "CODE128",
+            lineColor: "#111",
+            width: 1.25,
+            height: 18,
+            displayValue: true,
+            font: "monospace",
+            fontSize: 10,
+            textMargin: 2,
+            margin: 0,
+          });
         });
       } catch (e) {
         console.error("Barcode render error", e);
@@ -127,20 +106,34 @@ JsBarcode(svg, code, {
     }
   }, [job, tag]);
 
-  // Derived fields
-  const tagText = (job && (job as any).tag) ? (job as any).tag : (tag || "");
-  const priceText = moneyFormat(normalizedPrice(job));
+  // ---- Derived fields ----
   const addr2 = [job?.city, job?.state, job?.zip].filter(Boolean).join(", ");
-  const steakOtherShown = String(job?.steak || "").toLowerCase() === "other" && String(job?.steakOther || "").trim() !== "";
+  const steakOtherShown =
+    String(job?.steak || "").toLowerCase() === "other" &&
+    String(job?.steakOther || "").trim() !== "";
   const specialtyShown = hasSpecialty(job);
   const spec_ss  = asPounds(jget(job, ["summerSausageLbs","Summer Sausage (lb)","summer_sausage_lbs"]));
   const spec_ssc = asPounds(jget(job, ["summerSausageCheeseLbs","Summer Sausage + Cheese (lb)","summer_sausage_cheese_lbs"]));
   const spec_jer = asPounds(jget(job, ["slicedJerkyLbs","Sliced Jerky (lb)","sliced_jerky_lbs"]));
 
+  // Split prices (stay inside the same Price box)
+  const processingPrice = useMemo(() => {
+    return suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
+  }, [job?.processType, job?.beefFat, job?.webbsOrder]);
+
+  const specialtyPrice = useMemo(() => {
+    const ss  = Number(spec_ss)  || 0;
+    const ssc = Number(spec_ssc) || 0;
+    const jer = Number(spec_jer) || 0;
+    return ss * 4.25 + ssc * 4.60 + jer * 15.0;
+  }, [spec_ss, spec_ssc, spec_jer]);
+
+  const totalPrice = processingPrice + specialtyPrice;
+
   return (
     <div>
       <style jsx global>{`
-        /* ===== Base (on-screen) — unchanged look ===== */
+        /* ===== Base (on-screen) ===== */
         :root{
           --fs-base:12px; --fs-h:16px; --fs-label:10px; --fs-badge:11px;
           --pad-box:6px; --pad-val:3px 5px; --gap-row:4px; --gap-col:8px;
@@ -159,7 +152,10 @@ JsBarcode(svg, code, {
         .check{ font-weight:bold; }
         .hr{ border-top:1px dashed #ccd7ee; margin:6px 0; }
         .money{ font-weight:800; }
-        .sig{ margin-top:10px; border-top:1px solid #333; height:1px; }
+        .moneyTotal{ font-weight:900; }
+        .splitPriceRow{ display:flex; justify-content:space-between; gap:6px; }
+        .splitSep{ border-top:1px dashed #ccd7ee; margin:3px 0; }
+
         #barcodeWrap { margin-top:4px; }
         #tagBarcode  { width:100%; max-width:180px; height:auto; display:block; }
 
@@ -167,7 +163,7 @@ JsBarcode(svg, code, {
         .page{ position:relative; margin:0 auto; }
         .sheet{ margin:0; }
 
-        /* ===== Print: bigger fonts, tightened spacing so it still fits ===== */
+        /* ===== Print ===== */
         @media print{
           @page { size: Letter; margin:6mm; }
           .noprint{ display:none !important; }
@@ -190,7 +186,6 @@ JsBarcode(svg, code, {
           .val{ line-height:1.10 !important; }
           #barcodeWrap { margin-top:2mm; }
           #tagBarcode  { max-width:56mm; }
-
           .page{ page-break-after: always; }
           .page:last-of-type{ page-break-after: auto; }
         }
@@ -213,9 +208,36 @@ JsBarcode(svg, code, {
                     <svg id="tagBarcode" role="img" aria-label="Tag barcode"></svg>
                   </div>
                 </div>
-                <div className="col-3 box"><div className="label">Confirmation #</div><div className="val" id="p_conf">{job?.confirmation || ""}</div></div>
-                <div className="col-3 box"><div className="label">Drop-off Date</div><div className="val" id="p_drop">{job?.dropoff || ""}</div></div>
-                <div className="col-3 box"><div className="label">Price</div><div className="val money" id="p_price">{priceText}</div></div>
+
+                <div className="col-3 box">
+                  <div className="label">Confirmation #</div>
+                  <div className="val" id="p_conf">{job?.confirmation || ""}</div>
+                </div>
+
+                <div className="col-3 box">
+                  <div className="label">Drop-off Date</div>
+                  <div className="val" id="p_drop">{job?.dropoff || ""}</div>
+                </div>
+
+                {/* --- SAME container, but split prices inside --- */}
+                <div className="col-3 box">
+                  <div className="label">Price</div>
+                  <div className="val" id="p_price_box">
+                    <div className="splitPriceRow">
+                      <span>Processing</span>
+                      <span className="money" id="p_price_proc">{money(processingPrice)}</span>
+                    </div>
+                    <div className="splitPriceRow">
+                      <span>Specialty</span>
+                      <span className="money" id="p_price_spec">{money(specialtyPrice)}</span>
+                    </div>
+                    <div className="splitSep" />
+                    <div className="splitPriceRow">
+                      <span>Total</span>
+                      <span className="moneyTotal" id="p_price_total">{money(totalPrice)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="hr"></div>
@@ -339,4 +361,8 @@ JsBarcode(svg, code, {
     </div>
   );
 }
+
+
+
+
 

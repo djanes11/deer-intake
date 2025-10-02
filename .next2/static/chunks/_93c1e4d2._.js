@@ -71,6 +71,7 @@ async function fetchJson(url, init) {
         const ctrl = new AbortController();
         const to = setTimeout(()=>ctrl.abort(), timeoutMs);
         try {
+            var _this;
             const res = await fetch(url, {
                 cache: 'no-store',
                 ...init,
@@ -79,8 +80,7 @@ async function fetchJson(url, init) {
             clearTimeout(to);
             const data = await res.json().catch(()=>({}));
             if (res.ok) return data;
-            lastErr = (data === null || data === void 0 ? void 0 : data.error) || "HTTP ".concat(res.status);
-            // retry on transient
+            lastErr = ((_this = data) === null || _this === void 0 ? void 0 : _this.error) || "HTTP ".concat(res.status);
             if ([
                 429,
                 502,
@@ -133,10 +133,22 @@ async function searchJobs(opts) {
     } : opts || {};
     const p = new URLSearchParams();
     if (o.q) p.set('q', o.q);
-    if (o.status) p.set('status', o.status);
+    if (typeof o.status === 'string') p.set('status', o.status);
     if (o.limit != null) p.set('limit', String(o.limit));
-    if (o.offset != null) p.set('offset', String(o.offset));
-    return fetchJson("".concat(BASE, "/search?").concat(p.toString()));
+    if (o && o.offset != null) p.set('offset', String(o.offset));
+    const data = await fetchJson("".concat(BASE, "/search?").concat(p.toString()));
+    const rows = Array.isArray(data === null || data === void 0 ? void 0 : data.jobs) ? data.jobs : Array.isArray(data === null || data === void 0 ? void 0 : data.rows) ? data.rows : Array.isArray(data === null || data === void 0 ? void 0 : data.results) ? data.results : Array.isArray(data) ? data : [];
+    const ok = !!(data === null || data === void 0 ? void 0 : data.ok) || Array.isArray(rows);
+    const total = typeof (data === null || data === void 0 ? void 0 : data.total) === 'number' ? data.total : rows.length;
+    return {
+        ok,
+        rows,
+        total,
+        error: data === null || data === void 0 ? void 0 : data.error,
+        jobs: rows,
+        results: rows,
+        raw: data
+    };
 }
 if (typeof globalThis.$RefreshHelpers$ === 'object' && globalThis.$RefreshHelpers !== null) {
     __turbopack_context__.k.registerExports(__turbopack_context__.m, globalThis.$RefreshHelpers$);
@@ -271,7 +283,7 @@ function ScanKiosk() {
         }
     }["ScanKiosk.useScanner"]);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("main", {
-        className: "page-wrap",
+        className: "scan-page",
         style: {
             textAlign: 'center'
         },

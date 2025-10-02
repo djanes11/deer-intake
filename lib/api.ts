@@ -1,62 +1,119 @@
-const BASE = '/api/gas2';
+// lib/api.ts — hardened against AbortError + clearer errors
 
-export type GetJobResp = { ok: boolean; exists: boolean; job?: any; error?: string };
-export type SaveResp   = { ok: boolean; error?: string; row?: number };
-export type ProgressResp = { ok: boolean; nextStatus?: 'Processing'|'Finished'|null; error?: string };
-export type SearchJobsResp = { ok: boolean; rows: any[]; total?: number; error?: string };
+export type Job = {
+  tag?: string;
+  customer?: string;
+  phone?: string;
+  dropoff?: string;
 
-async function fetchJson(url: string, init?: RequestInit, attempts = 3, timeoutMs = 7000) {
-  let lastErr: any = null;
-  for (let i = 0; i < attempts; i++) {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { cache: 'no-store', ...init, signal: ctrl.signal });
-      clearTimeout(to);
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) return data;
-      lastErr = data?.error || `HTTP ${res.status}`;
-      // retry on transient
-      if ([429, 502, 503, 504].includes(res.status)) { await new Promise(r => setTimeout(r, 250*(i+1))); continue; }
-      break;
-    } catch (e:any) {
-      clearTimeout(to);
-      lastErr = e?.name === 'AbortError' ? 'Request timed out' : (e?.message || e);
-      await new Promise(r => setTimeout(r, 250*(i+1)));
+  status?: string;
+  capingStatus?: string;
+  webbsStatus?: string;
+
+  callAttempts?: number;
+  lastCallAt?: string;
+  lastCalledBy?: string;
+  callNotes?: string;
+
+  confirmation?: string;
+  email?: string;
+  address?: string; city?: string; state?: string; zip?: string;
+  county?: string; sex?: string; processType?: string;
+  steak?: string; steakOther?: string; burgerSize?: string; steaksPerPackage?: string; beefFat?: boolean;
+  hindRoastCount?: string; frontRoastCount?: string;
+  backstrapPrep?: string; backstrapThickness?: string; backstrapThicknessOther?: string;
+  specialtyProducts?: boolean; summerSausageLbs?: string | number; summerSausageCheeseLbs?: string | number; slicedJerkyLbs?: string | number; specialtyPounds?: string;
+  notes?: string;
+  webbsOrder?: boolean; webbsFormNumber?: string; webbsPounds?: string;
+  price?: number | string; priceProcessing?: number | string; priceSpecialty?: number | string;
+  Paid?: boolean; paid?: boolean; paidProcessing?: boolean; paidSpecialty?: boolean;
+};
+
+const PROXY = '/api/gas2';
+
+function urlForGet(params: Record<string, string>) {
+  const q = new URLSearchParams(params).toString();
+  return `${PROXY}?${q}`;
+}
+
+function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  return { signal: ctrl.signal, cancel: () => clearTimeout(id) };
+}
+
+async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
+  const { signal, cancel } = withTimeout(20000); // 20s
+  try {
+    const res = await fetch(input, {
+      ...init,
+      signal,
+      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+      cache: 'no-store',
+      keepalive: false,
+    });
+
+    // Read raw text first so we can show upstream HTML or text errors
+    const text = await res.text().catch(() => '');
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
+
+    if (!res.ok) {
+      const msg = (data && data.error) ? data.error : (text || `HTTP ${res.status}`);
+      throw new Error(msg);
     }
+    return (data ?? {}) as T;
+  } catch (err: any) {
+    // Map aborted requests to a clear message
+    if (err?.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw new Error(err?.message || 'Network error');
+  } finally {
+    cancel();
   }
-  return { ok: false, error: String(lastErr || 'Network error') };
 }
 
-export async function getJob(tag: string): Promise<GetJobResp> {
-  return fetchJson(`${BASE}/get?tag=${encodeURIComponent(tag)}`);
+/* ---------- API wrappers ---------- */
+
+export async function searchJobs(q: string) {
+  const path = urlForGet({ action: 'search', q });
+  const j = await fetchJSON<{ ok: boolean; rows?: Job[]; jobs?: Job[]; results?: Job[]; total?: number }>(path);
+  return { ...j, rows: j.rows || j.results || j.jobs || [] };
 }
 
-export async function saveJob(job: any): Promise<SaveResp> {
-  return fetchJson(`${BASE}/save`, {
+export async function getJob(tag: string) {
+  const path = urlForGet({ action: 'get', tag });
+  return fetchJSON<{ ok: boolean; exists?: boolean; job?: Job }>(path);
+}
+
+export async function saveJob(job: Job) {
+  return fetchJSON<{ ok: boolean }>(PROXY, {
     method: 'POST',
-    headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ job })
+    body: JSON.stringify({ action: 'save', job }),
   });
 }
 
-export async function progress(tag: string): Promise<ProgressResp> {
-  return fetchJson(`${BASE}/progress`, {
+export async function progress(payload: { tag: string }) {
+  return fetchJSON<{ ok: boolean; nextStatus?: string }>(PROXY, {
     method: 'POST',
-    headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ tag })
+    body: JSON.stringify({ action: 'progress', tag: payload.tag }),
   });
 }
 
-export async function searchJobs(
-  opts?: string | { q?: string; status?: string; limit?: number; offset?: number }
-): Promise<SearchJobsResp> {
-  const o = typeof opts === 'string' ? { q: opts } : (opts || {});
-  const p = new URLSearchParams();
-  if (o.q) p.set('q', o.q);
-  if (o.status) p.set('status', o.status);
-  if (o.limit != null) p.set('limit', String(o.limit));
-  if (o.offset != null) p.set('offset', String(o.offset));
-  return fetchJson(`${BASE}/search?${p.toString()}`);
+// NO STATUS FLIP — just increments attempts and appends notes
+export async function logCallSimple(payload: { tag: string; reason?: string; notes?: string }) {
+  return fetchJSON<{ ok: boolean }>(PROXY, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'log-call', ...payload }),
+  });
+}
+
+// STATUS FLIP to "Called" in the appropriate column (meat/cape/webbs)
+export async function markCalled(payload: { tag: string; scope?: 'auto' | 'meat' | 'cape' | 'webbs'; notes?: string }) {
+  return fetchJSON<{ ok: boolean }>(PROXY, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'markCalled', tag: payload.tag, scope: payload.scope || 'auto', notes: payload.notes || '' }),
+  });
 }
 

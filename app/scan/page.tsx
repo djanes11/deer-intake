@@ -70,7 +70,7 @@ export default function ScanKiosk() {
   });
 
   return (
-    <main className="page-wrap" style={{ textAlign:'center' }}>
+    <main className="scan-page" style={{ textAlign:'center' }}>
       <h1 style={{ margin:'4px 0 8px' }}>Scan a Tag</h1>
       <p style={{ color:'var(--muted)', margin:'0 0 16px' }}>
         Scan once to start Processing; scan again to mark Finished.
