@@ -232,6 +232,7 @@ export async function POST(req: NextRequest) {
             `<p>Hi ${custName || 'there'},</p>`,
             `<p>We received your deer (Tag <b>${tag}</b>).</p>`,
             `<p><a href="${viewUrl}" target="_blank" rel="noopener">Click here to view your intake form</a> (read-only).</p>`,
+            `<p>If you need to make any updates or have questions, please contact Travis at <a href="tel:15026433916">(502) 643-3916</a>.</p>`,
             `<p>— ${SITE}</p>`,
           ].join(''),
         });
@@ -249,13 +250,22 @@ export async function POST(req: NextRequest) {
         const stillOwe = paidProcessing ? 0 : Math.max(0, procPrice);
 
         log('sending finished email -> stillOwe=', stillOwe);
+        const owedBlock =
+          stillOwe > 0
+            ? `<p><b>Amount still owed (regular processing): $${stillOwe.toFixed(2)}</b></p>`
+            : '';
+
         await sendEmail({
           to: customerEmail,
           subject: `${SITE} — Finished & Ready (Tag ${tag})`,
           html: [
             `<p>Hi ${custName || 'there'},</p>`,
             `<p>Your regular processing is finished and ready for pickup.</p>`,
-            `<p><b>Amount still owed (regular processing): $${stillOwe.toFixed(2)}</b></p>`,
+            owedBlock,
+            `<p><b>Pickup hours</b>: 6:00 pm–8:00 pm Monday–Friday, 8:00 am–8:00 pm Saturday & Sunday.</p>`,
+            `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
+            `<p>Please bring a cooler or box to transport your meat.</p>`,
+            `<p><em>Reminder:</em> This update is for your regular processing only. We’ll reach out separately about any Webbs orders or McAfee Specialty Products.</p>`,
             `<p>— ${SITE}</p>`,
           ].join(''),
         });
