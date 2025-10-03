@@ -1,23 +1,23 @@
-// lib/email.ts (SMTP-only, no 'resend' import to avoid build errors)
-import type { Attachment } from 'nodemailer/lib/mailer';
+// lib/email.ts (SMTP-only, no Resend, no internal type imports)
+import 'server-only';
 
 type EmailOpts = {
   to: string;
   subject: string;
   html: string;
   text?: string;
-  attachments?: Attachment[];
+  attachments?: any[]; // avoid nodemailer internal type import
 };
 
 export async function sendEmail(opts: EmailOpts) {
   const from = process.env.EMAIL_FROM;
-  if (!from) throw new Error("EMAIL_FROM not set");
+  if (!from) throw new Error('EMAIL_FROM not set');
 
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 465);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) throw new Error("SMTP_* env vars missing");
+  if (!host || !user || !pass) throw new Error('SMTP_* env vars missing');
 
   const nodemailer = await import('nodemailer');
   const transporter = nodemailer.createTransport({
@@ -35,6 +35,7 @@ export async function sendEmail(opts: EmailOpts) {
     text: opts.text,
     attachments: opts.attachments,
   });
-  if (!info.messageId) throw new Error("SMTP send failed");
-  return { ok: true, id: info.messageId };
+
+  if (!info.messageId) throw new Error('SMTP send failed');
+  return { ok: true, id: info.messageId as string };
 }
