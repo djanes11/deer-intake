@@ -883,3 +883,35 @@ label.pill {
 .light-page .muted { color:#374151; }
 .light-page input[type="checkbox"] { accent-color:#2f6f3f; }
 
+/* Readable containers for public read-only intake page */
+.light-page .form-card { background:#fff; color:#0b0f12; }
+.light-page .form-card .grid { display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:8px; }
+.light-page .form-card .grid > * { min-width:0; }            /* lets content shrink instead of overflow */
+.light-page .form-card .value {
+  background:#fff;
+  border:1px solid #cbd5e1;
+  border-radius:10px;
+  padding:6px 8px;
+  word-break: break-word;          /* long words/links */
+  overflow-wrap: anywhere;         /* very long strings */
+  white-space: pre-wrap;           /* keep user newlines but still wrap */
+}
+.light-page .form-card label {
+  font-size:12px; font-weight:700; color:#0b0f12; display:block; margin-bottom:4px;
+}
+
+/* Checkbox text should wrap instead of pushing layout off */
+.light-page .form-card .checks { gap:10px; }
+.light-page .form-card .checks > div { min-width:0; max-width:100%; }
+.light-page .form-card .checks span {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Tighten on small screens */
+@media (max-width: 640px) {
+  .light-page .form-card { padding:10px; }
+  .light-page .form-card .summary .row { grid-template-columns: 1fr; }
+}
+
+

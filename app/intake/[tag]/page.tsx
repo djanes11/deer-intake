@@ -66,8 +66,21 @@ const toInt = (val: any) => {
 function Field({ label, value }: { label: string; value?: string }) {
   return (
     <div>
-      <label style={{ fontSize: 12, fontWeight: 700, color: '#0b0f12', display: 'block', marginBottom: 4 }}>{label}</label>
-      <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px' }}>{value || ''}</div>
+      <label>{label}</label>
+      <div
+        className="value"
+        style={{
+          background:'#fff',
+          border:'1px solid #cbd5e1',
+          borderRadius:10,
+          padding:'6px 8px',
+          wordBreak:'break-word',
+          overflowWrap:'anywhere',
+          whiteSpace:'pre-wrap',
+        }}
+      >
+        {value || ''}
+      </div>
     </div>
   );
 }
