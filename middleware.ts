@@ -1,13 +1,13 @@
 // middleware.ts
 import { NextResponse, NextRequest } from 'next/server';
 
-// Toggle lock (set LOCK_NON_INTAKE=1 in prod). Leave unset in dev if you want no lock.
+// Turn lock on only where you want it (e.g., Production)
 const LOCK = process.env.LOCK_NON_INTAKE === '1';
 
 const USER = process.env.BASIC_AUTH_USER || '';
 const PASS = process.env.BASIC_AUTH_PASS || '';
-const REALM = 'Staff';                    // shows in the browser prompt
-const MAX_AGE_S = 60 * 60 * 24;           // 24 hours
+const REALM = 'Staff';
+const MAX_AGE_S = 60 * 60 * 24; // 24h
 
 function isAsset(p: string) {
   return (
@@ -19,29 +19,25 @@ function isAsset(p: string) {
     /\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|txt|map)$/.test(p)
   );
 }
-
 function isPublic(p: string) {
-  // PUBLIC: intake view + your gas endpoint + 404 page itself + assets
+  // Public: intake view + gas endpoint + 404 page itself
   return p.startsWith('/intake/') || p.startsWith('/api/gas2') || p === '/404';
 }
 
 function decodeBasicAuth(h: string): { user: string; pass: string } | null {
-  // h looks like: "Basic base64(user:pass)"
   if (!h?.startsWith('Basic ')) return null;
   const b64 = h.slice(6).trim();
   try {
-    // atob is available in the Edge runtime
-    const txt = atob(b64);
-    const idx = txt.indexOf(':');
-    if (idx < 0) return null;
-    return { user: txt.slice(0, idx), pass: txt.slice(idx + 1) };
+    const txt = atob(b64); // Edge runtime has atob
+    const i = txt.indexOf(':');
+    if (i < 0) return null;
+    return { user: txt.slice(0, i), pass: txt.slice(i + 1) };
   } catch {
     return null;
   }
 }
 
-function needPrompt(req: NextRequest): boolean {
-  // Force a re-prompt every 24h by requiring a fresh auth_ts cookie
+function cookieExpired(req: NextRequest) {
   const tsStr = req.cookies.get('auth_ts')?.value;
   if (!tsStr) return true;
   const ts = Number(tsStr);
@@ -50,55 +46,58 @@ function needPrompt(req: NextRequest): boolean {
   return age > MAX_AGE_S;
 }
 
-function unauthorized(realm = REALM) {
-  // Return 401 to trigger browser Basic Auth prompt
+function unauthorized() {
   return new NextResponse('Authentication required', {
     status: 401,
-    headers: { 'WWW-Authenticate': `Basic realm="${realm}", charset="UTF-8"` },
+    headers: { 'WWW-Authenticate': `Basic realm="${REALM}", charset="UTF-8"` },
   });
 }
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always let assets and the public pages through
-  if (isAsset(pathname) || isPublic(pathname)) {
-    return NextResponse.next();
-  }
+  // Always allow public routes and static assets
+  if (isAsset(pathname) || isPublic(pathname)) return NextResponse.next();
 
-  // If not locking (e.g., in Preview/Dev), pass-through
+  // No lock in this environment? Let everything through.
   if (!LOCK) return NextResponse.next();
 
-  // If no creds configured, silently 404 the rest of the site
-  if (!USER || !PASS) {
-    return NextResponse.rewrite(new URL('/404', req.url));
-  }
+  // If creds not configured, just hide everything else
+  if (!USER || !PASS) return NextResponse.rewrite(new URL('/404', req.url));
 
-  // Protected route: require Basic Auth
+  // Require Basic Auth for all other routes
   const creds = decodeBasicAuth(req.headers.get('authorization') || '');
   if (!creds || creds.user !== USER || creds.pass !== PASS) {
+    // Wrong/missing creds -> prompt
     return unauthorized();
   }
 
-  // Valid creds. If cookie expired/missing, force a one-time re-prompt (401).
-  // After the user submits creds, we’ll set a fresh cookie and allow.
-  if (needPrompt(req)) {
-    return unauthorized(REALM);
+  // Creds valid:
+  const res = NextResponse.next();
+
+  // If cookie missing or expired, set/refresh it and allow (NO 401 here)
+  if (cookieExpired(req)) {
+    res.cookies.set('auth_ts', String(Math.floor(Date.now() / 1000)), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      path: '/',
+      maxAge: MAX_AGE_S,
+    });
+  } else {
+    // also refresh on each valid hit to keep it rolling
+    res.cookies.set('auth_ts', String(Math.floor(Date.now() / 1000)), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      path: '/',
+      maxAge: MAX_AGE_S,
+    });
   }
 
-  // Fresh enough: allow and refresh cookie TTL silently
-  const res = NextResponse.next();
-  res.cookies.set('auth_ts', String(Math.floor(Date.now() / 1000)), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: true,
-    path: '/',
-    maxAge: MAX_AGE_S,
-  });
   return res;
 }
 
 export const config = {
-  // Run on most paths; skipping the image optimizer keeps noise down
   matcher: ['/((?!_next/image).*)'],
 };
