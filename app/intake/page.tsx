@@ -121,6 +121,14 @@ const pickCut = (obj: unknown, key: string): boolean => {
   return asBool(obj && typeof obj === 'object' ? (obj as AnyRec)[key] : undefined);
 };
 
+/** Derive "paid in full" from split flags + whether specialty is in play */
+const fullPaid = (j: Job): boolean => {
+  const proc = !!j.paidProcessing;
+  const needsSpec = asBool(j.specialtyProducts);
+  const spec = needsSpec ? !!j.paidSpecialty : true;
+  return proc && spec;
+};
+
 /* ---- Fixed status choices + guards ---- */
 const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
 const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
@@ -187,44 +195,47 @@ function IntakePage() {
         const res = await getJob(tagFromUrl);
         if (res?.exists && res.job) {
           const j: any = res.job;
-          setJob((prev) => ({
-            ...prev,
-            ...j,
-            tag: j.tag || tagFromUrl,
-            dropoff: j.dropoff || todayISO(),
-            status: coerce(j.status || prev.status || 'Dropped Off', STATUS_MAIN),
-            capingStatus: coerce(j.capingStatus || (j.processType === 'Caped' ? 'Dropped Off' : ''), STATUS_CAPE),
-            webbsStatus: coerce(j.webbsStatus || (j.webbsOrder ? 'Dropped Off' : ''), STATUS_WEBBS),
+          setJob((prev) => {
+            const next: Job = {
+              ...prev,
+              ...j,
+              tag: j.tag || tagFromUrl,
+              dropoff: j.dropoff || todayISO(),
+              status: coerce(j.status || prev.status || 'Dropped Off', STATUS_MAIN),
+              capingStatus: coerce(j.capingStatus || (j.processType === 'Caped' ? 'Dropped Off' : ''), STATUS_CAPE),
+              webbsStatus: coerce(j.webbsStatus || (j.webbsOrder ? 'Dropped Off' : ''), STATUS_WEBBS),
 
-            hind: {
-              'Hind - Steak': pickCut(j?.hind, 'Hind - Steak'),
-              'Hind - Roast': pickCut(j?.hind, 'Hind - Roast'),
-              'Hind - Grind': pickCut(j?.hind, 'Hind - Grind'),
-              'Hind - None' : pickCut(j?.hind, 'Hind - None'),
-            },
-            front: {
-              'Front - Steak': pickCut(j?.front, 'Front - Steak'),
-              'Front - Roast': pickCut(j?.front, 'Front - Roast'),
-              'Front - Grind': pickCut(j?.front, 'Front - Grind'),
-              'Front - None' : pickCut(j?.front, 'Front - None'),
-            },
+              hind: {
+                'Hind - Steak': pickCut(j?.hind, 'Hind - Steak'),
+                'Hind - Roast': pickCut(j?.hind, 'Hind - Roast'),
+                'Hind - Grind': pickCut(j?.hind, 'Hind - Grind'),
+                'Hind - None' : pickCut(j?.hind, 'Hind - None'),
+              },
+              front: {
+                'Front - Steak': pickCut(j?.front, 'Front - Steak'),
+                'Front - Roast': pickCut(j?.front, 'Front - Roast'),
+                'Front - Grind': pickCut(j?.front, 'Front - Grind'),
+                'Front - None' : pickCut(j?.front, 'Front - None'),
+              },
 
-            // Confirmation mapping
-            confirmation:
-              j.confirmation ??
-              j['Confirmation #'] ??
-              j['Confirmation'] ??
-              prev.confirmation ??
-              '',
+              // Confirmation mapping
+              confirmation:
+                j.confirmation ??
+                j['Confirmation #'] ??
+                j['Confirmation'] ??
+                prev.confirmation ??
+                '',
 
-            // Paid flags: load both split and legacy
-            Paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
-            paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
-            paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
-            paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
-
-            specialtyProducts: asBool(j.specialtyProducts),
-          }));
+              // Paid flags: load both split and legacy
+              paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+              paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
+              specialtyProducts: asBool(j.specialtyProducts),
+            };
+            const fp = fullPaid(next);
+            next.Paid = !!(j.Paid ?? j.paid ?? fp);
+            next.paid = !!(j.Paid ?? j.paid ?? fp);
+            return next;
+          });
         }
       } catch (e: any) {
         setMsg(`Load failed: ${e?.message || e}`);
@@ -269,6 +280,18 @@ function IntakePage() {
     });
   }, [capedOn, webbsOn]);
 
+  // If specialty is turned off, clear its paid flag and recompute full/legacy paid
+  useEffect(() => {
+    setJob((prev) => {
+      if (!asBool(prev.specialtyProducts) && prev.paidSpecialty) {
+        const next = { ...prev, paidSpecialty: false };
+        const fp = fullPaid(next);
+        return { ...next, Paid: fp, paid: fp };
+      }
+      return prev;
+    });
+  }, [job.specialtyProducts]);
+
   /* ---------- Validation ---------- */
   const validate = (): string[] => {
     const missing: string[] = [];
@@ -301,8 +324,8 @@ function IntakePage() {
       webbsStatus: job.webbsOrder ? coerce(job.webbsStatus, STATUS_WEBBS) : '',
 
       // keep legacy 'Paid' in sync, and send split flags
-      Paid: !!(job.Paid ?? job.paid ?? (job.paidProcessing && job.paidSpecialty)),
-      paid: !!(job.Paid ?? job.paid ?? (job.paidProcessing && job.paidSpecialty)),
+      Paid: fullPaid(job),
+      paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
 
@@ -323,17 +346,20 @@ function IntakePage() {
         const fresh = await getJob(job.tag);
         if (fresh?.exists && fresh.job) {
           const j: any = fresh.job;
-          setJob((p) => ({
-            ...p,
-            ...j,
-            // preserve/mirror confirmation & paid flags
-            confirmation:
-              j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? p.confirmation ?? '',
-            Paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
-            paid: !!(j.Paid ?? j.paid ?? (j.paidProcessing && j.paidSpecialty)),
-            paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
-            paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
-          }));
+          setJob((p) => {
+            const merged: Job = {
+              ...p,
+              ...j,
+              confirmation:
+                j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? p.confirmation ?? '',
+              paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+              paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
+            };
+            const fp = fullPaid(merged);
+            merged.Paid = !!(j.Paid ?? j.paid ?? fp);
+            merged.paid = !!(j.Paid ?? j.paid ?? fp);
+            return merged;
+          });
         }
       }
     } catch (e: any) {
@@ -431,65 +457,64 @@ function IntakePage() {
             <div className="col">
               <label>Paid</label>
               <div className="pillrow">
-                {/* changed div -> label (clickable pill) */}
+                {/* Processing pill */}
                 <label className={`pill ${job.paidProcessing ? 'on' : ''}`}>
                   <input
                     type="checkbox"
                     checked={!!job.paidProcessing}
                     onChange={(e) => {
                       const v = e.target.checked;
-                      setJob((prev) => ({
-                        ...prev,
-                        Paid: v,
-                        paid: v,
-                        paidProcessing: v ? true : prev.paidProcessing,
-                        paidSpecialty: asBool(prev.specialtyProducts) ? (v ? true : prev.paidSpecialty) : false,
-                      }));
+                      setJob((prev) => {
+                        const next = { ...prev, paidProcessing: v };
+                        const fp = fullPaid(next);
+                        return { ...next, Paid: fp, paid: fp };
+                      });
                     }}
                   />
-                  <span className="badge">{job.paidProcessing ? 'Processing Paid' : 'Processing Unpaid'}</span>
                 </label>
+                <span className="badge">{job.paidProcessing ? 'Processing Paid' : 'Processing Unpaid'}</span>
 
+                {/* Specialty pill (only if specialty is enabled) */}
                 {asBool(job.specialtyProducts) && (
-                  <label className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={!!job.paidSpecialty}
-                      onChange={(e) => {
-                        const v = e.target.checked;
-                        setJob((prev) => ({
-                          ...prev,
-                          paidSpecialty: v,
-                          Paid: v && !!prev.paidProcessing,
-                          paid: v && !!prev.paidProcessing,
-                        }));
-                      }}
-                    />
+                  <>
+                    <label className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={!!job.paidSpecialty}
+                        onChange={(e) => {
+                          const v = e.target.checked;
+                          setJob((prev) => {
+                            const next = { ...prev, paidSpecialty: v };
+                            const fp = fullPaid(next);
+                            return { ...next, Paid: fp, paid: fp };
+                          });
+                        }}
+                      />
+                    </label>
                     <span className="badge">{job.paidSpecialty ? 'Specialty Paid' : 'Specialty Unpaid'}</span>
-                  </label>
+                  </>
                 )}
 
-                <label className={`pill ${((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'on' : ''}`}>
+                {/* Overall pill */}
+                <label className={`pill ${fullPaid(job) ? 'on' : ''}`}>
                   <input
                     type="checkbox"
-                    checked={
-                      asBool(job.specialtyProducts)
-                        ? (asBool(job.Paid) || (asBool(job.paidProcessing) && asBool(job.paidSpecialty)))
-                        : (asBool(job.Paid) || asBool(job.paidProcessing))
-                    }
+                    checked={fullPaid(job)}
                     onChange={(e) => {
                       const v = e.target.checked;
-                      setJob((prev) => ({
-                        ...prev,
-                        Paid: v,
-                        paid: v,
-                        paidProcessing: v ? true : prev.paidProcessing,
-                        paidSpecialty: asBool(prev.specialtyProducts) ? (v ? true : prev.paidSpecialty) : false,
-                      }));
+                      setJob((prev) => {
+                        const next: Job = {
+                          ...prev,
+                          paidProcessing: v ? true : false,
+                          paidSpecialty: asBool(prev.specialtyProducts) ? (v ? true : false) : false,
+                        };
+                        const fp = fullPaid(next);
+                        return { ...next, Paid: fp, paid: fp };
+                      });
                     }}
                   />
-                  <span className="badge">{((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'Paid in Full' : 'Unpaid'}</span>
                 </label>
+                <span className="badge">{fullPaid(job) ? 'Paid in Full' : 'Unpaid'}</span>
               </div>
             </div>
           </div>
@@ -991,7 +1016,7 @@ function IntakePage() {
           flex: 0 0 auto;
           appearance: auto;
         }
-        .summary .pill > .badge {
+        .summary .badge {
           display: inline-block;
           font-weight: 800;
           font-size: 11px;
