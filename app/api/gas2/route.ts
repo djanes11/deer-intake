@@ -109,11 +109,18 @@ export async function POST(req: NextRequest) {
   const saved = await gasPost({ action: 'save', job });
   if (saved.status >= 400) {
     log('save upstream error:', saved.status, saved.text || saved.json);
-    return new Response(saved.text || JSON.stringify(saved.json || { ok:false, error:'Save failed' })), { status: saved.status };
+    return new Response(
+  saved.text || JSON.stringify(saved.json || { ok: false, error: 'Save failed' }),
+  { status: saved.status, headers: { 'Content-Type': saved.text ? 'text/plain' : 'application/json' } }
+);
   }
   if (!saved.json || saved.json.ok === false) {
     log('save not ok:', saved.json);
-    return new Response(JSON.stringify(saved.json || { ok:false, error:'Save failed' }), { status: 502 });
+    return new Response(
+  JSON.stringify(saved.json || { ok: false, error: 'Save failed' }),
+  { status: 502, headers: { 'Content-Type': 'application/json' } }
+);
+
   }
 
   // after
