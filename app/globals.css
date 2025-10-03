@@ -628,3 +628,91 @@ label:has(> input[type="checkbox"]) > :not(input) {
   word-break: break-word;
 }
 
+/* ===== Checkbox layout hard reset ===== */
+
+/* 0) Kill stray padding/margins on checkbox labels */
+label.checkbox,
+.checkbox label,
+label[for][data-checkbox],
+label.pill {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* 1) Make the label a small horizontal row (text sits right of the box) */
+label.checkbox,
+.checkbox label,
+label[for][data-checkbox],
+label:has(> input[type="checkbox"]) {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;      /* center the box with the first text line */
+  gap: 6px !important;                 /* small space between box and text */
+  max-width: 100% !important;
+  vertical-align: top;
+}
+
+/* 2) The checkbox itself: fixed size, no extra margin pushing text away */
+label.checkbox > input[type="checkbox"],
+.checkbox label > input[type="checkbox"],
+label[for][data-checkbox] > input[type="checkbox"],
+label:has(> input[type="checkbox"]) > input[type="checkbox"] {
+  flex: 0 0 auto !important;
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;                /* remove margin that shoves text to the right */
+}
+
+/* 3) The text node: let it wrap naturally right next to the box */
+label.checkbox > span,
+.checkbox label > span,
+label[for][data-checkbox] > span,
+label:has(> input[type="checkbox"]) > span,
+label.checkbox > em,
+.checkbox label > em,
+label[for][data-checkbox] > em,
+label:has(> input[type="checkbox"]) > em {
+  display: inline !important;          /* inline prevents vertical stacking in a column */
+  line-height: 1.25;
+  white-space: normal !important;      /* wrap normally */
+  word-break: break-word;
+}
+
+/* 4) Groups: stop forcing half-width columns on small screens */
+.checkbox-row,
+.form-row.checkboxes,
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+}
+
+/* let each label size to content instead of 48% columns */
+.checkbox-row > label,
+.form-row.checkboxes > label,
+.checkbox-group > label {
+  flex: 0 0 auto !important;
+}
+
+/* 5) Checkbox control sizing (keeps them compact) */
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  accent-color: #2f6f3f;
+}
+
+/* 6) If any of those checkboxes were styled as "pills", neutralize that */
+.checkbox-pill,
+.pill.checkbox,
+label.pill {
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+
