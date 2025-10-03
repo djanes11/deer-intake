@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/gas2/route.ts": {
+      "includeFiles": "node_modules/@sparticuz/chromium-min/bin/**"
+    }
+  }
+}
