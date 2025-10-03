@@ -431,7 +431,8 @@ function IntakePage() {
             <div className="col">
               <label>Paid</label>
               <div className="pillrow">
-                <div className={`pill ${job.paidProcessing ? 'on' : ''}`}>
+                {/* changed div -> label (clickable pill) */}
+                <label className={`pill ${job.paidProcessing ? 'on' : ''}`}>
                   <input
                     type="checkbox"
                     checked={!!job.paidProcessing}
@@ -447,10 +448,10 @@ function IntakePage() {
                     }}
                   />
                   <span className="badge">{job.paidProcessing ? 'Processing Paid' : 'Processing Unpaid'}</span>
-                </div>
+                </label>
 
                 {asBool(job.specialtyProducts) && (
-                  <div className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
+                  <label className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
                     <input
                       type="checkbox"
                       checked={!!job.paidSpecialty}
@@ -465,10 +466,10 @@ function IntakePage() {
                       }}
                     />
                     <span className="badge">{job.paidSpecialty ? 'Specialty Paid' : 'Specialty Unpaid'}</span>
-                  </div>
+                  </label>
                 )}
 
-                <div className={`pill ${((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'on' : ''}`}>
+                <label className={`pill ${((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'on' : ''}`}>
                   <input
                     type="checkbox"
                     checked={
@@ -488,7 +489,7 @@ function IntakePage() {
                     }}
                   />
                   <span className="badge">{((!!job.paidProcessing && !!job.paidSpecialty) || !!job.Paid) ? 'Paid in Full' : 'Unpaid'}</span>
-                </div>
+                </label>
               </div>
             </div>
           </div>
@@ -954,25 +955,51 @@ function IntakePage() {
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
-        /* Paid pills row - horizontal */
-        .pillrow {
+        /* Paid pills row */
+        .summary .pillrow {
           display: flex;
           gap: 10px;
           align-items: center;
           flex-wrap: nowrap;
         }
-        .pill { 
-          display: inline-flex; 
-          align-items: center; 
-          gap: 8px; 
-          padding: 6px 10px; 
-          border: 2px solid #eab308; 
-          background: #fff7db; 
-          border-radius: 999px; 
+        .summary .pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 6px 10px;
+          border: 2px solid #eab308;
+          background: #fff7db;
+          border-radius: 999px;
           white-space: nowrap;
+          max-width: 100%;
+          overflow: visible;
+          cursor: pointer; /* label is clickable */
+          user-select: none;
         }
-        .pill.on { border-color: #10b981; background: #ecfdf5; }
-        .badge { font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; }
+        .summary .pill.on {
+          border-color: #10b981;
+          background: #ecfdf5;
+        }
+        .summary .pill > input[type="checkbox"] {
+          position: static;
+          inset: auto;
+          transform: none;
+          width: 18px;
+          height: 18px;
+          margin: 0;
+          flex: 0 0 auto;
+          appearance: auto;
+        }
+        .summary .pill > .badge {
+          display: inline-block;
+          font-weight: 800;
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 999px;
+          border: 1px solid currentColor;
+          line-height: 1.1;
+        }
 
         .count { display: inline-flex; align-items: center; gap: 6px; }
         .countInp { width: 70px; text-align: center; }
@@ -984,14 +1011,12 @@ function IntakePage() {
         .status.ok { color: #065f46; }
         .status.err { color: #b91c1c; }
 
-        /* Hide print layout on screen; show only in print */
         .print-only { display: none; }
         @media print {
           .screen-only { display: none !important; }
           .print-only { display: block !important; }
         }
 
-        /* allow wrap on narrow screens so UI doesn’t overflow */
         @media (max-width: 900px) {
           .summary .row.small { grid-template-columns: 1fr 1fr; }
         }
@@ -1000,7 +1025,7 @@ function IntakePage() {
           .summary .row { grid-template-columns: 1fr; }
           .summary .row.small { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
-          .pillrow { flex-wrap: wrap; }
+          .summary .pillrow { flex-wrap: wrap; }
         }
       `}</style>
     </div>

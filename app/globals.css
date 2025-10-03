@@ -856,3 +856,25 @@ label.pill {
   }
 }
 
+/* Intake summary Paid pills — global safety net (optional) */
+.form-card .summary .pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: visible;
+}
+.form-card .summary .pill > input[type="checkbox"] {
+  position: static;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+  appearance: auto;
+}
+
+
