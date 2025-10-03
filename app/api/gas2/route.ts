@@ -1,7 +1,7 @@
 // app/api/gas2/route.ts
 // Initial email on first save (with signed read-only link)
 // Finished email once when status first becomes Finished/Ready (regular processing balance)
-// No attachments. No PDFs.
+// Works for both `save` and `progress` actions. No attachments. No PDFs.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -143,8 +143,12 @@ export async function POST(req: NextRequest) {
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
   log('POST action=', action);
 
-  // Pass-through for non-save actions
-  if (action !== 'save') {
+  // Figure out if this is a tag-centric action we should enrich (save/progress)
+  const tag = String((body.job && body.job.tag) || body.tag || '').trim();
+  const isTagAction = ['save', 'progress'].includes(action);
+
+  // Non-tag actions -> pass-through to GAS untouched
+  if (!isTagAction) {
     const res = await gasPost(body);
     return new Response(res.text || JSON.stringify(res.json || {}), {
       status: res.status,
@@ -152,18 +156,15 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Validate job
-  const job = body.job || {};
-  const tag = String(job.tag || '').trim();
   if (!tag) {
     log('skip: missing tag');
-    return new Response(JSON.stringify({ ok: false, error: 'Missing job.tag' }), {
+    return new Response(JSON.stringify({ ok: false, error: 'Missing job.tag or tag' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // BEFORE
+  // BEFORE (previous state)
   const prevRes = await gasGet(tag).catch((e) => {
     log('gasGet prev error', e?.message || e);
     return null;
@@ -172,38 +173,41 @@ export async function POST(req: NextRequest) {
   const prev = prevExists ? (prevRes!.job as AnyRec) : null;
   log('prev exists=', prevExists, 'prevStatus=', prev?.status);
 
-  // SAVE (forward to GAS)
-  const saved = await gasPost({ action: 'save', job });
-  if (saved.status >= 400) {
-    log('save upstream error:', saved.status, saved.text || saved.json);
-    return new Response(saved.text || JSON.stringify(saved.json || { ok: false, error: 'Save failed' }), {
-      status: saved.status,
-      headers: { 'Content-Type': saved.text ? 'text/plain' : 'application/json' },
-    });
+  // FORWARD to GAS (save/progress)
+  const forwarded = await gasPost(body);
+  if (forwarded.status >= 400) {
+    log(`${action} upstream error:`, forwarded.status, forwarded.text || forwarded.json);
+    return new Response(
+      forwarded.text || JSON.stringify(forwarded.json || { ok: false, error: `${action} failed` }),
+      {
+        status: forwarded.status,
+        headers: { 'Content-Type': forwarded.text ? 'text/plain' : 'application/json' },
+      }
+    );
   }
-  if (!saved.json || saved.json.ok === false) {
-    log('save not ok:', saved.json);
-    return new Response(JSON.stringify(saved.json || { ok: false, error: 'Save failed' }), {
+  if (!forwarded.json || forwarded.json.ok === false) {
+    log(`${action} not ok:`, forwarded.json);
+    return new Response(JSON.stringify(forwarded.json || { ok: false, error: `${action} failed` }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // AFTER
+  // AFTER (latest state)
   const latestRes = await gasGet(tag).catch((e) => {
     log('gasGet latest error', e?.message || e);
     return null;
   });
-  const latest = latestRes && latestRes.job ? (latestRes.job as AnyRec) : job;
+  const latest = latestRes && latestRes.job ? (latestRes.job as AnyRec) : (body.job || {});
   log('latest status=', latest?.status, 'email=', latest?.email ? '[present]' : '[missing]');
 
   // Triggers
-  const shouldInitial = !prevExists;
+  const shouldInitial = action === 'save' && !prevExists; // Only first true save
   const finishedNow = isFinished(latest?.status);
   const finishedBefore = isFinished(prev?.status);
-  const shouldFinished = finishedNow && !finishedBefore;
+  const shouldFinished = finishedNow && !finishedBefore;  // save OR progress
 
-  const customerEmail = String(latest.email || job.email || '').trim();
+  const customerEmail = String(latest.email || (body.job && body.job.email) || '').trim();
   const custName = String(latest.customer || latest['Customer Name'] || '').trim();
 
   log(
@@ -239,7 +243,7 @@ export async function POST(req: NextRequest) {
         log('initial email sent');
       }
 
-      // Finished email (once, when status first becomes finished/ready)
+      // Finished email (fires when status first becomes finished/ready, via save or progress)
       if (shouldFinished) {
         const procPrice = processingPrice(
           latest.processType,
@@ -274,7 +278,7 @@ export async function POST(req: NextRequest) {
     } catch (e: any) {
       log('EMAIL_SEND_ERROR:', e?.message || e);
       if (EMAIL_DEBUG) {
-        // Do not fail the save for email issues in debug mode
+        // Do not fail the action for email issues in debug mode
         return new Response(
           JSON.stringify({
             ok: true,
@@ -287,9 +291,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return new Response(JSON.stringify(saved.json), {
+  // Return GAS upstream payload to caller
+  return new Response(JSON.stringify(forwarded.json), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
 
