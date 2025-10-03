@@ -1,6 +1,7 @@
 // app/layout.tsx
 import './globals.css';
 import Nav from './components/Nav';
+import NavGate from './components/NavGate';
 
 export const metadata = {
   title: 'McAfee Deer Processing',
@@ -15,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className="watermark">
-        <Nav />
+        <NavGate>
+          <Nav />
+        </NavGate>
         <main>{children}</main>
       </body>
     </html>
