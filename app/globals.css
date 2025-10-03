@@ -476,3 +476,48 @@ main { max-width: 1040px; }
   color: #0b0f12 !important;
 }
 
+/* Make checkbox + text sit on one row, text to the right */
+label.checkbox,
+.checkbox label,
+label[for][data-checkbox],
+.label-checkbox {
+  display: inline-flex;         /* text becomes a flex item, not a text flow */
+  align-items: flex-start;      /* keep tops aligned */
+  gap: 8px;                     /* space between box and words */
+  max-width: 100%;              /* allow wrapping to next line as a whole unit */
+  vertical-align: top;
+}
+
+/* Ensure the checkbox itself doesn’t stretch the row */
+label.checkbox > input[type="checkbox"],
+.checkbox label > input[type="checkbox"],
+label[for][data-checkbox] > input[type="checkbox"] {
+  flex: 0 0 auto;               /* fixed-size control */
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  margin-top: 2px;              /* optical tweak so box and first line align */
+}
+
+/* Long labels can wrap to the next line, still to the RIGHT of the box */
+label.checkbox > span,
+.checkbox label > span,
+label[for][data-checkbox] > span {
+  display: inline-block;
+  line-height: 1.25;
+  white-space: normal;          /* wrap normally */
+  word-break: break-word;       /* don’t overflow on long words */
+}
+
+/* If you’re mapping a row of checkboxes, let items wrap gracefully */
+.checkbox-row, .form-row.checkboxes, .checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+/* Nuke “pill” chrome around checkbox labels so it doesn’t mess layout */
+.checkbox-pill, .pill.checkbox, label.pill {
+  padding: 0; border: 0; background: transparent;
+}
+label.pill > input[type="checkbox"] { margin: 0; }
