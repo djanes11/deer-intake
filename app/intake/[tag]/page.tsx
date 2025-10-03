@@ -132,7 +132,7 @@ export default async function IntakeView({
           <title>Intake — {tagDec}</title>
         </head>
         {/* No site chrome; white card; exact form look, but read-only */}
-        <body className="light-page" style={{background:'#f1f5f9', margin:0}}>
+        <body className="light-page watermark" style={{ margin: 0 }}>
           <main style={{maxWidth:1040, margin:'18px auto', padding:'0 14px 40px'}}>
             <div className="form-card" style={{maxWidth:980, margin:'16px auto', padding:14}}>
               <h2 style={{margin:'6px 0 10px'}}>Deer Intake (Read‑only)</h2>

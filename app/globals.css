@@ -914,4 +914,34 @@ label.pill {
   .light-page .form-card .summary .row { grid-template-columns: 1fr; }
 }
 
+/* Public read-only intake page: black bg + your watermark */
+html.light-page.watermark,
+body.light-page.watermark {
+  background-color: #000 !important;           /* black base */
+  /* if your watermark is defined on .watermark, this keeps it; 
+     otherwise, uncomment and point at your asset: */
+  /* background-image: url('/watermark.svg');  */
+  background-repeat: repeat !important;
+  background-size: auto !important;            /* or 32px 32px if it's a small tile */
+}
+
+/* Keep the content readable on black bg */
+.light-page .form-card {
+  background: #fff !important;
+  color: #0b0f12;
+  border-radius: 12px;
+  border: 1px solid #e6e9ec;
+}
+
+/* Defensive: value cells wrap nicely */
+.light-page .value {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 6px 8px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 
