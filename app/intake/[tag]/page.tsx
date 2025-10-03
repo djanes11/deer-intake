@@ -3,14 +3,18 @@ import 'server-only';
 import PrintSheet from '@/app/components/PrintSheet';
 import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 const GAS_BASE = process.env.NEXT_PUBLIC_GAS_BASE!;
 const GAS_TOKEN = process.env.GAS_TOKEN || process.env.EMAIL_SIGNING_SECRET || '';
 
-function verifyToken(tag: string, t?: string | null) {
-  if (!GAS_TOKEN) return true; // if you didn’t set a secret, allow (no auth)
-  if (!t) return false;
-  const expect = crypto.createHmac('sha256', GAS_TOKEN).update(tag).digest('hex').slice(0, 16);
-  return t === expect;
+function hmac16(tag: string) {
+  if (!GAS_TOKEN) return '';
+  return crypto.createHmac('sha256', GAS_TOKEN).update(tag).digest('hex').slice(0, 16);
+}
+function verifyToken(tag: string, token?: string | null) {
+  if (!GAS_TOKEN) return true; // if no secret configured, allow
+  return token === hmac16(tag);
 }
 
 async function getJob(tag: string) {
@@ -25,17 +29,23 @@ async function getJob(tag: string) {
   return data.job;
 }
 
+type SP = Record<string, string | string[] | undefined>;
+
 export default async function IntakeView({
   params,
   searchParams,
 }: {
-  params: { tag: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ tag: string }>;
+  searchParams?: Promise<SP>;
 }) {
-  const tag = decodeURIComponent(params.tag);
-  const t = (searchParams?.t as string) || null;
+  const { tag } = await params;
+  const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
 
-  if (!verifyToken(tag, t)) {
+  const tagDec = decodeURIComponent(tag);
+  const t =
+    typeof sp.t === 'string' ? sp.t : Array.isArray(sp.t) ? sp.t[0] : undefined;
+
+  if (!verifyToken(tagDec, t)) {
     return (
       <div className="mx-auto max-w-xl p-6">
         <h1 className="text-lg font-bold mb-2">Access denied</h1>
@@ -44,7 +54,8 @@ export default async function IntakeView({
     );
   }
 
-  const job = await getJob(tag);
+  const job = await getJob(tagDec);
+
   return (
     <div className="mx-auto max-w-3xl p-4">
       <PrintSheet job={job} hideHeader />
