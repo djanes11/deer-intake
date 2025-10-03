@@ -3,6 +3,16 @@ import 'server-only';
 export const runtime = 'nodejs';          // <-- force Node so 'crypto' works
 export const dynamic = 'force-dynamic';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export async function generateMetadata() {
+  return {
+    robots: { index: false, follow: false, nocache: true },
+  };
+}
+
 import PrintSheet from '@/app/components/PrintSheet';
 import crypto from 'crypto';
 

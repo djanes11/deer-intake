@@ -225,7 +225,6 @@ export async function POST(req: NextRequest) {
                  }
                  <p>Your intake form is attached for your records.</p>
                  <p>— ${SITE}</p>`,
-          attachments, // remove this line if you want link-only, no attachment
         });
         log('initial email sent');
       }
