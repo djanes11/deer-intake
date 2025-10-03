@@ -1,6 +1,6 @@
 // app/layout.tsx
 import './globals.css';
-import Nav from './Nav';
+import Nav from './components/Nav';
 
 export const metadata = {
   title: 'McAfee Deer Processing',
