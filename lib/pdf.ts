@@ -1,34 +1,51 @@
-// lib/pdf.ts
-// Render a server-side HTML snapshot of PrintSheet and convert to PDF using puppeteer-core + chrome-aws-lambda (works on Vercel).
+// lib/pdf.ts (no React/Next imports; builds static HTML; server-only PDF via puppeteer)
+import 'server-only';
 
-import React from 'react';
-import ReactDOMServer from 'react-dom/server';
-import type { Job } from '@/lib/api';
-import PrintSheet from '@/app/components/PrintSheet';
+type AnyRec = Record<string, any>;
 
-export async function renderPrintSheetPDF(job: Job & { tag?: string }) {
-  // 1) Render HTML string
-  const html = ReactDOMServer.renderToString(
-    React.createElement(PrintSheet as any, { tag: job.tag || job['Tag'], job })
-  );
+export async function renderPrintSheetPDF(job: AnyRec & { tag?: string }) {
+  const esc = (s: any) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
 
-  const fullHtml = `<!DOCTYPE html>
-<html>
-<head>
+  const rows = [
+    ['Tag', job.tag],
+    ['Customer', job.customer],
+    ['Phone', job.phone],
+    ['Email', job.email],
+    ['Address', [job.address, job.city, job.state, job.zip].filter(Boolean).join(', ')],
+    ['Drop-off', job.dropoff],
+    ['Status', job.status],
+    ['Process Type', job.processType],
+    ['Beef Fat', job.beefFat ? 'Yes' : 'No'],
+    ['Webbs Order', job.webbsOrder ? 'Yes' : 'No'],
+  ];
+
+  const html = `<!DOCTYPE html>
+<html><head>
 <meta charSet="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Deer Intake — ${job.tag || ''}</title>
+<title>Deer Intake — ${esc(job.tag)}</title>
 <style>
-  /* basic print css reset so puppeteer fits Letter */
-  @page { size: Letter; margin: 8mm; }
-  body { margin: 0; }
+  @page { size: Letter; margin: 10mm; }
+  body { font-family: Arial, sans-serif; }
+  h1 { margin: 0 0 8px; font-size: 20px; }
+  .sub { color:#555; margin: 0 0 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #d1d5db; padding: 6px 8px; font-size: 12px; text-align: left; }
+  th { width: 180px; background: #f8fafc; }
 </style>
 </head>
-<body>${html}</body>
-</html>`;
+<body>
+  <h1>Deer Intake</h1>
+  <div class="sub">Tag ${esc(job.tag || '')}</div>
+  <table>
+    ${rows.map(([k,v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}
+  </table>
+</body></html>`;
 
-  // 2) Use headless chromium
-  const isVercel = !!process.env.VERCEL;
+  // Prefer chromium-min on Vercel, fallback to puppeteer locally
   try {
     const chromium = await import('@sparticuz/chromium-min');
     const puppeteer = await import('puppeteer-core');
@@ -39,25 +56,16 @@ export async function renderPrintSheetPDF(job: Job & { tag?: string }) {
       headless: chromium.default.headless,
     });
     const page = await browser.newPage();
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-    const pdf = await page.pdf({
-      printBackground: true,
-      format: 'Letter',
-      margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' },
-    });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdf = await page.pdf({ printBackground: true, format: 'Letter', margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' } });
     await browser.close();
     return Buffer.from(pdf);
-  } catch (err) {
-    // Fallback: try regular puppeteer (dev)
+  } catch (e) {
     const puppeteer = await import('puppeteer');
     const browser = await puppeteer.launch({ headless: 'new' as any });
     const page = await browser.newPage();
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-    const pdf = await page.pdf({
-      printBackground: true,
-      format: 'Letter',
-      margin: { top: '8mm', right: '8mm', bottom: '8mm', left: '8mm' },
-    });
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdf = await page.pdf({ printBackground: true, format: 'Letter', margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' } });
     await browser.close();
     return Buffer.from(pdf);
   }
