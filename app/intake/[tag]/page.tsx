@@ -1,9 +1,10 @@
 // app/intake/[tag]/page.tsx
 import 'server-only';
+export const runtime = 'nodejs';          // <-- force Node so 'crypto' works
+export const dynamic = 'force-dynamic';
+
 import PrintSheet from '@/app/components/PrintSheet';
 import crypto from 'crypto';
-
-export const dynamic = 'force-dynamic';
 
 const GAS_BASE = process.env.NEXT_PUBLIC_GAS_BASE!;
 const GAS_TOKEN = process.env.GAS_TOKEN || process.env.EMAIL_SIGNING_SECRET || '';
@@ -29,8 +30,8 @@ async function getJob(tag: string) {
   return data.job;
 }
 
+// Next 15 props are Promises
 type SP = Record<string, string | string[] | undefined>;
-
 export default async function IntakeView({
   params,
   searchParams,
@@ -38,27 +39,38 @@ export default async function IntakeView({
   params: Promise<{ tag: string }>;
   searchParams?: Promise<SP>;
 }) {
-  const { tag } = await params;
-  const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
+  try {
+    const { tag } = await params;
+    const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
 
-  const tagDec = decodeURIComponent(tag);
-  const t =
-    typeof sp.t === 'string' ? sp.t : Array.isArray(sp.t) ? sp.t[0] : undefined;
+    const tagDec = decodeURIComponent(tag);
+    const t = typeof sp.t === 'string' ? sp.t : Array.isArray(sp.t) ? sp.t[0] : undefined;
 
-  if (!verifyToken(tagDec, t)) {
+    if (!verifyToken(tagDec, t)) {
+      return (
+        <div className="mx-auto max-w-xl p-6">
+          <h1 className="text-lg font-bold mb-2">Access denied</h1>
+          <p>Invalid or missing token.</p>
+        </div>
+      );
+    }
+
+    const job = await getJob(tagDec);
+
+    return (
+      <div className="mx-auto max-w-3xl p-4">
+        <PrintSheet job={job} hideHeader />
+      </div>
+    );
+  } catch (err: any) {
+    // Render a friendly error instead of crashing the route
     return (
       <div className="mx-auto max-w-xl p-6">
-        <h1 className="text-lg font-bold mb-2">Access denied</h1>
-        <p>Invalid or missing token.</p>
+        <h1 className="text-lg font-bold mb-2">Unable to load form</h1>
+        <p style={{whiteSpace: 'pre-wrap', color: '#6b7280'}}>
+          {String(err?.message || err || 'Unknown error')}
+        </p>
       </div>
     );
   }
-
-  const job = await getJob(tagDec);
-
-  return (
-    <div className="mx-auto max-w-3xl p-4">
-      <PrintSheet job={job} hideHeader />
-    </div>
-  );
 }
