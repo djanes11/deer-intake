@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 
 type AnyRec = Record<string, any>;
-export interface PrintSheetProps { tag?: string; job?: AnyRec | null }
+export interface PrintSheetProps { tag?: string; job?: AnyRec | null; hideHeader?: boolean }
 
 /* ---------------- Helpers ---------------- */
 function jget(job: AnyRec | null | undefined, keys: string[]): string {
@@ -64,7 +64,7 @@ function hasSpecialty(job: AnyRec | null | undefined): boolean {
 function money(n: number): string { return '$' + (Number.isFinite(n) ? n.toFixed(2) : '0.00'); }
 
 /* ---------------- Component ---------------- */
-export default function PrintSheet({ tag, job }: PrintSheetProps) {
+export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const pageCount = useMemo(() => (hasSpecialty(job) ? 2 : 1), [job]);
   const pages = Array.from({ length: pageCount }, (_, i) => i);
 
@@ -221,10 +221,12 @@ export default function PrintSheet({ tag, job }: PrintSheetProps) {
         {pages.map((i) => (
           <div className="page" key={i}>
             <div className="wrap sheet">
-              <div className="row" style={{ justifyContent: 'space-between', marginBottom: '6px' }}>
-                <h2>Deer Intake</h2>
-                <div className="noprint"><button onClick={() => window.print()}>Print</button></div>
-              </div>
+              {!hideHeader && (
+                <div className="row" style={{ justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <h2>Deer Intake</h2>
+                  <div className="noprint"><button onClick={() => window.print()}>Print</button></div>
+                </div>
+              )}
 
               <div className="grid">
                 <div className="col-3 box">

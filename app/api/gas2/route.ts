@@ -1,17 +1,18 @@
-// app/api/gas2/route.ts (HTML attachment, no PDF)
-// Adds explicit console logs so you can see exactly what happened in Vercel Functions logs.
-// Safe to deploy; it masks secrets in logs.
+// app/api/gas2/route.ts (HTML attachment, initial email only + secure view link)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
 import { sendEmail } from '@/lib/email';
 import { renderFormHTML } from '@/lib/formAttachment';
+import crypto from 'crypto';
 
 const GAS_BASE = process.env.NEXT_PUBLIC_GAS_BASE || process.env.GAS_BASE;
 const GAS_TOKEN = process.env.GAS_TOKEN || '';
 const SITE = process.env.SITE_NAME || 'McAfee Custom Deer Processing';
 const EMAIL_DEBUG = process.env.EMAIL_DEBUG === '1';
+// strongly recommended for accurate public URLs
+const SITE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
 
 type AnyRec = Record<string, any>;
 const mask = (s?: string) => (s ? s.replace(/.(?=.{4})/g, '•') : '');
@@ -46,11 +47,12 @@ function processingPrice(proc: any, beef: boolean, webbs: boolean) {
     p === 'Caped' ? 150 : ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 : 0;
   return base ? base + (beef ? 5 : 0) + (webbs ? 20 : 0) : 0;
 }
+// kept for future
 const isFinished = (s?: string) => {
   const v = String(s || '').toLowerCase();
   return v.includes('finish') || v.includes('ready') || v === 'finished';
 };
-// kept in case you use it elsewhere later
+// kept for future
 const asBool = (v: any) => {
   if (v === true) return true;
   if (v === false) return false;
@@ -80,6 +82,24 @@ async function gasPost(body: AnyRec) {
   } catch {
     return { status: r.status, text };
   }
+}
+
+/** Prefer env; otherwise infer from request (best effort) */
+function getSiteOrigin(req: Request) {
+  if (SITE_URL) return SITE_URL;
+  try {
+    const u = new URL(req.url);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return '';
+  }
+}
+
+/** 16-char HMAC tag token used in public view links */
+function makeLinkToken(tag: string) {
+  const key = GAS_TOKEN || (process.env.EMAIL_SIGNING_SECRET || '');
+  if (!key) return ''; // if no secret, link will omit token
+  return crypto.createHmac('sha256', key).update(tag).digest('hex').slice(0, 16);
 }
 
 export async function GET(req: NextRequest) {
@@ -161,25 +181,12 @@ export async function POST(req: NextRequest) {
 
   const customerEmail = String(latest.email || job.email || '').trim();
   const custName = String(latest.customer || latest['Customer Name'] || '').trim();
-  const procPrice = processingPrice(latest.processType, !!latest.beefFat, !!latest.webbsOrder);
-  const paidProcessing = !!(latest.paidProcessing || latest['Paid Processing']);
 
-  // Triggers
-  const shouldInitial = !prevExists; // first submit, regardless of status text
-  const finishedNow = isFinished(latest.status);
-  const finishedBefore = isFinished(prev?.status);
-  const shouldFinished = finishedNow && !finishedBefore;
+  // Triggers — only initial email now
+  const shouldInitial = !prevExists;
+  const shouldFinished = false;
 
-  log(
-    'decisions -> shouldInitial=',
-    shouldInitial,
-    'shouldFinished=',
-    shouldFinished,
-    'finishedNow=',
-    finishedNow,
-    'finishedBefore=',
-    finishedBefore
-  );
+  log('decisions -> shouldInitial=', shouldInitial);
 
   if (!customerEmail) {
     log('no customer email; skipping email');
@@ -196,36 +203,33 @@ export async function POST(req: NextRequest) {
       },
     ];
 
+    // Public view link with short HMAC token (optional if no secret configured)
+    const origin = getSiteOrigin(req as any);
+    const token = makeLinkToken(tag);
+    const viewUrl = origin
+      ? `${origin}/intake/${encodeURIComponent(tag)}${token ? `?t=${token}` : ''}`
+      : '';
+
     try {
       if (shouldInitial) {
-        log('sending initial email ->', customerEmail);
+        log('sending initial email ->', customerEmail, viewUrl ? '(with link)' : '(no link)');
         await sendEmail({
           to: customerEmail,
           subject: `${SITE} — Intake Confirmation (Tag ${tag})`,
           html: `<p>Hi ${custName || 'there'},</p>
                  <p>We received your deer (Tag <b>${tag}</b>).</p>
+                 ${
+                   viewUrl
+                     ? `<p>View your intake form here: <a href="${viewUrl}">${viewUrl}</a></p>`
+                     : ''
+                 }
                  <p>Your intake form is attached for your records.</p>
                  <p>— ${SITE}</p>`,
-          attachments,
+          attachments, // remove this line if you want link-only, no attachment
         });
         log('initial email sent');
       }
-
-      if (shouldFinished) {
-        const stillOwe = paidProcessing ? 0 : Math.max(0, procPrice);
-        log('sending finished email -> stillOwe=', stillOwe);
-        await sendEmail({
-          to: customerEmail,
-          subject: `${SITE} — Finished & Ready (Tag ${tag})`,
-          html: `<p>Hi ${custName || 'there'},</p>
-                 <p>Your regular processing is finished and ready for pickup.</p>
-                 <p><b>Amount still owed (regular processing): $${stillOwe.toFixed(2)}</b></p>
-                 <p>We've attached your intake form for reference. Specialty items are billed separately.</p>
-                 <p>— ${SITE}</p>`,
-          attachments,
-        });
-        log('finished email sent');
-      }
+      // no finished emails anymore
     } catch (e: any) {
       log('EMAIL_SEND_ERROR:', e?.message || e);
       if (EMAIL_DEBUG) {
