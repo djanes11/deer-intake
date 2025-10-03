@@ -715,9 +715,11 @@ label.pill {
   background: transparent !important;
 }
 
-/* ===== Fix "Paid" pill alignment in summary block (mobile-safe) ===== */
+/* =========================
+   FINAL — Paid pill fix in summary block
+   ========================= */
 
-/* Make each summary row a real flex row */
+/* Ensure each summary row (inside the Paid/Status box) is a clean flex row */
 .statusbox .row {
   display: flex !important;
   align-items: center !important;
@@ -725,33 +727,45 @@ label.pill {
   flex-wrap: nowrap !important;
 }
 
-/* Label should not push/overlap */
+/* The label area in the row shouldn’t push/overlap anything */
 .statusbox .row .label {
   flex: 0 0 auto !important;
   margin: 0 !important;
 }
 
-/* The pill itself: an inline-flex chip that centers text and doesn't collapse */
+/* The pill itself behaves as a proper chip and keeps text inside/centered */
 .statusbox .row .pill,
 .statusbox .row button.pill {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 6px !important;
-
-  padding: 7px 12px !important;
+  padding: 6px 12px !important;
   min-height: 32px !important;
   line-height: 1.1 !important;
   border-radius: 9999px !important;
-
   font-weight: 800 !important;
   white-space: nowrap !important;
-
-  flex: 0 0 auto !important;   /* don’t let it squish or grow weirdly */
+  max-width: 100% !important;
+  flex: 0 0 auto !important;
   margin: 0 !important;
 }
 
-/* Tweak sizing for narrow phones */
+/* State colors (keep if you already theme these) */
+.statusbox .row .pill.on,
+.statusbox .row button.pill.on {
+  background: var(--brand) !important;
+  color: #fff !important;
+  border: 1px solid transparent !important;
+}
+.statusbox .row .pill:not(.on),
+.statusbox .row button.pill:not(.on) {
+  background: #e5e7eb !important;
+  color: #0b0f12 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+/* Slightly tighter on narrow phones */
 @media (max-width: 480px) {
   .statusbox .row .pill,
   .statusbox .row button.pill {
@@ -760,16 +774,3 @@ label.pill {
     min-width: 78px !important; /* keeps PAID/UNPAID fully visible */
   }
 }
-
-/* If any older "pill" rules were stripping padding/background, override them here */
-.statusbox .row .pill.on { /* if you style the ON state */
-  /* example colors – keep or remove if you already theme these */
-  background: #2f6f3f !important;
-  color: #fff !important;
-}
-.statusbox .row .pill:not(.on) {
-  background: #e5e7eb !important;
-  color: #0b0f12 !important;
-  border: 1px solid #d1d5db !important;
-}
-
