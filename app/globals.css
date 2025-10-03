@@ -877,4 +877,9 @@ label.pill {
   appearance: auto;
 }
 
+/* (appended) read-only helpers for the public intake view */
+.light-page .form-card { background:#ffffff; color:#0b0f12; }
+.light-page label { color:#0b0f12; }
+.light-page .muted { color:#374151; }
+.light-page input[type="checkbox"] { accent-color:#2f6f3f; }
 
