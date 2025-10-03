@@ -60,13 +60,4 @@ export async function renderPrintSheetPDF(job: AnyRec & { tag?: string }) {
     const pdf = await page.pdf({ printBackground: true, format: 'Letter', margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' } });
     await browser.close();
     return Buffer.from(pdf);
-  } catch (e) {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.launch({ headless: 'new' as any });
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    const pdf = await page.pdf({ printBackground: true, format: 'Letter', margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' } });
-    await browser.close();
-    return Buffer.from(pdf);
-  }
 }
