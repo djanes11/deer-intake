@@ -774,3 +774,85 @@ label.pill {
     min-width: 78px !important; /* keeps PAID/UNPAID fully visible */
   }
 }
+
+/* ==== SUMMARY "PAID" PILLS — lock checkbox + text inside the chip ==== */
+
+/* Treat each Paid control as a real chip row */
+.statusbox .row label.pill,
+.statusbox .row .pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 6px 12px !important;
+  border-radius: 9999px !important;
+  line-height: 1.15 !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;     /* keep “PAID/UNPAID” on one line */
+  max-width: 100% !important;
+  flex: 0 0 auto !important;
+  overflow: visible !important;
+}
+
+/* The checkbox inside the pill must NOT be positioned off-screen */
+.statusbox .row label.pill > input[type="checkbox"],
+.statusbox .row .pill > input[type="checkbox"] {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  flex: 0 0 auto !important;
+  appearance: auto !important;        /* undo any custom hiding style */
+}
+
+/* The text inside the pill sits right of the box and stays centered */
+.statusbox .row label.pill > span,
+.statusbox .row .pill > span,
+.statusbox .row label.pill > em,
+.statusbox .row .pill > em {
+  display: inline-block !important;
+  white-space: nowrap !important;
+  line-height: 1.15 !important;
+}
+
+/* Keep the summary rows tidy so label + pill don't collide */
+.statusbox .row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+}
+
+/* The left label in the summary row shouldn't steal space */
+.statusbox .row .label {
+  flex: 0 0 auto !important;
+  margin: 0 !important;
+}
+
+/* Visual states (leave if you already theme these elsewhere) */
+.statusbox .row .pill.on,
+.statusbox .row label.pill.on {
+  background: var(--brand) !important;
+  color: #fff !important;
+  border: 1px solid transparent !important;
+}
+.statusbox .row .pill:not(.on),
+.statusbox .row label.pill:not(.on) {
+  background: #e5e7eb !important;
+  color: #0b0f12 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+/* Phone tweaks */
+@media (max-width: 480px) {
+  .statusbox .row label.pill,
+  .statusbox .row .pill {
+    padding: 6px 10px !important;
+    font-size: 13px !important;
+    min-width: 92px !important;  /* room for checkbox + "PAID" text */
+  }
+}
+
