@@ -1,4 +1,4 @@
-// lib/pdf.ts (no React/Next imports; builds static HTML; server-only PDF via puppeteer-core)
+// lib/pdf.ts (server-only HTML -> PDF using puppeteer-core + @sparticuz/chromium-min)
 import 'server-only';
 
 type AnyRec = Record<string, any>;
@@ -29,7 +29,7 @@ export async function renderPrintSheetPDF(job: AnyRec & { tag?: string }) {
 <title>Deer Intake — ${esc(job.tag)}</title>
 <style>
   @page { size: Letter; margin: 10mm; }
-  body { font-family: Arial, sans-serif; }
+  body { font-family: Arial, sans-serif; margin: 0; }
   h1 { margin: 0 0 8px; font-size: 20px; }
   .sub { color:#555; margin: 0 0 16px; }
   table { width: 100%; border-collapse: collapse; }
@@ -41,19 +41,24 @@ export async function renderPrintSheetPDF(job: AnyRec & { tag?: string }) {
   <h1>Deer Intake</h1>
   <div class="sub">Tag ${esc(job.tag || '')}</div>
   <table>
-    ${rows.map(([k,v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}
+    ${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}
   </table>
 </body></html>`;
 
   // Vercel Lambda: chromium-min + puppeteer-core only (no local fallback)
-  const chromium = await import('@sparticuz/chromium-min');
+  const chromiumMod = await import('@sparticuz/chromium-min');
   const puppeteer = await import('puppeteer-core');
 
+  // TS-safe access across chromium-min versions
+  const chromiumAny = (chromiumMod as any).default ?? chromiumMod;
+  const args: string[] = chromiumAny.args;
+  const executablePath: () => Promise<string> = chromiumAny.executablePath;
+  const headless: boolean = chromiumAny.headless;
+
   const browser = await puppeteer.launch({
-    args: chromium.default.args,
-    defaultViewport: chromium.default.defaultViewport,
-    executablePath: await chromium.default.executablePath(),
-    headless: chromium.default.headless,
+    args,
+    executablePath: await executablePath(),
+    headless,
   });
 
   const page = await browser.newPage();
@@ -68,3 +73,4 @@ export async function renderPrintSheetPDF(job: AnyRec & { tag?: string }) {
   await browser.close();
   return Buffer.from(pdf);
 }
+
