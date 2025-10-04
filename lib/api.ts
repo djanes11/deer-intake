@@ -179,14 +179,16 @@ export async function saveJob(job: Job): Promise<SaveResponse> {
 }
 
 /** Generic progress helper used earlier (kept for backward compatibility). */
-export async function progress(payload: AnyRec): Promise<SaveResponse> {
-  // Example payloads we’ve used:
-  //   { action: 'progress', tag, status: 'Finished' }
-  //   { action: 'progress', tag, capingStatus: 'Called' }
-  //   { action: 'progress', tag, webbsStatus: 'Delivered' }
-  if (!payload?.tag) throw new Error('Missing tag');
-  const body = { action: 'progress', ...payload };
-  return postJSON<SaveResponse>(body);
+export async function progress(
+  arg: string | { tag: string; status?: string }
+): Promise<{ ok?: boolean; nextStatus?: string } & Json> {
+  if (typeof arg === 'string') {
+    return postJSON({ action: 'progress', tag: arg });
+  }
+  const { tag, status } = arg;
+  const body: any = { action: 'progress', tag };
+  if (status) body.status = status;
+  return postJSON(body);
 }
 
 /** Search jobs. Use q='@report' to fetch the "ready to call" report. */
