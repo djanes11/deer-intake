@@ -8,6 +8,9 @@
 // That keeps your token server-side and lets the server add signatures, links, etc.
 
 export type AnyRec = Record<string, any>;
+type Json = Record<string, any>;
+
+const API_BASE = '/api/gas2';
 
 // Keep Job loose enough to tolerate sheet changes without breaking the app.
 // If you want stricter types, create a narrower interface and intersect.
@@ -25,7 +28,8 @@ export interface Job extends AnyRec {
 
   county?: string;
   dropoff?: string; // yyyy-mm-dd
-  sex?: '' | 'Buck' | 'Doe';
+  // Loosened to avoid union mismatches across files:
+  sex?: string;
 
   // Processing types incl. new Donate variants
   processType?:
@@ -125,8 +129,6 @@ export type SearchParams = {
   [k: string]: any;
 };
 
-const API_BASE = '/api/gas2';
-
 // ----------- low-level fetch helpers (no-cache, JSON-safe) -----------
 async function getJSON<T = any>(url: string): Promise<T> {
   const r = await fetch(url, { cache: 'no-store' });
@@ -166,19 +168,23 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
 /** Read a single job by tag (proxied through /api/gas2 → GAS) */
 export async function getJob(tag: string): Promise<GetResponse> {
   if (!tag) throw new Error('Missing tag');
-  const u = new URL(API_BASE, location.origin);
-  u.searchParams.set('action', 'get');
-  u.searchParams.set('tag', tag);
-  return getJSON<GetResponse>(u.toString());
+  const qs = new URLSearchParams({ action: 'get', tag });
+  return getJSON<GetResponse>(`${API_BASE}?${qs.toString()}`);
 }
 
 /** Save a job (create or update). Triggers initial/finished emails server-side. */
-export async function saveJob(job: Job): Promise<SaveResponse> {
+export async function saveJob(job: Partial<Job> & { tag: string }): Promise<SaveResponse> {
   if (!job || !job.tag) throw new Error('Missing job.tag');
   return postJSON<SaveResponse>({ action: 'save', job });
 }
 
-/** Generic progress helper used earlier (kept for backward compatibility). */
+/**
+ * Progress a job.
+ * Accepts either:
+ *   - progress('ABC123')                 // bare tag → server auto-advances
+ *   - progress({ tag: 'ABC123' })        // same as above
+ *   - progress({ tag: 'ABC123', status: 'Finished' }) // force status
+ */
 export async function progress(
   arg: string | { tag: string; status?: string }
 ): Promise<{ ok?: boolean; nextStatus?: string } & Json> {
@@ -193,35 +199,34 @@ export async function progress(
 
 /** Search jobs. Use q='@report' to fetch the "ready to call" report. */
 export async function searchJobs(q: string | SearchParams, opts: SearchOptions = {}): Promise<any> {
-  const u = new URL(API_BASE, location.origin);
-  u.searchParams.set('action', 'search');
+  const params = new URLSearchParams({ action: 'search' });
 
   if (typeof q === 'string') {
-    u.searchParams.set('q', q || '');
-    if (opts.limit != null) u.searchParams.set('limit', String(opts.limit));
-    if (opts.status) u.searchParams.set('status', opts.status);
-    if (opts.scope) u.searchParams.set('scope', opts.scope);
+    params.set('q', q || '');
+    if (opts.limit != null) params.set('limit', String(opts.limit));
+    if (opts.status) params.set('status', opts.status);
+    if (opts.scope) params.set('scope', opts.scope);
     Object.keys(opts).forEach((k) => {
       if (['limit', 'status', 'scope'].includes(k)) return;
       const v = (opts as AnyRec)[k];
-      if (v != null) u.searchParams.set(k, String(v));
+      if (v != null) params.set(k, String(v));
     });
-    return getJSON<any>(u.toString());
+    return getJSON<any>(`${API_BASE}?${params.toString()}`);
   }
 
   // object-mode: copy known filters and any extras; allow opts to override
-  const params: Record<string, any> = { ...(q || {}), ...(opts || {}) };
-  if (params.q != null) u.searchParams.set('q', String(params.q));
-  if (params.status != null) u.searchParams.set('status', String(params.status));
-  if (params.tag != null) u.searchParams.set('tag', String(params.tag));
-  if (params.limit != null) u.searchParams.set('limit', String(params.limit));
-  if (params.scope != null) u.searchParams.set('scope', String(params.scope));
-  Object.keys(params).forEach((k) => {
-    if (['q','status','tag','limit','scope'].includes(k)) return;
-    const v = params[k];
-    if (v != null) u.searchParams.set(k, String(v));
+  const merged: Record<string, any> = { ...(q || {}), ...(opts || {}) };
+  if (merged.q != null) params.set('q', String(merged.q));
+  if (merged.status != null) params.set('status', String(merged.status));
+  if (merged.tag != null) params.set('tag', String(merged.tag));
+  if (merged.limit != null) params.set('limit', String(merged.limit));
+  if (merged.scope != null) params.set('scope', String(merged.scope));
+  Object.keys(merged).forEach((k) => {
+    if (['q', 'status', 'tag', 'limit', 'scope'].includes(k)) return;
+    const v = merged[k];
+    if (v != null) params.set(k, String(v));
   });
-  return getJSON<any>(u.toString());
+  return getJSON<any>(`${API_BASE}?${params.toString()}`);
 }
 
 /** Mark Called with scope: 'auto' | 'meat' | 'cape' | 'webbs' | 'all' */
@@ -242,7 +247,6 @@ export async function markCalled(arg1: any, arg2?: any) {
   return postJSON<SaveResponse>(payload);
 }
 
-
 /** Add a simple “attempt + note” row; does NOT flip any status by itself. */
 export async function logCallSimple(arg1: any, arg2?: any, arg3?: any, arg4?: any) {
   // Supports: logCallSimple({ tag, scope, reason, notes, who, outcome })
@@ -262,7 +266,6 @@ export async function logCallSimple(arg1: any, arg2?: any, arg3?: any, arg4?: an
   }
   return postJSON<SaveResponse>(payload);
 }
-
 
 // ---------------- convenience utilities ----------------
 
