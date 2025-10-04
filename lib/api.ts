@@ -58,11 +58,10 @@ async function getJSON<T = any>(url: string): Promise<T> {
     const json = JSON.parse(text);
     if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
     return json as T;
-  } catch {
-    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-    // @ts-expect-error: non-JSON fallbacks
-    return text as T;
-  }
+} catch {
+  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+  return text as unknown as T;
+}
 }
 
 async function postJSON<T = any>(body: AnyRec): Promise<T> {
@@ -77,11 +76,10 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
     const json = JSON.parse(text);
     if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
     return json as T;
-  } catch {
-    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-    // @ts-expect-error: non-JSON fallbacks
-    return text as T;
-  }
+} catch {
+  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+  return text as unknown as T;
+}
 }
 
 // ---------------- public API used across the app ----------------
