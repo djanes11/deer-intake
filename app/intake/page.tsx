@@ -87,6 +87,8 @@ const todayISO = () => {
 
 const normProc = (s?: string) => {
   const v = String(s || '').toLowerCase();
+  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
+  if (v.includes('donate')) return 'Donate';
   if (v.includes('cape') && !v.includes('skull')) return 'Caped';
   if (v.includes('skull')) return 'Skull-Cap';
   if (v.includes('euro')) return 'European';
@@ -94,15 +96,17 @@ const normProc = (s?: string) => {
   return '';
 };
 
-// Base (processing) price only: process type + beef fat + webbs fee
 const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
   const p = normProc(proc);
   const base =
     p === 'Caped' ? 150 :
-    ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 : 0;
+    p === 'Cape & Donate' ? 50 :
+    ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
+    p === 'Donate' ? 0 : 0;
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 };
+
 
 // For specialty fields, parse int lbs
 const toInt = (val: any) => {

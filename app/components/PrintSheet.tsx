@@ -33,20 +33,27 @@ function asPounds(x: any): string {
   return Number.isFinite(n) && n > 0 ? String(n) : '';
 }
 function normProc(s: any): string {
-  s = String(s || '').toLowerCase();
-  if (s.includes('cape') && !s.includes('skull')) return 'Caped';
-  if (s.includes('skull')) return 'Skull-Cap';
-  if (s.includes('euro')) return 'European';
-  if (s.includes('standard')) return 'Standard Processing';
+  const v = String(s || '').toLowerCase();
+  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
+  if (v.includes('donate')) return 'Donate';
+  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
+  if (v.includes('skull')) return 'Skull-Cap';
+  if (v.includes('euro')) return 'European';
+  if (v.includes('standard')) return 'Standard Processing';
   return '';
 }
-// Processing price only (proc + beef fat + webbs fee)
+
 function suggestedProcessingPrice(proc: any, beef: boolean, webbs: boolean): number {
   const p = normProc(proc);
-  const base = p === 'Caped' ? 150 : (['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 : 0);
+  const base =
+    p === 'Caped' ? 150 :
+    p === 'Cape & Donate' ? 50 :
+    ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
+    p === 'Donate' ? 0 : 0;
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
+
 function hasSpecialty(job: AnyRec | null | undefined): boolean {
   if (!job) return false;
   // raw flag (could be boolean or string)

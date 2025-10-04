@@ -46,18 +46,26 @@ async function getJob(tag: string) {
 // ---- Simple pricing helpers to show the summary numbers like the intake page ----
 const normProc = (s?: string) => {
   const v = String(s || '').toLowerCase();
+  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
+  if (v.includes('donate')) return 'Donate';
   if (v.includes('cape') && !v.includes('skull')) return 'Caped';
   if (v.includes('skull')) return 'Skull-Cap';
   if (v.includes('euro')) return 'European';
   if (v.includes('standard')) return 'Standard Processing';
   return '';
 };
+
 const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
   const p = normProc(proc);
-  const base = p === 'Caped' ? 150 : (['Standard Processing','Skull-Cap','European'].includes(p) ? 130 : 0);
+  const base =
+    p === 'Caped' ? 150 :
+    p === 'Cape & Donate' ? 50 :
+    ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
+    p === 'Donate' ? 0 : 0;
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 };
+
 const toInt = (val: any) => {
   const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
