@@ -1,7 +1,7 @@
 // app/api/gas2/route.ts
-// Initial email on first save (with signed read-only link)
-// Finished email once when status first becomes Finished/Ready (regular processing balance)
-// Works for both `save` and `progress` actions. No attachments. No PDFs.
+// Initial email on first save (signed read-only link).
+// Finished email once when status first becomes Finished/Ready (works for save OR progress).
+// No attachments. No PDFs.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,8 +37,8 @@ function logEnvOnce() {
   );
 }
 
-/* ---------------- Pricing helpers ---------------- */
-const normProc = (s?: string) => {
+/* ---------------- Pricing helpers (UPDATED) ---------------- */
+function normProc(s: any): string {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
   if (v.includes('donate')) return 'Donate';
@@ -47,19 +47,16 @@ const normProc = (s?: string) => {
   if (v.includes('euro')) return 'European';
   if (v.includes('standard')) return 'Standard Processing';
   return '';
-};
-
-const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
+}
+function processingPrice(proc: any, beef: boolean, webbs: boolean) {
   const p = normProc(proc);
   const base =
     p === 'Caped' ? 150 :
     p === 'Cape & Donate' ? 50 :
     ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
     p === 'Donate' ? 0 : 0;
-  if (!base) return 0;
-  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-};
-
+  return base ? base + (beef ? 5 : 0) + (webbs ? 20 : 0) : 0;
+}
 const isFinished = (s?: string) => {
   const v = String(s || '').toLowerCase();
   return v.includes('finish') || v.includes('ready') || v === 'finished';
@@ -151,11 +148,10 @@ export async function POST(req: NextRequest) {
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
   log('POST action=', action);
 
-  // Figure out if this is a tag-centric action we should enrich (save/progress)
+  // Tag-centric actions we enrich (save/progress); others pass through
   const tag = String((body.job && body.job.tag) || body.tag || '').trim();
   const isTagAction = ['save', 'progress'].includes(action);
 
-  // Non-tag actions -> pass-through to GAS untouched
   if (!isTagAction) {
     const res = await gasPost(body);
     return new Response(res.text || JSON.stringify(res.json || {}), {
@@ -172,7 +168,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // BEFORE (previous state)
+  // BEFORE
   const prevRes = await gasGet(tag).catch((e) => {
     log('gasGet prev error', e?.message || e);
     return null;
@@ -181,7 +177,7 @@ export async function POST(req: NextRequest) {
   const prev = prevExists ? (prevRes!.job as AnyRec) : null;
   log('prev exists=', prevExists, 'prevStatus=', prev?.status);
 
-  // FORWARD to GAS (save/progress)
+  // FORWARD to GAS (save or progress)
   const forwarded = await gasPost(body);
   if (forwarded.status >= 400) {
     log(`${action} upstream error:`, forwarded.status, forwarded.text || forwarded.json);
@@ -201,7 +197,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // AFTER (latest state)
+  // AFTER
   const latestRes = await gasGet(tag).catch((e) => {
     log('gasGet latest error', e?.message || e);
     return null;
@@ -210,10 +206,10 @@ export async function POST(req: NextRequest) {
   log('latest status=', latest?.status, 'email=', latest?.email ? '[present]' : '[missing]');
 
   // Triggers
-  const shouldInitial = action === 'save' && !prevExists; // Only first true save
+  const shouldInitial = action === 'save' && !prevExists; // Initial only on first true save
   const finishedNow = isFinished(latest?.status);
   const finishedBefore = isFinished(prev?.status);
-  const shouldFinished = finishedNow && !finishedBefore;  // save OR progress
+  const shouldFinished = finishedNow && !finishedBefore; // save OR progress
 
   const customerEmail = String(latest.email || (body.job && body.job.email) || '').trim();
   const custName = String(latest.customer || latest['Customer Name'] || '').trim();
@@ -251,7 +247,7 @@ export async function POST(req: NextRequest) {
         log('initial email sent');
       }
 
-      // Finished email (fires when status first becomes finished/ready, via save or progress)
+      // Finished email (first transition to finished/ready)
       if (shouldFinished) {
         const procPrice = processingPrice(
           latest.processType,
@@ -286,24 +282,18 @@ export async function POST(req: NextRequest) {
     } catch (e: any) {
       log('EMAIL_SEND_ERROR:', e?.message || e);
       if (EMAIL_DEBUG) {
-        // Do not fail the action for email issues in debug mode
         return new Response(
-          JSON.stringify({
-            ok: true,
-            warning: 'email_failed',
-            error: String(e?.message || e),
-          }),
+          JSON.stringify({ ok: true, warning: 'email_failed', error: String(e?.message || e) }),
           { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
       }
     }
   }
 
-  // Return GAS upstream payload to caller
+  // Return GAS upstream payload
   return new Response(JSON.stringify(forwarded.json), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
 }
-
 
