@@ -35,11 +35,18 @@ type Job = {
   county?: string;
   dropoff?: string; // yyyy-mm-dd
   sex?: '' | 'Buck' | 'Doe';
-  processType?: '' | 'Standard Processing' | 'Caped' | 'Skull-Cap' | 'European' | 'Caped & Donate' | 'Donate';
+  processType?:
+    | ''
+    | 'Standard Processing'
+    | 'Caped'
+    | 'Skull-Cap'
+    | 'European'
+    | 'Cape & Donate'
+    | 'Donate';
 
   status?: string;            // regular status
-  capingStatus?: string;      // only shown if Caped
-  webbsStatus?: string;       // only shown if Webbs
+  capingStatus?: string;      // only shown if Caped / Cape & Donate
+  webbsStatus?: string;       // only shown if Webbs (and not Donate)
 
   steak?: string;
   steakOther?: string;
@@ -106,7 +113,6 @@ const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 };
-
 
 // For specialty fields, parse int lbs
 const toInt = (val: any) => {
@@ -200,14 +206,30 @@ function IntakePage() {
         if (res?.exists && res.job) {
           const j: any = res.job;
           setJob((prev) => {
+            const pnorm = normProc(j.processType);
             const next: Job = {
               ...prev,
               ...j,
               tag: j.tag || tagFromUrl,
               dropoff: j.dropoff || todayISO(),
-              status: coerce(j.status || prev.status || 'Dropped Off', STATUS_MAIN),
-              capingStatus: coerce(j.capingStatus || (j.processType === 'Caped' ? 'Dropped Off' : ''), STATUS_CAPE),
-              webbsStatus: coerce(j.webbsStatus || (j.webbsOrder ? 'Dropped Off' : ''), STATUS_WEBBS),
+
+              // Main status only if not Cape & Donate and not Donate
+              status:
+                pnorm === 'Cape & Donate' || pnorm === 'Donate'
+                  ? ''
+                  : coerce(j.status || prev.status || 'Dropped Off', STATUS_MAIN),
+
+              // Caping status if Caped or Cape & Donate
+              capingStatus:
+                (pnorm === 'Caped' || pnorm === 'Cape & Donate')
+                  ? coerce(j.capingStatus || 'Dropped Off', STATUS_CAPE)
+                  : '',
+
+              // Webbs status only if webbsOrder and not Donate
+              webbsStatus:
+                (asBool(j.webbsOrder) && pnorm !== 'Donate')
+                  ? coerce(j.webbsStatus || 'Dropped Off', STATUS_WEBBS)
+                  : '',
 
               hind: {
                 'Hind - Steak': pickCut(j?.hind, 'Hind - Steak'),
@@ -271,18 +293,48 @@ function IntakePage() {
 
   const needsBackstrapOther = !isWholeBackstrap && job.backstrapThickness === 'Other';
   const needsSteakOther = job.steak === 'Other';
-  const capedOn = job.processType === 'Caped';
+  const procNorm = normProc(job.processType);
+  const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
+
+  // Visibility flags for statuses
+  const showMainStatus   = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
+  const showCapingStatus = capingFlow;
+  const showWebbsStatus  = webbsOn && procNorm !== 'Donate';
+
+  // Normalize statuses when process type changes
+  useEffect(() => {
+    setJob((prev) => {
+      const next = { ...prev };
+      const p = normProc(next.processType);
+      if (p === 'Donate') {
+        next.status = '';
+        next.capingStatus = '';
+        if (next.webbsStatus) next.webbsStatus = '';
+      } else if (p === 'Cape & Donate') {
+        next.status = '';
+        if (!next.capingStatus) next.capingStatus = 'Dropped Off';
+      } else if (p === 'Caped') {
+        if (!next.status) next.status = 'Dropped Off';
+        if (!next.capingStatus) next.capingStatus = 'Dropped Off';
+      } else {
+        if (!next.status) next.status = 'Dropped Off';
+        // caping hidden for non-caped; leave as-is or clear if you prefer:
+        // next.capingStatus = '';
+      }
+      return next;
+    });
+  }, [job.processType]);
 
   // Keep conditional statuses defaulted if newly toggled on and empty
   useEffect(() => {
     setJob((p) => {
       const next: Job = { ...p };
-      if (capedOn && !next.capingStatus) next.capingStatus = 'Dropped Off';
-      if (webbsOn && !next.webbsStatus) next.webbsStatus = 'Dropped Off';
+      if (capingFlow && !next.capingStatus) next.capingStatus = 'Dropped Off';
+      if (webbsOn && procNorm !== 'Donate' && !next.webbsStatus) next.webbsStatus = 'Dropped Off';
       return next;
     });
-  }, [capedOn, webbsOn]);
+  }, [capingFlow, webbsOn, procNorm]);
 
   // If specialty is turned off, clear its paid flag and recompute full/legacy paid
   useEffect(() => {
@@ -321,11 +373,27 @@ function IntakePage() {
       setMsg(`Missing or invalid: ${missing.join(', ')}`);
       return;
     }
+
+    const pnorm = normProc(job.processType);
+
     const payload: Job = {
       ...job,
-      status: coerce(job.status, STATUS_MAIN),
-      capingStatus: job.processType === 'Caped' ? coerce(job.capingStatus, STATUS_CAPE) : '',
-      webbsStatus: job.webbsOrder ? coerce(job.webbsStatus, STATUS_WEBBS) : '',
+
+      // Only send the statuses that make sense for the process type
+      status:
+        pnorm === 'Cape & Donate' || pnorm === 'Donate'
+          ? ''
+          : coerce(job.status, STATUS_MAIN),
+
+      capingStatus:
+        (pnorm === 'Caped' || pnorm === 'Cape & Donate')
+          ? coerce(job.capingStatus, STATUS_CAPE)
+          : '',
+
+      webbsStatus:
+        (job.webbsOrder && pnorm !== 'Donate')
+          ? coerce(job.webbsStatus, STATUS_WEBBS)
+          : '',
 
       // keep legacy 'Paid' in sync, and send split flags
       Paid: fullPaid(job),
@@ -338,6 +406,7 @@ function IntakePage() {
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
       slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
     };
+
     try {
       setBusy(true);
       const res = await saveJob(payload);
@@ -424,17 +493,19 @@ function IntakePage() {
               <div className="money total">{totalPrice.toFixed(2)}</div>
             </div>
 
-            <div className="col">
-              <label>Status</label>
-              <select
-                value={coerce(job.status, STATUS_MAIN)}
-                onChange={(e) => setVal('status', e.target.value)}
-              >
-                {STATUS_MAIN.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+            {showMainStatus && (
+              <div className="col">
+                <label>Status</label>
+                <select
+                  value={coerce(job.status, STATUS_MAIN)}
+                  onChange={(e) => setVal('status', e.target.value)}
+                >
+                  {STATUS_MAIN.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
 
-            {job.processType === 'Caped' && (
+            {showCapingStatus && (
               <div className="col">
                 <label>Caping Status</label>
                 <select
@@ -446,7 +517,7 @@ function IntakePage() {
               </div>
             )}
 
-            {job.webbsOrder && (
+            {showWebbsStatus && (
               <div className="col">
                 <label>Webbs Status</label>
                 <select
@@ -632,8 +703,8 @@ function IntakePage() {
                 <option>Caped</option>
                 <option>Skull-Cap</option>
                 <option>European</option>
-		<option>Cape & Donate</option>
-		<option>Donate</option>
+                <option>Cape & Donate</option>
+                <option>Donate</option>
               </select>
             </div>
           </div>
@@ -1062,4 +1133,3 @@ function IntakePage() {
     </div>
   );
 }
-
