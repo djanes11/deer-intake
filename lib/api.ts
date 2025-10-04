@@ -94,11 +94,10 @@ export async function getJob(tag: string): Promise<GetResponse> {
 }
 
 /** Save a job (create or update). Triggers initial/finished emails server-side. */
-export async function saveJob(job: Partial<Job> & { tag: string }): Promise<SaveResponse> {
+export async function saveJob(job: Job): Promise<SaveResponse> {
   if (!job || !job.tag) throw new Error('Missing job.tag');
   return postJSON<SaveResponse>({ action: 'save', job });
 }
-
 /**
  * Progress a job.
  * Accepts either:
