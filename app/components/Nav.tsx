@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 function isActive(pathname: string, href: string) {
   if (href === '/') return pathname === '/';
@@ -14,19 +14,28 @@ export default function Nav() {
   // Hide nav on board page like before
   if (pathname.startsWith('/board')) return null;
 
-  // Auto-close the mobile menu after navigation
+  // Mobile menu checkbox
   const mobileToggleRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
+  // Reports <details>
+  const reportsRef = useRef<HTMLDetailsElement>(null);
+
+  const closeAllMenus = useCallback(() => {
     const t = mobileToggleRef.current;
     if (t && t.checked) t.checked = false;
-  }, [pathname]);
+    const d = reportsRef.current;
+    if (d && d.open) d.open = false;
+  }, []);
+
+  // Auto-close menus after navigation
+  useEffect(() => {
+    closeAllMenus();
+  }, [pathname, closeAllMenus]);
 
   return (
     <header className="site-header">
       <div className="wrap">
         <div className="brand">
           <img src="/mcafee-logo.png" alt="McAfee Custom Deer Processing" />
-          <Link href="/">McAfee Deer Processing</Link>
         </div>
 
         {/* Mobile toggle (CSS controls visibility) */}
@@ -34,17 +43,18 @@ export default function Nav() {
         <input id="nav-check" ref={mobileToggleRef} type="checkbox" aria-hidden="true" />
 
         <nav className="menu" aria-label="Primary">
-          <Link href="/" className={`item ${isActive(pathname, '/') ? 'active' : ''}`}>Home</Link>
-          <Link href="/intake" className={`item ${isActive(pathname, '/intake') ? 'active' : ''}`}>Intake form</Link>
-          <Link href="/scan" className={`item ${isActive(pathname, '/scan') ? 'active' : ''}`}>Scan Tags</Link>
-          <Link href="/search" className={`item ${isActive(pathname, '/search') ? 'active' : ''}`}>Search</Link>
-          <Link href="/board" className={`item ${isActive(pathname, '/board') ? 'active' : ''}`}>Board</Link>
+          <Link href="/" className={`item ${isActive(pathname, '/') ? 'active' : ''}`} onClick={closeAllMenus}>Home</Link>
+          <Link href="/intake" className={`item ${isActive(pathname, '/intake') ? 'active' : ''}`} onClick={closeAllMenus}>Intake form</Link>
+          <Link href="/scan" className={`item ${isActive(pathname, '/scan') ? 'active' : ''}`} onClick={closeAllMenus}>Scan Tags</Link>
+          <Link href="/search" className={`item ${isActive(pathname, '/search') ? 'active' : ''}`} onClick={closeAllMenus}>Search</Link>
+          <Link href="/board" className={`item ${isActive(pathname, '/board') ? 'active' : ''}`} onClick={closeAllMenus}>Board</Link>
 
-          {/* Reports dropdown: <details> works on mobile tap and desktop hover */}
-          <details className="dd">
+          {/* Reports dropdown */}
+          <details className="dd" ref={reportsRef}>
             <summary className="item">Reports</summary>
             <div className="dropdown-menu">
-              <Link href="/reports/calls">Call Report</Link>
+              <Link href="/reports/calls" onClick={closeAllMenus}>Call Report</Link>
+              {/* add more report links here; they’ll also close the menu */}
             </div>
           </details>
         </nav>
