@@ -7,6 +7,7 @@ import { searchJobs, getJob, markCalled, logCallSimple, saveJob } from '@/lib/ap
 
 /* ---------- helpers ---------- */
 type Row = Partial<Job> & { tag: string };
+type Track = 'meat' | 'cape' | 'webbs';
 
 const normProc = (s?: string) => {
   const v = String(s || '').toLowerCase();
@@ -47,67 +48,117 @@ function fmt(n: number | string | undefined | null) {
   return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
-type Reason = 'Meat Ready' | 'Cape Ready' | 'Webbs Ready' | '-';
-function reasonForRow(j: Partial<Job>): Reason {
+function readyTracks(j: Partial<Job>): Track[] {
   const st = String(j.status || '').toLowerCase();
   const cp = String(j.capingStatus || '').toLowerCase();
   const wb = String(j.webbsStatus || '').toLowerCase();
-  if (st.includes('finished'))  return 'Meat Ready';
-  if (cp.includes('caped'))     return 'Cape Ready';
-  if (wb.includes('delivered')) return 'Webbs Ready';
-  return '-';
+  const meatReady  = /finish|ready|complete|completed|done/.test(st) && st !== 'called';
+  const capeReady  = /cape|caped|ready|complete|completed|done/.test(cp) && cp !== 'called';
+  const webbsReady = /deliver|delivered|ready|complete|completed|done/.test(wb) && wb !== 'called';
+  const out: Track[] = [];
+  if (meatReady) out.push('meat');
+  if (capeReady) out.push('cape');
+  if (webbsReady) out.push('webbs');
+  return out;
 }
 
-// format historical “Call Notes” lines: "[YYYY-MM-DD ...] text" -> "text — mm/dd"
-function formatNoteLine(line: string) {
-  const m = line.match(/^\[(\d{4})-(\d{2})-(\d{2})[^\]]*]\s*(.*)$/);
-  if (!m) return line.trim();
-  const [, , mm, dd, text] = m;
-  return `${text.trim()} — ${mm}/${dd}`;
+function trackLabel(t: Track){
+  if (t === 'meat') return 'Meat Ready';
+  if (t === 'cape') return 'Cape Ready';
+  return 'Webbs Ready';
 }
-function prettyCallNotes(raw?: string) {
-  if (!raw) return '';
-  return raw
-    .split(/\r?\n/)
-    .map(s => s.trim())
-    .filter(Boolean)
-    .map(formatNoteLine)
-    .join('\n');
+
+/* ---- new price normalization helpers ---- */
+function firstNumberLike(...vals: any[]) {
+  for (const v of vals) {
+    if (v == null) continue;
+    const n = typeof v === 'number' ? v : Number(String(v).replace(/[^0-9.\-]/g, ''));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
 }
-const LAST_LINES = 2;
+
+// read/compute just the Processing Price number (no specialty)
+function readProcessingPriceFromRow(j: any): number | null {
+  const fromSheet = firstNumberLike(
+    j.priceProcessing,
+    j.processingPrice,
+    j.PriceProcessing,
+    j['Processing Price'],
+    j.price_processing,
+    j['processing price'],
+    j['processing_price']
+  );
+  if (fromSheet != null) return fromSheet;
+
+  // fallback: compute only the processing (NOT totals)
+  const computed = suggestedProcessingPrice(j.processType, !!j.beefFat, !!j.webbsOrder);
+  return Number.isFinite(computed) && computed > 0 ? computed : null;
+}
 
 /* ---------- page ---------- */
+type FlatRow = Row & {
+  __track: Track;
+  callAttemptsMeat?: number;
+  callAttemptsCape?: number;
+  callAttemptsWebbs?: number;
+};
+
 export default function CallReportPage() {
-  const [rows, setRows] = useState<Row[]>([]);
+  const [rows, setRows] = useState<FlatRow[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const [err, setErr] = useState<string | null>(null);
 
-  const selectedRow = useMemo(
-    () => rows.find(r => r.tag === selectedTag),
-    [rows, selectedTag]
+  const selected = useMemo(
+    () => rows.find(r => (r.tag + '|' + r.__track) === selectedKey),
+    [rows, selectedKey]
   );
 
-  const toggleExpand = (tag: string) =>
-    setExpanded(p => ({ ...p, [tag]: !p[tag] }));
+  const attemptsFor = (r: FlatRow) => {
+    if (r.__track === 'meat')  return Number(r.callAttemptsMeat ?? r.callAttempts ?? 0);
+    if (r.__track === 'cape')  return Number(r.callAttemptsCape ?? r.callAttempts ?? 0);
+    return Number(r.callAttemptsWebbs ?? r.callAttempts ?? 0);
+  };
 
   const load = async () => {
     setLoading(true);
     setErr(null);
     try {
-      const res = await searchJobs('@report'); // Finished / Caped / Delivered
-      const next = (res.rows || []).map((r: any) => ({ ...r }));
-      setRows(next);
-      if (selectedTag && !next.some(x => x.tag === selectedTag)) {
-        setSelectedTag(null);
+      const res = await searchJobs('@report'); // Finished / Caped / Delivered (not yet Called)
+      // Normalize processing price into priceProcessing for UI
+      const raw: Row[] = (res.rows || []).map((r: any) => {
+        const price = readProcessingPriceFromRow(r);
+        return { ...r, priceProcessing: price ?? undefined };
+      });
+
+      // Expand into one row per ready track
+      const flat: FlatRow[] = [];
+      for (const j of raw) {
+        const tracks = readyTracks(j);
+        for (const t of tracks) {
+          flat.push({
+            ...j,
+            __track: t,
+            callAttemptsMeat: Number((j as any).callAttemptsMeat ?? 0),
+            callAttemptsCape: Number((j as any).callAttemptsCape ?? 0),
+            callAttemptsWebbs: Number((j as any).callAttemptsWebbs ?? 0),
+          });
+        }
+      }
+      // stable sort by dropoff then tag
+      flat.sort((a,b) => String(a.dropoff||'').localeCompare(String(b.dropoff||'')) || String(a.tag).localeCompare(String(b.tag)));
+      setRows(flat);
+      if (selectedKey && !flat.some(x => (x.tag + '|' + x.__track) === selectedKey)) {
+        setSelectedKey(null);
       }
     } catch (e: any) {
       setErr(e?.message || 'Failed to load report');
       setRows([]);
-      setSelectedTag(null);
+      setSelectedKey(null);
     } finally {
       setLoading(false);
     }
@@ -115,44 +166,71 @@ export default function CallReportPage() {
   useEffect(() => { load(); }, []);
 
   const paidText = (j: Row) =>
-    (j.Paid || j.paid || (j.paidProcessing && j.paidSpecialty)) ? 'Yes' : 'No';
+    (j.Paid || j.paid || (j.paidProcessing && (j.specialtyProducts ? j.paidSpecialty : true))) ? 'Yes' : 'No';
 
-  const displayPrice = (j: Row) => {
-    const got = (j as any).price ?? (j as any).Price ?? undefined;
-    if (got != null && String(got).trim() !== '') return fmt(got);
-    const proc = suggestedProcessingPrice(j.processType, !!j.beefFat, !!j.webbsOrder);
-    const spec = specialtyPriceFromRow(j);
-    return fmt(proc + spec);
-  };
+  // NEW: show only the Processing Price column value (no totals)
+  function displayProcessingPrice(r: any) {
+    const raw =
+      r.priceProcessing ??
+      r.processingPrice ??
+      r.PriceProcessing ??
+      r['Processing Price'] ??
+      r.price_processing ??
+      r['processing price'] ??
+      r['processing_price'];
+    if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return '—';
+    const n = typeof raw === 'number' ? raw : Number(String(raw).replace(/[^0-9.\-]/g, ''));
+    if (!Number.isFinite(n)) return '—';
+    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }
 
-  const setNote = (tag: string, v: string) =>
-    setNotes((p) => ({ ...p, [tag]: v }));
+  const setNote = (key: string, v: string) =>
+    setNotes((p) => ({ ...p, [key]: v }));
 
   const refreshOne = async (tag: string) => {
     try {
+      // fetch fresh job (includes attempts) then splice rows for that tag only
       const r = await getJob(tag);
       if (r?.exists && r.job) {
-        setRows((prev) => prev.map((x) => (x.tag === tag ? { ...x, ...r.job } : x)));
+        const job = r.job as Row;
+        // normalize price on single-row refresh as well
+        const normPrice = readProcessingPriceFromRow(job);
+        const jobWithPrice: Row = { ...job, priceProcessing: normPrice ?? undefined };
+
+        setRows((prev) => {
+          const others = prev.filter(x => x.tag !== tag);
+          const tracks = readyTracks(jobWithPrice);
+          const flat: FlatRow[] = tracks.map(t => ({
+            ...jobWithPrice,
+            __track: t,
+            callAttemptsMeat: Number((jobWithPrice as any).callAttemptsMeat ?? 0),
+            callAttemptsCape: Number((jobWithPrice as any).callAttemptsCape ?? 0),
+            callAttemptsWebbs: Number((jobWithPrice as any).callAttemptsWebbs ?? 0),
+          }));
+          return [...others, ...flat].sort((a,b) => String(a.dropoff||'').localeCompare(String(b.dropoff||'')) || String(a.tag).localeCompare(String(b.tag)));
+        });
       } else {
         setRows((prev) => prev.filter((x) => x.tag !== tag));
-        if (selectedTag === tag) setSelectedTag(null);
+        if (selected && selected.tag === tag) setSelectedKey(null);
       }
     } catch {/* ignore */}
   };
 
   /* actions */
   const onMarkCalled = async () => {
-    if (!selectedRow) return;
-    const tag = selectedRow.tag!;
-    const note = (notes[tag] || '').trim();
+    if (!selected) return;
+    const tag = selected.tag!;
+    const scope: 'meat'|'cape'|'webbs' = selected.__track;
+    const key = tag + '|' + scope;
+    const note = (notes[key] || '').trim();
     try {
       setSaving(true);
-      await markCalled({ tag, scope: 'auto', notes: note });
+      await markCalled({ tag, scope, notes: note });
       if (note) {
-        await logCallSimple({ tag, reason: reasonForRow(selectedRow), notes: note });
+        await logCallSimple({ tag, scope, reason: trackLabel(scope), notes: note });
       }
       await refreshOne(tag);
-      setNote(tag, '');
+      setNote(key, '');
     } catch (e: any) {
       alert(e?.message || 'Failed to mark as called.');
     } finally {
@@ -161,57 +239,87 @@ export default function CallReportPage() {
   };
 
   const onPlusAttempt = async () => {
-    if (!selectedRow) return;
-    const tag = selectedRow.tag!;
-    const note = (notes[tag] || '').trim();
+    if (!selected) return;
+    const tag = selected.tag!;
+    const scope: Track = selected.__track;
+    const key = tag + '|' + scope;
+    const note = (notes[key] || '').trim();
 
-    // optimistic bump
+    // optimistic bump for the appropriate per-track field
     setRows((prev) =>
-      prev.map((r) => (r.tag === tag ? { ...r, callAttempts: (Number(r.callAttempts || 0) + 1) } : r))
+      prev.map((r) => {
+        if (r.tag !== tag) return r;
+        if (scope === 'meat')  return { ...r, callAttemptsMeat: Number(r.callAttemptsMeat || 0) + 1 };
+        if (scope === 'cape')  return { ...r, callAttemptsCape: Number(r.callAttemptsCape || 0) + 1 };
+        return { ...r, callAttemptsWebbs: Number(r.callAttemptsWebbs || 0) + 1 };
+      })
     );
 
     try {
       setSaving(true);
-      await logCallSimple({ tag, reason: reasonForRow(selectedRow), notes: note });
+      await logCallSimple({ tag, scope, reason: trackLabel(scope), notes: note });
       await refreshOne(tag);
-      setNote(tag, '');
+      setNote(key, '');
     } catch (e: any) {
-      // revert
-      setRows((prev) =>
-        prev.map((r) => (r.tag === tag ? { ...r, callAttempts: Number(r.callAttempts || 1) - 1 } : r))
-      );
+      // reload from source to revert
+      await refreshOne(tag);
       alert(e?.message || 'Failed to add attempt.');
     } finally {
       setSaving(false);
     }
   };
 
-  // NEW: Save Note without incrementing attempts (writes directly to Call Notes via saveJob)
+  // Save Note without incrementing attempts (appends a line)
   const onSaveNote = async () => {
-    if (!selectedRow) return;
-    const tag = selectedRow.tag!;
-    const note = (notes[tag] || '').trim();
+    if (!selected) return;
+    const tag = selected.tag!;
+    const scope: Track = selected.__track;
+    const key = tag + '|' + scope;
+    const note = (notes[key] || '').trim();
     if (!note) return;
 
-    // Append "note — mm/dd" to existing notes and save
+    // Append line "note — mm/dd" to existing notes and save via saveJob
     const now = new Date();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
     const line = `${note} — ${mm}/${dd}`;
-    const existing = selectedRow.callNotes || '';
+    const existing = selected.callNotes || '';
     const nextNotes = existing ? `${existing}\n${line}` : line;
 
     try {
       setSaving(true);
       await saveJob({ tag, callNotes: nextNotes });
       await refreshOne(tag);
-      setNote(tag, '');
+      setNote(key, '');
     } catch (e: any) {
       alert(e?.message || 'Failed to save note.');
     } finally {
       setSaving(false);
     }
   };
+
+  function renderNotesCell(r: any) {
+    const all = String((r as any).callNotes ?? '').split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean);
+    const key = String((r as any).tag) + '|' + String((r as any).__track);
+    const expanded = !!expandedNotes[key];
+    const toShow = expanded ? all : all.slice(-3);
+    const body = toShow.length ? toShow.join('\n') : '—';
+    return (
+      <div className="notes-cell">
+        <pre className="notes-pre">{body}</pre>
+        {all.length > 3 && (
+          <button
+            type="button"
+            className="linkish"
+            onClick={(e) => { e.stopPropagation(); setExpandedNotes(prev => ({ ...prev, [key]: !expanded })); }}
+            title={expanded ? 'Hide notes' : 'Show all notes'}
+          >
+            {expanded ? 'Hide' : `Show all (${all.length})`}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <main>
@@ -220,7 +328,7 @@ export default function CallReportPage() {
         <button className="btn" onClick={load} disabled={loading}>
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
-        <span className="muted">Finished / Caped / Delivered</span>
+        <span className="muted">One row per ready track (Meat / Cape / Webbs)</span>
       </div>
 
       {err && (
@@ -235,13 +343,13 @@ export default function CallReportPage() {
             <thead>
               <tr>
                 <th style={{ width: 90 }}>Tag</th>
-                <th style={{ width: 150 }}>Name</th>
-                <th style={{ width: 150 }}>Phone</th>
-                <th style={{ width: 100 }}>Reason</th>
-                <th style={{ width: 100 }}>Price</th>
-                <th style={{ width: 80 }}>Paid</th>
-                <th style={{ width: 80 }}>Attempts</th>
-                <th>Contact Notes</th>
+                <th style={{ width: 140 }}>Name</th>
+                <th style={{ width: 140 }}>Phone</th>
+                <th style={{ width: 140 }}>Track</th>
+                <th style={{ width: 100 }}>Attempts</th>
+                <th style={{ width: 100 }}>Processing $</th>
+                <th style={{ width: 60 }}>Paid</th>
+                <th style={{ width: 240 }}>Notes</th>
               </tr>
             </thead>
             <tbody>
@@ -251,21 +359,14 @@ export default function CallReportPage() {
                 </tr>
               )}
               {rows.map((r) => {
-                const reason = reasonForRow(r);
-                const pretty = prettyCallNotes(r.callNotes);
-                const lines = pretty ? pretty.split('\n') : [];
-                const isLong = lines.length > LAST_LINES;
-                const shown = isLong && !expanded[r.tag!]
-                  ? lines.slice(-LAST_LINES).join('\n')
-                  : pretty;
-
-                const selected = selectedTag === r.tag;
+                const key = r.tag + '|' + r.__track;
+                const selected = selectedKey === key;
 
                 return (
                   <tr
-                    key={r.tag}
+                    key={key}
                     className={selected ? 'selected' : ''}
-                    onClick={() => setSelectedTag(r.tag!)}
+                    onClick={() => setSelectedKey(key)}
                     title="Click to select"
                   >
                     <td>
@@ -279,26 +380,17 @@ export default function CallReportPage() {
                     </td>
                     <td>{r.customer || '—'}</td>
                     <td>{r.phone || '—'}</td>
-                    <td>{reason}</td>
-                    <td>{displayPrice(r)}</td>
-                    <td>{paidText(r)}</td>
-                    <td>{Number(r.callAttempts || 0)}</td>
-                    <td className="notes-cell" onClick={(e)=>e.stopPropagation()}>
-                      {shown ? (
-                        <div className="notesHistory">
-                          <pre>{shown}</pre>
-                          {isLong && (
-                            <button
-                              type="button"
-                              className="linkBtn"
-                              onClick={() => toggleExpand(r.tag!)}
-                            >
-                              {expanded[r.tag!] ? 'Show less' : `Show all (${lines.length})`}
-                            </button>
-                          )}
-                        </div>
-                      ) : <span className="muted">—</span>}
+                    <td>
+                      <span className={
+                        'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : 'purple')
+                      }>
+                        {trackLabel(r.__track)}
+                      </span>
                     </td>
+                    <td>{attemptsFor(r)}</td>
+                    <td>{displayProcessingPrice(r)}</td>
+                    <td>{paidText(r)}</td>
+                    <td>{renderNotesCell(r)}</td>
                   </tr>
                 );
               })}
@@ -307,17 +399,17 @@ export default function CallReportPage() {
         </div>
       </div>
 
-      {/* Sticky bottom toolbar for actions & adding notes */}
+      {/* Sticky bottom toolbar for actions & adding notes (applies to selected row/track) */}
       <div className="toolbar">
         <div className="toolbar-inner">
           <div className="sel">
-            {selectedRow ? (
+            {selected ? (
               <>
                 <strong>Selected:</strong>{' '}
-                <span className="pill">#{selectedRow.tag}</span>{' '}
-                <span className="muted">{selectedRow.customer || '—'}</span>{' '}
-                <span className="muted">• {reasonForRow(selectedRow)}</span>{' '}
-                <span className="muted">• Contacts: {Number(selectedRow.callAttempts || 0)}</span>
+                <span className="pill">#{selected.tag}</span>{' '}
+                <span className="pill small">{trackLabel(selected.__track)}</span>{' '}
+                <span className="muted">{selected.customer || '—'}</span>{' '}
+                <span className="muted">• Attempts: {attemptsFor(selected)}</span>
               </>
             ) : (
               <span className="muted">Select a row to take action</span>
@@ -327,20 +419,20 @@ export default function CallReportPage() {
             <input
               className="toolbar-notes"
               placeholder="Add note for selected row…"
-              value={selectedRow ? (notes[selectedRow.tag!] || '') : ''}
+              value={selected ? (notes[(selected.tag + '|' + selected.__track)] || '') : ''}
               onChange={(e) => {
-                if (!selectedRow) return;
-                setNote(selectedRow.tag!, e.target.value);
+                if (!selected) return;
+                setNote(selected.tag + '|' + selected.__track, e.target.value);
               }}
-              disabled={!selectedRow || saving}
+              disabled={!selected || saving}
             />
-            <button className="btn secondary" disabled={!selectedRow || saving || !(notes[selectedRow?.tag!] || '').trim()} onClick={onSaveNote}>
+            <button className="btn secondary" disabled={!selected || saving || !(notes[selected ? (selected.tag + '|' + selected.__track) : ''] || '').trim()} onClick={onSaveNote}>
               {saving ? 'Saving…' : 'Save Note'}
             </button>
-            <button className="btn secondary" disabled={!selectedRow || saving} onClick={onPlusAttempt}>
+            <button className="btn secondary" disabled={!selected || saving} onClick={onPlusAttempt}>
               {saving ? 'Working…' : '+1 Attempt'}
             </button>
-            <button className="btn" disabled={!selectedRow || saving} onClick={onMarkCalled}>
+            <button className="btn" disabled={!selected || saving} onClick={onMarkCalled}>
               {saving ? 'Working…' : 'Mark Called'}
             </button>
           </div>
@@ -349,7 +441,7 @@ export default function CallReportPage() {
 
       <style jsx>{`
         .table-scroll { overflow-x: auto; overflow-y: hidden; }
-        .call-table { width: 100%; min-width: 1080px; margin: 0; table-layout: fixed; }
+        .call-table { width: 100%; min-width: 1000px; margin: 0; table-layout: fixed; }
         .call-table th, .call-table td { vertical-align: top; padding: 8px 10px; }
 
         tr.selected td {
@@ -358,31 +450,10 @@ export default function CallReportPage() {
           background: rgba(137, 192, 150, 0.08);
         }
 
-        .notesHistory {
-          max-height: 88px;
-          overflow: auto;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid var(--border, #23292d);
-          border-radius: 8px;
-          padding: 6px 8px;
-        }
-        .notesHistory pre {
-          margin: 0;
-          white-space: pre-wrap;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 12px;
-          line-height: 1.35;
-        }
-        .linkBtn {
-          margin-top: 6px;
-          background: transparent;
-          border: 0;
-          padding: 0;
-          cursor: pointer;
-          color: var(--brand-2, #89c096);
-          font-weight: 700;
-        }
-        .linkBtn:hover { text-decoration: underline; }
+        .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; background:#1f2937; }
+        .green { background: #065f46; }
+        .blue { background: #1e3a8a; }
+        .purple { background: #4c1d95; }
 
         .table tr:hover td {
           background: var(--bg-elev-2, rgba(255,255,255,0.03));
@@ -414,11 +485,12 @@ export default function CallReportPage() {
           background: #1f2937;
           font-weight: 800;
         }
+        .pill.small { font-size: 12px; background: #374151; }
         .toolbar-actions {
           display: flex;
           gap: 8px;
           align-items: center;
-          flex-wrap: nowrap;
+          flex-wrap: wrap;
         }
         .toolbar-notes {
           width: 360px;
@@ -429,8 +501,15 @@ export default function CallReportPage() {
           border-radius: 10px;
           padding: 6px 10px;
         }
+        .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
+        .btn.secondary { background: transparent; color: #e5e7eb; }
+        .btn:disabled { opacity: .6; cursor: not-allowed; }
+      
+        .notes-cell { display: flex; flex-direction: column; gap: 6px; }
+        .notes-pre { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 7.5em; overflow: hidden; font-size: 12px; line-height: 1.25; }
+        .linkish { background: transparent; border: none; padding: 0; color: #93c5fd; cursor: pointer; font-size: 12px; text-align: left; }
+        .linkish:hover { text-decoration: underline; }
       `}</style>
     </main>
   );
 }
-

@@ -177,6 +177,31 @@ export async function POST(req: NextRequest) {
   const prev = prevExists ? (prevRes!.job as AnyRec) : null;
   log('prev exists=', prevExists, 'prevStatus=', prev?.status);
 
+  // *** AUTO-ADVANCE for bare progress(tag) ***
+  if (
+    action === 'progress' &&
+    tag &&
+    !body.job &&
+    !body.status &&
+    !body.capingStatus &&
+    !body.webbsStatus
+  ) {
+    const s = String(prev?.status || '').toLowerCase();
+    let nextStatus: string | null = null;
+    if (!s || /(drop|received|intake|new)/.test(s)) nextStatus = 'Processing';
+    else if (/process/.test(s) && !/finish|ready|finished|complete/.test(s)) nextStatus = 'Finished';
+
+    (body as any).nextStatus = nextStatus; // echo to client
+
+    if (nextStatus) {
+      // Force a SAVE-style payload for GAS: action=save and a merged job object
+      body.status = nextStatus;
+      body.tag = tag;
+      body.action = 'save'; // <-- switch to save so GAS writes the sheet
+      body.job = { ...(prev || {}), tag, status: nextStatus };
+    }
+  }
+
   // FORWARD to GAS (save or progress)
   const forwarded = await gasPost(body);
   if (forwarded.status >= 400) {
@@ -204,6 +229,15 @@ export async function POST(req: NextRequest) {
   });
   const latest = latestRes && latestRes.job ? (latestRes.job as AnyRec) : (body.job || {});
   log('latest status=', latest?.status, 'email=', latest?.email ? '[present]' : '[missing]');
+
+  // Determine authoritative nextStatus for the client (what we actually became)
+  let nextStatusEcho: string | null =
+    (body as any).nextStatus ?? (forwarded.json && forwarded.json.nextStatus) ?? null;
+  const prevS = String(prev?.status || '').trim();
+  const latestS = String(latest?.status || '').trim();
+  if (latestS && latestS !== prevS) {
+    nextStatusEcho = latestS;
+  }
 
   // Triggers
   const shouldInitial = action === 'save' && !prevExists; // Initial only on first true save
@@ -290,10 +324,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Return GAS upstream payload
-  return new Response(JSON.stringify(forwarded.json), {
+  // Return GAS upstream payload (with nextStatus echoed authoritatively)
+  const merged = {
+    ...(forwarded.json || {}),
+    nextStatus: nextStatusEcho,
+  };
+
+  return new Response(JSON.stringify(merged), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
 }
-

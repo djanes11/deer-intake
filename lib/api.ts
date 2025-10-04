@@ -1,212 +1,273 @@
-// lib/api.ts — stable types, hardened fetch, Vercel-friendly
+// lib/api.ts
+// Single client-side entrypoint for talking to our Next API proxy (/api/gas2),
+// which in turn talks to Google Apps Script (GAS).
+// Preserves previous helpers (getJob, saveJob, progress, searchJobs)
+// and adds markCalled + logCallSimple used by the Calls report.
 
-export type Job = {
+// NOTE: Do NOT call GAS directly from the browser. Always go through /api/gas2.
+// That keeps your token server-side and lets the server add signatures, links, etc.
+
+export type AnyRec = Record<string, any>;
+
+// Keep Job loose enough to tolerate sheet changes without breaking the app.
+// If you want stricter types, create a narrower interface and intersect.
+export interface Job extends AnyRec {
   tag?: string;
+  confirmation?: string;
+
   customer?: string;
   phone?: string;
-  dropoff?: string;
-
-  status?: string;
-  capingStatus?: string;
-  webbsStatus?: string;
-
-  callAttempts?: number;
-  lastCallAt?: string;
-  lastCalledBy?: string;
-  callNotes?: string;
-
-  confirmation?: string;
   email?: string;
-  address?: string; city?: string; state?: string; zip?: string;
-  county?: string; sex?: string; processType?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
 
-  steak?: string; steakOther?: string; burgerSize?: string; steaksPerPackage?: string; beefFat?: boolean;
+  county?: string;
+  dropoff?: string; // yyyy-mm-dd
+  sex?: '' | 'Buck' | 'Doe';
 
+  // Processing types incl. new Donate variants
+  processType?:
+    | ''
+    | 'Standard Processing'
+    | 'Caped'
+    | 'Skull-Cap'
+    | 'European'
+    | 'Cape & Donate'
+    | 'Donate';
+
+  // Status tracks
+  status?: string;        // main (regular processing)
+  capingStatus?: string;  // only when Caped
+  webbsStatus?: string;   // only when Webbs Order
+
+  // Cuts & prefs
   hind?: {
-    'Hind - Steak'?: boolean; 'Hind - Roast'?: boolean; 'Hind - Grind'?: boolean; 'Hind - None'?: boolean;
+    'Hind - Steak'?: boolean;
+    'Hind - Roast'?: boolean;
+    'Hind - Grind'?: boolean;
+    'Hind - None'?: boolean;
   };
   front?: {
-    'Front - Steak'?: boolean; 'Front - Roast'?: boolean; 'Front - Grind'?: boolean; 'Front - None'?: boolean;
+    'Front - Steak'?: boolean;
+    'Front - Roast'?: boolean;
+    'Front - Grind'?: boolean;
+    'Front - None'?: boolean;
   };
-  hindRoastCount?: string; frontRoastCount?: string;
+  hindRoastCount?: string;
+  frontRoastCount?: string;
 
-  backstrapPrep?: string; backstrapThickness?: string; backstrapThicknessOther?: string;
+  steak?: string;
+  steakOther?: string;
+  burgerSize?: string;
+  steaksPerPackage?: string;
+  beefFat?: boolean;
 
+  backstrapPrep?: '' | 'Whole' | 'Sliced' | 'Butterflied';
+  backstrapThickness?: '' | '1/2"' | '3/4"' | 'Other';
+  backstrapThicknessOther?: string;
+
+  // Specialty
   specialtyProducts?: boolean;
   summerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
   slicedJerkyLbs?: string | number;
-  specialtyPounds?: string; // computed on save
+  specialtyPounds?: string;
 
-  notes?: string;
+  // Webbs
+  webbsOrder?: boolean;
+  webbsFormNumber?: string;
+  webbsPounds?: string;
 
-  webbsOrder?: boolean; webbsFormNumber?: string; webbsPounds?: string;
-
+  // Price & paid flags (legacy + split)
   price?: number | string;
-  priceProcessing?: number | string;
-  priceSpecialty?: number | string;
+  Paid?: boolean;
+  paid?: boolean;
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
 
-  Paid?: boolean; paid?: boolean; paidProcessing?: boolean; paidSpecialty?: boolean;
-};
-
-const PROXY = '/api/gas2';
-
-/* ---------------- utils ---------------- */
-
-function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
-  const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), ms);
-  return { signal: ctrl.signal, cancel: () => clearTimeout(id) };
+  // Server-populated read-only hints (timestamps, etc.) may appear here too
 }
 
-async function fetchJSON<T>(input: string, init?: RequestInit): Promise<T> {
-  const { signal, cancel } = withTimeout(20000); // 20s
-  try {
-    const res = await fetch(input, {
-      ...init,
-      signal,
-      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-      cache: 'no-store',
-      keepalive: false,
-    });
-
-    const text = await res.text().catch(() => '');
-    let data: any = null;
-    try { data = text ? JSON.parse(text) : null; } catch { /* upstream returned text */ }
-
-    if (!res.ok) {
-      const msg = (data && data.error) ? data.error : (text || `HTTP ${res.status}`);
-      throw new Error(msg);
-    }
-    return (data ?? {}) as T;
-  } catch (err: any) {
-    if (err?.name === 'AbortError') throw new Error('Request timed out');
-    throw new Error(err?.message || 'Network error');
-  } finally {
-    cancel();
-  }
-}
-
-function toInt(val: any): number {
-  const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-/* ---------------- API wrappers ---------------- */
-
-// Accepts either a string or an object of filters; always returns { ok, rows, total?, error? }
-type SearchParams =
-  | string
-  | { q?: string; status?: string; limit?: number; [k: string]: string | number | undefined };
-
-type SearchResult = {
+export interface SaveResponse {
   ok: boolean;
-  rows: Job[];
-  total?: number;
+  row?: number;
   error?: string;
-};
+  // echo from GAS
+  job?: Job;
+  exists?: boolean;
+  // anything else GAS returns
+  [k: string]: any;
+}
 
-export async function searchJobs(params: SearchParams): Promise<SearchResult> {
-  const qs = new URLSearchParams();
-  qs.set('action', 'search');
+export interface GetResponse {
+  ok?: boolean;        // GAS "get" usually returns {exists, job}
+  exists: boolean;
+  job?: Job;
+  [k: string]: any;
+}
 
-  if (typeof params === 'string') {
-    const q = params.trim();
-    if (q) qs.set('q', q);
-  } else if (params && typeof params === 'object') {
-    if (params.q) qs.set('q', String(params.q));
-    if (params.status) qs.set('status', String(params.status));
-    if (params.limit != null) qs.set('limit', String(params.limit));
-    // pass any extra filters through
-    Object.entries(params).forEach(([k, v]) => {
-      if (['q', 'status', 'limit'].includes(k)) return;
-      if (v == null) return;
-      qs.set(k, String(v));
-    });
+export interface SearchOptions {
+  limit?: number;
+  status?: string;
+  scope?: 'auto' | 'meat' | 'cape' | 'webbs' | 'all';
+  // free-form passthrough for future filters
+  [k: string]: any;
+}
+
+const API_BASE = '/api/gas2';
+
+// ----------- low-level fetch helpers (no-cache, JSON-safe) -----------
+async function getJSON<T = any>(url: string): Promise<T> {
+  const r = await fetch(url, { cache: 'no-store' });
+  const text = await r.text();
+  try {
+    const json = JSON.parse(text);
+    if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+    return json as T;
+  } catch {
+    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+    // @ts-expect-error: non-JSON fallbacks
+    return text as T;
   }
-
-  const path = `${PROXY}?${qs.toString()}`;
-  const j = await fetchJSON<{
-    ok: boolean;
-    rows?: Job[];
-    jobs?: Job[];
-    results?: Job[];
-    total?: number;
-    error?: string;
-  }>(path);
-
-  return {
-    ok: !!j.ok,
-    rows: j.rows || j.results || j.jobs || [],
-    total: j.total,
-    error: j.error,
-  };
 }
 
-export async function getJob(tag: string) {
-  const path = `${PROXY}?${new URLSearchParams({ action: 'get', tag }).toString()}`;
-  return fetchJSON<{ ok: boolean; exists?: boolean; job?: Job }>(path);
-}
-
-/**
- * Auto-compute specialtyPounds every time you save.
- * - Sums Summer Sausage + Summer Sausage + Cheese + Jerky (numbers only)
- * - Writes result as string into `specialtyPounds`
- * - If all three are zero/empty, preserves existing specialtyPounds (if any)
- */
-// Return shape includes error?: string so callers can read res.error safely
-type SaveResult = { ok: boolean; error?: string };
-
-export async function saveJob(job: Job): Promise<SaveResult> {
-  const toInt = (val: any) => {
-    const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  };
-
-  // Auto-calc specialtyPounds from SS/SSC/Jerky
-  const ss  = toInt(job.summerSausageLbs);
-  const ssc = toInt(job.summerSausageCheeseLbs);
-  const jer = toInt(job.slicedJerkyLbs);
-  const pounds = ss + ssc + jer;
-
-  const payload: Job = {
-    ...job,
-    specialtyPounds: pounds > 0 ? String(pounds) : (job.specialtyPounds ?? ''),
-  };
-
-  return fetchJSON<SaveResult>(PROXY, {
+async function postJSON<T = any>(body: AnyRec): Promise<T> {
+  const r = await fetch(API_BASE, {
     method: 'POST',
-    body: JSON.stringify({ action: 'save', job: payload }),
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify(body),
   });
+  const text = await r.text();
+  try {
+    const json = JSON.parse(text);
+    if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+    return json as T;
+  } catch {
+    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+    // @ts-expect-error: non-JSON fallbacks
+    return text as T;
+  }
 }
 
-// Accepts either a string tag or an object { tag }
-// Now returns { ok, nextStatus?, error? } so callers can read res.error safely
-export async function progress(arg: string | { tag: string }) {
-  const tag = typeof arg === 'string' ? arg : arg?.tag;
-  return fetchJSON<{ ok: boolean; nextStatus?: string; error?: string }>(PROXY, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'progress', tag }),
-  });
+// ---------------- public API used across the app ----------------
+
+/** Read a single job by tag (proxied through /api/gas2 → GAS) */
+export async function getJob(tag: string): Promise<GetResponse> {
+  if (!tag) throw new Error('Missing tag');
+  const u = new URL(API_BASE, location.origin);
+  u.searchParams.set('action', 'get');
+  u.searchParams.set('tag', tag);
+  return getJSON<GetResponse>(u.toString());
 }
 
-// NO STATUS FLIP — just increments attempts and appends notes
-export async function logCallSimple(payload: { tag: string; reason?: string; notes?: string }) {
-  return fetchJSON<{ ok: boolean }>(PROXY, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'log-call', ...payload }),
-  });
+/** Save a job (create or update). Triggers initial/finished emails server-side. */
+export async function saveJob(job: Job): Promise<SaveResponse> {
+  if (!job || !job.tag) throw new Error('Missing job.tag');
+  return postJSON<SaveResponse>({ action: 'save', job });
 }
 
-// STATUS FLIP to "Called" in the appropriate column (meat/cape/webbs)
-export async function markCalled(payload: { tag: string; scope?: 'auto' | 'meat' | 'cape' | 'webbs'; notes?: string }) {
-  return fetchJSON<{ ok: boolean }>(PROXY, {
-    method: 'POST',
-    body: JSON.stringify({
-      action: 'markCalled',
-      tag: payload.tag,
-      scope: payload.scope || 'auto',
-      notes: payload.notes || '',
-    }),
+/** Generic progress helper used earlier (kept for backward compatibility). */
+export async function progress(payload: AnyRec): Promise<SaveResponse> {
+  // Example payloads we’ve used:
+  //   { action: 'progress', tag, status: 'Finished' }
+  //   { action: 'progress', tag, capingStatus: 'Called' }
+  //   { action: 'progress', tag, webbsStatus: 'Delivered' }
+  if (!payload?.tag) throw new Error('Missing tag');
+  const body = { action: 'progress', ...payload };
+  return postJSON<SaveResponse>(body);
+}
+
+/** Search jobs. Use q='@report' to fetch the "ready to call" report. */
+export async function searchJobs(q: string, opts: SearchOptions = {}): Promise<any> {
+  const u = new URL(API_BASE, location.origin);
+  u.searchParams.set('action', 'search');
+  u.searchParams.set('q', q || '');
+  if (opts.limit != null) u.searchParams.set('limit', String(opts.limit));
+  if (opts.status) u.searchParams.set('status', opts.status);
+  if (opts.scope) u.searchParams.set('scope', opts.scope);
+  // pass through any extra filters
+  Object.keys(opts).forEach((k) => {
+    if (['limit', 'status', 'scope'].includes(k)) return;
+    const v = (opts as AnyRec)[k];
+    if (v != null) u.searchParams.set(k, String(v));
   });
+  return getJSON<any>(u.toString());
+}
+
+/** Mark Called with scope: 'auto' | 'meat' | 'cape' | 'webbs' | 'all' */
+export async function markCalled(arg1: any, arg2?: any) {
+  // Supports: markCalled({ tag, scope, notes })
+  // or legacy: markCalled(tag, scope?)
+  let payload: any;
+  if (typeof arg1 === 'object' && arg1) {
+    const { tag, scope, notes } = arg1 as any;
+    if (!tag) throw new Error('Missing tag');
+    payload = { action: 'markCalled', tag, scope, notes };
+  } else {
+    const tag = arg1 as string;
+    const scope = (arg2 as any) || 'auto';
+    if (!tag) throw new Error('Missing tag');
+    payload = { action: 'markCalled', tag, scope };
+  }
+  return postJSON<SaveResponse>(payload);
+}
+
+
+/** Add a simple “attempt + note” row; does NOT flip any status by itself. */
+export async function logCallSimple(arg1: any, arg2?: any, arg3?: any, arg4?: any) {
+  // Supports: logCallSimple({ tag, scope, reason, notes, who, outcome })
+  // or legacy: logCallSimple(tag, note, who?, outcome?)
+  let payload: any;
+  if (typeof arg1 === 'object' && arg1) {
+    const { tag, scope, reason, notes, who, outcome } = arg1 as any;
+    if (!tag) throw new Error('Missing tag');
+    payload = { action: 'log-call', tag, scope, reason, notes, who, outcome };
+  } else {
+    const tag = arg1 as string;
+    const note = (arg2 ?? '') as string;
+    const who = arg3 as string | undefined;
+    const outcome = arg4 as string | undefined;
+    if (!tag) throw new Error('Missing tag');
+    payload = { action: 'log-call', tag, notes: note, who, outcome };
+  }
+  return postJSON<SaveResponse>(payload);
+}
+
+
+// ---------------- convenience utilities ----------------
+
+/** Cheap boolean parser that matches our server-side semantics. */
+export function asBool(v: any): boolean {
+  if (v === true) return true;
+  if (v === false) return false;
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
+}
+
+/** Normalize process type to one of our canonical labels. */
+export function normProc(s?: string): Job['processType'] {
+  const v = String(s || '').toLowerCase();
+  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
+  if (v.includes('donate')) return 'Donate';
+  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
+  if (v.includes('skull')) return 'Skull-Cap';
+  if (v.includes('euro')) return 'European';
+  if (v.includes('standard')) return 'Standard Processing';
+  return '';
+}
+
+/** Client-side mirror of the processing price logic (for previews only). */
+export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean): number {
+  const p = normProc(proc) || '';
+  const base =
+    p === 'Caped' ? 150
+    : p === 'Cape & Donate' ? 50
+    : p === 'Donate' ? 0
+    : (['Standard Processing', 'Skull-Cap', 'European'] as string[]).includes(p) ? 130
+    : 0;
+  if (!base) return 0;
+  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
