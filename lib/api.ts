@@ -116,6 +116,15 @@ export interface SearchOptions {
   [k: string]: any;
 }
 
+// Accept object-style queries as well as plain string
+export type SearchParams = {
+  status?: string;
+  tag?: string;
+  limit?: number;
+  q?: string;
+  [k: string]: any;
+};
+
 const API_BASE = '/api/gas2';
 
 // ----------- low-level fetch helpers (no-cache, JSON-safe) -----------
@@ -181,17 +190,33 @@ export async function progress(payload: AnyRec): Promise<SaveResponse> {
 }
 
 /** Search jobs. Use q='@report' to fetch the "ready to call" report. */
-export async function searchJobs(q: string, opts: SearchOptions = {}): Promise<any> {
+export async function searchJobs(q: string | SearchParams, opts: SearchOptions = {}): Promise<any> {
   const u = new URL(API_BASE, location.origin);
   u.searchParams.set('action', 'search');
-  u.searchParams.set('q', q || '');
-  if (opts.limit != null) u.searchParams.set('limit', String(opts.limit));
-  if (opts.status) u.searchParams.set('status', opts.status);
-  if (opts.scope) u.searchParams.set('scope', opts.scope);
-  // pass through any extra filters
-  Object.keys(opts).forEach((k) => {
-    if (['limit', 'status', 'scope'].includes(k)) return;
-    const v = (opts as AnyRec)[k];
+
+  if (typeof q === 'string') {
+    u.searchParams.set('q', q || '');
+    if (opts.limit != null) u.searchParams.set('limit', String(opts.limit));
+    if (opts.status) u.searchParams.set('status', opts.status);
+    if (opts.scope) u.searchParams.set('scope', opts.scope);
+    Object.keys(opts).forEach((k) => {
+      if (['limit', 'status', 'scope'].includes(k)) return;
+      const v = (opts as AnyRec)[k];
+      if (v != null) u.searchParams.set(k, String(v));
+    });
+    return getJSON<any>(u.toString());
+  }
+
+  // object-mode: copy known filters and any extras; allow opts to override
+  const params: Record<string, any> = { ...(q || {}), ...(opts || {}) };
+  if (params.q != null) u.searchParams.set('q', String(params.q));
+  if (params.status != null) u.searchParams.set('status', String(params.status));
+  if (params.tag != null) u.searchParams.set('tag', String(params.tag));
+  if (params.limit != null) u.searchParams.set('limit', String(params.limit));
+  if (params.scope != null) u.searchParams.set('scope', String(params.scope));
+  Object.keys(params).forEach((k) => {
+    if (['q','status','tag','limit','scope'].includes(k)) return;
+    const v = params[k];
     if (v != null) u.searchParams.set(k, String(v));
   });
   return getJSON<any>(u.toString());
