@@ -35,7 +35,7 @@ type Job = {
   county?: string;
   dropoff?: string; // yyyy-mm-dd
   sex?: '' | 'Buck' | 'Doe';
-  processType?: '' | 'Standard Processing' | 'Caped' | 'Skull-Cap' | 'European';
+  processType?: '' | 'Standard Processing' | 'Caped' | 'Skull-Cap' | 'European' | 'Caped & Donate' | 'Donate';
 
   status?: string;            // regular status
   capingStatus?: string;      // only shown if Caped
