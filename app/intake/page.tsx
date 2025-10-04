@@ -632,6 +632,8 @@ function IntakePage() {
                 <option>Caped</option>
                 <option>Skull-Cap</option>
                 <option>European</option>
+		<option>Cape & Donate</option>
+		<option>Donate</option>
               </select>
             </div>
           </div>
