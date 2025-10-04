@@ -12,87 +12,8 @@ type Json = Record<string, any>;
 
 const API_BASE = '/api/gas2';
 
-// Keep Job loose enough to tolerate sheet changes without breaking the app.
-// If you want stricter types, create a narrower interface and intersect.
-export interface Job extends AnyRec {
-  tag?: string;
-  confirmation?: string;
-
-  customer?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-
-  county?: string;
-  dropoff?: string; // yyyy-mm-dd
-  // Loosened to avoid union mismatches across files:
-  sex?: string;
-
-  // Processing types incl. new Donate variants
-  processType?:
-    | ''
-    | 'Standard Processing'
-    | 'Caped'
-    | 'Skull-Cap'
-    | 'European'
-    | 'Cape & Donate'
-    | 'Donate';
-
-  // Status tracks
-  status?: string;        // main (regular processing)
-  capingStatus?: string;  // only when Caped
-  webbsStatus?: string;   // only when Webbs Order
-
-  // Cuts & prefs
-  hind?: {
-    'Hind - Steak'?: boolean;
-    'Hind - Roast'?: boolean;
-    'Hind - Grind'?: boolean;
-    'Hind - None'?: boolean;
-  };
-  front?: {
-    'Front - Steak'?: boolean;
-    'Front - Roast'?: boolean;
-    'Front - Grind'?: boolean;
-    'Front - None'?: boolean;
-  };
-  hindRoastCount?: string;
-  frontRoastCount?: string;
-
-  steak?: string;
-  steakOther?: string;
-  burgerSize?: string;
-  steaksPerPackage?: string;
-  beefFat?: boolean;
-
-  backstrapPrep?: '' | 'Whole' | 'Sliced' | 'Butterflied';
-  backstrapThickness?: '' | '1/2"' | '3/4"' | 'Other';
-  backstrapThicknessOther?: string;
-
-  // Specialty
-  specialtyProducts?: boolean;
-  summerSausageLbs?: string | number;
-  summerSausageCheeseLbs?: string | number;
-  slicedJerkyLbs?: string | number;
-  specialtyPounds?: string;
-
-  // Webbs
-  webbsOrder?: boolean;
-  webbsFormNumber?: string;
-  webbsPounds?: string;
-
-  // Price & paid flags (legacy + split)
-  price?: number | string;
-  Paid?: boolean;
-  paid?: boolean;
-  paidProcessing?: boolean;
-  paidSpecialty?: boolean;
-
-  // Server-populated read-only hints (timestamps, etc.) may appear here too
-}
+// Keep Job super loose to avoid cross-file literal-union collisions.
+export type Job = AnyRec & { tag?: string };
 
 export interface SaveResponse {
   ok: boolean;
@@ -277,8 +198,8 @@ export function asBool(v: any): boolean {
   return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
 }
 
-/** Normalize process type to one of our canonical labels. */
-export function normProc(s?: string): Job['processType'] {
+/** Normalize process type to one of our canonical labels (string in, string out). */
+export function normProc(s?: string): string {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
   if (v.includes('donate')) return 'Donate';
