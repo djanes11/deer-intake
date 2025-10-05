@@ -57,6 +57,16 @@ function unauthorized() {
 }
 
 export function middleware(req: NextRequest) {
+  // Public Overnight Intake (render-only): allow GET/HEAD/OPTIONS without auth
+  {
+    const { pathname } = req.nextUrl;
+    const method = req.method.toUpperCase();
+    if ((pathname === '/intake/overnight' || pathname.startsWith('/intake/overnight/')) &&
+        (method === 'GET' || method === 'HEAD' || method === 'OPTIONS')) {
+      return NextResponse.next();
+    }
+  }
+
   const { pathname, searchParams } = req.nextUrl;
 
   // Always allow static assets and explicitly public routes
