@@ -1,4 +1,3 @@
-// app/page.tsx
 'use client';
 
 import Link from 'next/link';
@@ -17,7 +16,6 @@ export default function HomePage() {
 
       {/* Action tiles */}
       <section className="tile-grid" aria-label="Quick actions">
-        {/* Make the top three tiles match the Call Report tile styling */}
         <Link href="/intake" className="tile tile-alt">
           <div className="tile-emoji" aria-hidden>📝</div>
           <div className="tile-title">New Intake form</div>
@@ -40,6 +38,19 @@ export default function HomePage() {
           <div className="tile-emoji" aria-hidden>☎️</div>
           <div className="tile-title">Call Report</div>
           <div className="tile-sub">Who to call & why</div>
+        </Link>
+
+        {/* New: help tiles — keep them at the end so core ops stay first */}
+        <Link href="/tips" className="tile tile-alt">
+          <div className="tile-emoji" aria-hidden>💡</div>
+          <div className="tile-title">Tip Sheet</div>
+          <div className="tile-sub">Short reminders for staff</div>
+        </Link>
+
+        <Link href="/faq" className="tile tile-alt">
+          <div className="tile-emoji" aria-hidden>❓</div>
+          <div className="tile-title">FAQ</div>
+          <div className="tile-sub">Customer questions & answers</div>
         </Link>
       </section>
     </div>
