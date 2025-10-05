@@ -33,7 +33,7 @@ export default function HomePage() {
         <Link href="/search" className="tile tile-alt">
           <div className="tile-emoji" aria-hidden>🔎</div>
           <div className="tile-title">Search</div>
-          <div className="tile-sub">Find jobs by name, tag, or confirmation #</div>
+          <div className="tile-sub">Find jobs by name, tag, or phone #</div>
         </Link>
 
         <Link href="/reports/calls" className="tile tile-alt">
