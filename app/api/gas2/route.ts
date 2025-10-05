@@ -1,7 +1,7 @@
 // app/api/gas2/route.ts
 // Initial email on first save (signed read-only link).
 // Finished email once when status first becomes Finished/Ready (works for save OR progress).
-// No attachments. No PDFs.
+// Adds special search handling for @needsTag and supports overnight saves with no tag.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,7 +37,7 @@ function logEnvOnce() {
   );
 }
 
-/* ---------------- Pricing helpers (UPDATED) ---------------- */
+/* ---------------- Pricing helpers ---------------- */
 function normProc(s: any): string {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
@@ -148,6 +148,40 @@ export async function POST(req: NextRequest) {
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
   log('POST action=', action);
 
+  /* ---------- SPECIAL SEARCH: @needsTag ---------- */
+  if (action === 'search' && String(body.q || '').trim().toLowerCase() === '@needstag') {
+    // Ask GAS for a broad list (you can layer filters later if you add them upstream)
+    const upstream = await gasPost({ action: 'search', q: body.baseQuery || '', limit: body.limit || 500 });
+    if (upstream.status >= 400) {
+      return new Response(
+        upstream.text || JSON.stringify(upstream.json || { ok: false, error: 'search failed' }),
+        {
+          status: upstream.status,
+          headers: { 'Content-Type': upstream.text ? 'text/plain' : 'application/json' },
+        }
+      );
+    }
+    const all = (upstream.json?.rows || []) as AnyRec[];
+
+    // Server-side filter for "missing tag / requiresTag"
+    const rows = all.filter((r) => {
+      const tag = String(r.tag ?? r.Tag ?? '').trim();
+      const req = ((): boolean => {
+        const v = r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag;
+        if (v === true) return true;
+        if (v === false) return false;
+        const s = String(v ?? '').trim().toLowerCase();
+        return ['true', 'yes', 'y', '1', 'on'].includes(s);
+      })();
+      return !tag || req;
+    });
+
+    return new Response(JSON.stringify({ ok: true, rows }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   // Tag-centric actions we enrich (save/progress); others pass through
   const tag = String((body.job && body.job.tag) || body.tag || '').trim();
   const isTagAction = ['save', 'progress'].includes(action);
@@ -177,7 +211,6 @@ export async function POST(req: NextRequest) {
         }
       );
     }
-    // Just return the upstream result; no emails, no follow-up GET since there's no tag yet.
     return new Response(
       forwarded.text || JSON.stringify(forwarded.json || { ok: true }),
       {
@@ -230,10 +263,9 @@ export async function POST(req: NextRequest) {
     (body as any).nextStatus = nextStatus; // echo to client
 
     if (nextStatus) {
-      // Force a SAVE-style payload for GAS: action=save and a merged job object
       body.status = nextStatus;
       body.tag = tag;
-      body.action = 'save'; // <-- switch to save so GAS writes the sheet
+      body.action = 'save'; // switch to save so GAS writes the sheet
       body.job = { ...(prev || {}), tag, status: nextStatus };
     }
   }
@@ -299,7 +331,6 @@ export async function POST(req: NextRequest) {
     log('no customer email; skipping email');
   } else {
     try {
-      // Initial email (once, on first save)
       if (shouldInitial) {
         const viewUrl = formViewUrl(req, tag);
         log('sending initial email ->', customerEmail);
@@ -317,7 +348,6 @@ export async function POST(req: NextRequest) {
         log('initial email sent');
       }
 
-      // Finished email (first transition to finished/ready)
       if (shouldFinished) {
         const procPrice = processingPrice(
           latest.processType,
@@ -360,7 +390,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Return GAS upstream payload (with nextStatus echoed authoritatively)
   const merged = {
     ...(forwarded.json || {}),
     nextStatus: nextStatusEcho,
@@ -371,4 +400,3 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
-
