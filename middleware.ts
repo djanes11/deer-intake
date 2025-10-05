@@ -53,11 +53,51 @@ function unauthorized() {
   });
 }
 
+// ---- Support bypass (token-based, sets a short-lived cookie) ----
+const SUPPORT_TOKEN = process.env.SUPPORT_BYPASS_TOKEN || '';
+const SUPPORT_COOKIE = 'support_bypass_ts';
+
+function hasValidSupportCookie(req: NextRequest) {
+  const tsStr = req.cookies.get(SUPPORT_COOKIE)?.value;
+  if (!tsStr) return false;
+  const ts = Number(tsStr);
+  if (!Number.isFinite(ts)) return false;
+  const age = Math.floor(Date.now() / 1000) - ts;
+  return age <= MAX_AGE_S;
+}
+
+
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const { pathname, searchParams } = req.nextUrl;
 
   // Always allow public routes and static assets
   if (isAsset(pathname) || isPublic(pathname)) return NextResponse.next();
+
+  // ---- NEW: Support bypass gate (works even if LOCK=1) ----
+  if (SUPPORT_TOKEN) {
+    const supportParam = req.nextUrl.searchParams.get('support');
+    // If a valid cookie already exists -> allow
+    if (hasValidSupportCookie(req)) {
+      const res = NextResponse.next();
+      // refresh cookie rolling window
+      res.cookies.set(SUPPORT_COOKIE, String(Math.floor(Date.now() / 1000)), {
+        httpOnly: true, sameSite: 'lax', secure: true, path: '/', maxAge: MAX_AGE_S,
+      });
+      return res;
+    }
+    // If a matching ?support=TOKEN is provided -> set cookie and allow
+    if (supportParam && supportParam === SUPPORT_TOKEN) {
+      const res = NextResponse.next();
+      res.cookies.set(SUPPORT_COOKIE, String(Math.floor(Date.now() / 1000)), {
+        httpOnly: true, sameSite: 'lax', secure: true, path: '/', maxAge: MAX_AGE_S,
+      });
+      // Strip the token from the URL so it’s not leaked if copied
+      const clean = new URL(req.url);
+      clean.searchParams.delete('support');
+      return NextResponse.redirect(clean);
+    }
+  }
+  // ---- END NEW ----
 
   // No lock in this environment? Let everything through.
   if (!LOCK) return NextResponse.next();
@@ -68,9 +108,16 @@ export function middleware(req: NextRequest) {
   // Require Basic Auth for all other routes
   const creds = decodeBasicAuth(req.headers.get('authorization') || '');
   if (!creds || creds.user !== USER || creds.pass !== PASS) {
-    // Wrong/missing creds -> prompt
     return unauthorized();
   }
+
+  const res = NextResponse.next();
+  // refresh rolling auth cookie window
+  res.cookies.set('auth_ts', String(Math.floor(Date.now() / 1000)), {
+    httpOnly: true, sameSite: 'lax', secure: true, path: '/', maxAge: MAX_AGE_S,
+  });
+  return res;
+}
 
   // Creds valid:
   const res = NextResponse.next();
