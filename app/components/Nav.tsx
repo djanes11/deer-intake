@@ -78,9 +78,9 @@ export default function Nav() {
                 Call Report
               </Link>
               {/* New overnight report link */}
-              <Link href="/reports/overnight" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Overnight — Missing Tag
-              </Link>
+              <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+  Overnight — Missing Tag
+</Link>
             </div>
           </details>
 
