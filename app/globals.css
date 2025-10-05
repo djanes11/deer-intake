@@ -945,3 +945,109 @@ body.light-page.watermark {
 }
 
 
+
+
+
+/* ===== Read-only intake — mobile polish (non-breaking) =====
+   Apply these only when the read-only container has class "ro".
+   Safe: everything is prefixed with .ro and wrapped in a small-screen media query.
+---------------------------------------------------------------- */
+@media (max-width: 760px) {
+  .ro {
+    --ro-pad: 12px;
+    --ro-gap: 10px;
+  }
+
+  /* Headline spacing */
+  .ro h1, .ro h2, .ro h3 {
+    line-height: 1.2;
+    margin: 8px 0 10px;
+  }
+
+  /* Cards/sections become roomy blocks */
+  .ro .card, .ro .section, .ro .panel {
+    border-radius: 14px;
+    padding: var(--ro-pad);
+    box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,.06));
+    margin-bottom: 12px;
+  }
+
+  /* Kill multi-column grids inside read-only for narrow screens */
+  .ro .grid, .ro .row, .ro .cols,
+  .ro [class*="grid-"], .ro [class*="col-"] {
+    display: block !important;
+  }
+
+  /* Field layout: label on top, value below, full width */
+  .ro .field, .ro .form-field, .ro .input-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: var(--ro-gap);
+  }
+
+  .ro .field label, .ro label {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--muted, #6b7280);
+  }
+
+  /* Make disabled/readonly inputs look like clean value chips */
+  .ro input[disabled], .ro input[readonly],
+  .ro select[disabled], .ro textarea[readonly],
+  .ro .ro-value {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid var(--border, #d8e3f5);
+    background: var(--field, #fbfdff);
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.2;
+    color: var(--text, #0f172a);
+    pointer-events: none; /* stay read-only */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Allow addresses/notes to wrap normally */
+  .ro textarea[readonly] {
+    white-space: normal;
+    overflow: auto;
+  }
+
+  /* Pills/checkbox rows wrap neatly */
+  .ro .pills, .ro .choices, .ro .option-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ro .pill, .ro .chip {
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border, #d8e3f5);
+    background: var(--accent, #f5f8ff);
+    font-weight: 600;
+  }
+
+  /* Disabled checkboxes/radios are larger for readability */
+  .ro input[type="checkbox"][disabled],
+  .ro input[type="radio"][disabled] {
+    transform: scale(1.25);
+  }
+
+  /* Price summary tiles breathe and stack */
+  .ro .price-summary, .ro .totals, .ro .mini-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .ro .price-card, .ro .mini-card {
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: var(--accent, #f5f8ff);
+  }
+}
