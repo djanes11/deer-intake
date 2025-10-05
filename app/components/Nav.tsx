@@ -47,7 +47,6 @@ export default function Nav() {
           <Link href="/intake" className={`item ${isActive(pathname, '/intake') ? 'active' : ''}`} onClick={closeAllMenus}>Intake form</Link>
           <Link href="/scan" className={`item ${isActive(pathname, '/scan') ? 'active' : ''}`} onClick={closeAllMenus}>Scan Tags</Link>
           <Link href="/search" className={`item ${isActive(pathname, '/search') ? 'active' : ''}`} onClick={closeAllMenus}>Search</Link>
-          <Link href="/board" className={`item ${isActive(pathname, '/board') ? 'active' : ''}`} onClick={closeAllMenus}>Board</Link>
 
           {/* Reports dropdown */}
           <details className="dd" ref={reportsRef}>
