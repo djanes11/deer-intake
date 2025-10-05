@@ -35,11 +35,6 @@ export default function HomePage() {
           <div className="tile-sub">Find jobs by name, tag, or confirmation #</div>
         </Link>
 
-        <Link href="/board" className="tile tile-alt">
-          <div className="tile-emoji" aria-hidden>📋</div>
-          <div className="tile-title">Board</div>
-          <div className="tile-sub">At-a-glance work status</div>
-        </Link>
 
         <Link href="/reports/calls" className="tile tile-alt">
           <div className="tile-emoji" aria-hidden>☎️</div>
