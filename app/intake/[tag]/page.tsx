@@ -101,6 +101,24 @@ function Check({ on, text }: { on?: boolean; text: string }) {
   );
 }
 
+// mailto builder for the Email button
+function mailtoHref(email: string, tag: string, total: number) {
+  const subject = `Your deer order (Tag ${tag}) — McAfee Deer Processing`;
+  const body =
+`Hi,
+
+This is a view-only copy of your intake form for Tag ${tag}.
+Current status: Finished & Ready to Pick Up
+
+Estimated total (subject to final weight/add-ons): $${total.toFixed(2)}
+
+If you have questions, reply to this email.
+
+— McAfee Deer Processing`;
+  const q = new URLSearchParams({ subject, body }).toString();
+  return `mailto:${email}?${q}`;
+}
+
 type SP = Record<string, string | string[] | undefined>;
 export default async function IntakeView({
   params,
@@ -140,14 +158,14 @@ export default async function IntakeView({
           <title>Intake — {tagDec}</title>
         </head>
         {/* No site chrome; white card; exact form look, but read-only */}
-        <body className="light-page watermark" style={{ margin: 0 }}>
+        <body className="light-page watermark ro" style={{ margin: 0 }}>
           <main style={{maxWidth:1040, margin:'18px auto', padding:'0 14px 40px'}}>
             <div className="form-card" style={{maxWidth:980, margin:'16px auto', padding:14}}>
               <h2 style={{margin:'6px 0 10px'}}>Deer Intake (Read‑only)</h2>
 
               {/* Summary bar */}
               <div className="summary" style={{position:'relative', background:'#f8fafc', border:'1px solid #e6e9ec', borderRadius:10, padding:8, marginBottom:10}}>
-                <div className="row" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(3, 1fr)'}}>
+                <div className="row grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(3, 1fr)'}}>
                   <div className="col">
                     <label>Tag Number</label>
                     <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px' }}>{job?.tag || ''}</div>
@@ -165,7 +183,7 @@ export default async function IntakeView({
                   </div>
                 </div>
 
-                <div className="row small" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(4, 1fr)', marginTop:6}}>
+                <div className="row grid small" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(4, 1fr)', marginTop:6}}>
                   <div className="col total">
                     <label>Total (preview)</label>
                     <div className="money total" style={{ fontWeight:900 }}>{totalPrice.toFixed(2)}</div>
@@ -196,8 +214,27 @@ export default async function IntakeView({
                   <div className="c3" style={{gridColumn:'span 3'}}><Field label="Confirmation #" value={job?.confirmation || ''} /></div>
                   <div className="c6" style={{gridColumn:'span 6'}}><Field label="Customer Name" value={job?.customer || ''} /></div>
                   <div className="c3" style={{gridColumn:'span 3'}}><Field label="Phone" value={job?.phone || ''} /></div>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Email" value={job?.email || ''} /></div>
-                  <div className="c8" style={{gridColumn:'span 8'}}><Field label="Address" value={job?.address || ''} /></div>
+                  <div className="c8" style={{gridColumn:'span 8'}}>
+                    <label>Email</label>
+                    <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                      <div
+                        className="value"
+                        style={{
+                          background:'#fff',
+                          border:'1px solid #cbd5e1',
+                          borderRadius:10,
+                          padding:'6px 8px',
+                          wordBreak:'break-word',
+                          overflowWrap:'anywhere',
+                          whiteSpace:'pre-wrap',
+                          flex:'1 1 auto'
+                        }}
+                      >
+                        {job?.email || ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Address" value={job?.address || ''} /></div>
                   <div className="c4" style={{gridColumn:'span 4'}}><Field label="City" value={job?.city || ''} /></div>
                   <div className="c4" style={{gridColumn:'span 4'}}><Field label="State" value={job?.state || ''} /></div>
                   <div className="c4" style={{gridColumn:'span 4'}}><Field label="Zip" value={job?.zip || ''} /></div>
