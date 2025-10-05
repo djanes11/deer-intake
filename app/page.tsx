@@ -17,24 +17,24 @@ export default function HomePage() {
 
       {/* Action tiles */}
       <section className="tile-grid" aria-label="Quick actions">
-        <Link href="/intake" className="tile">
+        {/* Make the top three tiles match the Call Report tile styling */}
+        <Link href="/intake" className="tile tile-alt">
           <div className="tile-emoji" aria-hidden>📝</div>
           <div className="tile-title">New Intake form</div>
           <div className="tile-sub">Start a new Intake Form</div>
         </Link>
 
-        <Link href="/scan" className="tile">
+        <Link href="/scan" className="tile tile-alt">
           <div className="tile-emoji" aria-hidden>📷</div>
           <div className="tile-title">Scan Tags</div>
           <div className="tile-sub">Update status by scanning a barcode</div>
         </Link>
 
-        <Link href="/search" className="tile">
+        <Link href="/search" className="tile tile-alt">
           <div className="tile-emoji" aria-hidden>🔎</div>
           <div className="tile-title">Search</div>
           <div className="tile-sub">Find jobs by name, tag, or confirmation #</div>
         </Link>
-
 
         <Link href="/reports/calls" className="tile tile-alt">
           <div className="tile-emoji" aria-hidden>☎️</div>
@@ -45,3 +45,4 @@ export default function HomePage() {
     </div>
   );
 }
+
