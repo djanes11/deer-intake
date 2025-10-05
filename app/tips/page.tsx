@@ -1,17 +1,17 @@
-// app/tips/page.tsx — Staff Tip Sheet
+// app/tips/page.tsx — Staff Tip Sheet (light cards)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default function TipsPage() {
   return (
-    <main className="light-page" style={{margin:'0 auto', maxWidth:960, padding:'18px 14px 40px'}}>
-      <header style={{marginBottom:16}}>
+    <main className="light-page watermark" style={{margin:'0 auto', maxWidth:960, padding:'18px 14px 40px'}}>
+      <header className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
         <h1 style={{margin:'0 0 6px'}}>McAfee Intake App — Tip Sheet</h1>
         <p className="muted">Fast reminders for staff. Keep this page open during busy hours.</p>
       </header>
 
-      <section className="card" style={{padding:14, borderRadius:12, marginBottom:12}}>
+      <section className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
         <h2 style={{margin:'0 0 8px'}}>Quick Start</h2>
         <ol style={{paddingLeft:18, margin:'6px 0'}}>
           <li>From the Home page, choose <b>New Intake</b> for a fresh tag, or <b>Scan</b> to update an existing job.</li>
@@ -22,7 +22,7 @@ export default function TipsPage() {
         </ol>
       </section>
 
-      <section className="card" style={{padding:14, borderRadius:12, marginBottom:12}}>
+      <section className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
         <h2 style={{margin:'0 0 8px'}}>Status Flow</h2>
         <div style={{display:'grid', gap:8, gridTemplateColumns:'repeat(4, minmax(0,1fr))'}} className="grid">
           <div className="mini-card" style={{padding:'10px 12px', borderRadius:10, background:'#f5f8ff'}}>
@@ -49,7 +49,7 @@ export default function TipsPage() {
         <p className="muted" style={{marginTop:8}}>Caping &amp; Webbs have their own sub-statuses; update those when relevant.</p>
       </section>
 
-      <section className="card" style={{padding:14, borderRadius:12, marginBottom:12}}>
+      <section className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
         <h2 style={{margin:'0 0 8px'}}>Scanning Tips</h2>
         <ul style={{paddingLeft:18, margin:'6px 0'}}>
           <li>Use the <b>Scan</b> page for the fastest status updates; the cursor auto-focuses the barcode field.</li>
@@ -58,7 +58,7 @@ export default function TipsPage() {
         </ul>
       </section>
 
-      <section className="card" style={{padding:14, borderRadius:12, marginBottom:12}}>
+      <section className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
         <h2 style={{margin:'0 0 8px'}}>Pricing Gotchas</h2>
         <ul style={{paddingLeft:18, margin:'6px 0'}}>
           <li><b>Process Type</b> sets the base. Changing it later will change the total preview.</li>
@@ -67,7 +67,7 @@ export default function TipsPage() {
         </ul>
       </section>
 
-      <section className="card" style={{padding:14, borderRadius:12}}>
+      <section className="form-card" style={{padding:14, borderRadius:12}}>
         <h2 style={{margin:'0 0 8px'}}>Troubleshooting</h2>
         <ul style={{paddingLeft:18, margin:'6px 0'}}>
           <li><b>“Failed to fetch” on Save</b>: Check the Apps Script URL in env (<code>NEXT_PUBLIC_GAS_BASE</code>) and your network.</li>

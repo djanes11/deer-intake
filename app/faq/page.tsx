@@ -1,17 +1,17 @@
-// app/faq/page.tsx — Customer FAQ
+// app/faq/page.tsx — Customer FAQ (light cards)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default function FAQPage() {
   return (
-    <main className="light-page" style={{margin:'0 auto', maxWidth:860, padding:'18px 14px 40px'}}>
-      <header style={{marginBottom:16}}>
+    <main className="light-page watermark" style={{margin:'0 auto', maxWidth:860, padding:'18px 14px 40px'}}>
+      <header className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
         <h1 style={{margin:'0 0 6px'}}>Deer Processing — FAQ</h1>
         <p className="muted">Common questions our customers ask. If you don’t see it here, give us a call.</p>
       </header>
 
-      <section className="card" style={{padding:14, borderRadius:12}}>
+      <section className="form-card" style={{padding:14, borderRadius:12}}>
         <details open>
           <summary><b>What are your drop‑off hours?</b></summary>
           <p style={{marginTop:8}}>We post hours on our door and social channels during the season. If you’re running late, call and we’ll do our best to accommodate.</p>
