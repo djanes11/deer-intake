@@ -1,4 +1,4 @@
-// app/intake/[tag]/page.tsx — public read-only view of the exact intake form (no nav, no actions)
+// app/intake/[tag]/page.tsx — public read-only view (no actions)
 import 'server-only';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -85,6 +85,7 @@ function Field({ label, value }: { label: string; value?: string }) {
           wordBreak:'break-word',
           overflowWrap:'anywhere',
           whiteSpace:'pre-wrap',
+          minWidth: 0,
         }}
       >
         {value || ''}
@@ -99,14 +100,6 @@ function Check({ on, text }: { on?: boolean; text: string }) {
       <span>{text}</span>
     </div>
   );
-}
-
-// mailto builder for the Email button
-If you have questions, reply to this email.
-
-— McAfee Deer Processing`;
-  const q = new URLSearchParams({ subject, body }).toString();
-  return `mailto:${email}?${q}`;
 }
 
 type SP = Record<string, string | string[] | undefined>;
@@ -156,17 +149,17 @@ export default async function IntakeView({
               {/* Summary bar */}
               <div className="summary" style={{position:'relative', background:'#f8fafc', border:'1px solid #e6e9ec', borderRadius:10, padding:8, marginBottom:10}}>
                 <div className="row grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(3, 1fr)'}}>
-                  <div className="col">
+                  <div className="col" style={{minWidth:0}}>
                     <label>Tag Number</label>
                     <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.tag || ''}</div>
                     <div className="muted" style={{fontSize:12}}>Deer Tag</div>
                   </div>
-                  <div className="col">
+                  <div className="col" style={{minWidth:0}}>
                     <label>Processing Price</label>
                     <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{processingPrice.toFixed(2)}</div>
                     <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
                   </div>
-                  <div className="col">
+                  <div className="col" style={{minWidth:0}}>
                     <label>Specialty Price</label>
                     <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{(job?.specialtyProducts ? specialtyPrice : 0).toFixed(2)}</div>
                     <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
@@ -174,22 +167,22 @@ export default async function IntakeView({
                 </div>
 
                 <div className="row grid small" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(4, 1fr)', marginTop:6}}>
-                  <div className="col total">
+                  <div className="col total" style={{minWidth:0}}>
                     <label>Total (preview)</label>
-                    <div className="money total" style={{ fontWeight:900 }}>{totalPrice.toFixed(2)}</div>
+                    <div className="money total" style={{ fontWeight:900, minWidth:0 }}>{totalPrice.toFixed(2)}</div>
                   </div>
-                  <div className="col">
+                  <div className="col" style={{minWidth:0}}>
                     <label>Status</label>
                     <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.status || ''}</div>
                   </div>
                   {job?.processType === 'Caped' && (
-                    <div className="col">
+                    <div className="col" style={{minWidth:0}}>
                       <label>Caping Status</label>
                       <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.capingStatus || ''}</div>
                     </div>
                   )}
                   {job?.webbsOrder && (
-                    <div className="col">
+                    <div className="col" style={{minWidth:0}}>
                       <label>Webbs Status</label>
                       <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.webbsStatus || ''}</div>
                     </div>
@@ -217,7 +210,8 @@ export default async function IntakeView({
                           wordBreak:'break-word',
                           overflowWrap:'anywhere',
                           whiteSpace:'pre-wrap',
-                          flex:'1 1 auto'
+                          flex:'1 1 auto',
+                          minWidth:0
                         }}
                       >
                         {job?.email || ''}
