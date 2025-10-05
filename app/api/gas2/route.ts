@@ -1,7 +1,7 @@
 // app/api/gas2/route.ts
 // Initial email on first save (signed read-only link).
-// Finished email once when status first becomes Finished/Ready (works for save OR progress).
-// Adds special search handling for @needsTag and supports overnight saves with no tag.
+// Finished email once when status first becomes Finished/Ready (save OR progress).
+// Robust @needsTag search + overnight saves without tag.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,7 +15,7 @@ type AnyRec = Record<string, any>;
 const GAS_BASE = (process.env.NEXT_PUBLIC_GAS_BASE || process.env.GAS_BASE || '')
   .trim()
   .replace(/^['"]|['"]$/g, '');
-const GAS_TOKEN = process.env.GAS_TOKEN || ''; // used for GAS auth AND HMAC signing
+const GAS_TOKEN = process.env.GAS_TOKEN || '';
 const SITE = process.env.SITE_NAME || 'McAfee Custom Deer Processing';
 const EMAIL_DEBUG = process.env.EMAIL_DEBUG === '1';
 
@@ -110,6 +110,21 @@ function formViewUrl(req: Request, tag: string) {
   return url.toString();
 }
 
+/* ---------------- Utils ---------------- */
+function truthyBool(v: any): boolean {
+  if (v === true) return true;
+  if (v === false) return false;
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['true', 'yes', 'y', '1', 'on'].includes(s);
+}
+function getTagFromRow(r: AnyRec): string {
+  const keys = ['tag','Tag','TAG','Tag Number','tag_number','TagNumber','Deer Tag'];
+  for (const k of keys) {
+    if (r[k] != null) return String(r[k]).trim();
+  }
+  return '';
+}
+
 /* ---------------- Handlers ---------------- */
 export async function GET(req: NextRequest) {
   logEnvOnce();
@@ -150,33 +165,47 @@ export async function POST(req: NextRequest) {
 
   /* ---------- SPECIAL SEARCH: @needsTag ---------- */
   if (action === 'search' && String(body.q || '').trim().toLowerCase() === '@needstag') {
-    // Ask GAS for a broad list (you can layer filters later if you add them upstream)
-    const upstream = await gasPost({ action: 'search', q: body.baseQuery || '', limit: body.limit || 500 });
-    if (upstream.status >= 400) {
-      return new Response(
-        upstream.text || JSON.stringify(upstream.json || { ok: false, error: 'search failed' }),
-        {
-          status: upstream.status,
-          headers: { 'Content-Type': upstream.text ? 'text/plain' : 'application/json' },
-        }
-      );
-    }
-    const all = (upstream.json?.rows || []) as AnyRec[];
+    // Try multiple upstream queries until we actually get rows.
+    const attempts: AnyRec[] = [
+      { action: 'search', q: '@needsTag', limit: body.limit || 500 }, // if GAS supports it
+      { action: 'search', q: '',          limit: body.limit || 500 }, // blank → some scripts return recent
+      { action: 'search', q: '@all',      limit: body.limit || 500 }, // common custom flag
+      { action: 'search', q: '@recent',   limit: body.limit || 500 }, // another common flag
+    ];
 
-    // Server-side filter for "missing tag / requiresTag"
-    const rows = all.filter((r) => {
-      const tag = String(r.tag ?? r.Tag ?? '').trim();
-      const req = ((): boolean => {
-        const v = r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag;
-        if (v === true) return true;
-        if (v === false) return false;
-        const s = String(v ?? '').trim().toLowerCase();
-        return ['true', 'yes', 'y', '1', 'on'].includes(s);
-      })();
+    let all: AnyRec[] = [];
+    for (const payload of attempts) {
+      const up = await gasPost(payload);
+      if (up.status >= 400) continue;
+      const rows = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
+      if (Array.isArray(rows) && rows.length) { all = rows; break; }
+    }
+
+    // If still nothing, just return ok:true/empty to avoid crashing the UI.
+    if (!all.length) {
+      return new Response(JSON.stringify({ ok: true, rows: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Filter for "missing tag OR requiresTag=true"
+    const filtered = all.filter((r) => {
+      const tag = getTagFromRow(r);
+      const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
       return !tag || req;
     });
 
-    return new Response(JSON.stringify({ ok: true, rows }), {
+    // Optional: de-dupe by sheet row (if present)
+    const seen = new Set<string>();
+    const rowsOut = filtered.filter((r) => {
+      const key = String(r.row ?? r.Row ?? JSON.stringify([r.customer, r.phone, r.dropoff]));
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return new Response(JSON.stringify({ ok: true, rows: rowsOut }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -195,7 +224,6 @@ export async function POST(req: NextRequest) {
   const isOvernight = action === 'save' && requiresTag && tag === '';
 
   if (isOvernight) {
-    // Forward as an append-style save to GAS; skip tag-based GETs and email triggers.
     const payload = {
       action: 'save',
       job: { ...(body.job || {}), tag: '', requiresTag: true },
@@ -260,12 +288,12 @@ export async function POST(req: NextRequest) {
     if (!s || /(drop|received|intake|new)/.test(s)) nextStatus = 'Processing';
     else if (/process/.test(s) && !/finish|ready|finished|complete/.test(s)) nextStatus = 'Finished';
 
-    (body as any).nextStatus = nextStatus; // echo to client
+    (body as any).nextStatus = nextStatus;
 
     if (nextStatus) {
       body.status = nextStatus;
       body.tag = tag;
-      body.action = 'save'; // switch to save so GAS writes the sheet
+      body.action = 'save';
       body.job = { ...(prev || {}), tag, status: nextStatus };
     }
   }
@@ -298,7 +326,6 @@ export async function POST(req: NextRequest) {
   const latest = latestRes && latestRes.job ? (latestRes.job as AnyRec) : (body.job || {});
   log('latest status=', latest?.status, 'email=', latest?.email ? '[present]' : '[missing]');
 
-  // Determine authoritative nextStatus for the client (what we actually became)
   let nextStatusEcho: string | null =
     (body as any).nextStatus ?? (forwarded.json && forwarded.json.nextStatus) ?? null;
   const prevS = String(prev?.status || '').trim();
@@ -307,25 +334,15 @@ export async function POST(req: NextRequest) {
     nextStatusEcho = latestS;
   }
 
-  // Triggers
-  const shouldInitial = action === 'save' && !prevExists; // Initial only on first true save
+  const shouldInitial = action === 'save' && !prevExists;
   const finishedNow = isFinished(latest?.status);
   const finishedBefore = isFinished(prev?.status);
-  const shouldFinished = finishedNow && !finishedBefore; // save OR progress
+  const shouldFinished = finishedNow && !finishedBefore;
 
   const customerEmail = String(latest.email || (body.job && body.job.email) || '').trim();
   const custName = String(latest.customer || latest['Customer Name'] || '').trim();
 
-  log(
-    'decisions -> shouldInitial=',
-    shouldInitial,
-    'shouldFinished=',
-    shouldFinished,
-    'finishedNow=',
-    finishedNow,
-    'finishedBefore=',
-    finishedBefore
-  );
+  log('decisions -> shouldInitial=', shouldInitial, 'shouldFinished=', shouldFinished);
 
   if (!customerEmail) {
     log('no customer email; skipping email');
@@ -333,7 +350,6 @@ export async function POST(req: NextRequest) {
     try {
       if (shouldInitial) {
         const viewUrl = formViewUrl(req, tag);
-        log('sending initial email ->', customerEmail);
         await sendEmail({
           to: customerEmail,
           subject: `${SITE} — Intake Confirmation (Tag ${tag})`,
@@ -345,9 +361,7 @@ export async function POST(req: NextRequest) {
             `<p>— ${SITE}</p>`,
           ].join(''),
         });
-        log('initial email sent');
       }
-
       if (shouldFinished) {
         const procPrice = processingPrice(
           latest.processType,
@@ -357,7 +371,6 @@ export async function POST(req: NextRequest) {
         const paidProcessing = !!(latest.paidProcessing || latest['Paid Processing']);
         const stillOwe = paidProcessing ? 0 : Math.max(0, procPrice);
 
-        log('sending finished email -> stillOwe=', stillOwe);
         const owedBlock =
           stillOwe > 0
             ? `<p><b>Amount still owed (regular processing): $${stillOwe.toFixed(2)}</b></p>`
@@ -377,7 +390,6 @@ export async function POST(req: NextRequest) {
             `<p>— ${SITE}</p>`,
           ].join(''),
         });
-        log('finished email sent');
       }
     } catch (e: any) {
       log('EMAIL_SEND_ERROR:', e?.message || e);
