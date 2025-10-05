@@ -83,6 +83,9 @@ type Job = {
   paid?: boolean;
   paidProcessing?: boolean;  // NEW
   paidSpecialty?: boolean;   // NEW
+
+  // Overnight flag (optional; not shown in UI)
+  requiresTag?: boolean;     // NEW (used when variant=overnight)
 };
 
 /* --------------- Helpers --------------- */
@@ -160,9 +163,10 @@ export default function Page() {
 function IntakePage() {
   const sp = useSearchParams();
   const tagFromUrl = sp.get('tag') ?? '';
+  const isOvernight = (sp.get('variant') || '').toLowerCase() === 'overnight';
 
   const [job, setJob] = useState<Job>({
-    tag: tagFromUrl || '',
+    tag: isOvernight ? '' : (tagFromUrl || ''),
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
@@ -186,21 +190,22 @@ function IntakePage() {
     paidProcessing: false, // NEW
     paidSpecialty: false,  // NEW
     specialtyProducts: false,
+    requiresTag: isOvernight ? true : undefined,
   });
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
   const tagRef = useRef<HTMLInputElement|null>(null);
 
-  // Focus Tag on mount
+  // Focus Tag on mount (skip for overnight since it's disabled)
   useEffect(() => {
-    tagRef.current?.focus();
-  }, []);
+    if (!isOvernight) tagRef.current?.focus();
+  }, [isOvernight]);
 
-  // Load existing job by tag (if present)
+  // Load existing job by tag (if present AND not overnight)
   useEffect(() => {
     (async () => {
-      if (!tagFromUrl) return;
+      if (!tagFromUrl || isOvernight) return;
       try {
         const res = await getJob(tagFromUrl);
         if (res?.exists && res.job) {
@@ -268,7 +273,7 @@ function IntakePage() {
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFromUrl]);
+  }, [tagFromUrl, isOvernight]);
 
   // Derived UI toggles + pricing
   const processingPrice = useMemo(
@@ -379,6 +384,10 @@ function IntakePage() {
     const payload: Job = {
       ...job,
 
+      // Force blank tag + requiresTag if overnight
+      tag: isOvernight ? '' : job.tag,
+      requiresTag: isOvernight ? true : job.requiresTag,
+
       // Only send the statuses that make sense for the process type
       status:
         pnorm === 'Cape & Donate' || pnorm === 'Donate'
@@ -415,7 +424,8 @@ function IntakePage() {
         return;
       }
       setMsg('Saved ✓');
-      if (job.tag) {
+      // Only refetch when we have a tag (overnight won't)
+      if (job.tag && !isOvernight) {
         const fresh = await getJob(job.tag);
         if (fresh?.exists && fresh.job) {
           const j: any = fresh.job;
@@ -467,11 +477,12 @@ function IntakePage() {
               <label>Tag Number</label>
               <input
                 ref={tagRef}
-                value={job.tag || ''}
+                value={isOvernight ? '' : (job.tag || '')}
                 onChange={(e) => setVal('tag', e.target.value)}
-                placeholder="e.g. 1234"
+                placeholder={isOvernight ? 'Assigned by staff' : 'e.g. 1234'}
+                disabled={isOvernight}
               />
-              <div className="muted" style={{fontSize:12}}>Deer Tag</div>
+              <div className="muted" style={{fontSize:12}}>{isOvernight ? 'Front desk will assign your tag in the morning.' : 'Deer Tag'}</div>
             </div>
 
             <div className="col price">
@@ -1133,3 +1144,4 @@ function IntakePage() {
     </div>
   );
 }
+
