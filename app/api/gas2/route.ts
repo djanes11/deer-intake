@@ -304,7 +304,7 @@ export async function POST(req: NextRequest) {
             `<p>Hi ${custName || 'there'},</p>`,
             `<p>Your regular processing is finished and ready for pickup.</p>`,
             owedBlock,
-            `<p><b>Pickup hours</b>: 6:00 pm–8:00 pm Monday–Friday, 8:00 am–8:00 pm Saturday & Sunday.</p>`,
+            `<p><b>Pickup hours</b>: 6:00 pm–8:00 pm Monday–Friday, 9:00 am–5:00 pm Saturday & Sunday.</p>`,
             `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
             `<p>Please bring a cooler or box to transport your meat.</p>`,
             `<p><em>Reminder:</em> This update is for your regular processing only. We’ll reach out separately about any Webbs orders or McAfee Specialty Products.</p>`,
