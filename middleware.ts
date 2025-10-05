@@ -1,23 +1,13 @@
 // middleware.ts
 import { NextResponse, NextRequest } from 'next/server';
 
+// Turn lock on only where you want it (e.g., Production)
 const LOCK = process.env.LOCK_NON_INTAKE === '1';
-
-// Support bypass: either set SUPPORT_TOKEN env and use ?support=...,
-// or use Basic Auth "travis:butcherman" (ONLY for support).
-const SUPPORT_TOKEN = process.env.SUPPORT_TOKEN || 'AIISTAKINGOVERTHEWORLD';
-const SUPPORT_USER = 'travis';
-const SUPPORT_PASS = 'butcherman';
 
 const USER = process.env.BASIC_AUTH_USER || '';
 const PASS = process.env.BASIC_AUTH_PASS || '';
 const REALM = 'Staff';
-
-// cookies
-const AUTH_COOKIE = 'auth_ts';
-const SUPPORT_COOKIE = 'support_ok';
-const STAFF_MAX_AGE_S = 60 * 60 * 24; // 24h
-const SUPPORT_MAX_AGE_S = 60 * 60 * 2; // 2h
+const MAX_AGE_S = 60 * 60 * 24; // 24h
 
 function isAsset(p: string) {
   return (
@@ -30,7 +20,7 @@ function isAsset(p: string) {
   );
 }
 function isPublic(p: string) {
-  // keep public readonly view + GAS bridge public
+  // Public: intake view + gas endpoint + 404 page itself
   return p.startsWith('/intake/') || p.startsWith('/api/gas2') || p === '/404';
 }
 
@@ -47,79 +37,61 @@ function decodeBasicAuth(h: string): { user: string; pass: string } | null {
   }
 }
 
-function cookieExpired(tsStr: string | undefined, maxAge: number) {
+function cookieExpired(req: NextRequest) {
+  const tsStr = req.cookies.get('auth_ts')?.value;
   if (!tsStr) return true;
   const ts = Number(tsStr);
   if (!Number.isFinite(ts)) return true;
   const age = Math.floor(Date.now() / 1000) - ts;
-  return age > maxAge;
+  return age > MAX_AGE_S;
 }
 
-function stampCookie(res: NextResponse, name: string, maxAge: number) {
-  res.cookies.set(name, String(Math.floor(Date.now() / 1000)), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: true,
-    path: '/',
-    maxAge,
-  });
-}
-
-function unauthorized(realm = REALM) {
+function unauthorized() {
   return new NextResponse('Authentication required', {
     status: 401,
-    headers: { 'WWW-Authenticate': `Basic realm="${realm}", charset="UTF-8"` },
+    headers: { 'WWW-Authenticate': `Basic realm="${REALM}", charset="UTF-8"` },
   });
 }
 
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
-  // Always allow assets and declared public routes
+  // Always allow public routes and static assets
   if (isAsset(pathname) || isPublic(pathname)) return NextResponse.next();
 
-  // If not locking, let everything through
+  // --- Support bypass (read-only audit) ---
+  // If you want me to browse the app: append ?support=AIISTAKINGOVERTHEWORLD
+  // This bypasses auth only for the specific request with that query string.
+  const supportKey = searchParams.get('support');
+  if (supportKey === 'AIISTAKINGOVERTHEWORLD') {
+    return NextResponse.next();
+  }
+  // ---------------------------------------
+
+  // No lock in this environment? Let everything through.
   if (!LOCK) return NextResponse.next();
 
-  // --- Support bypass 1: cookie already set ---
-  const supportTs = req.cookies.get(SUPPORT_COOKIE)?.value;
-  if (!cookieExpired(supportTs, SUPPORT_MAX_AGE_S)) {
-    // keep support session rolling
-    const res = NextResponse.next();
-    stampCookie(res, SUPPORT_COOKIE, SUPPORT_MAX_AGE_S);
-    return res;
-  }
+  // If creds not configured, hide everything else
+  if (!USER || !PASS) return NextResponse.rewrite(new URL('/404', req.url));
 
-  // --- Support bypass 2: query param token ---
-  const token = searchParams.get('support');
-  if (token && SUPPORT_TOKEN && token === SUPPORT_TOKEN) {
-    const res = NextResponse.next();
-    stampCookie(res, SUPPORT_COOKIE, SUPPORT_MAX_AGE_S);
-    return res;
-  }
-
-  // --- Support bypass 3: support basic auth (travis:butcherman) ---
+  // Require Basic Auth for all other routes
   const creds = decodeBasicAuth(req.headers.get('authorization') || '');
-  if (creds && creds.user === SUPPORT_USER && creds.pass === SUPPORT_PASS) {
-    const res = NextResponse.next();
-    stampCookie(res, SUPPORT_COOKIE, SUPPORT_MAX_AGE_S);
-    return res;
-  }
-
-  // --- Staff auth (basic) for everyone else ---
-  if (!USER || !PASS) {
-    // Misconfigured staff creds -> hide
-    return NextResponse.rewrite(new URL('/404', req.url));
-  }
-
-  const staffCreds = creds;
-  if (!staffCreds || staffCreds.user !== USER || staffCreds.pass !== PASS) {
+  if (!creds || creds.user !== USER || creds.pass !== PASS) {
     return unauthorized();
   }
 
+  // Creds valid:
   const res = NextResponse.next();
-  // refresh staff cookie to avoid surprise logouts during shift
-  stampCookie(res, AUTH_COOKIE, STAFF_MAX_AGE_S);
+
+  // Issue/refresh a short-lived cookie so the browser doesn't re-prompt constantly
+  res.cookies.set('auth_ts', String(Math.floor(Date.now() / 1000)), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: true,
+    path: '/',
+    maxAge: MAX_AGE_S,
+  });
+
   return res;
 }
 
