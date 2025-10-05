@@ -27,7 +27,12 @@ export default function Nav() {
     <header className="site-header">
       <div className="wrap">
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Link href="/" className="brand-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }} onClick={() => closeMobileAndDropdown()}>
+          <Link
+            href="/"
+            className="brand-link"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}
+            onClick={() => closeMobileAndDropdown()}
+          >
             <img
               src={LOGO_SRC}
               alt="McAfee crest"
@@ -44,14 +49,38 @@ export default function Nav() {
         <label htmlFor="nav-check" className="menu-toggle">Menu</label>
 
         <nav className="menu" aria-label="Primary">
-          <Link className={`item ${isActive('/intake') ? 'active' : ''}`} href="/intake" onClick={() => closeMobileAndDropdown()}>Intake</Link>
-          <Link className={`item ${isActive('/scan') ? 'active' : ''}`} href="/scan" onClick={() => closeMobileAndDropdown()}>Scan</Link>
-          <Link className={`item ${isActive('/search') ? 'active' : ''}`} href="/search" onClick={() => closeMobileAndDropdown()}>Search</Link>
+          <Link
+            className={`item ${isActive('/intake') ? 'active' : ''}`}
+            href="/intake"
+            onClick={() => closeMobileAndDropdown()}
+          >
+            Intake
+          </Link>
+          <Link
+            className={`item ${isActive('/scan') ? 'active' : ''}`}
+            href="/scan"
+            onClick={() => closeMobileAndDropdown()}
+          >
+            Scan
+          </Link>
+          <Link
+            className={`item ${isActive('/search') ? 'active' : ''}`}
+            href="/search"
+            onClick={() => closeMobileAndDropdown()}
+          >
+            Search
+          </Link>
 
           <details className="dd">
             <summary>Reports</summary>
             <div className="dropdown-menu" role="menu">
-              <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Call Report</Link>
+              <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                Call Report
+              </Link>
+              {/* New overnight report link */}
+              <Link href="/reports/overnight" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                Overnight — Missing Tag
+              </Link>
             </div>
           </details>
 

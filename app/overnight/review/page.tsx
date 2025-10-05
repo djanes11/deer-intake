@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 const API_BASE = process.env.NEXT_PUBLIC_GAS_BASE || '/api';
 const USE_PROXY = !String(API_BASE || '').startsWith('http');
 
@@ -84,7 +86,7 @@ export default function OvernightReview() {
         {loading ? <div>Loading…</div> : (
           <div className="table like">
             <div className="thead grid" style={{display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr', gap:8, fontWeight:700}}>
-              <div>Name</div><div>Phone</div><div>Drop‑off</div><div>Assign Tag</div>
+              <div>Name</div><div>Phone</div><div>Drop-off</div><div>Assign Tag</div>
             </div>
             <div className="tbody">
               {filtered.map(r => (
