@@ -59,7 +59,7 @@ type Job = {
   front?: CutsBlock;
 
   backstrapPrep?: '' | 'Whole' | 'Sliced' | 'Butterflied';
-  backstrapThickness?: '' | '1/2\"' | '3/4\"' | 'Other';
+  backstrapThickness?: '' | '1/2"' | '3/4"' | 'Other';
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
@@ -121,20 +121,6 @@ const asBool = (v: any): boolean => {
   return ['true','yes','y','1','on','paid','x','✓','✔'].includes(s);
 };
 
-const fullPaid = (j: Job): boolean => {
-  const proc = !!j.paidProcessing;
-  const needsSpec = asBool(j.specialtyProducts);
-  const spec = needsSpec ? !!j.paidSpecialty : true;
-  return proc && spec;
-};
-
-const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
-const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
-const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up'] as const;
-
-const coerce = (v: string | undefined, list: readonly string[]) =>
-  list.includes(String(v)) ? String(v) : list[0];
-
 /* ===== Suspense wrapper ===== */
 export default function Page() {
   return (
@@ -175,10 +161,10 @@ function IntakeOvernightPage() {
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
-  const tagRef = useRef<HTMLInputElement|null>(null);
+  const [locked, setLocked] = useState<boolean>(false);
+  const [showThanks, setShowThanks] = useState<boolean>(false);
 
-  // DO NOT focus tag (disabled)
-  useEffect(() => { /* noop */ }, []);
+  const tagRef = useRef<HTMLInputElement|null>(null);
 
   const processingPrice = useMemo(
     () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
@@ -263,7 +249,10 @@ function IntakeOvernightPage() {
     return missing;
   };
 
+  const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
+
   const onSave = async () => {
+    if (locked) return;
     setMsg('');
     const missing = validate();
     if (missing.length) {
@@ -310,7 +299,11 @@ function IntakeOvernightPage() {
         setMsg(res?.error || 'Save failed');
         return;
       }
+      // Lock the form and pop the thank-you
+      setLocked(true);
+      setShowThanks(true);
       setMsg('Saved ✓');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
       setMsg(e?.message || String(e));
     } finally {
@@ -320,16 +313,16 @@ function IntakeOvernightPage() {
   };
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
-    setJob((p) => ({ ...p, [k]: v }));
+    !locked && setJob((p) => ({ ...p, [k]: v }));
 
   const setHind = (k: keyof Required<CutsBlock>) =>
-    setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
+    !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
 
   const setFront = (k: keyof Required<CutsBlock>) =>
-    setJob((p) => ({ ...p, front: { ...(p.front || {}), [k]: !(p.front?.[k]) } }));
+    !locked && setJob((p) => ({ ...p, front: { ...(p.front || {}), [k]: !(p.front?.[k]) } }));
 
   return (
-    <div className="form-card">
+    <div className={`form-card ${locked ? 'locked' : ''}`}>
       <div className="screen-only">
         <h2>Deer Intake (Overnight)</h2>
 
@@ -372,8 +365,9 @@ function IntakeOvernightPage() {
                 <select
                   value={job.status || 'Dropped Off'}
                   onChange={(e) => setVal('status', e.target.value)}
+                  disabled={locked}
                 >
-                  {STATUS_MAIN.map(s => <option key={s} value={s}>{s}</option>)}
+                  {['Dropped Off','Processing','Finished','Called','Picked Up'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
@@ -384,8 +378,9 @@ function IntakeOvernightPage() {
                 <select
                   value={job.capingStatus || 'Dropped Off'}
                   onChange={(e) => setVal('capingStatus', e.target.value)}
+                  disabled={locked}
                 >
-                  {STATUS_CAPE.map(s => <option key={s} value={s}>{s}</option>)}
+                  {['Dropped Off','Caped','Called','Picked Up'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
@@ -396,8 +391,9 @@ function IntakeOvernightPage() {
                 <select
                   value={job.webbsStatus || 'Dropped Off'}
                   onChange={(e) => setVal('webbsStatus', e.target.value)}
+                  disabled={locked}
                 >
-                  {STATUS_WEBBS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {['Dropped Off','Sent','Delivered','Called','Picked Up'].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
@@ -413,6 +409,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.confirmation || ''}
                 onChange={(e) => setVal('confirmation', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c6">
@@ -420,6 +417,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.customer || ''}
                 onChange={(e) => setVal('customer', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c3">
@@ -427,6 +425,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.phone || ''}
                 onChange={(e) => setVal('phone', e.target.value)}
+                disabled={locked}
               />
             </div>
 
@@ -435,6 +434,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.email || ''}
                 onChange={(e) => setVal('email', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c8">
@@ -442,6 +442,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.address || ''}
                 onChange={(e) => setVal('address', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c4">
@@ -449,6 +450,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.city || ''}
                 onChange={(e) => setVal('city', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c4">
@@ -457,6 +459,7 @@ function IntakeOvernightPage() {
                 value={job.state || ''}
                 onChange={(e) => setVal('state', e.target.value)}
                 placeholder="IN / KY / …"
+                disabled={locked}
               />
             </div>
             <div className="c4">
@@ -464,6 +467,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.zip || ''}
                 onChange={(e) => setVal('zip', e.target.value)}
+                disabled={locked}
               />
             </div>
           </div>
@@ -478,6 +482,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.county || ''}
                 onChange={(e) => setVal('county', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c3">
@@ -486,6 +491,7 @@ function IntakeOvernightPage() {
                 type="date"
                 value={job.dropoff || ''}
                 onChange={(e) => setVal('dropoff', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c2">
@@ -493,6 +499,7 @@ function IntakeOvernightPage() {
               <select
                 value={job.sex || ''}
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
+                disabled={locked}
               >
                 <option value="">—</option>
                 <option value="Buck">Buck</option>
@@ -506,6 +513,7 @@ function IntakeOvernightPage() {
                 onChange={(e) =>
                   setVal('processType', e.target.value as Job['processType'])
                 }
+                disabled={locked}
               >
                 <option value="">—</option>
                 <option>Standard Processing</option>
@@ -531,6 +539,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.hind?.['Hind - Steak']}
                     onChange={() => setHind('Hind - Steak')}
+                    disabled={locked}
                   />
                   <span>Steak</span>
                 </label>
@@ -539,6 +548,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.hind?.['Hind - Roast']}
                     onChange={() => setHind('Hind - Roast')}
+                    disabled={locked}
                   />
                   <span>Roast</span>
                 </label>
@@ -548,7 +558,7 @@ function IntakeOvernightPage() {
                     className="countInp"
                     value={hindRoastOn ? (job.hindRoastCount || '') : ''}
                     onChange={(e) => setVal('hindRoastCount', e.target.value)}
-                    disabled={!hindRoastOn}
+                    disabled={!hindRoastOn || locked}
                     inputMode="numeric"
                   />
                 </span>
@@ -557,6 +567,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.hind?.['Hind - Grind']}
                     onChange={() => setHind('Hind - Grind')}
+                    disabled={locked}
                   />
                   <span>Grind</span>
                 </label>
@@ -565,6 +576,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.hind?.['Hind - None']}
                     onChange={() => setHind('Hind - None')}
+                    disabled={locked}
                   />
                   <span>None</span>
                 </label>
@@ -579,6 +591,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.front?.['Front - Steak']}
                     onChange={() => setFront('Front - Steak')}
+                    disabled={locked}
                   />
                   <span>Steak</span>
                 </label>
@@ -587,6 +600,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.front?.['Front - Roast']}
                     onChange={() => setFront('Front - Roast')}
+                    disabled={locked}
                   />
                   <span>Roast</span>
                 </label>
@@ -596,7 +610,7 @@ function IntakeOvernightPage() {
                     className="countInp"
                     value={frontRoastOn ? (job.frontRoastCount || '') : ''}
                     onChange={(e) => setVal('frontRoastCount', e.target.value)}
-                    disabled={!frontRoastOn}
+                    disabled={!frontRoastOn || locked}
                     inputMode="numeric"
                   />
                 </span>
@@ -605,6 +619,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.front?.['Front - Grind']}
                     onChange={() => setFront('Front - Grind')}
+                    disabled={locked}
                   />
                   <span>Grind</span>
                 </label>
@@ -613,6 +628,7 @@ function IntakeOvernightPage() {
                     type="checkbox"
                     checked={!!job.front?.['Front - None']}
                     onChange={() => setFront('Front - None')}
+                    disabled={locked}
                   />
                   <span>None</span>
                 </label>
@@ -630,6 +646,7 @@ function IntakeOvernightPage() {
               <select
                 value={job.steak || ''}
                 onChange={(e) => setVal('steak', e.target.value)}
+                disabled={locked}
               >
                 <option value="">—</option>
                 <option>1/2"</option>
@@ -642,6 +659,7 @@ function IntakeOvernightPage() {
               <select
                 value={job.steaksPerPackage || ''}
                 onChange={(e) => setVal('steaksPerPackage', e.target.value)}
+                disabled={locked}
               >
                 <option value="">—</option>
                 <option>4</option>
@@ -654,6 +672,7 @@ function IntakeOvernightPage() {
               <select
                 value={job.burgerSize || ''}
                 onChange={(e) => setVal('burgerSize', e.target.value)}
+                disabled={locked}
               >
                 <option value="">—</option>
                 <option>1 lb</option>
@@ -666,6 +685,7 @@ function IntakeOvernightPage() {
                   type="checkbox"
                   checked={!!job.beefFat}
                   onChange={(e) => setVal('beefFat', e.target.checked)}
+                  disabled={locked}
                 />
                 <span>Beef fat</span>
                 <span className="muted"> (+$5)</span>
@@ -677,7 +697,7 @@ function IntakeOvernightPage() {
               <input
                 value={needsSteakOther ? (job.steakOther || '') : ''}
                 onChange={(e) => setVal('steakOther', e.target.value)}
-                disabled={!needsSteakOther}
+                disabled={!needsSteakOther || locked}
                 placeholder='e.g., 5/8"'
               />
             </div>
@@ -695,6 +715,7 @@ function IntakeOvernightPage() {
                 onChange={(e) =>
                   setVal('backstrapPrep', e.target.value as Job['backstrapPrep'])
                 }
+                disabled={locked}
               >
                 <option value="">—</option>
                 <option>Whole</option>
@@ -709,7 +730,7 @@ function IntakeOvernightPage() {
                 onChange={(e) =>
                   setVal('backstrapThickness', e.target.value as Job['backstrapThickness'])
                 }
-                disabled={isWholeBackstrap}
+                disabled={isWholeBackstrap || locked}
               >
                 <option value="">—</option>
                 <option>1/2"</option>
@@ -722,7 +743,7 @@ function IntakeOvernightPage() {
               <input
                 value={needsBackstrapOther ? (job.backstrapThicknessOther || '') : ''}
                 onChange={(e) => setVal('backstrapThicknessOther', e.target.value)}
-                disabled={!needsBackstrapOther}
+                disabled={!needsBackstrapOther || locked}
               />
             </div>
           </div>
@@ -738,6 +759,7 @@ function IntakeOvernightPage() {
                   type="checkbox"
                   checked={!!job.specialtyProducts}
                   onChange={(e) => setVal('specialtyProducts', e.target.checked)}
+                  disabled={locked}
                 />
                 <span><strong>Would like specialty products</strong></span>
               </label>
@@ -748,7 +770,7 @@ function IntakeOvernightPage() {
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.summerSausageLbs ?? '') : ''}
                 onChange={(e) => setVal('summerSausageLbs', e.target.value)}
-                disabled={!job.specialtyProducts}
+                disabled={!job.specialtyProducts || locked}
               />
             </div>
             <div className="c3">
@@ -757,7 +779,7 @@ function IntakeOvernightPage() {
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.summerSausageCheeseLbs ?? '') : ''}
                 onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
-                disabled={!job.specialtyProducts}
+                disabled={!job.specialtyProducts || locked}
               />
             </div>
             <div className="c3">
@@ -766,7 +788,7 @@ function IntakeOvernightPage() {
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.slicedJerkyLbs ?? '') : ''}
                 onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
-                disabled={!job.specialtyProducts}
+                disabled={!job.specialtyProducts || locked}
               />
             </div>
           </div>
@@ -779,6 +801,7 @@ function IntakeOvernightPage() {
             rows={3}
             value={job.notes || ''}
             onChange={(e) => setVal('notes', e.target.value)}
+            disabled={locked}
           />
         </section>
 
@@ -792,6 +815,7 @@ function IntakeOvernightPage() {
                   type="checkbox"
                   checked={!!job.webbsOrder}
                   onChange={(e) => setVal('webbsOrder', e.target.checked)}
+                  disabled={locked}
                 />
                 <span><strong>Webbs Order</strong></span>
                 <span className="muted"> (+$20 fee)</span>
@@ -802,6 +826,7 @@ function IntakeOvernightPage() {
               <input
                 value={job.webbsFormNumber || ''}
                 onChange={(e) => setVal('webbsFormNumber', e.target.value)}
+                disabled={locked}
               />
             </div>
             <div className="c3">
@@ -810,6 +835,7 @@ function IntakeOvernightPage() {
                 inputMode="numeric"
                 value={job.webbsPounds || ''}
                 onChange={(e) => setVal('webbsPounds', e.target.value)}
+                disabled={locked}
               />
             </div>
           </div>
@@ -819,13 +845,45 @@ function IntakeOvernightPage() {
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
           {/* Print button intentionally removed for overnight */}
-          <button className="btn" onClick={onSave} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+          <button className="btn" onClick={onSave} disabled={busy || locked}>
+            {busy ? 'Saving…' : locked ? 'Saved' : 'Save'}
+          </button>
         </div>
       </div>
 
       <div className="print-only">
         <PrintSheet job={job} />
       </div>
+
+      {/* Thank-you modal */}
+      {showThanks && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>Thank you!</h3>
+            <p style={{marginTop:8}}>
+              Please use a small tag to write the <b>last 5 digits</b> of your confirmation number
+              {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
+              {' '}and leave it with the deer.
+            </p>
+            <p className="muted" style={{marginTop:8}}>
+              Your form has been submitted and is now locked.
+            </p>
+            <button
+              className="btn wide"
+              onClick={() => {
+                // Try to close if it was opened as a standalone page; otherwise go back.
+                if (window.history.length > 1) {
+                  window.location.replace('/'); // cleaner than back to avoid resubmits
+                } else {
+                  window.close();
+                }
+              }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         h2 { margin: 8px 0; }
@@ -835,6 +893,8 @@ function IntakeOvernightPage() {
         input, select, textarea {
           width: 100%; padding: 6px 8px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box;
         }
+        input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
+
         textarea { resize: vertical; }
 
         .grid { display: grid; gap: 8px; grid-template-columns: repeat(12, 1fr); }
@@ -855,6 +915,7 @@ function IntakeOvernightPage() {
         .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
         .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
+        .btn.wide { width: 100%; margin-top: 12px; }
 
         .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
         .status.ok { color: #065f46; }
@@ -869,6 +930,20 @@ function IntakeOvernightPage() {
           .summary .row.small { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
         }
+
+        /* Lock overlay style change (no overlay, but disabled controls + cursor) */
+        .locked { opacity: 1; }
+
+        /* Modal */
+        .modal {
+          position: fixed; inset: 0; background: rgba(11, 15, 18, 0.6);
+          display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 9999;
+        }
+        .modal-card {
+          width: 100%; max-width: 520px; background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 12px 30px rgba(0,0,0,.25);
+        }
+        .modal-card h3 { margin: 4px 0 0; }
+        .modal-card code { background: #f3f4f6; padding: 0 6px; border-radius: 4px; }
       `}</style>
     </div>
   );
