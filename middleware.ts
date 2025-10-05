@@ -1,13 +1,15 @@
 // middleware.ts
 import { NextResponse, NextRequest } from 'next/server';
 
-// Turn lock on only where you want it (e.g., Production)
 const LOCK = process.env.LOCK_NON_INTAKE === '1';
-
 const USER = process.env.BASIC_AUTH_USER || '';
 const PASS = process.env.BASIC_AUTH_PASS || '';
 const REALM = 'Staff';
 const MAX_AGE_S = 60 * 60 * 24; // 24h
+
+// Support token for temporary access (set this in Vercel env)
+const SUPPORT_TOKEN = process.env.SUPPORT_TOKEN || 'AIISTAKINGOVERTHEWORLD';
+const SUPPORT_COOKIE = 'support_ok';
 
 function isAsset(p: string) {
   return (
@@ -19,8 +21,9 @@ function isAsset(p: string) {
     /\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|txt|map)$/.test(p)
   );
 }
+// Public routes that never require auth
 function isPublic(p: string) {
-  // Public: intake view + gas endpoint + 404 page itself
+  // Public intake viewer + GAS endpoint + 404 page
   return p.startsWith('/intake/') || p.startsWith('/api/gas2') || p === '/404';
 }
 
@@ -56,34 +59,42 @@ function unauthorized() {
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
-  // Always allow public routes and static assets
+  // Always allow static assets and explicitly public routes
   if (isAsset(pathname) || isPublic(pathname)) return NextResponse.next();
 
-  // --- Support bypass (read-only audit) ---
-  // If you want me to browse the app: append ?support=AIISTAKINGOVERTHEWORLD
-  // This bypasses auth only for the specific request with that query string.
-  const supportKey = searchParams.get('support');
-  if (supportKey === 'AIISTAKINGOVERTHEWORLD') {
-    return NextResponse.next();
+  // --- Support token bypass (for you/me to review site) ---
+  // Grant access if ?support=SUPPORT_TOKEN, and persist for 24h via cookie.
+  const supportParam = searchParams.get('support');
+  const supportCookie = req.cookies.get(SUPPORT_COOKIE)?.value;
+  if (supportParam === SUPPORT_TOKEN || supportCookie === SUPPORT_TOKEN) {
+    const res = NextResponse.next();
+    if (supportParam === SUPPORT_TOKEN && supportCookie !== SUPPORT_TOKEN) {
+      res.cookies.set(SUPPORT_COOKIE, SUPPORT_TOKEN, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: true,
+        path: '/',
+        maxAge: MAX_AGE_S,
+      });
+    }
+    return res;
   }
-  // ---------------------------------------
+  // --------------------------------------------------------
 
-  // No lock in this environment? Let everything through.
+  // If lock is off, let everything through
   if (!LOCK) return NextResponse.next();
 
   // If creds not configured, hide everything else
   if (!USER || !PASS) return NextResponse.rewrite(new URL('/404', req.url));
 
-  // Require Basic Auth for all other routes
+  // Basic auth for staff routes
   const creds = decodeBasicAuth(req.headers.get('authorization') || '');
   if (!creds || creds.user !== USER || creds.pass !== PASS) {
     return unauthorized();
   }
 
-  // Creds valid:
+  // Valid creds -> refresh sliding session cookie
   const res = NextResponse.next();
-
-  // Issue/refresh a short-lived cookie so the browser doesn't re-prompt constantly
   res.cookies.set('auth_ts', String(Math.floor(Date.now() / 1000)), {
     httpOnly: true,
     sameSite: 'lax',
@@ -91,7 +102,6 @@ export function middleware(req: NextRequest) {
     path: '/',
     maxAge: MAX_AGE_S,
   });
-
   return res;
 }
 
