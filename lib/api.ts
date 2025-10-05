@@ -3,7 +3,7 @@
 // which in turn talks to Google Apps Script (GAS).
 // Preserves previous helpers (getJob, saveJob, progress, searchJobs)
 // and adds markCalled + logCallSimple used by the Calls report.
-
+//
 // NOTE: Do NOT call GAS directly from the browser. Always go through /api/gas2.
 // That keeps your token server-side and lets the server add signatures, links, etc.
 
@@ -58,10 +58,10 @@ async function getJSON<T = any>(url: string): Promise<T> {
     const json = JSON.parse(text);
     if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
     return json as T;
-} catch {
-  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-  return text as unknown as T;
-}
+  } catch {
+    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+    return text as unknown as T;
+  }
 }
 
 async function postJSON<T = any>(body: AnyRec): Promise<T> {
@@ -76,10 +76,10 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
     const json = JSON.parse(text);
     if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
     return json as T;
-} catch {
-  if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-  return text as unknown as T;
-}
+  } catch {
+    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+    return text as unknown as T;
+  }
 }
 
 // ---------------- public API used across the app ----------------
@@ -91,11 +91,19 @@ export async function getJob(tag: string): Promise<GetResponse> {
   return getJSON<GetResponse>(`${API_BASE}?${qs.toString()}`);
 }
 
-/** Save a job (create or update). Triggers initial/finished emails server-side. */
+/**
+ * Save a job (create or update).
+ * - Regular intake: include a real tag → upsert-by-tag.
+ * - Overnight intake: send `{ requiresTag: true, tag: '' }` → server appends w/ "Requires Tag".
+ *
+ * IMPORTANT: We intentionally do NOT validate `job.tag` here.
+ * The /api/gas2 route decides whether blank-tag is allowed.
+ */
 export async function saveJob(job: Job): Promise<SaveResponse> {
-  if (!job || !job.tag) throw new Error('Missing job.tag');
+  if (!job) throw new Error('Missing job');
   return postJSON<SaveResponse>({ action: 'save', job });
 }
+
 /**
  * Progress a job.
  * Accepts either:
