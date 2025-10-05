@@ -42,9 +42,9 @@ type Job = {
     | 'Cape & Donate'
     | 'Donate';
 
-  status?: string;            // regular status
-  capingStatus?: string;      // only shown if Caped / Cape & Donate
-  webbsStatus?: string;       // only shown if Webbs (and not Donate)
+  status?: string;
+  capingStatus?: string;
+  webbsStatus?: string;
 
   steak?: string;
   steakOther?: string;
@@ -66,7 +66,6 @@ type Job = {
   summerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
   slicedJerkyLbs?: string | number;
-  specialtyPounds?: string;
 
   notes?: string;
 
@@ -74,15 +73,13 @@ type Job = {
   webbsFormNumber?: string;
   webbsPounds?: string;
 
-  price?: number | string; // optional override
-
-  // legacy + new paid flags
+  // paid flags
   Paid?: boolean;
   paid?: boolean;
-  paidProcessing?: boolean;  // NEW
-  paidSpecialty?: boolean;   // NEW
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
 
-  requiresTag?: boolean;     // overnight flag
+  requiresTag?: boolean;
 };
 
 const todayISO = () => {
@@ -149,7 +146,7 @@ export default function Page() {
 
 function IntakeOvernightPage() {
   const [job, setJob] = useState<Job>({
-    tag: '', // always blank for overnight
+    tag: '', // blank for overnight
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
@@ -314,7 +311,6 @@ function IntakeOvernightPage() {
         return;
       }
       setMsg('Saved ✓');
-      // No refetch by tag here (no tag in overnight)
     } catch (e: any) {
       setMsg(e?.message || String(e));
     } finally {
@@ -822,7 +818,7 @@ function IntakeOvernightPage() {
         {/* Actions */}
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
-          <button className="btn" type="button" onClick={() => window.print()} disabled={busy}>Print</button>
+          {/* Print button intentionally removed for overnight */}
           <button className="btn" onClick={onSave} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
@@ -856,18 +852,10 @@ function IntakeOvernightPage() {
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
-        .summary .pillrow { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; }
-        .summary .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 10px; border: 2px solid #eab308; background: #fff7db; border-radius: 999px; white-space: nowrap; cursor: pointer; user-select: none; }
-        .summary .pill.on { border-color: #10b981; background: #ecfdf5; }
-        .summary .pill > input[type="checkbox"] { width: 18px; height: 18px; margin: 0; appearance: auto; }
-        .summary .badge { display: inline-block; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; line-height: 1.1; }
-
-        .count { display: inline-flex; align-items: center; gap: 6px; }
-        .countInp { width: 70px; text-align: center; }
-
         .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
         .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
+
         .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
         .status.ok { color: #065f46; }
         .status.err { color: #b91c1c; }
@@ -880,7 +868,6 @@ function IntakeOvernightPage() {
           .summary .row { grid-template-columns: 1fr; }
           .summary .row.small { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
-          .summary .pillrow { flex-wrap: wrap; }
         }
       `}</style>
     </div>
