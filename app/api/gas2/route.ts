@@ -81,9 +81,9 @@ async function gasPost(body: AnyRec) {
   });
   const text = await r.text();
   try {
-    return { status: r.status, json: JSON.parse(text) as AnyRec };
+    return { status: r.status, json: JSON.parse(text) as AnyRec, text: undefined as string | undefined };
   } catch {
-    return { status: r.status, text };
+    return { status: r.status, text, json: undefined as AnyRec | undefined };
   }
 }
 
@@ -152,6 +152,41 @@ export async function POST(req: NextRequest) {
   const tag = String((body.job && body.job.tag) || body.tag || '').trim();
   const isTagAction = ['save', 'progress'].includes(action);
 
+  // ----- Overnight branch: save without tag when requiresTag === true -----
+  const requiresTag =
+    action === 'save' &&
+    (body?.job?.requiresTag === true ||
+      String(body?.job?.requiresTag || '').toLowerCase() === 'true');
+
+  const isOvernight = action === 'save' && requiresTag && tag === '';
+
+  if (isOvernight) {
+    // Forward as an append-style save to GAS; skip tag-based GETs and email triggers.
+    const payload = {
+      action: 'save',
+      job: { ...(body.job || {}), tag: '', requiresTag: true },
+    };
+    const forwarded = await gasPost(payload);
+    if (forwarded.status >= 400) {
+      log('overnight save upstream error:', forwarded.status, forwarded.text || forwarded.json);
+      return new Response(
+        forwarded.text || JSON.stringify(forwarded.json || { ok: false, error: 'save failed' }),
+        {
+          status: forwarded.status,
+          headers: { 'Content-Type': forwarded.text ? 'text/plain' : 'application/json' },
+        }
+      );
+    }
+    // Just return the upstream result; no emails, no follow-up GET since there's no tag yet.
+    return new Response(
+      forwarded.text || JSON.stringify(forwarded.json || { ok: true }),
+      {
+        status: 200,
+        headers: { 'Content-Type': forwarded.text ? 'text/plain' : 'application/json' },
+      }
+    );
+  }
+
   if (!isTagAction) {
     const res = await gasPost(body);
     return new Response(res.text || JSON.stringify(res.json || {}), {
@@ -160,6 +195,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // For normal save/progress we still require a tag.
   if (!tag) {
     log('skip: missing tag');
     return new Response(JSON.stringify({ ok: false, error: 'Missing job.tag or tag' }), {
@@ -335,3 +371,4 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
