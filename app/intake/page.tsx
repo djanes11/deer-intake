@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { progress, saveJob, getJob } from '@/lib/api';
+import { saveJob, getJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 
-// Opt out of static prerender; this page depends on URL params & client-only hooks
 export const dynamic = 'force-dynamic';
 
 /* ---------------- Types ---------------- */
@@ -61,7 +60,7 @@ type Job = {
   front?: CutsBlock;
 
   backstrapPrep?: '' | 'Whole' | 'Sliced' | 'Butterflied';
-  backstrapThickness?: '' | '1/2"' | '3/4"' | 'Other';
+  backstrapThickness?: '' | '1/2\"' | '3/4\"' | 'Other';
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
@@ -83,12 +82,8 @@ type Job = {
   paid?: boolean;
   paidProcessing?: boolean;  // NEW
   paidSpecialty?: boolean;   // NEW
-
-  // Overnight flag (optional; not shown in UI)
-  requiresTag?: boolean;     // NEW (used when variant=overnight)
 };
 
-/* --------------- Helpers --------------- */
 const todayISO = () => {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -117,7 +112,6 @@ const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 };
 
-// For specialty fields, parse int lbs
 const toInt = (val: any) => {
   const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -134,7 +128,6 @@ const pickCut = (obj: unknown, key: string): boolean => {
   return asBool(obj && typeof obj === 'object' ? (obj as AnyRec)[key] : undefined);
 };
 
-/** Derive "paid in full" from split flags + whether specialty is in play */
 const fullPaid = (j: Job): boolean => {
   const proc = !!j.paidProcessing;
   const needsSpec = asBool(j.specialtyProducts);
@@ -142,7 +135,6 @@ const fullPaid = (j: Job): boolean => {
   return proc && spec;
 };
 
-/* ---- Fixed status choices + guards ---- */
 const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
 const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
 const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up'] as const;
@@ -150,7 +142,7 @@ const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up']
 const coerce = (v: string | undefined, list: readonly string[]) =>
   list.includes(String(v)) ? String(v) : list[0];
 
-/* ===== Suspense wrapper to satisfy Next 15 CSR bailout rules ===== */
+/* ===== Suspense wrapper ===== */
 export default function Page() {
   return (
     <Suspense fallback={<div className="form-card"><div style={{padding:16}}>Loading…</div></div>}>
@@ -159,14 +151,12 @@ export default function Page() {
   );
 }
 
-/* --------------- Component -------------- */
 function IntakePage() {
   const sp = useSearchParams();
   const tagFromUrl = sp.get('tag') ?? '';
-  const isOvernight = (sp.get('variant') || '').toLowerCase() === 'overnight';
 
   const [job, setJob] = useState<Job>({
-    tag: isOvernight ? '' : (tagFromUrl || ''),
+    tag: tagFromUrl || '',
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
@@ -187,25 +177,21 @@ function IntakePage() {
     webbsOrder: false,
     Paid: false,
     paid: false,
-    paidProcessing: false, // NEW
-    paidSpecialty: false,  // NEW
+    paidProcessing: false,
+    paidSpecialty: false,
     specialtyProducts: false,
-    requiresTag: isOvernight ? true : undefined,
   });
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
   const tagRef = useRef<HTMLInputElement|null>(null);
 
-  // Focus Tag on mount (skip for overnight since it's disabled)
-  useEffect(() => {
-    if (!isOvernight) tagRef.current?.focus();
-  }, [isOvernight]);
+  useEffect(() => { tagRef.current?.focus(); }, []);
 
-  // Load existing job by tag (if present AND not overnight)
+  // Load existing job by tag (if present)
   useEffect(() => {
     (async () => {
-      if (!tagFromUrl || isOvernight) return;
+      if (!tagFromUrl) return;
       try {
         const res = await getJob(tagFromUrl);
         if (res?.exists && res.job) {
@@ -218,19 +204,16 @@ function IntakePage() {
               tag: j.tag || tagFromUrl,
               dropoff: j.dropoff || todayISO(),
 
-              // Main status only if not Cape & Donate and not Donate
               status:
                 pnorm === 'Cape & Donate' || pnorm === 'Donate'
                   ? ''
                   : coerce(j.status || prev.status || 'Dropped Off', STATUS_MAIN),
 
-              // Caping status if Caped or Cape & Donate
               capingStatus:
                 (pnorm === 'Caped' || pnorm === 'Cape & Donate')
                   ? coerce(j.capingStatus || 'Dropped Off', STATUS_CAPE)
                   : '',
 
-              // Webbs status only if webbsOrder and not Donate
               webbsStatus:
                 (asBool(j.webbsOrder) && pnorm !== 'Donate')
                   ? coerce(j.webbsStatus || 'Dropped Off', STATUS_WEBBS)
@@ -249,7 +232,6 @@ function IntakePage() {
                 'Front - None' : pickCut(j?.front, 'Front - None'),
               },
 
-              // Confirmation mapping
               confirmation:
                 j.confirmation ??
                 j['Confirmation #'] ??
@@ -257,7 +239,6 @@ function IntakePage() {
                 prev.confirmation ??
                 '',
 
-              // Paid flags: load both split and legacy
               paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
               paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
               specialtyProducts: asBool(j.specialtyProducts),
@@ -272,15 +253,12 @@ function IntakePage() {
         setMsg(`Load failed: ${e?.message || e}`);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFromUrl, isOvernight]);
+  }, [tagFromUrl]);
 
-  // Derived UI toggles + pricing
   const processingPrice = useMemo(
     () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
     [job.processType, job.beefFat, job.webbsOrder]
   );
-
   const specialtyPrice = useMemo(() => {
     if (!job.specialtyProducts) return 0;
     const ss  = toInt(job.summerSausageLbs);
@@ -288,26 +266,21 @@ function IntakePage() {
     const jer = toInt(job.slicedJerkyLbs);
     return ss * 4.25 + ssc * 4.60 + jer * 15.0;
   }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
-
   const totalPrice = processingPrice + specialtyPrice;
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
   const isWholeBackstrap = job.backstrapPrep === 'Whole';
-  const hasSpecialty = asBool(job.specialtyProducts);
-
   const needsBackstrapOther = !isWholeBackstrap && job.backstrapThickness === 'Other';
   const needsSteakOther = job.steak === 'Other';
   const procNorm = normProc(job.processType);
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
 
-  // Visibility flags for statuses
   const showMainStatus   = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
   const showCapingStatus = capingFlow;
   const showWebbsStatus  = webbsOn && procNorm !== 'Donate';
 
-  // Normalize statuses when process type changes
   useEffect(() => {
     setJob((prev) => {
       const next = { ...prev };
@@ -324,14 +297,11 @@ function IntakePage() {
         if (!next.capingStatus) next.capingStatus = 'Dropped Off';
       } else {
         if (!next.status) next.status = 'Dropped Off';
-        // caping hidden for non-caped; leave as-is or clear if you prefer:
-        // next.capingStatus = '';
       }
       return next;
     });
   }, [job.processType]);
 
-  // Keep conditional statuses defaulted if newly toggled on and empty
   useEffect(() => {
     setJob((p) => {
       const next: Job = { ...p };
@@ -341,7 +311,6 @@ function IntakePage() {
     });
   }, [capingFlow, webbsOn, procNorm]);
 
-  // If specialty is turned off, clear its paid flag and recompute full/legacy paid
   useEffect(() => {
     setJob((prev) => {
       if (!asBool(prev.specialtyProducts) && prev.paidSpecialty) {
@@ -353,7 +322,6 @@ function IntakePage() {
     });
   }, [job.specialtyProducts]);
 
-  /* ---------- Validation ---------- */
   const validate = (): string[] => {
     const missing: string[] = [];
     if (!job.customer) missing.push('Customer Name');
@@ -370,7 +338,6 @@ function IntakePage() {
     return missing;
   };
 
-  /* ---------- Save ---------- */
   const onSave = async () => {
     setMsg('');
     const missing = validate();
@@ -383,12 +350,6 @@ function IntakePage() {
 
     const payload: Job = {
       ...job,
-
-      // Force blank tag + requiresTag if overnight
-      tag: isOvernight ? '' : job.tag,
-      requiresTag: isOvernight ? true : job.requiresTag,
-
-      // Only send the statuses that make sense for the process type
       status:
         pnorm === 'Cape & Donate' || pnorm === 'Donate'
           ? ''
@@ -404,13 +365,11 @@ function IntakePage() {
           ? coerce(job.webbsStatus, STATUS_WEBBS)
           : '',
 
-      // keep legacy 'Paid' in sync, and send split flags
       Paid: fullPaid(job),
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
 
-      // numeric normalizations for specialty lbs
       summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
       slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
@@ -424,8 +383,7 @@ function IntakePage() {
         return;
       }
       setMsg('Saved ✓');
-      // Only refetch when we have a tag (overnight won't)
-      if (job.tag && !isOvernight) {
+      if (job.tag) {
         const fresh = await getJob(job.tag);
         if (fresh?.exists && fresh.job) {
           const j: any = fresh.job;
@@ -453,7 +411,6 @@ function IntakePage() {
     }
   };
 
-  /* ---------- Small setters ---------- */
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
     setJob((p) => ({ ...p, [k]: v }));
 
@@ -463,26 +420,22 @@ function IntakePage() {
   const setFront = (k: keyof Required<CutsBlock>) =>
     setJob((p) => ({ ...p, front: { ...(p.front || {}), [k]: !(p.front?.[k]) } }));
 
-  /* ---------------- UI ---------------- */
   return (
     <div className="form-card">
-      {/* ------- SCREEN UI ONLY ------- */}
       <div className="screen-only">
         <h2>Deer Intake</h2>
 
-        {/* Summary bar with split pricing (unchanged look) */}
         <div className="summary">
           <div className="row">
             <div className="col">
               <label>Tag Number</label>
               <input
                 ref={tagRef}
-                value={isOvernight ? '' : (job.tag || '')}
+                value={job.tag || ''}
                 onChange={(e) => setVal('tag', e.target.value)}
-                placeholder={isOvernight ? 'Assigned by staff' : 'e.g. 1234'}
-                disabled={isOvernight}
+                placeholder="e.g. 1234"
               />
-              <div className="muted" style={{fontSize:12}}>{isOvernight ? 'Front desk will assign your tag in the morning.' : 'Deer Tag'}</div>
+              <div className="muted" style={{fontSize:12}}>Deer Tag</div>
             </div>
 
             <div className="col price">
@@ -543,7 +496,6 @@ function IntakePage() {
             <div className="col">
               <label>Paid</label>
               <div className="pillrow">
-                {/* Processing pill */}
                 <label className={`pill ${job.paidProcessing ? 'on' : ''}`}>
                   <input
                     type="checkbox"
@@ -560,7 +512,6 @@ function IntakePage() {
                 </label>
                 <span className="badge">{job.paidProcessing ? 'Processing Paid' : 'Processing Unpaid'}</span>
 
-                {/* Specialty pill (only if specialty is enabled) */}
                 {asBool(job.specialtyProducts) && (
                   <>
                     <label className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
@@ -581,7 +532,6 @@ function IntakePage() {
                   </>
                 )}
 
-                {/* Overall pill */}
                 <label className={`pill ${fullPaid(job) ? 'on' : ''}`}>
                   <input
                     type="checkbox"
@@ -1036,14 +986,11 @@ function IntakePage() {
         </div>
       </div>
 
-      {/* ------- PRINT ONLY (no overlay on screen) ------- */}
       <div className="print-only">
         <PrintSheet job={job} />
       </div>
 
-      {/* Styles */}
       <style jsx>{`
-        .wrap { max-width: 980px; margin: 16px auto 60px; padding: 12px; font-family: Arial, sans-serif; }
         h2 { margin: 8px 0; }
         h3 { margin: 16px 0 8px; }
 
@@ -1068,51 +1015,11 @@ function IntakePage() {
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
-        /* Paid pills row */
-        .summary .pillrow {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          flex-wrap: nowrap;
-        }
-        .summary .pill {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 6px 10px;
-          border: 2px solid #eab308;
-          background: #fff7db;
-          border-radius: 999px;
-          white-space: nowrap;
-          max-width: 100%;
-          overflow: visible;
-          cursor: pointer; /* label is clickable */
-          user-select: none;
-        }
-        .summary .pill.on {
-          border-color: #10b981;
-          background: #ecfdf5;
-        }
-        .summary .pill > input[type="checkbox"] {
-          position: static;
-          inset: auto;
-          transform: none;
-          width: 18px;
-          height: 18px;
-          margin: 0;
-          flex: 0 0 auto;
-          appearance: auto;
-        }
-        .summary .badge {
-          display: inline-block;
-          font-weight: 800;
-          font-size: 11px;
-          padding: 2px 8px;
-          border-radius: 999px;
-          border: 1px solid currentColor;
-          line-height: 1.1;
-        }
+        .summary .pillrow { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; }
+        .summary .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 10px; border: 2px solid #eab308; background: #fff7db; border-radius: 999px; white-space: nowrap; cursor: pointer; user-select: none; }
+        .summary .pill.on { border-color: #10b981; background: #ecfdf5; }
+        .summary .pill > input[type="checkbox"] { width: 18px; height: 18px; margin: 0; appearance: auto; }
+        .summary .badge { display: inline-block; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; line-height: 1.1; }
 
         .count { display: inline-flex; align-items: center; gap: 6px; }
         .countInp { width: 70px; text-align: center; }
@@ -1125,14 +1032,8 @@ function IntakePage() {
         .status.err { color: #b91c1c; }
 
         .print-only { display: none; }
-        @media print {
-          .screen-only { display: none !important; }
-          .print-only { display: block !important; }
-        }
-
-        @media (max-width: 900px) {
-          .summary .row.small { grid-template-columns: 1fr 1fr; }
-        }
+        @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
+        @media (max-width: 900px) { .summary .row.small { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 720px) {
           .grid { grid-template-columns: 1fr; }
           .summary .row { grid-template-columns: 1fr; }
