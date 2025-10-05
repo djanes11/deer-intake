@@ -102,16 +102,6 @@ function Check({ on, text }: { on?: boolean; text: string }) {
 }
 
 // mailto builder for the Email button
-function mailtoHref(email: string, tag: string, total: number) {
-  const subject = `Your deer order (Tag ${tag}) — McAfee Deer Processing`;
-  const body =
-`Hi,
-
-This is a view-only copy of your intake form for Tag ${tag}.
-Current status: Finished & Ready to Pick Up
-
-Estimated total (subject to final weight/add-ons): $${total.toFixed(2)}
-
 If you have questions, reply to this email.
 
 — McAfee Deer Processing`;
@@ -168,17 +158,17 @@ export default async function IntakeView({
                 <div className="row grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(3, 1fr)'}}>
                   <div className="col">
                     <label>Tag Number</label>
-                    <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px' }}>{job?.tag || ''}</div>
+                    <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.tag || ''}</div>
                     <div className="muted" style={{fontSize:12}}>Deer Tag</div>
                   </div>
                   <div className="col">
                     <label>Processing Price</label>
-                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px' }}>{processingPrice.toFixed(2)}</div>
+                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{processingPrice.toFixed(2)}</div>
                     <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
                   </div>
                   <div className="col">
                     <label>Specialty Price</label>
-                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px' }}>{(job?.specialtyProducts ? specialtyPrice : 0).toFixed(2)}</div>
+                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{(job?.specialtyProducts ? specialtyPrice : 0).toFixed(2)}</div>
                     <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
                   </div>
                 </div>
@@ -190,18 +180,18 @@ export default async function IntakeView({
                   </div>
                   <div className="col">
                     <label>Status</label>
-                    <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px' }}>{job?.status || ''}</div>
+                    <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.status || ''}</div>
                   </div>
                   {job?.processType === 'Caped' && (
                     <div className="col">
                       <label>Caping Status</label>
-                      <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px' }}>{job?.capingStatus || ''}</div>
+                      <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.capingStatus || ''}</div>
                     </div>
                   )}
                   {job?.webbsOrder && (
                     <div className="col">
                       <label>Webbs Status</label>
-                      <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px' }}>{job?.webbsStatus || ''}</div>
+                      <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.webbsStatus || ''}</div>
                     </div>
                   )}
                 </div>
