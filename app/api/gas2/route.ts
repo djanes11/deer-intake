@@ -115,7 +115,7 @@ function truthyBool(v: any): boolean {
   if (v === true) return true;
   if (v === false) return false;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true', 'yes', 'y', '1', 'on'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', '✓', '✔'].includes(s);
 }
 function getTagFromRow(r: AnyRec): string {
   const keys = ['tag','Tag','TAG','Tag Number','tag_number','TagNumber','Deer Tag'];
@@ -163,8 +163,12 @@ export async function POST(req: NextRequest) {
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
   log('POST action=', action);
 
-  /* ---------- SPECIAL SEARCH: @needsTag ---------- */
-  if (action === 'search' && String(body.q || '').trim().toLowerCase() === '@needstag') {
+  /* ---------- SPECIAL SEARCH: needsTag (accept both forms) ---------- */
+  const wantsNeedsTag =
+    action === 'needstag' ||
+    (action === 'search' && String(body.q || '').trim().toLowerCase() === '@needstag');
+
+  if (wantsNeedsTag) {
     // Try multiple upstream queries until we actually get rows.
     const attempts: AnyRec[] = [
       { action: 'search', q: '@needsTag', limit: body.limit || 500 }, // if GAS supports it
@@ -181,7 +185,7 @@ export async function POST(req: NextRequest) {
       if (Array.isArray(rows) && rows.length) { all = rows; break; }
     }
 
-    // If still nothing, just return ok:true/empty to avoid crashing the UI.
+    // Return ok:true/empty to avoid UI errors if nothing came back.
     if (!all.length) {
       return new Response(JSON.stringify({ ok: true, rows: [] }), {
         status: 200,
@@ -196,7 +200,7 @@ export async function POST(req: NextRequest) {
       return !tag || req;
     });
 
-    // Optional: de-dupe by sheet row (if present)
+    // De-dupe by a stable key if present
     const seen = new Set<string>();
     const rowsOut = filtered.filter((r) => {
       const key = String(r.row ?? r.Row ?? JSON.stringify([r.customer, r.phone, r.dropoff]));
