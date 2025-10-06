@@ -111,10 +111,11 @@ function formViewUrl(req: Request, tag: string) {
 }
 
 /* ---------------- Utils ---------------- */
+const lc = (v: any) => String(v ?? '').trim().toLowerCase();
 function truthyBool(v: any): boolean {
   if (v === true) return true;
   if (v === false) return false;
-  const s = String(v ?? '').trim().toLowerCase();
+  const s = lc(v);
   return ['true', 'yes', 'y', '1', 'on', '✓', '✔'].includes(s);
 }
 function getTagFromRow(r: AnyRec): string {
@@ -127,6 +128,11 @@ function getConfirmationFromRow(r: AnyRec): string {
   for (const key of k) if (r[key] != null) return String(r[key]).trim();
   return '';
 }
+/** “Ready to call” = includes 'ready' or 'finish' but NOT 'called' */
+const isReadyToCall = (s?: any) => {
+  const v = lc(s);
+  return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
+};
 
 /* ---------------- Handlers ---------------- */
 export async function GET(req: NextRequest) {
@@ -244,52 +250,55 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  /* ---------- SPECIAL: mark picked up (any track) & flip track status ---------- */
-  if (action === 'pickedup') {
-    const tag = String(body.tag || '').trim();
-    const scopeRaw = String(body.scope || 'meat').toLowerCase();
-    const scope = scopeRaw === 'webbs' ? 'webbs' : scopeRaw === 'cape' ? 'cape' : 'meat';
-
-    if (!tag) {
-      return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' }
+  /* ---------- NEW: DASHBOARD COUNTS (for KPI cards) ---------- */
+  if (action === 'dashboardcounts') {
+    // 1) needsTag via our robust helper
+    let needsCount = 0;
+    try {
+      const attempts: AnyRec[] = [
+        { action: 'search', q: '@needsTag', limit: 999 },
+        { action: 'search', q: '',          limit: 999 },
+        { action: 'search', q: '@all',      limit: 999 },
+        { action: 'search', q: '@recent',   limit: 999 },
+      ];
+      let got: AnyRec[] = [];
+      for (const payload of attempts) {
+        const up = await gasPost(payload);
+        if (up.status >= 400) continue;
+        const rows = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
+        if (Array.isArray(rows) && rows.length) { got = rows; break; }
+      }
+      const filtered = got.filter((r) => {
+        const tag = getTagFromRow(r);
+        const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
+        return !tag || req;
       });
+      needsCount = filtered.length;
+    } catch {}
+
+    // 2) ready pool (same pool the Calls report uses; try a few keys)
+    const queries = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
+    let rows: AnyRec[] = [];
+    for (const q of queries) {
+      try {
+        const up = await gasPost({ action:'search', q });
+        if (up.status >= 400) continue;
+        const r = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
+        if (Array.isArray(r) && r.length) { rows = r; break; }
+      } catch {}
     }
 
-    const now = new Date().toISOString();
-
-    // IMPORTANT:
-    // GAS saveJob() writes the *lower-case* fields:
-    //   - status          -> Status column
-    //   - capingStatus    -> Caping Status column
-    //   - webbsStatus     -> Webbs Status column
-    // So set those exact keys to flip the visible columns to "Picked Up".
-    const updates: AnyRec = { tag };
-    if (scope === 'meat') {
-      updates.status = 'Picked Up';
-      // (optional flags below are ignored by saveJob(), but harmless)
-      updates['Picked Up - Processing'] = true;
-      updates['Picked Up - Processing At'] = now;
-    } else if (scope === 'cape') {
-      updates.capingStatus = 'Picked Up';
-      updates['Picked Up - Cape'] = true;
-      updates['Picked Up - Cape At'] = now;
-    } else {
-      updates.webbsStatus = 'Picked Up';
-      updates['Picked Up - Webbs'] = true;
-      updates['Picked Up - Webbs At'] = now;
+    let meat = 0, cape = 0, webbs = 0;
+    for (const r of rows) {
+      if (isReadyToCall(r.status ?? r.Status)) meat++;
+      if (isReadyToCall(r.capingStatus ?? r['Caping Status'])) cape++;
+      if (isReadyToCall(r.webbsStatus ?? r['Webbs Status'])) webbs++;
     }
 
-    const res = await gasPost({ action: 'save', job: updates });
-    if (res.status >= 400 || (res.json && res.json.ok === false)) {
-      return new Response(
-        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUp failed' }),
-        { status: res.status, headers: { 'Content-Type': res.text ? 'text/plain' : 'application/json' } }
-      );
-    }
-    return new Response(JSON.stringify({ ok:true }), {
-      status: 200, headers: { 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({ ok:true, needsTag: needsCount, ready: { meat, cape, webbs } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   /* ---------- SPECIAL SEARCH: needsTag ---------- */
