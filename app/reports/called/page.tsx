@@ -120,7 +120,7 @@ async function fetchCalled(): Promise<Row[]> {
       pickedUpWebbs: !!r?.['Picked Up - Webbs'],
     };
 
-    // Compute once per tag; reuse on all tracks so the prices don't vanish on Cape/Webbs rows
+    // compute once and reuse so Cape/Webbs rows still show prices
     const priceProc = suggestedProcessingPrice(base.processType, !!base.beefFat, !!base.webbsOrder);
     const priceSpec = specialtyPrice(base);
 
@@ -133,7 +133,7 @@ async function fetchCalled(): Promise<Row[]> {
         calledAt: base.lastCallAt || '',
         priceProc,
         priceSpec,
-        paidProcessing: base.paidProcessing,       // paid shows only for Meat in UI
+        paidProcessing: base.paidProcessing,
         pickedUp: base.pickedUpProcessing,
       });
     }
@@ -146,7 +146,6 @@ async function fetchCalled(): Promise<Row[]> {
         calledAt: base.lastCallAt || '',
         priceProc,
         priceSpec,
-        // paidProcessing intentionally omitted for Cape rows; not applicable
         pickedUp: base.pickedUpCape,
       });
     }
@@ -167,22 +166,19 @@ async function fetchCalled(): Promise<Row[]> {
   const order: Record<Track, number> = { meat: 0, cape: 1, webbs: 2 };
   out.sort((a, b) => {
     const at = (a.calledAt || '').localeCompare(b.calledAt || '');
-    if (at !== 0) return -at;          // newest Called first
+    if (at !== 0) return -at;          // newest first
     return order[a.track] - order[b.track];
   });
   return out;
 }
-
 
 /* ---------- actions ---------- */
 async function markPaid(tag: string) {
   return postJSON({ action: 'save', job: { tag, paidProcessing: true } });
 }
 async function markPickedUp(tag: string, track: Track) {
-  const now = new Date().toISOString();
-  if (track === 'meat') return postJSON({ action: 'pickedUpProcessing', tag });
-  if (track === 'cape') return postJSON({ action: 'save', job: { tag, 'Picked Up - Cape': true, 'Picked Up - Cape At': now } });
-  return postJSON({ action: 'save', job: { tag, 'Picked Up - Webbs': true, 'Picked Up - Webbs At': now } });
+  // unified endpoint that also flips the specific Status column to "Picked Up"
+  return postJSON({ action: 'pickedUp', tag, scope: track });
 }
 
 /* ---------- UI ---------- */
@@ -191,10 +187,10 @@ function TrackBadge({ track }: { track: Track | string }) {
   const label = t === 'webbs' ? 'Webbs' : t === 'cape' ? 'Cape' : 'Meat';
   const styles: React.CSSProperties =
     t === 'webbs'
-      ? { background:'#5b21b6', color:'#fff' }   // purple (match calls report accent)
+      ? { background:'#5b21b6', color:'#fff' }   // purple
       : t === 'cape'
       ? { background:'#92400e', color:'#fff' }   // amber/brown
-      : { background:'#065f46', color:'#fff' };  // green (Meat Ready look)
+      : { background:'#065f46', color:'#fff' };  // green
 
   return (
     <span
@@ -219,7 +215,7 @@ export default function CalledPickupQueue() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
-  const [busy, setBusy] = useState<string>('');     // <<< fixed here
+  const [busy, setBusy] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string>('');
 
   const selected = useMemo(
@@ -379,7 +375,7 @@ export default function CalledPickupQueue() {
       <style jsx>{`
         /* --- dark table to match Call Report --- */
         .table {
-          background:#0f172a;           /* dark slate card */
+          background:#0f172a;
           border:1px solid #111827;
           border-radius:12px;
           overflow:hidden;
@@ -391,7 +387,7 @@ export default function CalledPickupQueue() {
           font-weight:800;
           padding:12px 12px;
           border-bottom:1px solid #111827;
-          background:#0b1220;          /* darker header strip */
+          background:#0b1220;
           font-size:15px;
         }
         .trow {
@@ -439,7 +435,7 @@ export default function CalledPickupQueue() {
           color:#e5e7eb;
         }
         .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#111827; color:#e5e7eb; font-weight:800; }
-        .pill.small { font-size:12px; background:#374151; }
+        .pill.small { padding:2px 8px; }
       `}</style>
     </main>
   );

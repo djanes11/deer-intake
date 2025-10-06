@@ -244,59 +244,46 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  /* ---------- SPECIAL: mark track as Picked Up by flipping Status columns ---------- */
-  // Processing (meat): Status -> "Picked Up"
-  if (action === 'pickedupprocessing') {
+  /* ---------- SPECIAL: mark picked up (any track) & clear Called ---------- */
+  if (action === 'pickedup') {
     const tag = String(body.tag || '').trim();
-    if (!tag) {
-      return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    const res = await gasPost({ action: 'save', job: { tag, 'Status': 'Picked Up' } });
-    if (res.status >= 400 || (res.json && res.json.ok === false)) {
-      return new Response(
-        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUpProcessing failed' }),
-        { status: res.status, headers: { 'Content-Type': res.text ? 'text/plain' : 'application/json' } }
-      );
-    }
-    return new Response(JSON.stringify({ ok:true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }
+    const scopeRaw = String(body.scope || 'meat').toLowerCase();
+    const scope = scopeRaw === 'webbs' ? 'webbs' : scopeRaw === 'cape' ? 'cape' : 'meat';
 
-  // Cape: Caping Status -> "Picked Up"
-  if (action === 'pickedupcape') {
-    const tag = String(body.tag || '').trim();
     if (!tag) {
       return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
         status: 400, headers: { 'Content-Type': 'application/json' }
       });
     }
-    const res = await gasPost({ action: 'save', job: { tag, 'Caping Status': 'Picked Up' } });
-    if (res.status >= 400 || (res.json && res.json.ok === false)) {
-      return new Response(
-        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUpCape failed' }),
-        { status: res.status, headers: { 'Content-Type': res.text ? 'text/plain' : 'application/json' } }
-      );
-    }
-    return new Response(JSON.stringify({ ok:true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }
 
-  // Webbs: Webbs Status -> "Picked Up"
-  if (action === 'pickedupwebbs') {
-    const tag = String(body.tag || '').trim();
-    if (!tag) {
-      return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' }
-      });
+    const now = new Date().toISOString();
+
+    // Prepare per-scope updates
+    const updates: AnyRec = { tag };
+    if (scope === 'meat') {
+      updates['Picked Up - Processing'] = true;
+      updates['Picked Up - Processing At'] = now;
+      updates['Status'] = 'Picked Up';
+    } else if (scope === 'cape') {
+      updates['Picked Up - Cape'] = true;
+      updates['Picked Up - Cape At'] = now;
+      updates['Caping Status'] = 'Picked Up';
+    } else {
+      updates['Picked Up - Webbs'] = true;
+      updates['Picked Up - Webbs At'] = now;
+      updates['Webbs Status'] = 'Picked Up';
     }
-    const res = await gasPost({ action: 'save', job: { tag, 'Webbs Status': 'Picked Up' } });
+
+    const res = await gasPost({ action: 'save', job: updates });
     if (res.status >= 400 || (res.json && res.json.ok === false)) {
       return new Response(
-        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUpWebbs failed' }),
+        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUp failed' }),
         { status: res.status, headers: { 'Content-Type': res.text ? 'text/plain' : 'application/json' } }
       );
     }
-    return new Response(JSON.stringify({ ok:true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok:true }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
   }
 
   /* ---------- SPECIAL SEARCH: needsTag ---------- */
