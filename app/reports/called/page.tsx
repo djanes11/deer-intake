@@ -201,7 +201,7 @@ export default function CalledPickupQueue() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
-  the [busy, setBusy] = useState<string>('');
+  const [busy, setBusy] = useState<string>('');     // <<< fixed here
   const [selectedKey, setSelectedKey] = useState<string>('');
 
   const selected = useMemo(
