@@ -1,7 +1,7 @@
 // app/api/gas2/route.ts
 // Initial email on first save (signed read-only link).
 // Finished email once when status first becomes Finished/Ready (save OR progress).
-// Robust @needsTag search + overnight saves without tag.
+// Robust @needsTag search; NO auto-generation of confirmation numbers.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -119,9 +119,12 @@ function truthyBool(v: any): boolean {
 }
 function getTagFromRow(r: AnyRec): string {
   const keys = ['tag','Tag','TAG','Tag Number','tag_number','TagNumber','Deer Tag'];
-  for (const k of keys) {
-    if (r[k] != null) return String(r[k]).trim();
-  }
+  for (const k of keys) if (r[k] != null) return String(r[k]).trim();
+  return '';
+}
+function getConfirmationFromRow(r: AnyRec): string {
+  const k = ['confirmation','Confirmation #','Confirmation','Confirm #','confirm','CONFIRMATION'];
+  for (const key of k) if (r[key] != null) return String(r[key]).trim();
   return '';
 }
 
@@ -169,12 +172,12 @@ export async function POST(req: NextRequest) {
     (action === 'search' && String(body.q || '').trim().toLowerCase() === '@needstag');
 
   if (wantsNeedsTag) {
-    // Try multiple upstream queries until we actually get rows.
+    // Try multiple upstream queries; then normalize fields for UI.
     const attempts: AnyRec[] = [
-      { action: 'search', q: '@needsTag', limit: body.limit || 500 }, // if GAS supports it
-      { action: 'search', q: '',          limit: body.limit || 500 }, // blank → some scripts return recent
-      { action: 'search', q: '@all',      limit: body.limit || 500 }, // common custom flag
-      { action: 'search', q: '@recent',   limit: body.limit || 500 }, // another common flag
+      { action: 'search', q: '@needsTag', limit: body.limit || 500 },
+      { action: 'search', q: '',          limit: body.limit || 500 },
+      { action: 'search', q: '@all',      limit: body.limit || 500 },
+      { action: 'search', q: '@recent',   limit: body.limit || 500 },
     ];
 
     let all: AnyRec[] = [];
@@ -185,7 +188,6 @@ export async function POST(req: NextRequest) {
       if (Array.isArray(rows) && rows.length) { all = rows; break; }
     }
 
-    // Return ok:true/empty to avoid UI errors if nothing came back.
     if (!all.length) {
       return new Response(JSON.stringify({ ok: true, rows: [] }), {
         status: 200,
@@ -193,17 +195,28 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Filter for "missing tag OR requiresTag=true"
+    // Filter: missing Tag OR explicitly flagged Requires Tag
     const filtered = all.filter((r) => {
       const tag = getTagFromRow(r);
       const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
       return !tag || req;
     });
 
-    // De-dupe by a stable key if present
+    // Normalize a stable shape the client can rely on, including confirmation.
+    const normalized = filtered.map((r) => ({
+      ...r,
+      confirmation: getConfirmationFromRow(r),
+      tag: getTagFromRow(r),
+      customer: r.customer ?? r['Customer Name'] ?? r.Customer ?? r.name ?? '',
+      phone: r.phone ?? r.Phone ?? '',
+      dropoff: r.dropoff ?? r['Drop-off'] ?? r['Drop Off'] ?? r['Drop-off Date'] ?? r['Drop Off Date'] ?? r['Date Dropped'] ?? '',
+      row: r.row ?? r.Row ?? r._row ?? r._index ?? undefined,
+    }));
+
+    // De-dupe by row if present
     const seen = new Set<string>();
-    const rowsOut = filtered.filter((r) => {
-      const key = String(r.row ?? r.Row ?? JSON.stringify([r.customer, r.phone, r.dropoff]));
+    const rowsOut = normalized.filter((r) => {
+      const key = String(r.row ?? JSON.stringify([r.customer, r.phone, r.dropoff]));
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -219,7 +232,7 @@ export async function POST(req: NextRequest) {
   const tag = String((body.job && body.job.tag) || body.tag || '').trim();
   const isTagAction = ['save', 'progress'].includes(action);
 
-  // ----- Overnight branch: save without tag when requiresTag === true -----
+  // ----- Overnight branch: allow save without tag when requiresTag === true -----
   const requiresTag =
     action === 'save' &&
     (body?.job?.requiresTag === true ||
@@ -228,10 +241,25 @@ export async function POST(req: NextRequest) {
   const isOvernight = action === 'save' && requiresTag && tag === '';
 
   if (isOvernight) {
-    const payload = {
-      action: 'save',
-      job: { ...(body.job || {}), tag: '', requiresTag: true },
-    };
+    // IMPORTANT: DO NOT generate confirmation. Just pass through what the user entered.
+    // Ensure whatever key they used makes it through to GAS unchanged.
+    const j = { ...(body.job || {}) };
+
+    // If they used "confirmation" but sheet expects "Confirmation #", copy both keys.
+    const conf =
+      j.confirmation ??
+      j['Confirmation #'] ??
+      j['Confirmation'] ??
+      j['Confirm #'] ??
+      j.confirm ??
+      '';
+
+    if (conf) {
+      j.confirmation = conf;
+      j['Confirmation #'] = conf;
+    }
+
+    const payload = { action: 'save', job: { ...j, tag: '', requiresTag: true } };
     const forwarded = await gasPost(payload);
     if (forwarded.status >= 400) {
       log('overnight save upstream error:', forwarded.status, forwarded.text || forwarded.json);
@@ -245,10 +273,7 @@ export async function POST(req: NextRequest) {
     }
     return new Response(
       forwarded.text || JSON.stringify(forwarded.json || { ok: true }),
-      {
-        status: 200,
-        headers: { 'Content-Type': forwarded.text ? 'text/plain' : 'application/json' },
-      }
+      { status: 200, headers: { 'Content-Type': forwarded.text ? 'text/plain' : 'application/json' } }
     );
   }
 
@@ -346,11 +371,7 @@ export async function POST(req: NextRequest) {
   const customerEmail = String(latest.email || (body.job && body.job.email) || '').trim();
   const custName = String(latest.customer || latest['Customer Name'] || '').trim();
 
-  log('decisions -> shouldInitial=', shouldInitial, 'shouldFinished=', shouldFinished);
-
-  if (!customerEmail) {
-    log('no customer email; skipping email');
-  } else {
+  if (customerEmail) {
     try {
       if (shouldInitial) {
         const viewUrl = formViewUrl(req, tag);
@@ -374,12 +395,10 @@ export async function POST(req: NextRequest) {
         );
         const paidProcessing = !!(latest.paidProcessing || latest['Paid Processing']);
         const stillOwe = paidProcessing ? 0 : Math.max(0, procPrice);
-
         const owedBlock =
           stillOwe > 0
             ? `<p><b>Amount still owed (regular processing): $${stillOwe.toFixed(2)}</b></p>`
             : '';
-
         await sendEmail({
           to: customerEmail,
           subject: `${SITE} — Finished & Ready (Tag ${tag})`,
@@ -387,7 +406,7 @@ export async function POST(req: NextRequest) {
             `<p>Hi ${custName || 'there'},</p>`,
             `<p>Your regular processing is finished and ready for pickup.</p>`,
             owedBlock,
-            `<p><b>Pickup hours</b>: 6:00 pm–8:00 pm Monday–Friday, 9:00 am–5:00 pm Saturday & Sunday.</p>`,
+            `<p><b>Pickup hours</b>: 6:00 pm–8:00 pm Monday–Friday, 9:00 am–5:00 pm Saturday, 9:00 am-12:00pm Sunday.</p>`,
             `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
             `<p>Please bring a cooler or box to transport your meat.</p>`,
             `<p><em>Reminder:</em> This update is for your regular processing only. We’ll reach out separately about any Webbs orders or McAfee Specialty Products.</p>`,
@@ -416,3 +435,4 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
