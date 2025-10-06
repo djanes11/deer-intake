@@ -133,6 +133,8 @@ const isReadyToCall = (s?: any) => {
   const v = lc(s);
   return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
 };
+/** “Called” = status exactly/contains called */
+const isCalled = (s?: any) => lc(s).includes('called');
 
 /* ---------------- Handlers ---------------- */
 export async function GET(req: NextRequest) {
@@ -252,8 +254,24 @@ export async function POST(req: NextRequest) {
 
   /* ---------- NEW: DASHBOARD COUNTS (for KPI cards) ---------- */
   if (action === 'dashboardcounts') {
-    // 1) needsTag via our robust helper
-    let needsCount = 0;
+    // Helpers local to this handler
+    const str = (v:any) => String(v ?? '').trim();
+    const low = (v:any) => str(v).toLowerCase();
+
+    async function trySearch(qs: string[], limit = 1200): Promise<any[]> {
+      for (const q of qs) {
+        try {
+          const up = await gasPost({ action: 'search', q, limit });
+          if (up.status >= 400) continue;
+          const rows = (up.json?.rows || up.json?.results || up.json || []) as any[];
+          if (Array.isArray(rows) && rows.length) return rows;
+        } catch { /* keep trying */ }
+      }
+      return [];
+    }
+
+    // 1) Needs Tag (reuse robust sequence)
+    let needsTag = 0;
     try {
       const attempts: AnyRec[] = [
         { action: 'search', q: '@needsTag', limit: 999 },
@@ -261,44 +279,71 @@ export async function POST(req: NextRequest) {
         { action: 'search', q: '@all',      limit: 999 },
         { action: 'search', q: '@recent',   limit: 999 },
       ];
-      let got: AnyRec[] = [];
+      let all: AnyRec[] = [];
       for (const payload of attempts) {
         const up = await gasPost(payload);
         if (up.status >= 400) continue;
         const rows = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
-        if (Array.isArray(rows) && rows.length) { got = rows; break; }
+        if (Array.isArray(rows) && rows.length) { all = rows; break; }
       }
-      const filtered = got.filter((r) => {
-        const tag = getTagFromRow(r);
-        const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
-        return !tag || req;
-      });
-      needsCount = filtered.length;
+      if (all.length) {
+        needsTag = all.filter(r => {
+          const tag = getTagFromRow(r);
+          const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
+          return !tag || req;
+        }).length;
+      }
     } catch {}
 
-    // 2) ready pool (same pool the Calls report uses; try a few keys)
-    const queries = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
-    let rows: AnyRec[] = [];
-    for (const q of queries) {
-      try {
-        const up = await gasPost({ action:'search', q });
-        if (up.status >= 400) continue;
-        const r = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
-        if (Array.isArray(r) && r.length) { rows = r; break; }
-      } catch {}
+    // 2) Ready-to-call by track (from several possible endpoints)
+    const readyPool = await trySearch(['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all']);
+    let readyMeat = 0, readyCape = 0, readyWebbs = 0;
+
+    for (const r of readyPool) {
+      const track = low(r.track || r.Track || '');
+      const meatStatus  = str(r.status || r.Status || '');
+      const capeStatus  = str(r.capingStatus || r['Caping Status'] || '');
+      const webbsStatus = str(r.webbsStatus  || r['Webbs Status']  || '');
+      const pickedUpProcessing = truthyBool(r['Picked Up - Processing']);
+
+      if (track) {
+        if (track.includes('meat')   && isReadyToCall(meatStatus)   && !pickedUpProcessing) readyMeat++;
+        else if (track.includes('cape')  && isReadyToCall(capeStatus))  readyCape++;
+        else if (track.includes('webb')  && isReadyToCall(webbsStatus)) readyWebbs++;
+        continue;
+      }
+      if (isReadyToCall(meatStatus)   && !pickedUpProcessing) readyMeat++;
+      if (isReadyToCall(capeStatus))  readyCape++;
+      if (isReadyToCall(webbsStatus)) readyWebbs++;
     }
 
-    let meat = 0, cape = 0, webbs = 0;
-    for (const r of rows) {
-      if (isReadyToCall(r.status ?? r.Status)) meat++;
-      if (isReadyToCall(r.capingStatus ?? r['Caping Status'])) cape++;
-      if (isReadyToCall(r.webbsStatus ?? r['Webbs Status'])) webbs++;
+    // 3) Called / Pickup Queue by track
+    const calledPool = await trySearch(['@recall', '@called', '@pickupqueue', '@calls']);
+    let calledMeat = 0, calledCape = 0, calledWebbs = 0;
+
+    for (const r of calledPool) {
+      const track = low(r.track || r.Track || '');
+      const meatStatus  = str(r.status || r.Status || '');
+      const capeStatus  = str(r.capingStatus || r['Caping Status'] || '');
+      const webbsStatus = str(r.webbsStatus  || r['Webbs Status']  || '');
+
+      if (track) {
+        if (track.includes('meat')   && isCalled(meatStatus))   calledMeat++;
+        else if (track.includes('cape')  && isCalled(capeStatus))  calledCape++;
+        else if (track.includes('webb')  && isCalled(webbsStatus)) calledWebbs++;
+        continue;
+      }
+      if (isCalled(meatStatus))   calledMeat++;
+      if (isCalled(capeStatus))   calledCape++;
+      if (isCalled(webbsStatus))  calledWebbs++;
     }
 
-    return new Response(
-      JSON.stringify({ ok:true, needsTag: needsCount, ready: { meat, cape, webbs } }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      ok: true,
+      needsTag,
+      ready:  { meat: readyMeat,  cape: readyCape,  webbs: readyWebbs },
+      called: { meat: calledMeat, cape: calledCape, webbs: calledWebbs },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
   /* ---------- SPECIAL SEARCH: needsTag ---------- */
@@ -541,3 +586,4 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
