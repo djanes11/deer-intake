@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  /* ---------- SPECIAL: mark regular processing picked up ---------- */
+  /* ---------- SPECIAL: legacy regular-processing picked up ---------- */
   if (action === 'pickedupprocessing') {
     const tag = String(body.tag || '').trim();
     if (!tag) {
@@ -252,7 +252,6 @@ export async function POST(req: NextRequest) {
         status: 400, headers: { 'Content-Type': 'application/json' }
       });
     }
-    // Save into the sheet fields we standardized in GAS:
     const now = new Date().toISOString();
     const res = await gasPost({
       action: 'save',
@@ -269,6 +268,38 @@ export async function POST(req: NextRequest) {
       );
     }
     return new Response(JSON.stringify({ ok:true }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  /* ---------- NEW: generic pickedUp with scope (meat|cape|webbs) ---------- */
+  if (action === 'pickedup') {
+    const tag = String(body.tag || '').trim();
+    const scopeRaw = String(body.scope || 'meat').trim().toLowerCase();
+    const scope = (scopeRaw === 'cape' || scopeRaw === 'webbs') ? scopeRaw : 'meat';
+    if (!tag) {
+      return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    const now = new Date().toISOString();
+    const col =
+      scope === 'cape'  ? 'Picked Up - Cape'   :
+      scope === 'webbs' ? 'Picked Up - Webbs'  :
+                          'Picked Up - Processing';
+    const colAt =
+      scope === 'cape'  ? 'Picked Up - Cape At'   :
+      scope === 'webbs' ? 'Picked Up - Webbs At'  :
+                          'Picked Up - Processing At';
+
+    const res = await gasPost({ action:'save', job: { tag, [col]: true, [colAt]: now } });
+    if (res.status >= 400 || (res.json && res.json.ok === false)) {
+      return new Response(
+        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUp failed' }),
+        { status: res.status, headers: { 'Content-Type': res.text ? 'text/plain' : 'application/json' } }
+      );
+    }
+    return new Response(JSON.stringify({ ok:true, scope }), {
       status: 200, headers: { 'Content-Type': 'application/json' }
     });
   }

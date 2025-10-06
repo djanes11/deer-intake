@@ -1,10 +1,10 @@
+// app/reports/called/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 
-export const dynamic = 'force-dynamic';
-
-// --- price helpers (client-side mirror) ---
+/* ---- pricing helpers (same math as your Call Report) ---- */
 function normProc(s?: string) {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
@@ -37,16 +37,19 @@ function specialtyPrice(row: any) {
   return ss * 4.25 + ssc * 4.60 + jer * 15.0;
 }
 
+/* ---- types ---- */
+type Track = 'meat' | 'cape' | 'webbs';
 type Row = {
   tag: string;
   customer: string;
   phone: string;
   dropoff?: string;
-  status?: string;                 // meat status
-  paidProcessing?: boolean;        // already paid?
-  paidSpecialty?: boolean;         // already paid specialty?
-  pickedUpProcessing?: boolean;    // if present
-  lastCallAt?: string;             // when set to Called (or last call)
+  status?: string;            // meat
+  capingStatus?: string;      // cape
+  webbsStatus?: string;       // webbs
+  lastCallAt?: string;
+
+  // pricing inputs
   processType?: string;
   beefFat?: boolean;
   webbsOrder?: boolean;
@@ -54,6 +57,15 @@ type Row = {
   summerSausageLbs?: string;
   summerSausageCheeseLbs?: string;
   slicedJerkyLbs?: string;
+
+  // paid + picked-up flags
+  paidProcessing?: boolean;
+  pickedUpProcessing?: boolean;
+  pickedUpProcessingAt?: string;
+  pickedUpCape?: boolean;
+  pickedUpCapeAt?: string;
+  pickedUpWebbs?: boolean;
+  pickedUpWebbsAt?: string;
 };
 
 const API = '/api/gas2';
@@ -71,58 +83,46 @@ async function postJSON(body: any) {
   if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
   return json;
 }
+function isCalled(s?: string) { return String(s || '').trim().toLowerCase() === 'called'; }
 
-async function fetchCalled(): Promise<Row[]> {
+/** Fetch all rows with any track “Called”, and expand into one row per called track. */
+async function fetchCalledRows(): Promise<Array<Row & { __track: Track }>> {
   const data = await postJSON({ action: 'search', q: '@recall' });
-  const rows = Array.isArray(data?.rows) ? data.rows : [];
-  return rows
-    .map((r: any) => ({
-      tag: String(r?.tag ?? r?.Tag ?? ''),
-      customer: String(r?.customer ?? r?.['Customer Name'] ?? ''),
-      phone: String(r?.phone ?? ''),
-      dropoff: String(r?.dropoff ?? ''),
-      status: String(r?.status ?? r?.Status ?? ''),
-      paidProcessing: !!(r?.paidProcessing || r?.['Paid Processing']),
-      paidSpecialty: !!(r?.paidSpecialty || r?.['Paid Specialty']),
-      pickedUpProcessing: !!(r?.['Picked Up - Processing']),
-      lastCallAt: String(r?.lastCallAt ?? r?.['Last Call At'] ?? ''),
-      processType: String(r?.processType ?? ''),
-      beefFat: !!r?.beefFat,
-      webbsOrder: !!r?.webbsOrder,
-      specialtyProducts: !!r?.specialtyProducts,
-      summerSausageLbs: String(r?.summerSausageLbs ?? ''),
-      summerSausageCheeseLbs: String(r?.summerSausageCheeseLbs ?? ''),
-      slicedJerkyLbs: String(r?.slicedJerkyLbs ?? ''),
-    }))
-    .filter((r: Row) => String(r.status || '').toLowerCase() === 'called');
+  const base: Row[] = Array.isArray(data?.rows) ? data.rows : [];
+  const out: Array<Row & { __track: Track }> = [];
+
+  for (const r of base) {
+    if (isCalled(r.status)) out.push({ ...r, __track: 'meat' });
+    if (isCalled(r.capingStatus)) out.push({ ...r, __track: 'cape' });
+    if (isCalled(r.webbsStatus)) out.push({ ...r, __track: 'webbs' });
+  }
+  out.sort((a,b) =>
+    String(a.lastCallAt || '').localeCompare(String(b.lastCallAt || '')) ||
+    String(a.tag).localeCompare(String(b.tag))
+  );
+  return out;
 }
 
 async function markPaid(tag: string) {
+  // Mark regular processing as paid
   return postJSON({ action: 'save', job: { tag, paidProcessing: true } });
 }
-
-async function markPickedUp(tag: string) {
-  return postJSON({ action: 'pickedUpProcessing', tag });
+async function markPickedUp(tag: string, scope: Track) {
+  // Your route.ts pickedUp handler with { scope } stamps the correct columns.
+  return postJSON({ action: 'pickedUp', tag, scope });
 }
 
-async function openSigned(tag: string) {
-  const res = await postJSON({ action: 'viewLink', tag });
-  const url = String(res?.url || '');
-  if (url) window.open(url, '_blank', 'noopener,noreferrer');
-}
-
-export default function CalledReport() {
-  const [rows, setRows] = useState<Row[]>([]);
+export default function CalledPickupQueue() {
+  const [rows, setRows] = useState<Array<Row & { __track: Track }>>([]);
+  const [busy, setBusy] = useState<string>(''); // tag|track while saving
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
-  const [busy, setBusy] = useState<string>(''); // tag while saving
 
   async function load() {
     setLoading(true);
     setErr(undefined);
     try {
-      const list = await fetchCalled();
-      setRows(list);
+      setRows(await fetchCalledRows());
     } catch (e: any) {
       setErr(String(e?.message || e));
       setRows([]);
@@ -130,7 +130,6 @@ export default function CalledReport() {
       setLoading(false);
     }
   }
-
   useEffect(() => { load(); }, []);
 
   const enriched = useMemo(() => rows.map(r => {
@@ -139,9 +138,8 @@ export default function CalledReport() {
     return { ...r, priceProc, priceSpec };
   }), [rows]);
 
-  const gridCols =
-    '0.8fr 1.6fr 1.2fr 1.1fr 0.9fr 0.9fr 0.9fr 0.9fr 1fr 1fr';
-  // Tag | Name | Phone | Called At | Proc $ | Spec $ | Paid Proc | Paid Spec | Mark Paid | Picked Up
+  const gridCols = '0.8fr 1.1fr 1.1fr 0.8fr 1fr 1fr 0.8fr 0.9fr 0.9fr';
+  // Tag | Name | Phone | Track | Called At | Proc $ | Spec $ | Paid? | Picked Up
 
   return (
     <main className="light-page watermark" style={{ maxWidth: 1200, margin: '18px auto', padding: '0 14px 40px' }}>
@@ -157,7 +155,7 @@ export default function CalledReport() {
           <div>Loading…</div>
         ) : enriched.length === 0 ? (
           <div style={{ background:'#f8fafc', border:'1px solid #e6e9ec', borderRadius:10, padding:'12px 14px' }}>
-            Nobody currently in Called for regular processing.
+            Nothing currently marked “Called”.
           </div>
         ) : (
           <div style={{ background:'#fff', border:'1px solid #e6e9ec', borderRadius:10, padding:8 }}>
@@ -175,104 +173,109 @@ export default function CalledReport() {
               <div>Tag</div>
               <div>Name</div>
               <div>Phone</div>
+              <div>Track</div>
               <div>Called At</div>
               <div>Proc $</div>
               <div>Spec $</div>
-              <div>Paid Proc</div>
-              <div>Paid Spec</div>
-              <div>Mark Paid</div>
+              <div>Paid?</div>
               <div>Picked Up</div>
             </div>
 
             {/* Rows */}
-            {enriched.map(r => (
-              <div
-                key={r.tag || r.customer}
-                style={{
-                  display:'grid',
-                  gridTemplateColumns: gridCols,
-                  gap:8,
-                  alignItems:'center',
-                  padding:'8px 4px',
-                  borderBottom:'1px solid #f1f5f9'
-                }}
-              >
-                {/* TAG → signed open */}
-                <div style={{ fontVariantNumeric:'tabular-nums', fontWeight:700 }}>
-                  {r.tag ? (
-                    <button
-                      className="linklike"
-                      title="Open intake form in a new tab"
-                      onClick={() => openSigned(r.tag)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') openSigned(r.tag);
-                      }}
-                      style={{ textDecoration:'underline', background:'none', border:'none', padding:0, cursor:'pointer' }}
-                    >
-                      {r.tag}
-                    </button>
-                  ) : '—'}
+            {enriched.map(r => {
+              const key = `${r.tag}|${r.__track}`;
+              const picked =
+                r.__track === 'meat'  ? !!r.pickedUpProcessing :
+                r.__track === 'cape'  ? !!r.pickedUpCape :
+                                         !!r.pickedUpWebbs;
+
+              return (
+                <div
+                  key={key}
+                  style={{
+                    display:'grid',
+                    gridTemplateColumns: gridCols,
+                    gap:8,
+                    alignItems:'center',
+                    padding:'8px 4px',
+                    borderBottom:'1px solid #f1f5f9'
+                  }}
+                >
+                  <div style={{ fontWeight:700 }}>
+                    <Link href={`/intake/${encodeURIComponent(r.tag)}`} title="Open form">{r.tag}</Link>
+                  </div>
+                  <div>{r.customer || ''}</div>
+                  <div>{r.phone || ''}</div>
+                  <div>
+                    <span className={
+                      'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : 'purple')
+                    }>
+                      {r.__track === 'meat' ? 'Meat' : r.__track === 'cape' ? 'Cape' : 'Webbs'}
+                    </span>
+                  </div>
+                  <div>{r.lastCallAt || ''}</div>
+
+                  <div style={{ textAlign:'right', fontVariantNumeric:'tabular-nums' }}>
+                    ${r.priceProc.toFixed(2)}
+                  </div>
+                  <div style={{ textAlign:'right', fontVariantNumeric:'tabular-nums' }}>
+                    ${r.priceSpec.toFixed(2)}
+                  </div>
+
+                  <div>
+                    {r.__track === 'meat' ? (
+                      r.paidProcessing ? (
+                        <span className="badge ok">Paid</span>
+                      ) : (
+                        <button
+                          className="btn"
+                          disabled={!r.tag || busy === key}
+                          onClick={async () => {
+                            setBusy(key);
+                            try { await markPaid(r.tag); await load(); } finally { setBusy(''); }
+                          }}
+                        >
+                          {busy === key ? 'Saving…' : 'Mark Paid'}
+                        </button>
+                      )
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </div>
+
+                  <div>
+                    {picked ? (
+                      <span className="badge ok">Picked Up</span>
+                    ) : (
+                      <button
+                        className="btn"
+                        disabled={!r.tag || busy === key}
+                        onClick={async () => {
+                          setBusy(key);
+                          try { await markPickedUp(r.tag, r.__track); await load(); } finally { setBusy(''); }
+                        }}
+                      >
+                        {busy === key ? 'Saving…' : 'Picked Up'}
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                <div>{r.customer || ''}</div>
-                <div>{r.phone || ''}</div>
-                <div style={{ fontVariantNumeric:'tabular-nums' }}>{r.lastCallAt || ''}</div>
-                <div style={{ fontVariantNumeric:'tabular-nums', textAlign:'right' }}>${r.priceProc.toFixed(2)}</div>
-                <div style={{ fontVariantNumeric:'tabular-nums', textAlign:'right' }}>${r.priceSpec.toFixed(2)}</div>
-
-                <div>{r.paidProcessing ? '✓' : '—'}</div>
-                <div>{r.paidSpecialty ? '✓' : '—'}</div>
-
-                <div>
-                  {r.paidProcessing ? (
-                    <span className="badge ok">Paid</span>
-                  ) : (
-                    <button
-                      className="btn"
-                      disabled={!r.tag || busy === r.tag}
-                      onClick={async () => {
-                        if (!r.tag) return;
-                        setBusy(r.tag);
-                        try {
-                          await markPaid(r.tag);
-                          await load();
-                        } finally {
-                          setBusy('');
-                        }
-                      }}
-                    >
-                      {busy === r.tag ? 'Saving…' : 'Mark Paid'}
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  {r.pickedUpProcessing ? (
-                    <span className="badge ok">Picked Up</span>
-                  ) : (
-                    <button
-                      className="btn"
-                      disabled={!r.tag || busy === r.tag}
-                      onClick={async () => {
-                        if (!r.tag) return;
-                        setBusy(r.tag);
-                        try {
-                          await markPickedUp(r.tag);
-                          await load();
-                        } finally {
-                          setBusy('');
-                        }
-                      }}
-                    >
-                      {busy === r.tag ? 'Saving…' : 'Picked Up'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; background:#1f2937; color:#fff; }
+        .green { background:#065f46; }
+        .blue { background:#1e3a8a; }
+        .purple { background:#4c1d95; }
+        .badge.ok { background:#065f46; }
+        .btn { padding:6px 10px; border:1px solid #cbd5e1; border-radius:8px; background:#155acb; color:#fff; font-weight:800; cursor:pointer; }
+        .btn:disabled { opacity:.6; cursor:not-allowed; }
+        .muted { color:#64748b; }
+      `}</style>
     </main>
   );
 }
