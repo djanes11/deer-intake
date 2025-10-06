@@ -166,70 +166,72 @@ export async function POST(req: NextRequest) {
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
   log('POST action=', action);
 
-  /* ---------- SPECIAL: setTag (assign tag from overnight report) + send email ---------- */
-  if (action === 'settag') {
-    const row = Number(body.row || 0) | 0;
-    const tag = String(body.tag || '').trim();
-    if (!row || !tag) {
-      return new Response(JSON.stringify({ ok:false, error:'Missing row or tag' }), {
-        status: 400, headers: { 'Content-Type': 'application/json' }
-      });
-    }
+// --- in app/api/gas2/route.ts inside POST() ---
+if (action === 'settag') {
+  const row = Number(body.row || 0) | 0;
+  const tag = String(body.tag || '').trim();
+  if (!row || !tag) {
+    return new Response(JSON.stringify({ ok:false, error:'Missing row or tag' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' }
+    });
+  }
 
-    // 1) write tag to that sheet row
-    const up = await gasPost({ action:'setTag', row, tag });
-    if (up.status >= 400 || (up.json && up.json.ok === false)) {
-      return new Response(
-        up.text || JSON.stringify(up.json || { ok:false, error:'setTag failed' }),
-        { status: up.status, headers: { 'Content-Type': up.text ? 'text/plain' : 'application/json' } }
-      );
-    }
+  // 1) write tag and ask GAS to give us row details (email/name/stamp state)
+  const up = await gasPost({ action:'setTag', row, tag, returnRow: true });
+  if (up.status >= 400 || (up.json && up.json.ok === false)) {
+    return new Response(
+      up.text || JSON.stringify(up.json || { ok:false, error:'setTag failed' }),
+      { status: up.status, headers: { 'Content-Type': up.text ? 'text/plain' : 'application/json' } }
+    );
+  }
 
-    // 2) fetch latest job by tag
-    let job: AnyRec | null = null;
+  const info = up.json || {};
+  const email = String(info.email || '').trim();
+  const name  = String(info.name  || '').trim();
+  const alreadyStamped = !!info.dropEmailStamped;
+
+  let emailAttempted = false;
+  let emailError: string | undefined;
+
+  // 2) send once if we have an email and it hasn't been stamped yet
+  if (email && !alreadyStamped) {
     try {
-      const res = await gasGet(tag);
-      job = (res && res.job) || null;
-    } catch {}
+      const viewUrl = formViewUrl(req, tag);
+      await sendEmail({
+        to: email,
+        subject: `${SITE} — Intake Confirmation (Tag ${tag})`,
+        html: [
+          `<p>Hi ${name || 'there'},</p>`,
+          `<p>We received your deer (Tag <b>${tag}</b>).</p>`,
+          `<p><a href="${viewUrl}" target="_blank" rel="noopener">Click here to view your intake form</a> (read-only).</p>`,
+          `<p>If you need to make any updates or have questions, please contact Travis at <a href="tel:15026433916">(502) 643-3916</a>.</p>`,
+          `<p>— ${SITE}</p>`,
+        ].join('')
+      });
+      emailAttempted = true;
 
-    const email = String(job?.email || '').trim();
-    const name  = String(job?.customer || job?.['Customer Name'] || '').trim();
-    const alreadyStamped = String(job?.['Drop-off Email Sent At'] || '').trim();
-
-    // 3) send intake confirmation once
-    if (email && !alreadyStamped) {
-      try {
-        const viewUrl = formViewUrl(req, tag);
-        await sendEmail({
-          to: email,
-          subject: `${SITE} — Intake Confirmation (Tag ${tag})`,
-          html: [
-            `<p>Hi ${name || 'there'},</p>`,
-            `<p>We received your deer (Tag <b>${tag}</b>).</p>`,
-            `<p><a href="${viewUrl}" target="_blank" rel="noopener">Click here to view your intake form</a> (read-only).</p>`,
-            `<p>If you need to make any updates or have questions, please contact Travis at <a href="tel:15026433916">(502) 643-3916</a>.</p>`,
-            `<p>— ${SITE}</p>`,
-          ].join(''),
-        });
-      } catch (e:any) {
-        log('setTag email error:', e?.message || e);
-        if (EMAIL_DEBUG) {
-          return new Response(JSON.stringify({ ok:true, warning:'email_failed', error:String(e?.message||e) }), {
-            status: 200, headers: { 'Content-Type': 'application/json' }
-          });
-        }
-      }
-
-      // 4) ask GAS to stamp the “Drop-off Email Sent At” so we don’t send again
+      // 3) ask GAS to stamp so we don’t re-send
       try {
         await gasPost({ action:'setTag', row, tag, stampDropEmail: true });
       } catch {}
+    } catch (e:any) {
+      emailAttempted = true;
+      emailError = String(e?.message || e);
+      if (!EMAIL_DEBUG) {
+        // swallow and continue
+      } else {
+        return new Response(JSON.stringify({ ok:true, warning:'email_failed', error: emailError }), {
+          status: 200, headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
-
-    return new Response(JSON.stringify({ ok:true }), {
-      status: 200, headers: { 'Content-Type': 'application/json' }
-    });
   }
+
+  return new Response(JSON.stringify({ ok:true, emailAttempted, email, alreadyStamped, emailError }), {
+    status: 200, headers: { 'Content-Type': 'application/json' }
+  });
+}
+
 
   /* ---------- SPECIAL SEARCH: needsTag ---------- */
   const wantsNeedsTag =
