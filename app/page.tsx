@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 type AnyRec = Record<string, any>;
-
 const API = '/api/gas2';
 
 async function postJSON(body: any) {
@@ -19,26 +18,6 @@ async function postJSON(body: any) {
   try { json = JSON.parse(t); } catch { json = { __raw: t }; }
   if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
   return json;
-}
-
-function pill(text: string) {
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '4px 10px',
-        borderRadius: 999,
-        background: '#0b2c28',
-        color: '#c7fff1',
-        fontWeight: 700,
-        fontSize: 13,
-        lineHeight: 1,
-        letterSpacing: 0.2,
-      }}
-    >
-      {text}
-    </span>
-  );
 }
 
 export default function Home() {
@@ -58,10 +37,9 @@ export default function Home() {
       const needRows = Array.isArray(needs?.rows) ? needs.rows : [];
       setNeedTag(needRows.length);
 
-      // Called rows (we’ll split by track status)
+      // Called rows (split by track status)
       const recall = await postJSON({ action: 'search', q: '@recall' });
       const rows = Array.isArray(recall?.rows) ? recall.rows : [];
-
       const toLC = (v: any) => String(v ?? '').trim().toLowerCase();
       setCalledMeat(rows.filter((r: AnyRec) => toLC(r.status) === 'called').length);
       setCalledCape(rows.filter((r: AnyRec) => toLC(r.capingStatus) === 'called').length);
@@ -75,139 +53,108 @@ export default function Home() {
 
   useEffect(() => { refresh(); }, []);
 
-  const statBox = (label: string, value: number) => (
-    <div
-      style={{
-        background: '#0d131a',
-        border: '1px solid #1f2a35',
-        borderRadius: 12,
-        padding: '10px 14px',
-        minWidth: 140,
-      }}
-      aria-label={label}
-      title={label}
-    >
-      <div style={{ fontSize: 12, color: '#a7b2bd' }}>{label}</div>
-      <div style={{ fontWeight: 800, fontSize: 22, color: '#e7edf3' }}>{value}</div>
-    </div>
-  );
-
-  const card = (href: string, title: string, desc: string, extra?: React.ReactNode) => (
-    <Link
-      href={href}
-      className="home-card"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-        background: '#0d131a',
-        border: '1px solid #1f2a35',
-        borderRadius: 18,
-        padding: 18,
-        textDecoration: 'none',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: '#e7edf3' }}>{title}</div>
-        {extra}
-      </div>
-      <div style={{ color: '#a7b2bd' }}>{desc}</div>
-    </Link>
-  );
-
   return (
-    <main className="light-page watermark" style={{ maxWidth: 1200, margin: '16px auto', padding: '0 18px 40px' }}>
-      <h1 style={{ margin: '10px 0 16px', fontSize: 42, lineHeight: 1.1 }}>McAfee Deer Processing</h1>
-      <p style={{ margin: '0 0 20px', color: '#a7b2bd' }}>
-        Pick what you want to do. Quick access to the most common actions.
-      </p>
+    <main className="watermark" style={{ maxWidth: 1040, margin: '16px auto', padding: '0 18px 40px' }}>
+      {/* Hero */}
+      <section className="hero">
+        <div className="hero-kicker">Welcome</div>
+        <h1 className="hero-title">McAfee Deer Processing</h1>
+        <p className="hero-sub">Pick what you want to do. Quick access to the most common actions.</p>
+      </section>
 
       {/* Today at a glance */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 12,
-          flexWrap: 'wrap',
-          alignItems: 'stretch',
-          marginBottom: 18,
-        }}
-      >
-        {statBox('Needs Tag', needTag)}
-        {statBox('Called — Meat', calledMeat)}
-        {statBox('Called — Cape', calledCape)}
-        {statBox('Called — Webbs', calledWebbs)}
+      <section className="stat-group" style={{ marginTop: 12, marginBottom: 16 }}>
+        <div className="stat">
+          <div className="label">Needs Tag</div>
+          <div className="value">{needTag}</div>
+        </div>
+        <div className="stat">
+          <div className="label">Called — Meat</div>
+          <div className="value">{calledMeat}</div>
+        </div>
+        <div className="stat">
+          <div className="label">Called — Cape</div>
+          <div className="value">{calledCape}</div>
+        </div>
+        <div className="stat">
+          <div className="label">Called — Webbs</div>
+          <div className="value">{calledWebbs}</div>
+        </div>
         <button onClick={refresh} className="btn" style={{ marginLeft: 'auto', alignSelf: 'center' }}>
           Refresh
         </button>
-      </div>
+      </section>
 
-      {err && (
-        <div className="err" style={{ marginBottom: 14 }}>
-          {err}
-        </div>
-      )}
+      {err && <div className="err" style={{ marginBottom: 14 }}>{err}</div>}
 
-      {/* Card grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: 16,
-        }}
-      >
-        {card('/intake', 'New Intake form', 'Start a new Intake Form')}
-        {card('/scan', 'Scan Tags', 'Update status by scanning a barcode')}
-        {card('/search', 'Search', 'Find jobs by name, tag, or phone #')}
+      {/* Tile grid */}
+      <section className="tile-grid">
+        <Link href="/intake" className="tile">
+          <div className="tile-emoji">📝</div>
+          <div className="tile-title">New Intake form</div>
+          <div className="tile-sub">Start a new Intake Form</div>
+        </Link>
 
-        {/* Reports with live counts */}
-        <div
-          className="home-card"
-          style={{
-            background: '#0d131a',
-            border: '1px solid #1f2a35',
-            borderRadius: 18,
-            padding: 18,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#e7edf3' }}>Reports</div>
-            {!loading && pill('Live')}
+        <Link href="/scan" className="tile">
+          <div className="tile-emoji">📷</div>
+          <div className="tile-title">Scan Tags</div>
+          <div className="tile-sub">Update status by scanning a barcode</div>
+        </Link>
+
+        <Link href="/search" className="tile">
+          <div className="tile-emoji">🔎</div>
+          <div className="tile-title">Search</div>
+          <div className="tile-sub">Find jobs by name, tag, or phone #</div>
+        </Link>
+
+        {/* Reports (with live chips) */}
+        <div className="tile tile-alt" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="tile-emoji">📊</div>
+            <div className="tile-title" style={{ marginRight: 'auto' }}>Reports</div>
+            {!loading && <span className="chip live">Live</span>}
           </div>
 
-          <Link href="/reports/calls" className="row-link" style={{ color: '#cfe6ff', textDecoration: 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+          <Link href="/reports/calls" className="row-link" style={{ textDecoration: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
               <span>Call Report</span>
-              <span style={{ opacity: 0.8 }}>—</span>
+              <span className="chip">—</span>
             </div>
           </Link>
 
-          <Link href="/overnight/review" className="row-link" style={{ color: '#cfe6ff', textDecoration: 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+          <Link href="/overnight/review" className="row-link" style={{ textDecoration: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
               <span>Overnight — Missing Tag</span>
-              <span>{pill(String(needTag))}</span>
+              <span className="chip">{needTag}</span>
             </div>
           </Link>
 
-          <Link href="/reports/called" className="row-link" style={{ color: '#cfe6ff', textDecoration: 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
+          <Link href="/reports/called" className="row-link" style={{ textDecoration: 'none' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
               <span>Called — Pickup Queue</span>
               <span>
-                {pill(`Meat ${calledMeat}`)}{' '}
+                <span className="chip">Meat {calledMeat}</span>
                 <span style={{ display: 'inline-block', width: 6 }} />
-                {pill(`Cape ${calledCape}`)}{' '}
+                <span className="chip">Cape {calledCape}</span>
                 <span style={{ display: 'inline-block', width: 6 }} />
-                {pill(`Webbs ${calledWebbs}`)}
+                <span className="chip">Webbs {calledWebbs}</span>
               </span>
             </div>
           </Link>
         </div>
 
-        {card('/tips', 'Tip Sheet', 'Short reminders for staff')}
-        {card('/faq', 'FAQ', 'Customer questions & answers')}
-      </div>
+        <Link href="/tips" className="tile">
+          <div className="tile-emoji">💡</div>
+          <div className="tile-title">Tip Sheet</div>
+          <div className="tile-sub">Short reminders for staff</div>
+        </Link>
+
+        <Link href="/faq" className="tile">
+          <div className="tile-emoji">❓</div>
+          <div className="tile-title">FAQ</div>
+          <div className="tile-sub">Customer questions &amp; answers</div>
+        </Link>
+      </section>
     </main>
   );
 }
