@@ -1121,3 +1121,41 @@ body.light-page.watermark {
     line-height: 1.25;
   }
 }
+
+/* KPI cards – denser, readable on dark */
+.kpi-card {
+  background: rgba(14, 22, 20, 0.94);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.25);
+}
+.kpi-card .kpi-label { font-size: 13px; color: var(--text-dim); font-weight: 700; }
+.kpi-card .kpi-value { font-size: 28px; font-weight: 900; color: var(--text); }
+
+/* Tiles slightly denser as well */
+.tile, .tile-alt {
+  background: rgba(12, 20, 18, 0.92);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text);
+}
+
+/* Report rows inside the Reports tile */
+.row-link { text-decoration: none; color: inherit; }
+.row-line {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-top: 1px solid rgba(255,255,255,.06);
+}
+
+/* Chips with good contrast */
+.chip {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 13px;
+  background: rgba(47,111,63,.38);
+  border: 1px solid rgba(47,111,63,.6);
+  color: var(--text);
+}
+.chip.live { background: var(--brand); color: #fff; border-color: transparent; }

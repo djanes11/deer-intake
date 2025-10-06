@@ -20,33 +20,21 @@ async function postJSON(body: any) {
   return json;
 }
 
-function lc(v: any) {
-  return String(v ?? '').trim().toLowerCase();
-}
-
-/** Count rows the Calls report would show: one row per ready track (meat/cape/webbs) not already 'Called'. */
-function countCallReportRows(rows: AnyRec[]): number {
-  let n = 0;
-  for (const r of rows) {
-    const s = lc(r.status);
-    const c = lc(r.capingStatus ?? r['Caping Status']);
-    const w = lc(r.webbsStatus ?? r['Webbs Status']);
-    if (s.includes('ready') && !s.includes('called')) n++;
-    if (c.includes('ready') && !c.includes('called')) n++;
-    if (w.includes('ready') && !w.includes('called')) n++;
-  }
-  return n;
-}
+const lc = (v: any) => String(v ?? '').trim().toLowerCase();
+const isReady = (s?: any) => {
+  const v = lc(s);
+  return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
+};
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
 
-  const [needTag, setNeedTag] = useState(0);
-  const [calledMeat, setCalledMeat] = useState(0);
-  const [calledCape, setCalledCape] = useState(0);
-  const [calledWebbs, setCalledWebbs] = useState(0);
-  const [callReportCount, setCallReportCount] = useState<number | null>(null);
+  // KPI tiles
+  const [needsTag, setNeedsTag] = useState(0);
+  const [readyMeat, setReadyMeat] = useState(0);
+  const [readyCape, setReadyCape] = useState(0);
+  const [readyWebbs, setReadyWebbs] = useState(0);
 
   async function refresh() {
     setLoading(true);
@@ -55,28 +43,29 @@ export default function Home() {
       // Needs Tag
       const needs = await postJSON({ action: 'needsTag', limit: 999 });
       const needRows = Array.isArray(needs?.rows) ? needs.rows : [];
-      setNeedTag(needRows.length);
+      setNeedsTag(needRows.length);
 
-      // Called rows — split by track
-      const recall = await postJSON({ action: 'search', q: '@recall' });
-      const rowsRecall = Array.isArray(recall?.rows) ? recall.rows : [];
-      setCalledMeat(rowsRecall.filter((r: AnyRec) => lc(r.status) === 'called').length);
-      setCalledCape(rowsRecall.filter((r: AnyRec) => lc(r.capingStatus) === 'called').length);
-      setCalledWebbs(rowsRecall.filter((r: AnyRec) => lc(r.webbsStatus) === 'called').length);
-
-      // Call Report count — try specific queries then fall back
-      const tryQs = ['@callreport', '@calls', '@readyTracks', '@ready', '@recent', '@all'];
-      let callRows: AnyRec[] = [];
+      // Ready to CALL (one per ready track, not already called)
+      // Try specific GAS searches first; fall back if needed.
+      const tryQs = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
+      let rows: AnyRec[] = [];
       for (const q of tryQs) {
         try {
           const res = await postJSON({ action: 'search', q });
-          const rows = Array.isArray(res?.rows) ? res.rows : [];
-          if (rows.length) { callRows = rows; break; }
-        } catch {
-          // keep trying
-        }
+          const r = Array.isArray(res?.rows) ? res.rows : [];
+          if (r.length) { rows = r; break; }
+        } catch { /* keep trying */ }
       }
-      setCallReportCount(callRows.length ? countCallReportRows(callRows) : 0);
+
+      let m = 0, c = 0, w = 0;
+      for (const r of rows) {
+        if (isReady(r.status)) m++;
+        if (isReady(r.capingStatus ?? r['Caping Status'])) c++;
+        if (isReady(r.webbsStatus ?? r['Webbs Status'])) w++;
+      }
+      setReadyMeat(m);
+      setReadyCape(c);
+      setReadyWebbs(w);
     } catch (e: any) {
       setErr(String(e?.message || e));
     } finally {
@@ -87,40 +76,44 @@ export default function Home() {
   useEffect(() => { refresh(); }, []);
 
   return (
-    <main className="watermark" style={{ maxWidth: 1040, margin: '16px auto', padding: '0 18px 40px' }}>
-      {/* Hero */}
+    <main className="watermark" style={{ maxWidth: 1080, margin: '16px auto', padding: '0 18px 40px' }}>
+      {/* Header */}
       <section className="hero">
-        <div className="hero-kicker">Welcome</div>
+        <div className="hero-kicker">WELCOME</div>
         <h1 className="hero-title">McAfee Deer Processing</h1>
         <p className="hero-sub">Pick what you want to do. Quick access to the most common actions.</p>
       </section>
 
-      {/* Today at a glance */}
-      <section className="stat-group" style={{ marginTop: 12, marginBottom: 16 }}>
-        <div className="stat">
-          <div className="label">Needs Tag</div>
-          <div className="value">{needTag}</div>
+      {/* KPIs */}
+      <section className="kpi-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))', gap:14, margin:'14px 0 18px' }}>
+        <div className="kpi-card">
+          <div className="kpi-label">Needs Tag</div>
+          <div className="kpi-value">{needsTag}</div>
         </div>
-        <div className="stat">
-          <div className="label">Called — Meat</div>
-          <div className="value">{calledMeat}</div>
+
+        <div className="kpi-card">
+          <div className="kpi-label">Ready to Call — Meat</div>
+          <div className="kpi-value">{readyMeat}</div>
         </div>
-        <div className="stat">
-          <div className="label">Called — Cape</div>
-          <div className="value">{calledCape}</div>
+
+        <div className="kpi-card">
+          <div className="kpi-label">Ready to Call — Cape</div>
+          <div className="kpi-value">{readyCape}</div>
         </div>
-        <div className="stat">
-          <div className="label">Called — Webbs</div>
-          <div className="value">{calledWebbs}</div>
+
+        <div className="kpi-card">
+          <div className="kpi-label">Ready to Call — Webbs</div>
+          <div className="kpi-value">{readyWebbs}</div>
         </div>
-        <button onClick={refresh} className="btn" style={{ marginLeft: 'auto', alignSelf: 'center' }}>
-          Refresh
+
+        <button onClick={refresh} className="btn" style={{ alignSelf:'stretch' }}>
+          {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </section>
 
       {err && <div className="err" style={{ marginBottom: 14 }}>{err}</div>}
 
-      {/* Tile grid */}
+      {/* Action tiles */}
       <section className="tile-grid">
         <Link href="/intake" className="tile">
           <div className="tile-emoji">📝</div>
@@ -140,40 +133,35 @@ export default function Home() {
           <div className="tile-sub">Find jobs by name, tag, or phone #</div>
         </Link>
 
-        {/* Reports */}
-        <div className="tile tile-alt" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="tile tile-alt">
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div className="tile-emoji">📊</div>
-            <div className="tile-title" style={{ marginRight: 'auto' }}>Reports</div>
-            {!loading && <span className="chip live">Live</span>}
+            <div className="tile-title" style={{ marginRight:'auto' }}>Reports</div>
+            <span className="chip live">Live</span>
           </div>
 
-          <Link href="/reports/calls" className="row-link" style={{ textDecoration: 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span>Call Report</span>
-              <span className="chip">
-                {callReportCount == null ? '—' : callReportCount}
-              </span>
-            </div>
-          </Link>
-
-          <Link href="/overnight/review" className="row-link" style={{ textDecoration: 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span>Overnight — Missing Tag</span>
-              <span className="chip">{needTag}</span>
-            </div>
-          </Link>
-
-          <Link href="/reports/called" className="row-link" style={{ textDecoration: 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-              <span>Called — Pickup Queue</span>
+          <Link href="/reports/calls" className="row-link">
+            <div className="row-line">
+              <span>Call Report (Ready to Call)</span>
               <span>
-                <span className="chip">Meat {calledMeat}</span>
-                <span style={{ display: 'inline-block', width: 6 }} />
-                <span className="chip">Cape {calledCape}</span>
-                <span style={{ display: 'inline-block', width: 6 }} />
-                <span className="chip">Webbs {calledWebbs}</span>
+                <span className="chip">Meat {readyMeat}</span>
+                <span className="chip" style={{ marginLeft:6 }}>Cape {readyCape}</span>
+                <span className="chip" style={{ marginLeft:6 }}>Webbs {readyWebbs}</span>
               </span>
+            </div>
+          </Link>
+
+          <Link href="/overnight/review" className="row-link">
+            <div className="row-line">
+              <span>Overnight — Missing Tag</span>
+              <span className="chip">{needsTag}</span>
+            </div>
+          </Link>
+
+          <Link href="/reports/called" className="row-link">
+            <div className="row-line">
+              <span>Called — Pickup Queue</span>
+              <span className="chip">Open queue</span>
             </div>
           </Link>
         </div>
@@ -193,3 +181,4 @@ export default function Home() {
     </main>
   );
 }
+
