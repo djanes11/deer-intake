@@ -97,6 +97,7 @@ async function fetchCalled(): Promise<Row[]> {
   const rows = (Array.isArray(data?.rows) ? data.rows : []) as any[];
 
   const out: Row[] = [];
+
   for (const r of rows) {
     const base: BaseRow = {
       tag: String(r?.tag ?? r?.Tag ?? ''),
@@ -119,29 +120,45 @@ async function fetchCalled(): Promise<Row[]> {
       pickedUpWebbs: !!r?.['Picked Up - Webbs'],
     };
 
+    // Compute once per tag; reuse on all tracks so the prices don't vanish on Cape/Webbs rows
+    const priceProc = suggestedProcessingPrice(base.processType, !!base.beefFat, !!base.webbsOrder);
+    const priceSpec = specialtyPrice(base);
+
     if (isCalled(base.status)) {
       out.push({
-        tag: base.tag, customer: base.customer, phone: base.phone, track: 'meat',
+        tag: base.tag,
+        customer: base.customer,
+        phone: base.phone,
+        track: 'meat',
         calledAt: base.lastCallAt || '',
-        priceProc: suggestedProcessingPrice(base.processType, !!base.beefFat, !!base.webbsOrder),
-        priceSpec: specialtyPrice(base),
-        paidProcessing: base.paidProcessing,
+        priceProc,
+        priceSpec,
+        paidProcessing: base.paidProcessing,       // paid shows only for Meat in UI
         pickedUp: base.pickedUpProcessing,
       });
     }
     if (isCalled(base.capingStatus)) {
       out.push({
-        tag: base.tag, customer: base.customer, phone: base.phone, track: 'cape',
+        tag: base.tag,
+        customer: base.customer,
+        phone: base.phone,
+        track: 'cape',
         calledAt: base.lastCallAt || '',
-        priceProc: 0, priceSpec: 0,
+        priceProc,
+        priceSpec,
+        // paidProcessing intentionally omitted for Cape rows; not applicable
         pickedUp: base.pickedUpCape,
       });
     }
     if (isCalled(base.webbsStatus)) {
       out.push({
-        tag: base.tag, customer: base.customer, phone: base.phone, track: 'webbs',
+        tag: base.tag,
+        customer: base.customer,
+        phone: base.phone,
+        track: 'webbs',
         calledAt: base.lastCallAt || '',
-        priceProc: 0, priceSpec: 0,
+        priceProc,
+        priceSpec,
         pickedUp: base.pickedUpWebbs,
       });
     }
@@ -150,11 +167,12 @@ async function fetchCalled(): Promise<Row[]> {
   const order: Record<Track, number> = { meat: 0, cape: 1, webbs: 2 };
   out.sort((a, b) => {
     const at = (a.calledAt || '').localeCompare(b.calledAt || '');
-    if (at !== 0) return -at;
+    if (at !== 0) return -at;          // newest Called first
     return order[a.track] - order[b.track];
   });
   return out;
 }
+
 
 /* ---------- actions ---------- */
 async function markPaid(tag: string) {
