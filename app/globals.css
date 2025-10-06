@@ -1159,3 +1159,50 @@ body.light-page.watermark {
   color: var(--text);
 }
 .chip.live { background: var(--brand); color: #fff; border-color: transparent; }
+
+/* --- keep your existing file, then apply these tweaks near the bottom --- */
+
+/* Chips: higher contrast on dark */
+.chip {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 13px;
+  background: rgba(47,111,63,.38);
+  border: 1px solid rgba(47,111,63,.6);
+  color: var(--text);
+}
+.chip.live { background: var(--brand); color: #fff; border-color: transparent; }
+
+/* KPI cards – compact */
+.kpi-card {
+  background: rgba(14,22,20,.94);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.22);
+}
+.kpi-card .kpi-label { font-size: 12px; color: var(--text-dim); font-weight: 800; }
+.kpi-card .kpi-value { font-size: 24px; font-weight: 900; color: var(--text); }
+
+/* Tiles: slightly denser & less transparent so they pop over watermark */
+.tile, .tile-alt {
+  background: rgba(12,20,18,.92);
+  border: 1px solid rgba(255,255,255,.08);
+  color: var(--text);
+  padding: 14px;                 /* a touch tighter */
+}
+.tile:hover { transform: translateY(-1px); border-color: rgba(137,192,150,.35); }
+.tile-emoji { font-size: 26px; }
+
+/* Simple rows inside the Reports tile */
+.row-link { text-decoration: none; color: inherit; }
+.row-line {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-top: 1px solid rgba(255,255,255,.06);
+}
+
+/* Ensure watermark always sits behind content */
+.watermark::after { z-index: 0; opacity: .8; }
+

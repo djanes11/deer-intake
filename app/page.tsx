@@ -21,16 +21,18 @@ async function postJSON(body: any) {
 }
 
 const lc = (v: any) => String(v ?? '').trim().toLowerCase();
-const isReady = (s?: any) => {
+
+// “Ready to call” = contains ready/finish and NOT already called
+function isReady(s?: any) {
   const v = lc(s);
   return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
-};
+}
 
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
 
-  // KPI tiles
+  // KPIs
   const [needsTag, setNeedsTag] = useState(0);
   const [readyMeat, setReadyMeat] = useState(0);
   const [readyCape, setReadyCape] = useState(0);
@@ -42,14 +44,13 @@ export default function Home() {
     try {
       // Needs Tag
       const needs = await postJSON({ action: 'needsTag', limit: 999 });
-      const needRows = Array.isArray(needs?.rows) ? needs.rows : [];
-      setNeedsTag(needRows.length);
+      setNeedsTag(Array.isArray(needs?.rows) ? needs.rows.length : 0);
 
-      // Ready to CALL (one per ready track, not already called)
-      // Try specific GAS searches first; fall back if needed.
-      const tryQs = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
+      // Pull the same pool your Calls report uses
+      // Prefer @readyTracks; fall back in order if GAS key differs.
+      const queries = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
       let rows: AnyRec[] = [];
-      for (const q of tryQs) {
+      for (const q of queries) {
         try {
           const res = await postJSON({ action: 'search', q });
           const r = Array.isArray(res?.rows) ? res.rows : [];
@@ -57,11 +58,12 @@ export default function Home() {
         } catch { /* keep trying */ }
       }
 
+      // Tally per track
       let m = 0, c = 0, w = 0;
       for (const r of rows) {
         if (isReady(r.status)) m++;
         if (isReady(r.capingStatus ?? r['Caping Status'])) c++;
-        if (isReady(r.webbsStatus ?? r['Webbs Status'])) w++;
+        if (isReady(r.webbsStatus  ?? r['Webbs Status']))  w++;
       }
       setReadyMeat(m);
       setReadyCape(c);
@@ -76,45 +78,56 @@ export default function Home() {
   useEffect(() => { refresh(); }, []);
 
   return (
-    <main className="watermark" style={{ maxWidth: 1080, margin: '16px auto', padding: '0 18px 40px' }}>
+    <main className="watermark" style={{ maxWidth: 1040, margin: '16px auto', padding: '0 16px 36px' }}>
       {/* Header */}
-      <section className="hero">
+      <section className="hero" style={{ marginTop: 6, marginBottom: 8 }}>
         <div className="hero-kicker">WELCOME</div>
-        <h1 className="hero-title">McAfee Deer Processing</h1>
-        <p className="hero-sub">Pick what you want to do. Quick access to the most common actions.</p>
+        <h1 className="hero-title" style={{ marginBottom: 4 }}>McAfee Deer Processing</h1>
+        <p className="hero-sub">Pick what you want to do. Quick access to common actions.</p>
       </section>
 
-      {/* KPIs */}
-      <section className="kpi-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))', gap:14, margin:'14px 0 18px' }}>
+      {/* Compact KPI strip */}
+      <section
+        className="kpi-grid"
+        style={{
+          display:'grid',
+          gridTemplateColumns:'repeat(5, minmax(0,1fr))',
+          gap:12,
+          margin:'10px 0 16px'
+        }}
+      >
         <div className="kpi-card">
           <div className="kpi-label">Needs Tag</div>
           <div className="kpi-value">{needsTag}</div>
         </div>
-
         <div className="kpi-card">
-          <div className="kpi-label">Ready to Call — Meat</div>
+          <div className="kpi-label">Ready — Meat</div>
           <div className="kpi-value">{readyMeat}</div>
         </div>
-
         <div className="kpi-card">
-          <div className="kpi-label">Ready to Call — Cape</div>
+          <div className="kpi-label">Ready — Cape</div>
           <div className="kpi-value">{readyCape}</div>
         </div>
-
         <div className="kpi-card">
-          <div className="kpi-label">Ready to Call — Webbs</div>
+          <div className="kpi-label">Ready — Webbs</div>
           <div className="kpi-value">{readyWebbs}</div>
         </div>
-
-        <button onClick={refresh} className="btn" style={{ alignSelf:'stretch' }}>
+        <button
+          onClick={refresh}
+          className="btn"
+          style={{ height: '100%', minHeight: 0, alignSelf:'stretch' }}
+        >
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </section>
 
-      {err && <div className="err" style={{ marginBottom: 14 }}>{err}</div>}
+      {err && <div className="err" style={{ marginBottom: 12 }}>{err}</div>}
 
-      {/* Action tiles */}
-      <section className="tile-grid">
+      {/* Action tiles (dense, no scrolling) */}
+      <section
+        className="tile-grid"
+        style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap:12 }}
+      >
         <Link href="/intake" className="tile">
           <div className="tile-emoji">📝</div>
           <div className="tile-title">New Intake form</div>
@@ -133,6 +146,7 @@ export default function Home() {
           <div className="tile-sub">Find jobs by name, tag, or phone #</div>
         </Link>
 
+        {/* Reports block */}
         <div className="tile tile-alt">
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
             <div className="tile-emoji">📊</div>
