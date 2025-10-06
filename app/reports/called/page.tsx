@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-// same price math we use everywhere
+export const dynamic = 'force-dynamic';
+
+// --- price helpers (client-side mirror) ---
 function normProc(s?: string) {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
@@ -40,10 +42,11 @@ type Row = {
   customer: string;
   phone: string;
   dropoff?: string;
-  status?: string;          // meat status
-  paidProcessing?: boolean; // already paid?
-  pickedUpProcessing?: boolean; // if present
-  lastCallAt?: string;      // when set to Called (or last call)
+  status?: string;                 // meat status
+  paidProcessing?: boolean;        // already paid?
+  paidSpecialty?: boolean;         // already paid specialty?
+  pickedUpProcessing?: boolean;    // if present
+  lastCallAt?: string;             // when set to Called (or last call)
   processType?: string;
   beefFat?: boolean;
   webbsOrder?: boolean;
@@ -70,8 +73,7 @@ async function postJSON(body: any) {
 }
 
 async function fetchCalled(): Promise<Row[]> {
-  // We already have @recall in GAS that returns things with *any* track “Called”.
-  // We’ll filter to meat/regular: status === 'Called'.
+  // GAS @recall returns items that have any track “Called”; we’ll filter to regular/meat.
   const data = await postJSON({ action: 'search', q: '@recall' });
   const rows = Array.isArray(data?.rows) ? data.rows : [];
   return rows
@@ -82,6 +84,7 @@ async function fetchCalled(): Promise<Row[]> {
       dropoff: String(r?.dropoff ?? ''),
       status: String(r?.status ?? r?.Status ?? ''),
       paidProcessing: !!(r?.paidProcessing || r?.['Paid Processing']),
+      paidSpecialty: !!(r?.paidSpecialty || r?.['Paid Specialty']),
       pickedUpProcessing: !!(r?.['Picked Up - Processing']),
       lastCallAt: String(r?.lastCallAt ?? r?.['Last Call At'] ?? ''),
       processType: String(r?.processType ?? ''),
@@ -96,12 +99,12 @@ async function fetchCalled(): Promise<Row[]> {
 }
 
 async function markPaid(tag: string) {
-  // Save with paidProcessing: true (GAS already supports this)
+  // Supported already by your GAS save handler
   return postJSON({ action: 'save', job: { tag, paidProcessing: true } });
 }
 
 async function markPickedUp(tag: string) {
-  // Route hook → GAS will stamp Picked Up - Processing + timestamp
+  // Requires route.ts to forward action 'pickedUpProcessing' to GAS, and api.gs to handle it.
   return postJSON({ action: 'pickedUpProcessing', tag });
 }
 
@@ -133,11 +136,12 @@ export default function CalledReport() {
     return { ...r, priceProc, priceSpec };
   }), [rows]);
 
-  const gridCols = '1fr 1fr 1.1fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr'; 
-  // Tag | Name | Phone | Called At | Proc $ | Spec $ | Paid | Picked Up
+  const gridCols =
+    '0.8fr 1.6fr 1.2fr 1.1fr 0.9fr 0.9fr 0.9fr 0.9fr 1fr 1fr';
+  // Tag | Name | Phone | Called At | Proc $ | Spec $ | Paid Proc | Paid Spec | Mark Paid | Picked Up
 
   return (
-    <main className="light-page watermark" style={{ maxWidth: 1100, margin: '18px auto', padding: '0 14px 40px' }}>
+    <main className="light-page watermark" style={{ maxWidth: 1200, margin: '18px auto', padding: '0 14px 40px' }}>
       <div className="form-card" style={{ padding: 14, color: '#0b0f12' }}>
         <div style={{ display:'flex', alignItems:'center', gap: 12, marginBottom: 10 }}>
           <h2 style={{ margin: 0, flex: '1 1 auto' }}>Called — Pickup Queue</h2>
@@ -171,6 +175,8 @@ export default function CalledReport() {
               <div>Called At</div>
               <div>Proc $</div>
               <div>Spec $</div>
+              <div>Paid Proc</div>
+              <div>Paid Spec</div>
               <div>Mark Paid</div>
               <div>Picked Up</div>
             </div>
@@ -188,13 +194,15 @@ export default function CalledReport() {
                   borderBottom:'1px solid #f1f5f9'
                 }}
               >
-                <div style={{ fontWeight:700 }}>{r.tag || <span className="muted">—</span>}</div>
+                <div style={{ fontVariantNumeric:'tabular-nums', fontWeight:700 }}>{r.tag || '—'}</div>
                 <div>{r.customer || ''}</div>
                 <div>{r.phone || ''}</div>
-                <div>{r.lastCallAt || ''}</div>
-
+                <div style={{ fontVariantNumeric:'tabular-nums' }}>{r.lastCallAt || ''}</div>
                 <div style={{ fontVariantNumeric:'tabular-nums', textAlign:'right' }}>${r.priceProc.toFixed(2)}</div>
                 <div style={{ fontVariantNumeric:'tabular-nums', textAlign:'right' }}>${r.priceSpec.toFixed(2)}</div>
+
+                <div>{r.paidProcessing ? '✓' : '—'}</div>
+                <div>{r.paidSpecialty ? '✓' : '—'}</div>
 
                 <div>
                   {r.paidProcessing ? (
