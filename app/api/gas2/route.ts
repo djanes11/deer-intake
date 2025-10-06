@@ -123,7 +123,8 @@ function getTagFromRow(r: AnyRec): string {
   return '';
 }
 function getConfirmationFromRow(r: AnyRec): string {
-  const k = ['confirmation','Confirmation #','Confirmation','Confirm #','confirm','CONFIRMATION'];
+  // IMPORTANT: prefer the exact sheet header first.
+  const k = ['Confirmation #','confirmation','Confirmation','Confirm #','confirm','CONFIRMATION'];
   for (const key of k) if (r[key] != null) return String(r[key]).trim();
   return '';
 }
@@ -205,7 +206,7 @@ export async function POST(req: NextRequest) {
     // Normalize a stable shape the client can rely on, including confirmation.
     const normalized = filtered.map((r) => ({
       ...r,
-      confirmation: getConfirmationFromRow(r),
+      confirmation: getConfirmationFromRow(r), // <- now pulls "Confirmation #" first
       tag: getTagFromRow(r),
       customer: r.customer ?? r['Customer Name'] ?? r.Customer ?? r.name ?? '',
       phone: r.phone ?? r.Phone ?? '',
@@ -435,4 +436,3 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
-
