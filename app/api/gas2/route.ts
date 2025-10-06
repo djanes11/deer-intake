@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // forward to GAS to write the tag onto that row
+    // 1) write tag to that sheet row
     const up = await gasPost({ action:'setTag', row, tag });
     if (up.status >= 400 || (up.json && up.json.ok === false)) {
       return new Response(
@@ -185,13 +185,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // try to fetch the job & send the initial drop-off email
+    // 2) fetch latest job by tag
+    let job: AnyRec | null = null;
     try {
       const res = await gasGet(tag);
-      const job = res?.job || {};
-      const email = String(job.email || '').trim();
-      const name  = String(job.customer || job['Customer Name'] || '').trim();
-      if (email) {
+      job = (res && res.job) || null;
+    } catch {}
+
+    const email = String(job?.email || '').trim();
+    const name  = String(job?.customer || job?.['Customer Name'] || '').trim();
+    const alreadyStamped = String(job?.['Drop-off Email Sent At'] || '').trim();
+
+    // 3) send intake confirmation once
+    if (email && !alreadyStamped) {
+      try {
         const viewUrl = formViewUrl(req, tag);
         await sendEmail({
           to: email,
@@ -204,14 +211,19 @@ export async function POST(req: NextRequest) {
             `<p>— ${SITE}</p>`,
           ].join(''),
         });
+      } catch (e:any) {
+        log('setTag email error:', e?.message || e);
+        if (EMAIL_DEBUG) {
+          return new Response(JSON.stringify({ ok:true, warning:'email_failed', error:String(e?.message||e) }), {
+            status: 200, headers: { 'Content-Type': 'application/json' }
+          });
+        }
       }
-    } catch (e:any) {
-      log('setTag email error:', e?.message || e);
-      if (EMAIL_DEBUG) {
-        return new Response(JSON.stringify({ ok:true, warning:'email_failed', error:String(e?.message||e) }), {
-          status: 200, headers: { 'Content-Type': 'application/json' }
-        });
-      }
+
+      // 4) ask GAS to stamp the “Drop-off Email Sent At” so we don’t send again
+      try {
+        await gasPost({ action:'setTag', row, tag, stampDropEmail: true });
+      } catch {}
     }
 
     return new Response(JSON.stringify({ ok:true }), {
@@ -219,13 +231,12 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  /* ---------- SPECIAL SEARCH: needsTag (accept both forms) ---------- */
+  /* ---------- SPECIAL SEARCH: needsTag ---------- */
   const wantsNeedsTag =
     action === 'needstag' ||
     (action === 'search' && String(body.q || '').trim().toLowerCase() === '@needstag');
 
   if (wantsNeedsTag) {
-    // Try multiple upstream queries; then normalize fields for UI.
     const attempts: AnyRec[] = [
       { action: 'search', q: '@needsTag', limit: body.limit || 500 },
       { action: 'search', q: '',          limit: body.limit || 500 },
@@ -248,14 +259,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Filter: missing Tag OR explicitly flagged Requires Tag
     const filtered = all.filter((r) => {
       const tag = getTagFromRow(r);
       const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
       return !tag || req;
     });
 
-    // Normalize a stable shape the client can rely on, including confirmation.
     const normalized = filtered.map((r) => ({
       ...r,
       confirmation: getConfirmationFromRow(r),
@@ -266,7 +275,6 @@ export async function POST(req: NextRequest) {
       row: r.row ?? r.Row ?? r._row ?? r._index ?? undefined,
     }));
 
-    // De-dupe by row if present
     const seen = new Set<string>();
     const rowsOut = normalized.filter((r) => {
       const key = String(r.row ?? JSON.stringify([r.customer, r.phone, r.dropoff]));
@@ -285,7 +293,7 @@ export async function POST(req: NextRequest) {
   const tag = String((body.job && body.job.tag) || body.tag || '').trim();
   const isTagAction = ['save', 'progress'].includes(action);
 
-  // ----- Overnight branch: allow save without tag when requiresTag === true -----
+  // ----- Overnight save without tag allowed -----
   const requiresTag =
     action === 'save' &&
     (body?.job?.requiresTag === true ||
@@ -348,7 +356,6 @@ export async function POST(req: NextRequest) {
   });
   const prevExists = !!(prevRes && prevRes.exists && prevRes.job);
   const prev = prevExists ? (prevRes!.job as AnyRec) : null;
-  log('prev exists=', prevExists, 'prevStatus=', prev?.status);
 
   // *** AUTO-ADVANCE for bare progress(tag) ***
   if (
@@ -377,17 +384,12 @@ export async function POST(req: NextRequest) {
   // FORWARD to GAS (save or progress)
   const forwarded = await gasPost(body);
   if (forwarded.status >= 400) {
-    log(`${action} upstream error:`, forwarded.status, forwarded.text || forwarded.json);
     return new Response(
       forwarded.text || JSON.stringify(forwarded.json || { ok: false, error: `${action} failed` }),
-      {
-        status: forwarded.status,
-        headers: { 'Content-Type': forwarded.text ? 'text/plain' : 'application/json' },
-      }
+      { status: forwarded.status, headers: { 'Content-Type': forwarded.text ? 'text/plain' : 'application/json' } }
     );
   }
   if (!forwarded.json || forwarded.json.ok === false) {
-    log(`${action} not ok:`, forwarded.json);
     return new Response(JSON.stringify(forwarded.json || { ok: false, error: `${action} failed` }), {
       status: 502,
       headers: { 'Content-Type': 'application/json' },
@@ -395,20 +397,14 @@ export async function POST(req: NextRequest) {
   }
 
   // AFTER
-  const latestRes = await gasGet(tag).catch((e) => {
-    log('gasGet latest error', e?.message || e);
-    return null;
-  });
+  const latestRes = await gasGet(tag).catch(() => null);
   const latest = latestRes && latestRes.job ? (latestRes.job as AnyRec) : (body.job || {});
-  log('latest status=', latest?.status, 'email=', latest?.email ? '[present]' : '[missing]');
 
   let nextStatusEcho: string | null =
     (body as any).nextStatus ?? (forwarded.json && forwarded.json.nextStatus) ?? null;
   const prevS = String(prev?.status || '').trim();
   const latestS = String(latest?.status || '').trim();
-  if (latestS && latestS !== prevS) {
-    nextStatusEcho = latestS;
-  }
+  if (latestS && latestS !== prevS) nextStatusEcho = latestS;
 
   const shouldInitial = action === 'save' && !prevExists;
   const finishedNow = isFinished(latest?.status);
@@ -443,9 +439,8 @@ export async function POST(req: NextRequest) {
         const paidProcessing = !!(latest.paidProcessing || latest['Paid Processing']);
         const stillOwe = paidProcessing ? 0 : Math.max(0, procPrice);
         const owedBlock =
-          stillOwe > 0
-            ? `<p><b>Amount still owed (regular processing): $${stillOwe.toFixed(2)}</b></p>`
-            : '';
+          stillOwe > 0 ? `<p><b>Amount still owed (regular processing): $${stillOwe.toFixed(2)}</b></p>` : '';
+
         await sendEmail({
           to: customerEmail,
           subject: `${SITE} — Finished & Ready (Tag ${tag})`,
@@ -462,7 +457,6 @@ export async function POST(req: NextRequest) {
         });
       }
     } catch (e: any) {
-      log('EMAIL_SEND_ERROR:', e?.message || e);
       if (EMAIL_DEBUG) {
         return new Response(
           JSON.stringify({ ok: true, warning: 'email_failed', error: String(e?.message || e) }),
@@ -472,12 +466,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const merged = {
-    ...(forwarded.json || {}),
-    nextStatus: nextStatusEcho,
-  };
-
-  return new Response(JSON.stringify(merged), {
+  return new Response(JSON.stringify({ ...(forwarded.json || {}), nextStatus: nextStatusEcho }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
