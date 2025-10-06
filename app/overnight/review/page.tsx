@@ -1,65 +1,44 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-export const dynamic = 'force-dynamic';
+const API_BASE = process.env.NEXT_PUBLIC_GAS_BASE || '/api';
+const USE_PROXY = !String(API_BASE || '').startsWith('http');
+
+// Single place to control columns for both header and rows
+const GRID = '2fr 0.9fr 1.2fr 1.1fr 1.3fr 0.8fr';
 
 type Row = {
   row: number;
   customer: string;
-  confirmation: string;   // always shown now
   phone: string;
   dropoff?: string;
   status?: string;
-  tag?: string;
+  tag?: string;            // may be blank here (that’s the point)
+  confirmation?: string;   // <-- supplied by API now
 };
 
-const API = '/api/gas2';
-
-async function parseJsonSafe(r: Response) {
-  const t = await r.text();
-  try { return JSON.parse(t); } catch { return { __raw: t }; }
-}
-
-// Norm rows; confirmation now comes normalized by the API as rows[i].confirmation.
-function normRow(r: any): Row {
-  return {
-    row: Number(r?.row ?? r?.Row ?? 0) || 0,
-    customer: String(r?.customer ?? r?.['Customer Name'] ?? r?.Customer ?? '') || '',
-    confirmation: String(r?.confirmation ?? '') || '',
-    phone: String(r?.phone ?? r?.Phone ?? '') || '',
-    dropoff:
-      String(
-        r?.dropoff ?? r?.['Drop-off'] ?? r?.['Drop Off'] ??
-        r?.['Drop-off Date'] ?? r?.['Drop Off Date'] ?? r?.['Date Dropped'] ?? ''
-      ),
-    status: String(r?.status ?? r?.Status ?? '') || '',
-    tag: String(r?.tag ?? r?.Tag ?? '') || '',
-  };
-}
-
-async function fetchNeedsTag(limit = 500): Promise<Row[]> {
-  const r = await fetch(API, {
+async function apiNeedsTag() {
+  const url = USE_PROXY ? '/api' : String(API_BASE);
+  const r = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    cache: 'no-store',
-    body: JSON.stringify({ action: 'needsTag', limit }),
+    body: JSON.stringify({ action: 'needsTag' })
   });
-  const data = await parseJsonSafe(r);
-  if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
-  const rows = Array.isArray(data?.rows) ? data.rows : [];
-  return rows.map(normRow);
+  const data = await r.json();
+  if (!data?.ok) throw new Error(data?.error || 'search failed');
+  return (data.rows || []) as Row[];
 }
 
-async function setTag(row: number, tag: string) {
-  const r = await fetch(API, {
+async function apiSetTag(row: number, tag: string) {
+  const url = USE_PROXY ? '/api' : String(API_BASE);
+  const r = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    cache: 'no-store',
-    body: JSON.stringify({ action: 'setTag', row, tag }),
+    body: JSON.stringify({ action: 'setTag', row, tag })
   });
-  const data = await parseJsonSafe(r);
-  if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
+  const data = await r.json();
+  if (!data?.ok) throw new Error(data?.error || 'setTag failed');
   return data;
 }
 
@@ -67,17 +46,15 @@ export default function OvernightReview() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
-  const [busyRow, setBusyRow] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
     setErr(undefined);
     try {
-      const list = await fetchNeedsTag();
-      setRows(list);
+      const res = await apiNeedsTag();
+      setRows(res);
     } catch (e: any) {
       setErr(String(e?.message || e));
-      setRows([]);
     } finally {
       setLoading(false);
     }
@@ -85,120 +62,116 @@ export default function OvernightReview() {
 
   useEffect(() => { load(); }, []);
 
-  async function assign(row: number, tagInput: string) {
-    const t = tagInput.trim();
-    if (!t) return;
-    setBusyRow(row);
-    try {
-      await setTag(row, t);
-      await load();
-    } finally {
-      setBusyRow(null);
-    }
-  }
+  const hasRows = rows.length > 0;
 
-  const gridCols = '2fr 1fr 1.2fr 1fr 1.1fr 0.75fr'; // Name | Conf# | Phone | Drop-off | Assign | Open
+  async function assign(row: number, tag: string) {
+    const clean = tag.trim();
+    if (!clean) return;
+    await apiSetTag(row, clean);
+    await load();
+  }
 
   return (
     <main className="light-page watermark" style={{ maxWidth: 980, margin: '18px auto', padding: '0 14px 40px' }}>
-      <div className="form-card" style={{ padding: 14, color: '#0b0f12' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+      <div className="form-card" style={{ padding: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           <h2 style={{ margin: 0, flex: '1 1 auto' }}>Overnight Drop — Needs Tag</h2>
-          <button onClick={load} className="btn">Refresh</button>
+          <button onClick={load} className="btn" style={{ minWidth: 110 }}>Refresh</button>
         </div>
 
-        {err && <div className="err" style={{ marginBottom: 8 }}>{err}</div>}
+        {err && <div className="err" style={{ marginTop: 10 }}>{err}</div>}
 
         {loading ? (
-          <div>Loading…</div>
-        ) : rows.length === 0 ? (
-          <div style={{ background:'#f8fafc', border:'1px solid #e6e9ec', borderRadius:10, padding:'12px 14px' }}>
-            No untagged overnight intakes.
-          </div>
+          <div style={{ marginTop: 12 }}>Loading…</div>
         ) : (
-          <div style={{ background:'#fff', border:'1px solid #e6e9ec', borderRadius:10, padding:8 }}>
+          <div className="table like" style={{ marginTop: 12 }}>
             {/* Header */}
             <div
+              className="thead grid"
               style={{
-                display:'grid',
-                gridTemplateColumns: gridCols,
-                gap:8,
-                fontWeight:800,
-                padding:'6px 4px',
-                borderBottom:'1px solid #e6e9ec'
+                display: 'grid',
+                gridTemplateColumns: GRID,
+                gap: 10,
+                fontWeight: 700,
+                alignItems: 'center'
               }}
             >
               <div>Name</div>
               <div>Conf. #</div>
               <div>Phone</div>
               <div>Drop-off</div>
-              <div>Assign Tag</div>
-              <div>Open</div>
+              <div style={{ textAlign: 'center' }}>Assign Tag</div>
+              <div style={{ textAlign: 'center' }}>Open</div>
             </div>
 
-            {/* Rows */}
-            {rows.map(r => (
-              <div
-                key={r.row}
-                style={{
-                  display:'grid',
-                  gridTemplateColumns: gridCols,
-                  gap:8,
-                  alignItems:'center',
-                  padding:'8px 4px',
-                  borderBottom:'1px solid #f1f5f9'
-                }}
-              >
+            {/* Body */}
+            <div className="tbody">
+              {hasRows ? rows.map(r => (
                 <div
-                  role={r.tag ? 'link' : undefined}
-                  tabIndex={r.tag ? 0 : -1}
-                  onClick={() => { if (r.tag) window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank'); }}
-                  onKeyDown={(e) => { if (r.tag && (e.key === 'Enter' || e.key === ' ')) window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank'); }}
-                  title={r.tag ? 'Open intake form' : 'Assign a tag to open the form'}
-                  style={{ cursor: r.tag ? 'pointer' : 'default', textDecoration: r.tag ? 'underline' : 'none' }}
+                  key={r.row}
+                  className="grid"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: GRID,
+                    gap: 10,
+                    alignItems: 'center',
+                    margin: '8px 0'
+                  }}
                 >
-                  {r.customer || ''}
-                </div>
+                  <div>{r.customer || ''}</div>
+                  <div>{r.confirmation || ''}</div>
+                  <div>{r.phone || ''}</div>
+                  <div>{r.dropoff || ''}</div>
 
-                <div>{r.confirmation || ''}</div>
-                <div>{r.phone || ''}</div>
-                <div>{r.dropoff || ''}</div>
+                  {/* Assign column */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      placeholder="Tag #"
+                      id={`t-${r.row}`}
+                      style={{ width: '100%' }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const el = document.getElementById(`t-${r.row}`) as HTMLInputElement | null;
+                          assign(r.row, el?.value || '');
+                        }
+                      }}
+                    />
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        const el = document.getElementById(`t-${r.row}`) as HTMLInputElement | null;
+                        assign(r.row, el?.value || '');
+                      }}
+                    >
+                      Assign
+                    </button>
+                  </div>
 
-                <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-                  <input
-                    placeholder="Tag #"
-                    id={`t-${r.row}`}
-                    disabled={busyRow === r.row}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') assign(r.row, (e.currentTarget as HTMLInputElement).value);
-                    }}
-                    style={{ flex:'1 1 auto' }}
-                  />
-                  <button
-                    className="btn"
-                    disabled={busyRow === r.row}
-                    onClick={() => {
-                      const el = document.getElementById(`t-${r.row}`) as HTMLInputElement | null;
-                      assign(r.row, el?.value || '');
-                    }}
-                    style={{ whiteSpace:'nowrap' }}
-                  >
-                    {busyRow === r.row ? 'Saving…' : 'Assign'}
-                  </button>
+                  {/* Open column */}
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        // Open the intake form. If there is no tag yet, open search prefilled by phone/confirmation.
+                        const base = typeof window !== 'undefined' ? window.location.origin : '';
+                        if (r.tag) {
+                          window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank');
+                        } else {
+                          const q = new URLSearchParams({
+                            q: (r.confirmation || r.phone || '').trim()
+                          }).toString();
+                          window.open(`/search?${q}`, '_blank');
+                        }
+                      }}
+                    >
+                      Open
+                    </button>
+                  </div>
                 </div>
-
-                <div>
-                  <button
-                    className="btn"
-                    disabled={!r.tag}
-                    title={r.tag ? 'Open intake form in a new tab' : 'Assign a tag first'}
-                    onClick={() => r.tag && window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank')}
-                  >
-                    Open
-                  </button>
-                </div>
-              </div>
-            ))}
+              )) : (
+                <div className="muted" style={{ marginTop: 8 }}>No untagged overnight intakes.</div>
+              )}
+            </div>
           </div>
         )}
       </div>
