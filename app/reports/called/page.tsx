@@ -76,7 +76,7 @@ type Row = {
 
 const API = '/api/gas2';
 
-/* ---------- tiny fetch helpers ---------- */
+/* ---------- tiny fetch helper ---------- */
 async function postJSON(body: any) {
   const r = await fetch(API, {
     method: 'POST',
@@ -89,11 +89,6 @@ async function postJSON(body: any) {
   try { json = JSON.parse(t); } catch { json = { __raw: t }; }
   if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
   return json;
-}
-async function openTag(tag: string) {
-  const data = await postJSON({ action: 'viewlink', tag });
-  const url = String(data?.url || '');
-  if (url) window.open(url, '_blank', 'noopener');
 }
 
 /* ---------- data load (explode per-track like Call Report) ---------- */
@@ -196,23 +191,24 @@ function TrackBadge({ track }: { track: Track | string }) {
   const label = t === 'webbs' ? 'Webbs' : t === 'cape' ? 'Cape' : 'Meat';
   const styles: React.CSSProperties =
     t === 'webbs'
-      ? { background:'#6b21a8', color:'#fff' }
+      ? { background:'#6b21a8', color:'#fff', boxShadow:'0 0 0 2px #e9d5ff inset' }
       : t === 'cape'
-      ? { background:'#b45309', color:'#fff' }
-      : { background:'#065f46', color:'#fff' };
+      ? { background:'#b45309', color:'#fff', boxShadow:'0 0 0 2px #fed7aa inset' }
+      : { background:'#065f46', color:'#fff', boxShadow:'0 0 0 2px #a7f3d0 inset' };
 
   return (
     <span
       title={`Track: ${label}`}
       style={{
         display:'inline-block',
-        padding:'4px 10px',
+        padding:'6px 12px',
         borderRadius:999,
-        fontWeight:800,
-        fontSize:12,
-        letterSpacing:0.3,
+        fontWeight:900,
+        fontSize:13,
+        letterSpacing:0.4,
         lineHeight:1,
         whiteSpace:'nowrap',
+        textTransform:'uppercase',
         ...styles,
       }}
       aria-label={`Track ${label}`}
@@ -228,7 +224,7 @@ export default function CalledPickupQueue() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
   const [busy, setBusy] = useState<string>('');             // op key
-  const [selectedKey, setSelectedKey] = useState<string>(''); // `${tag}|${track}`
+  const [selectedKey, setSelectedKey] = useState<string>(''); // `${r.tag}|${r.track}`
 
   const selected = useMemo(
     () => rows.find(r => `${r.tag}|${r.track}` === selectedKey),
@@ -241,7 +237,6 @@ export default function CalledPickupQueue() {
     try {
       const list = await fetchCalled();
       setRows(list);
-      // keep selection if still present
       if (selectedKey && !list.some(r => `${r.tag}|${r.track}` === selectedKey)) {
         setSelectedKey('');
       }
@@ -255,7 +250,7 @@ export default function CalledPickupQueue() {
   }
   useEffect(() => { load(); }, []);
 
-  const gridCols = '0.9fr 1.2fr 1.2fr 0.9fr 1fr 0.9fr 0.9fr 0.8fr 0.9fr';
+  const gridCols = '0.9fr 1.2fr 1.2fr 0.9fr 0.9fr 0.9fr 0.9fr 0.8fr 0.9fr';
   // Tag | Name | Phone | Track | Called At | Proc $ | Spec $ | Paid? | Picked Up
 
   return (
@@ -321,8 +316,10 @@ export default function CalledPickupQueue() {
                 >
                   <div>
                     <a
-                      href="#"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (r.tag) openTag(r.tag); }}
+                      href={`/intake/${encodeURIComponent(r.tag)}`}
+                      target="_blank"
+                      rel="noopener"
+                      onClick={(e) => e.stopPropagation()}
                       style={{ fontWeight:700, textDecoration:'underline' }}
                     >
                       {r.tag || '—'}
@@ -432,7 +429,7 @@ export default function CalledPickupQueue() {
         .pill.small { font-size:12px; background:#374151; }
         .toolbar-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
         .btn { padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#155acb; color:#fff; font-weight:800; cursor:pointer; }
-        .btn.secondary { background:transparent; color:#e5e7eb; }
+        .btn.secondary { background:transparent; color:#0b0f12; border-color:#94a3b8; }
         .btn:disabled { opacity:.6; cursor:not-allowed; }
       `}</style>
     </main>
