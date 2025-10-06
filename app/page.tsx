@@ -20,13 +20,33 @@ async function postJSON(body: any) {
   return json;
 }
 
+function lc(v: any) {
+  return String(v ?? '').trim().toLowerCase();
+}
+
+/** Count rows the Calls report would show: one row per ready track (meat/cape/webbs) not already 'Called'. */
+function countCallReportRows(rows: AnyRec[]): number {
+  let n = 0;
+  for (const r of rows) {
+    const s = lc(r.status);
+    const c = lc(r.capingStatus ?? r['Caping Status']);
+    const w = lc(r.webbsStatus ?? r['Webbs Status']);
+    if (s.includes('ready') && !s.includes('called')) n++;
+    if (c.includes('ready') && !c.includes('called')) n++;
+    if (w.includes('ready') && !w.includes('called')) n++;
+  }
+  return n;
+}
+
 export default function Home() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
+
   const [needTag, setNeedTag] = useState(0);
   const [calledMeat, setCalledMeat] = useState(0);
   const [calledCape, setCalledCape] = useState(0);
   const [calledWebbs, setCalledWebbs] = useState(0);
+  const [callReportCount, setCallReportCount] = useState<number | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -37,13 +57,26 @@ export default function Home() {
       const needRows = Array.isArray(needs?.rows) ? needs.rows : [];
       setNeedTag(needRows.length);
 
-      // Called rows (split by track status)
+      // Called rows — split by track
       const recall = await postJSON({ action: 'search', q: '@recall' });
-      const rows = Array.isArray(recall?.rows) ? recall.rows : [];
-      const toLC = (v: any) => String(v ?? '').trim().toLowerCase();
-      setCalledMeat(rows.filter((r: AnyRec) => toLC(r.status) === 'called').length);
-      setCalledCape(rows.filter((r: AnyRec) => toLC(r.capingStatus) === 'called').length);
-      setCalledWebbs(rows.filter((r: AnyRec) => toLC(r.webbsStatus) === 'called').length);
+      const rowsRecall = Array.isArray(recall?.rows) ? recall.rows : [];
+      setCalledMeat(rowsRecall.filter((r: AnyRec) => lc(r.status) === 'called').length);
+      setCalledCape(rowsRecall.filter((r: AnyRec) => lc(r.capingStatus) === 'called').length);
+      setCalledWebbs(rowsRecall.filter((r: AnyRec) => lc(r.webbsStatus) === 'called').length);
+
+      // Call Report count — try specific queries then fall back
+      const tryQs = ['@callreport', '@calls', '@readyTracks', '@ready', '@recent', '@all'];
+      let callRows: AnyRec[] = [];
+      for (const q of tryQs) {
+        try {
+          const res = await postJSON({ action: 'search', q });
+          const rows = Array.isArray(res?.rows) ? res.rows : [];
+          if (rows.length) { callRows = rows; break; }
+        } catch {
+          // keep trying
+        }
+      }
+      setCallReportCount(callRows.length ? countCallReportRows(callRows) : 0);
     } catch (e: any) {
       setErr(String(e?.message || e));
     } finally {
@@ -107,7 +140,7 @@ export default function Home() {
           <div className="tile-sub">Find jobs by name, tag, or phone #</div>
         </Link>
 
-        {/* Reports (with live chips) */}
+        {/* Reports */}
         <div className="tile tile-alt" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div className="tile-emoji">📊</div>
@@ -118,7 +151,9 @@ export default function Home() {
           <Link href="/reports/calls" className="row-link" style={{ textDecoration: 'none' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
               <span>Call Report</span>
-              <span className="chip">—</span>
+              <span className="chip">
+                {callReportCount == null ? '—' : callReportCount}
+              </span>
             </div>
           </Link>
 
