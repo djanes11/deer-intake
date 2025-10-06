@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 type Row = {
   row: number;
   customer: string;
-  confirmation?: string; // NEW
+  confirmation?: string;
   phone: string;
   dropoff?: string;
   status?: string;
@@ -21,27 +21,37 @@ async function parseJsonSafe(r: Response) {
   try { return JSON.parse(t); } catch { return { __raw: t }; }
 }
 
-// normalize server rows → our Row shape (handles various header spellings)
+// Normalize whatever GAS returns into our Row shape
 function normRow(r: any): Row {
   const confirmation =
     (r?.confirmation != null && String(r.confirmation)) ||
     (r?.['Confirmation #'] != null && String(r['Confirmation #'])) ||
     (r?.['Confirmation'] != null && String(r['Confirmation'])) ||
     (r?.['Confirm #'] != null && String(r['Confirm #'])) ||
+    (r?.confirm != null && String(r.confirm)) ||
     '';
   return {
     row: Number(r?.row ?? r?.Row ?? 0) || 0,
     customer: String(r?.customer ?? r?.['Customer Name'] ?? r?.Customer ?? '') || '',
     confirmation,
-    phone: String(r?.phone ?? '') || '',
-    dropoff: String(r?.dropoff ?? r?.['Drop-off'] ?? r?.['Drop Off'] ?? ''),
-    status: String(r?.status ?? '') || '',
+    phone: String(r?.phone ?? r?.Phone ?? '') || '',
+    dropoff:
+      String(
+        r?.dropoff ??
+          r?.['Drop-off'] ??
+          r?.['Drop Off'] ??
+          r?.['Drop-off Date'] ??
+          r?.['Drop Off Date'] ??
+          r?.['Date Dropped'] ??
+          ''
+      ),
+    status: String(r?.status ?? r?.Status ?? '') || '',
     tag: String(r?.tag ?? r?.Tag ?? '') || '',
   };
 }
 
 async function fetchNeedsTag(limit = 500): Promise<Row[]> {
-  // Server accepts action:'needsTag' (and also search q:'@needsTag')
+  // Server accepts action:'needsTag' (and we kept search q:'@needsTag' compatibility server-side)
   const r = await fetch(API, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -70,6 +80,7 @@ export default function OvernightReview() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
+  const [busyRow, setBusyRow] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -88,9 +99,15 @@ export default function OvernightReview() {
   useEffect(() => { load(); }, []);
 
   async function assign(row: number, tag: string) {
-    if (!tag.trim()) return;
-    await setTag(row, tag.trim());
-    await load();
+    const t = tag.trim();
+    if (!t) return;
+    setBusyRow(row);
+    try {
+      await setTag(row, t);
+      await load();
+    } finally {
+      setBusyRow(null);
+    }
   }
 
   return (
@@ -115,7 +132,7 @@ export default function OvernightReview() {
             <div
               style={{
                 display:'grid',
-                gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr', // added column
+                gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr 0.8fr', // + Confirmation + Open
                 gap:8,
                 fontWeight:800,
                 padding:'6px 4px',
@@ -123,10 +140,11 @@ export default function OvernightReview() {
               }}
             >
               <div>Name</div>
-              <div>Conf. #</div> {/* NEW */}
+              <div>Conf. #</div>
               <div>Phone</div>
               <div>Drop-off</div>
               <div>Assign Tag</div>
+              <div>Open</div>
             </div>
 
             {/* Rows */}
@@ -135,23 +153,67 @@ export default function OvernightReview() {
                 key={r.row}
                 style={{
                   display:'grid',
-                  gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr',
+                  gridTemplateColumns:'2fr 1fr 1fr 1fr 1fr 0.8fr',
                   gap:8,
                   alignItems:'center',
                   padding:'8px 4px',
                   borderBottom:'1px solid #f1f5f9'
                 }}
               >
-                <div>{r.customer || ''}</div>
-                <div>{r.confirmation || ''}</div> {/* NEW */}
+                {/* Name cell – clickable iff tag exists */}
+                <div
+                  role={r.tag ? 'link' : undefined}
+                  tabIndex={r.tag ? 0 : -1}
+                  onClick={() => { if (r.tag) window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank'); }}
+                  onKeyDown={(e) => { if (r.tag && (e.key === 'Enter' || e.key === ' ')) window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank'); }}
+                  title={r.tag ? 'Open intake form' : 'Assign a tag to open the form'}
+                  style={{
+                    cursor: r.tag ? 'pointer' : 'default',
+                    textDecoration: r.tag ? 'underline' : 'none'
+                  }}
+                >
+                  {r.customer || ''}
+                </div>
+
+                <div>{r.confirmation || ''}</div>
                 <div>{r.phone || ''}</div>
                 <div>{r.dropoff || ''}</div>
-                <div style={{ display:'flex', gap:8 }}>
-                  <input placeholder="Tag #" id={`t-${r.row}`} />
-                  <button className="btn" onClick={() => {
-                    const el = document.getElementById(`t-${r.row}`) as HTMLInputElement | null;
-                    assign(r.row, el?.value || '');
-                  }}>Assign</button>
+
+                {/* Assign Tag */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    placeholder="Tag #"
+                    id={`t-${r.row}`}
+                    disabled={busyRow === r.row}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const el = e.currentTarget as HTMLInputElement;
+                        assign(r.row, el.value);
+                      }
+                    }}
+                  />
+                  <button
+                    className="btn"
+                    disabled={busyRow === r.row}
+                    onClick={() => {
+                      const el = document.getElementById(`t-${r.row}`) as HTMLInputElement | null;
+                      assign(r.row, el?.value || '');
+                    }}
+                  >
+                    {busyRow === r.row ? 'Saving…' : 'Assign'}
+                  </button>
+                </div>
+
+                {/* Open button (disabled until tag exists) */}
+                <div>
+                  <button
+                    className="btn"
+                    disabled={!r.tag}
+                    title={r.tag ? 'Open intake form in a new tab' : 'Assign a tag first'}
+                    onClick={() => r.tag && window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank')}
+                  >
+                    Open
+                  </button>
                 </div>
               </div>
             ))}
