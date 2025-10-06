@@ -1,10 +1,10 @@
-// app/reports/called/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 
-/* ---- pricing helpers (same math as your Call Report) ---- */
+export const dynamic = 'force-dynamic';
+
+/* ---------------- Price helpers (same rules site-wide) ---------------- */
 function normProc(s?: string) {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
@@ -37,19 +37,22 @@ function specialtyPrice(row: any) {
   return ss * 4.25 + ssc * 4.60 + jer * 15.0;
 }
 
-/* ---- types ---- */
+/* ---------------- Types ---------------- */
 type Track = 'meat' | 'cape' | 'webbs';
-type Row = {
+
+type BaseRow = {
   tag: string;
   customer: string;
   phone: string;
   dropoff?: string;
-  status?: string;            // meat
-  capingStatus?: string;      // cape
-  webbsStatus?: string;       // webbs
+
+  // raw statuses and info
+  status?: string;         // meat
+  capingStatus?: string;   // cape
+  webbsStatus?: string;    // webbs
   lastCallAt?: string;
 
-  // pricing inputs
+  // price inputs
   processType?: string;
   beefFat?: boolean;
   webbsOrder?: boolean;
@@ -58,18 +61,31 @@ type Row = {
   summerSausageCheeseLbs?: string;
   slicedJerkyLbs?: string;
 
-  // paid + picked-up flags
   paidProcessing?: boolean;
   pickedUpProcessing?: boolean;
-  pickedUpProcessingAt?: string;
   pickedUpCape?: boolean;
-  pickedUpCapeAt?: string;
   pickedUpWebbs?: boolean;
-  pickedUpWebbsAt?: string;
+};
+
+type Row = {
+  tag: string;
+  customer: string;
+  phone: string;
+  track: Track;
+  calledAt?: string;
+
+  // computed display prices
+  priceProc: number;
+  priceSpec: number;
+
+  // flags used in UI
+  paidProcessing?: boolean;
+  pickedUp?: boolean; // per-track picked-up flag
 };
 
 const API = '/api/gas2';
 
+/* ---------------- Small helpers ---------------- */
 async function postJSON(body: any) {
   const r = await fetch(API, {
     method: 'POST',
@@ -83,46 +99,169 @@ async function postJSON(body: any) {
   if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
   return json;
 }
-function isCalled(s?: string) { return String(s || '').trim().toLowerCase() === 'called'; }
+function readyOrCalled(s?: string) {
+  const v = String(s || '').toLowerCase();
+  return v === 'called' || v.includes('ready') || v.includes('finish') || v.includes('complete');
+}
+function isCalled(s?: string) {
+  return String(s || '').trim().toLowerCase() === 'called';
+}
 
-/** Fetch all rows with any track “Called”, and expand into one row per called track. */
-async function fetchCalledRows(): Promise<Array<Row & { __track: Track }>> {
+/* ---------------- API calls ---------------- */
+async function openTag(tag: string) {
+  const data = await postJSON({ action: 'viewlink', tag });
+  const url = String(data?.url || '');
+  if (url) window.open(url, '_blank', 'noopener');
+}
+
+async function fetchCalled(): Promise<Row[]> {
+  // GAS @recall returns items where any track may be "Called".
+  // We'll explode into one row per called track (meat/cape/webbs).
   const data = await postJSON({ action: 'search', q: '@recall' });
-  const base: Row[] = Array.isArray(data?.rows) ? data.rows : [];
-  const out: Array<Row & { __track: Track }> = [];
+  const rows = (Array.isArray(data?.rows) ? data.rows : []) as BaseRow[];
 
-  for (const r of base) {
-    if (isCalled(r.status)) out.push({ ...r, __track: 'meat' });
-    if (isCalled(r.capingStatus)) out.push({ ...r, __track: 'cape' });
-    if (isCalled(r.webbsStatus)) out.push({ ...r, __track: 'webbs' });
+  const out: Row[] = [];
+  for (const r of rows) {
+    const base: BaseRow = {
+      tag: String((r as any)?.tag ?? (r as any)?.Tag ?? ''),
+      customer: String((r as any)?.customer ?? (r as any)['Customer Name'] ?? ''),
+      phone: String((r as any)?.phone ?? ''),
+      dropoff: String((r as any)?.dropoff ?? ''),
+
+      status: String((r as any)?.status ?? (r as any)?.Status ?? ''),
+      capingStatus: String((r as any)?.capingStatus ?? (r as any)['Caping Status'] ?? ''),
+      webbsStatus: String((r as any)?.webbsStatus ?? (r as any)['Webbs Status'] ?? ''),
+      lastCallAt: String((r as any)?.lastCallAt ?? (r as any)['Last Call At'] ?? ''),
+
+      processType: String((r as any)?.processType ?? ''),
+      beefFat: !!(r as any)?.beefFat,
+      webbsOrder: !!(r as any)?.webbsOrder,
+      specialtyProducts: !!(r as any)?.specialtyProducts,
+      summerSausageLbs: String((r as any)?.summerSausageLbs ?? ''),
+      summerSausageCheeseLbs: String((r as any)?.summerSausageCheeseLbs ?? ''),
+      slicedJerkyLbs: String((r as any)?.slicedJerkyLbs ?? ''),
+
+      paidProcessing: !!((r as any)?.paidProcessing || (r as any)['Paid Processing']),
+      pickedUpProcessing: !!(r as any)['Picked Up - Processing'],
+      pickedUpCape: !!(r as any)['Picked Up - Cape'],
+      pickedUpWebbs: !!(r as any)['Picked Up - Webbs'],
+    };
+
+    // Meat
+    if (isCalled(base.status)) {
+      out.push({
+        tag: base.tag,
+        customer: base.customer,
+        phone: base.phone,
+        track: 'meat',
+        calledAt: base.lastCallAt || '',
+        priceProc: suggestedProcessingPrice(base.processType, !!base.beefFat, !!base.webbsOrder),
+        priceSpec: specialtyPrice(base),
+        paidProcessing: base.paidProcessing,
+        pickedUp: base.pickedUpProcessing,
+      });
+    }
+    // Cape
+    if (isCalled(base.capingStatus)) {
+      out.push({
+        tag: base.tag,
+        customer: base.customer,
+        phone: base.phone,
+        track: 'cape',
+        calledAt: base.lastCallAt || '',
+        // Prices shown for visibility; "Paid" only applies to regular processing.
+        priceProc: 0,
+        priceSpec: 0,
+        pickedUp: base.pickedUpCape,
+      });
+    }
+    // Webbs
+    if (isCalled(base.webbsStatus)) {
+      out.push({
+        tag: base.tag,
+        customer: base.customer,
+        phone: base.phone,
+        track: 'webbs',
+        calledAt: base.lastCallAt || '',
+        priceProc: 0,
+        priceSpec: 0,
+        pickedUp: base.pickedUpWebbs,
+      });
+    }
   }
-  out.sort((a,b) =>
-    String(a.lastCallAt || '').localeCompare(String(b.lastCallAt || '')) ||
-    String(a.tag).localeCompare(String(b.tag))
-  );
+
+  // sort by Called At desc then by track priority Meat, Cape, Webbs
+  const order: Record<Track, number> = { meat: 0, cape: 1, webbs: 2 };
+  out.sort((a, b) => {
+    const at = (a.calledAt || '').localeCompare(b.calledAt || '');
+    if (at !== 0) return -at; // newest first
+    return order[a.track] - order[b.track];
+  });
   return out;
 }
 
 async function markPaid(tag: string) {
-  // Mark regular processing as paid
+  // regular processing paid
   return postJSON({ action: 'save', job: { tag, paidProcessing: true } });
 }
-async function markPickedUp(tag: string, scope: Track) {
-  // Your route.ts pickedUp handler with { scope } stamps the correct columns.
-  return postJSON({ action: 'pickedUp', tag, scope });
+
+async function markPickedUp(tag: string, track: Track) {
+  const now = new Date().toISOString();
+  if (track === 'meat') {
+    return postJSON({ action: 'pickedUpProcessing', tag }); // route helper stamps both fields
+  }
+  if (track === 'cape') {
+    return postJSON({ action: 'save', job: { tag, 'Picked Up - Cape': true, 'Picked Up - Cape At': now } });
+  }
+  // webbs
+  return postJSON({ action: 'save', job: { tag, 'Picked Up - Webbs': true, 'Picked Up - Webbs At': now } });
 }
 
-export default function CalledPickupQueue() {
-  const [rows, setRows] = useState<Array<Row & { __track: Track }>>([]);
-  const [busy, setBusy] = useState<string>(''); // tag|track while saving
+/* ---------------- UI bits ---------------- */
+function TrackBadge({ track }: { track: Track | string }) {
+  const t = String(track || '').toLowerCase();
+  const label = t === 'webbs' ? 'Webbs' : t === 'cape' ? 'Cape' : 'Meat';
+
+  const styles: React.CSSProperties =
+    t === 'webbs'
+      ? { background:'#6b21a8', color:'#fff' } // purple
+      : t === 'cape'
+      ? { background:'#b45309', color:'#fff' } // amber
+      : { background:'#065f46', color:'#fff' }; // green default
+
+  return (
+    <span
+      title={`Track: ${label}`}
+      style={{
+        display:'inline-block',
+        padding:'4px 10px',
+        borderRadius:999,
+        fontWeight:800,
+        fontSize:12,
+        letterSpacing:0.3,
+        lineHeight:1,
+        whiteSpace:'nowrap',
+        ...styles,
+      }}
+      aria-label={`Track ${label}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+export default function CalledReport() {
+  const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>();
+  const [busy, setBusy] = useState<string>(''); // tag while saving
 
   async function load() {
     setLoading(true);
     setErr(undefined);
     try {
-      setRows(await fetchCalledRows());
+      const list = await fetchCalled();
+      setRows(list);
     } catch (e: any) {
       setErr(String(e?.message || e));
       setRows([]);
@@ -130,19 +269,18 @@ export default function CalledPickupQueue() {
       setLoading(false);
     }
   }
+
   useEffect(() => { load(); }, []);
 
-  const enriched = useMemo(() => rows.map(r => {
-    const priceProc = suggestedProcessingPrice(r.processType, !!r.beefFat, !!r.webbsOrder);
-    const priceSpec = specialtyPrice(r);
-    return { ...r, priceProc, priceSpec };
-  }), [rows]);
+  // Prices already computed in fetch; keep memo for any later transforms if needed
+  const enriched = useMemo(() => rows, [rows]);
 
-  const gridCols = '0.8fr 1.1fr 1.1fr 0.8fr 1fr 1fr 0.8fr 0.9fr 0.9fr';
-  // Tag | Name | Phone | Track | Called At | Proc $ | Spec $ | Paid? | Picked Up
+  // Tag | Name | Phone | Track | Called At | Proc $ | Spec $ | Paid | Picked Up
+  const gridCols =
+    '0.8fr 1.2fr 1.1fr 0.9fr 1fr 0.8fr 0.8fr 0.9fr 0.9fr';
 
   return (
-    <main className="light-page watermark" style={{ maxWidth: 1200, margin: '18px auto', padding: '0 14px 40px' }}>
+    <main className="light-page watermark" style={{ maxWidth: 1150, margin: '18px auto', padding: '0 14px 40px' }}>
       <div className="form-card" style={{ padding: 14, color: '#0b0f12' }}>
         <div style={{ display:'flex', alignItems:'center', gap: 12, marginBottom: 10 }}>
           <h2 style={{ margin: 0, flex: '1 1 auto' }}>Called — Pickup Queue</h2>
@@ -155,7 +293,7 @@ export default function CalledPickupQueue() {
           <div>Loading…</div>
         ) : enriched.length === 0 ? (
           <div style={{ background:'#f8fafc', border:'1px solid #e6e9ec', borderRadius:10, padding:'12px 14px' }}>
-            Nothing currently marked “Called”.
+            Nobody currently in Called.
           </div>
         ) : (
           <div style={{ background:'#fff', border:'1px solid #e6e9ec', borderRadius:10, padding:8 }}>
@@ -182,100 +320,94 @@ export default function CalledPickupQueue() {
             </div>
 
             {/* Rows */}
-            {enriched.map(r => {
-              const key = `${r.tag}|${r.__track}`;
-              const picked =
-                r.__track === 'meat'  ? !!r.pickedUpProcessing :
-                r.__track === 'cape'  ? !!r.pickedUpCape :
-                                         !!r.pickedUpWebbs;
-
-              return (
-                <div
-                  key={key}
-                  style={{
-                    display:'grid',
-                    gridTemplateColumns: gridCols,
-                    gap:8,
-                    alignItems:'center',
-                    padding:'8px 4px',
-                    borderBottom:'1px solid #f1f5f9'
-                  }}
-                >
-                  <div style={{ fontWeight:700 }}>
-                    <Link href={`/intake/${encodeURIComponent(r.tag)}`} title="Open form">{r.tag}</Link>
-                  </div>
-                  <div>{r.customer || ''}</div>
-                  <div>{r.phone || ''}</div>
-                  <div>
-                    <span className={
-                      'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : 'purple')
-                    }>
-                      {r.__track === 'meat' ? 'Meat' : r.__track === 'cape' ? 'Cape' : 'Webbs'}
-                    </span>
-                  </div>
-                  <div>{r.lastCallAt || ''}</div>
-
-                  <div style={{ textAlign:'right', fontVariantNumeric:'tabular-nums' }}>
-                    ${r.priceProc.toFixed(2)}
-                  </div>
-                  <div style={{ textAlign:'right', fontVariantNumeric:'tabular-nums' }}>
-                    ${r.priceSpec.toFixed(2)}
-                  </div>
-
-                  <div>
-                    {r.__track === 'meat' ? (
-                      r.paidProcessing ? (
-                        <span className="badge ok">Paid</span>
-                      ) : (
-                        <button
-                          className="btn"
-                          disabled={!r.tag || busy === key}
-                          onClick={async () => {
-                            setBusy(key);
-                            try { await markPaid(r.tag); await load(); } finally { setBusy(''); }
-                          }}
-                        >
-                          {busy === key ? 'Saving…' : 'Mark Paid'}
-                        </button>
-                      )
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </div>
-
-                  <div>
-                    {picked ? (
-                      <span className="badge ok">Picked Up</span>
-                    ) : (
-                      <button
-                        className="btn"
-                        disabled={!r.tag || busy === key}
-                        onClick={async () => {
-                          setBusy(key);
-                          try { await markPickedUp(r.tag, r.__track); await load(); } finally { setBusy(''); }
-                        }}
-                      >
-                        {busy === key ? 'Saving…' : 'Picked Up'}
-                      </button>
-                    )}
-                  </div>
+            {enriched.map(r => (
+              <div
+                key={`${r.tag}:${r.track}:${r.calledAt || ''}`}
+                style={{
+                  display:'grid',
+                  gridTemplateColumns: gridCols,
+                  gap:8,
+                  alignItems:'center',
+                  padding:'8px 4px',
+                  borderBottom:'1px solid #f1f5f9'
+                }}
+              >
+                {/* Tag link opens signed view via API */}
+                <div>
+                  <a
+                    href="#"
+                    onClick={(e) => { e.preventDefault(); if (r.tag) openTag(r.tag); }}
+                    style={{ fontWeight:700, textDecoration:'underline' }}
+                  >
+                    {r.tag || '—'}
+                  </a>
                 </div>
-              );
-            })}
+
+                <div>{r.customer || ''}</div>
+                <div>{r.phone || ''}</div>
+
+                {/* Track badge */}
+                <div><TrackBadge track={r.track} /></div>
+
+                <div>{r.calledAt || ''}</div>
+
+                <div style={{ fontVariantNumeric:'tabular-nums', textAlign:'right' }}>${r.priceProc.toFixed(2)}</div>
+                <div style={{ fontVariantNumeric:'tabular-nums', textAlign:'right' }}>${r.priceSpec.toFixed(2)}</div>
+
+                {/* Paid? — only meaningful for Meat/regular */}
+                <div>
+                  {r.track !== 'meat' ? (
+                    <span className="muted">—</span>
+                  ) : r.paidProcessing ? (
+                    <span className="badge ok">Paid</span>
+                  ) : (
+                    <button
+                      className="btn"
+                      disabled={!r.tag || busy === `paid:${r.tag}`}
+                      onClick={async () => {
+                        if (!r.tag) return;
+                        setBusy(`paid:${r.tag}`);
+                        try {
+                          await markPaid(r.tag);
+                          await load();
+                        } finally {
+                          setBusy('');
+                        }
+                      }}
+                    >
+                      {busy === `paid:${r.tag}` ? 'Saving…' : 'Mark Paid'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Picked Up — per track */}
+                <div>
+                  {r.pickedUp ? (
+                    <span className="badge ok">Picked Up</span>
+                  ) : (
+                    <button
+                      className="btn"
+                      disabled={!r.tag || busy === `pu:${r.tag}:${r.track}`}
+                      onClick={async () => {
+                        if (!r.tag) return;
+                        setBusy(`pu:${r.tag}:${r.track}`);
+                        try {
+                          await markPickedUp(r.tag, r.track);
+                          await load();
+                        } finally {
+                          setBusy('');
+                        }
+                      }}
+                    >
+                      {busy === `pu:${r.tag}:${r.track}` ? 'Saving…' : 'Picked Up'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
-
-      <style jsx>{`
-        .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; background:#1f2937; color:#fff; }
-        .green { background:#065f46; }
-        .blue { background:#1e3a8a; }
-        .purple { background:#4c1d95; }
-        .badge.ok { background:#065f46; }
-        .btn { padding:6px 10px; border:1px solid #cbd5e1; border-radius:8px; background:#155acb; color:#fff; font-weight:800; cursor:pointer; }
-        .btn:disabled { opacity:.6; cursor:not-allowed; }
-        .muted { color:#64748b; }
-      `}</style>
     </main>
   );
 }
