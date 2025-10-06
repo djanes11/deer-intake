@@ -16,9 +16,8 @@ type Row = {
 
 const API = '/api/gas2';
 
-// Single source of truth for the table layout
-// Name | Conf # | Phone | Drop-off | Assign | Open
-const GRID = '2fr 0.9fr 1.2fr 1fr 1.25fr 0.75fr';
+// Name | Conf # | Phone | Drop-off | Assign
+const GRID = '2fr 0.9fr 1.2fr 1fr 1.25fr';
 
 async function parseJsonSafe(r: Response) {
   const t = await r.text();
@@ -93,7 +92,7 @@ export default function OvernightReview() {
     if (!t) return;
     setBusyRow(row);
     try {
-      await setTag(row, t);
+      await setTag(row, t); // server will also send the drop-off email
       await load();
     } finally {
       setBusyRow(null);
@@ -137,7 +136,6 @@ export default function OvernightReview() {
               <div>Phone</div>
               <div>Drop-off</div>
               <div style={{ textAlign:'center' }}>Assign Tag</div>
-              <div style={{ textAlign:'center' }}>Open</div>
             </div>
 
             {/* Rows */}
@@ -153,21 +151,10 @@ export default function OvernightReview() {
                   borderBottom:'1px solid #f1f5f9'
                 }}
               >
-                <div
-                  role={r.tag ? 'link' : undefined}
-                  tabIndex={r.tag ? 0 : -1}
-                  onClick={() => { if (r.tag) window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank'); }}
-                  onKeyDown={(e) => { if (r.tag && (e.key === 'Enter' || e.key === ' ')) window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank'); }}
-                  title={r.tag ? 'Open intake form' : 'Assign a tag to open the form'}
-                  style={{ ...cell, cursor: r.tag ? 'pointer' : 'default', textDecoration: r.tag ? 'underline' : 'none' }}
-                >
-                  {r.customer || ''}
-                </div>
-
+                <div style={{ ...cell }}>{r.customer || ''}</div>
                 <div style={{ ...cell, fontVariantNumeric:'tabular-nums' as const }}>{r.confirmation || ''}</div>
                 <div style={cell}>{r.phone || ''}</div>
                 <div style={cell}>{r.dropoff || ''}</div>
-
                 <div style={{ display:'flex', gap:8, alignItems:'center', minWidth: 0 }}>
                   <input
                     placeholder="Tag #"
@@ -188,23 +175,6 @@ export default function OvernightReview() {
                     style={{ whiteSpace:'nowrap' }}
                   >
                     {busyRow === r.row ? 'Saving…' : 'Assign'}
-                  </button>
-                </div>
-
-                <div style={{ display:'flex', justifyContent:'center' }}>
-                  <button
-                    className="btn"
-                    title={r.tag ? 'Open intake form in a new tab' : 'Open search (no tag yet)'}
-                    onClick={() => {
-                      if (r.tag) {
-                        window.open(`/intake/${encodeURIComponent(r.tag)}`, '_blank');
-                      } else {
-                        const q = new URLSearchParams({ q: (r.confirmation || r.phone || '').trim() }).toString();
-                        window.open(`/search?${q}`, '_blank');
-                      }
-                    }}
-                  >
-                    Open
                   </button>
                 </div>
               </div>

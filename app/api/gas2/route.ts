@@ -123,8 +123,7 @@ function getTagFromRow(r: AnyRec): string {
   return '';
 }
 function getConfirmationFromRow(r: AnyRec): string {
-  // IMPORTANT: prefer the exact sheet header first.
-  const k = ['Confirmation #','confirmation','Confirmation','Confirm #','confirm','CONFIRMATION'];
+  const k = ['confirmation','Confirmation #','Confirmation','Confirm #','confirm','CONFIRMATION'];
   for (const key of k) if (r[key] != null) return String(r[key]).trim();
   return '';
 }
@@ -167,6 +166,59 @@ export async function POST(req: NextRequest) {
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
   log('POST action=', action);
 
+  /* ---------- SPECIAL: setTag (assign tag from overnight report) + send email ---------- */
+  if (action === 'settag') {
+    const row = Number(body.row || 0) | 0;
+    const tag = String(body.tag || '').trim();
+    if (!row || !tag) {
+      return new Response(JSON.stringify({ ok:false, error:'Missing row or tag' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // forward to GAS to write the tag onto that row
+    const up = await gasPost({ action:'setTag', row, tag });
+    if (up.status >= 400 || (up.json && up.json.ok === false)) {
+      return new Response(
+        up.text || JSON.stringify(up.json || { ok:false, error:'setTag failed' }),
+        { status: up.status, headers: { 'Content-Type': up.text ? 'text/plain' : 'application/json' } }
+      );
+    }
+
+    // try to fetch the job & send the initial drop-off email
+    try {
+      const res = await gasGet(tag);
+      const job = res?.job || {};
+      const email = String(job.email || '').trim();
+      const name  = String(job.customer || job['Customer Name'] || '').trim();
+      if (email) {
+        const viewUrl = formViewUrl(req, tag);
+        await sendEmail({
+          to: email,
+          subject: `${SITE} — Intake Confirmation (Tag ${tag})`,
+          html: [
+            `<p>Hi ${name || 'there'},</p>`,
+            `<p>We received your deer (Tag <b>${tag}</b>).</p>`,
+            `<p><a href="${viewUrl}" target="_blank" rel="noopener">Click here to view your intake form</a> (read-only).</p>`,
+            `<p>If you need to make any updates or have questions, please contact Travis at <a href="tel:15026433916">(502) 643-3916</a>.</p>`,
+            `<p>— ${SITE}</p>`,
+          ].join(''),
+        });
+      }
+    } catch (e:any) {
+      log('setTag email error:', e?.message || e);
+      if (EMAIL_DEBUG) {
+        return new Response(JSON.stringify({ ok:true, warning:'email_failed', error:String(e?.message||e) }), {
+          status: 200, headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ ok:true }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   /* ---------- SPECIAL SEARCH: needsTag (accept both forms) ---------- */
   const wantsNeedsTag =
     action === 'needstag' ||
@@ -206,7 +258,7 @@ export async function POST(req: NextRequest) {
     // Normalize a stable shape the client can rely on, including confirmation.
     const normalized = filtered.map((r) => ({
       ...r,
-      confirmation: getConfirmationFromRow(r), // <- now pulls "Confirmation #" first
+      confirmation: getConfirmationFromRow(r),
       tag: getTagFromRow(r),
       customer: r.customer ?? r['Customer Name'] ?? r.Customer ?? r.name ?? '',
       phone: r.phone ?? r.Phone ?? '',
@@ -242,11 +294,7 @@ export async function POST(req: NextRequest) {
   const isOvernight = action === 'save' && requiresTag && tag === '';
 
   if (isOvernight) {
-    // IMPORTANT: DO NOT generate confirmation. Just pass through what the user entered.
-    // Ensure whatever key they used makes it through to GAS unchanged.
     const j = { ...(body.job || {}) };
-
-    // If they used "confirmation" but sheet expects "Confirmation #", copy both keys.
     const conf =
       j.confirmation ??
       j['Confirmation #'] ??
@@ -254,12 +302,10 @@ export async function POST(req: NextRequest) {
       j['Confirm #'] ??
       j.confirm ??
       '';
-
     if (conf) {
       j.confirmation = conf;
       j['Confirmation #'] = conf;
     }
-
     const payload = { action: 'save', job: { ...j, tag: '', requiresTag: true } };
     const forwarded = await gasPost(payload);
     if (forwarded.status >= 400) {
