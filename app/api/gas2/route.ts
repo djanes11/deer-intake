@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  /* ---------- SPECIAL: mark picked up (any track) & clear Called ---------- */
+  /* ---------- SPECIAL: mark picked up (any track) & flip track status ---------- */
   if (action === 'pickedup') {
     const tag = String(body.tag || '').trim();
     const scopeRaw = String(body.scope || 'meat').toLowerCase();
@@ -258,20 +258,26 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString();
 
-    // Prepare per-scope updates
+    // IMPORTANT:
+    // GAS saveJob() writes the *lower-case* fields:
+    //   - status          -> Status column
+    //   - capingStatus    -> Caping Status column
+    //   - webbsStatus     -> Webbs Status column
+    // So set those exact keys to flip the visible columns to "Picked Up".
     const updates: AnyRec = { tag };
     if (scope === 'meat') {
+      updates.status = 'Picked Up';
+      // (optional flags below are ignored by saveJob(), but harmless)
       updates['Picked Up - Processing'] = true;
       updates['Picked Up - Processing At'] = now;
-      updates['Status'] = 'Picked Up';
     } else if (scope === 'cape') {
+      updates.capingStatus = 'Picked Up';
       updates['Picked Up - Cape'] = true;
       updates['Picked Up - Cape At'] = now;
-      updates['Caping Status'] = 'Picked Up';
     } else {
+      updates.webbsStatus = 'Picked Up';
       updates['Picked Up - Webbs'] = true;
       updates['Picked Up - Webbs At'] = now;
-      updates['Webbs Status'] = 'Picked Up';
     }
 
     const res = await gasPost({ action: 'save', job: updates });
