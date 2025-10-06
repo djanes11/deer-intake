@@ -77,10 +77,12 @@ export default function Nav() {
               <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                 Call Report
               </Link>
-              {/* New overnight report link */}
               <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-  Overnight — Missing Tag
-</Link>
+                Overnight (Needs Tag)
+              </Link>
+              <Link href="/reports/called" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                Called / Pickups
+              </Link>
             </div>
           </details>
 
