@@ -73,7 +73,6 @@ async function postJSON(body: any) {
 }
 
 async function fetchCalled(): Promise<Row[]> {
-  // GAS @recall returns items that have any track “Called”; we’ll filter to regular/meat.
   const data = await postJSON({ action: 'search', q: '@recall' });
   const rows = Array.isArray(data?.rows) ? data.rows : [];
   return rows
@@ -99,12 +98,10 @@ async function fetchCalled(): Promise<Row[]> {
 }
 
 async function markPaid(tag: string) {
-  // Supported already by your GAS save handler
   return postJSON({ action: 'save', job: { tag, paidProcessing: true } });
 }
 
 async function markPickedUp(tag: string) {
-  // Requires route.ts to forward action 'pickedUpProcessing' to GAS, and api.gs to handle it.
   return postJSON({ action: 'pickedUpProcessing', tag });
 }
 
@@ -194,7 +191,21 @@ export default function CalledReport() {
                   borderBottom:'1px solid #f1f5f9'
                 }}
               >
-                <div style={{ fontVariantNumeric:'tabular-nums', fontWeight:700 }}>{r.tag || '—'}</div>
+                {/* TAG → clickable like Call Report */}
+                <div style={{ fontVariantNumeric:'tabular-nums', fontWeight:700 }}>
+                  {r.tag ? (
+                    <a
+                      href={`/intake/${encodeURIComponent(r.tag)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open intake form in a new tab"
+                      style={{ textDecoration:'underline' }}
+                    >
+                      {r.tag}
+                    </a>
+                  ) : '—'}
+                </div>
+
                 <div>{r.customer || ''}</div>
                 <div>{r.phone || ''}</div>
                 <div style={{ fontVariantNumeric:'tabular-nums' }}>{r.lastCallAt || ''}</div>
