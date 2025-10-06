@@ -1,11 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export const dynamic = 'force-dynamic';
-
-// Always use our Next API proxy. Do NOT call GAS directly from the browser.
-const API_BASE = '/api/gas2';
 
 type Row = {
   row: number;
@@ -13,123 +10,135 @@ type Row = {
   phone: string;
   dropoff?: string;
   status?: string;
-  tag?: string;
-  phoneLast4?: string;
+  tag?: string; // will be blank for these
 };
 
+const API = '/api/gas2';
+
 async function parseJsonSafe(r: Response) {
-  const text = await r.text();
-  try { return JSON.parse(text); } catch { return { __raw: text }; }
+  const t = await r.text();
+  try { return JSON.parse(t); } catch { return { __raw: t }; }
 }
 
-async function apiSearch(q: string) {
-  const r = await fetch(API_BASE, {
+async function needsTagSearch(limit = 500) {
+  const r = await fetch(API, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ action: 'search', q }),
+    headers: { 'content-type':'application/json' },
     cache: 'no-store',
+    body: JSON.stringify({ action: 'needsTag', limit }),
   });
   const data = await parseJsonSafe(r);
-  if (!r.ok || data?.ok === false) {
-    const msg = (data && (data.error || data.message)) || `HTTP ${r.status}`;
-    throw new Error(`search failed: ${msg}`);
-  }
-  // GAS returns { ok, rows } via our proxy
+  if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
   return (data.rows || []) as Row[];
 }
 
-async function apiSetTag(row: number, tag: string) {
-  const r = await fetch(API_BASE, {
+async function setTag(row: number, tag: string) {
+  const r = await fetch(API, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ action: 'setTag', row, tag }),
+    headers: { 'content-type':'application/json' },
     cache: 'no-store',
+    body: JSON.stringify({ action: 'setTag', row, tag }),
   });
   const data = await parseJsonSafe(r);
-  if (!r.ok || data?.ok === false) {
-    const msg = (data && (data.error || data.message)) || `HTTP ${r.status}`;
-    throw new Error(`setTag failed: ${msg}`);
-  }
+  if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
   return data;
 }
 
 export default function OvernightReview() {
   const [rows, setRows] = useState<Row[]>([]);
-  const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | undefined>(undefined);
+  const [err, setErr] = useState<string>();
 
   async function load() {
     setLoading(true);
     setErr(undefined);
     try {
-      const res = await apiSearch('@needsTag'); // GAS should filter Requires Tag = TRUE
-      setRows(res);
+      const list = await needsTagSearch();
+      setRows(Array.isArray(list) ? list : []);
     } catch (e: any) {
-      setErr(String(e.message || e));
+      setErr(String(e?.message || e));
       setRows([]);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter(
-      (r) =>
-        r.customer?.toLowerCase().includes(needle) ||
-        r.phone?.replace(/\D+/g, '').includes(needle)
-    );
-  }, [q, rows]);
+  useEffect(() => { load(); }, []);
 
   async function assign(row: number, tag: string) {
     if (!tag.trim()) return;
-    await apiSetTag(row, tag.trim());
+    await setTag(row, tag.trim());
     await load();
   }
 
   return (
-    <main className="light-page watermark" style={{ maxWidth: 980, margin: '18px auto', padding: '0 14px 40px' }}>
-      <div className="form-card" style={{ padding: 14 }}>
-        <h2>Overnight Drop — Needs Tag</h2>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-          <input
-            placeholder="Search name or phone"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            style={{ flex: '1 1 auto' }}
-          />
+    <main
+      className="light-page watermark"
+      style={{ maxWidth: 980, margin: '18px auto', padding: '0 14px 40px' }}
+    >
+      <div
+        className="form-card"
+        style={{
+          padding: 14,
+          color: '#0b0f12',              // ensure readable text
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+          <h2 style={{ margin: 0, flex: '1 1 auto' }}>Overnight Drop — Needs Tag</h2>
           <button onClick={load} className="btn">Refresh</button>
         </div>
 
-        {err && <div className="err" style={{ marginBottom: 8 }}>{err}</div>}
+        {err && (
+          <div className="err" style={{ marginBottom: 8 }}>
+            {err}
+          </div>
+        )}
 
         {loading ? (
           <div>Loading…</div>
+        ) : rows.length === 0 ? (
+          <div
+            className="empty"
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #e6e9ec',
+              borderRadius: 10,
+              padding: '12px 14px',
+            }}
+          >
+            No untagged overnight intakes. ✅
+          </div>
         ) : (
-          <div className="table like">
+          <div
+            className="table like"
+            style={{
+              background: '#ffffff',           // solid white
+              border: '1px solid #e6e9ec',
+              borderRadius: 10,
+              padding: 8,
+            }}
+          >
+            {/* Header */}
             <div
               className="thead grid"
               style={{
                 display: 'grid',
                 gridTemplateColumns: '2fr 1fr 1fr 1fr',
                 gap: 8,
-                fontWeight: 700,
+                fontWeight: 800,
+                padding: '6px 4px',
+                borderBottom: '1px solid #e6e9ec',
               }}
             >
               <div>Name</div>
               <div>Phone</div>
               <div>Drop-off</div>
-              <div>Assign Tag</div>
+              <div style={{ textAlign: 'left' }}>Assign Tag</div>
             </div>
 
+            {/* Rows */}
             <div className="tbody">
-              {filtered.map((r) => (
+              {rows.map((r) => (
                 <div
                   key={r.row}
                   className="grid"
@@ -138,14 +147,19 @@ export default function OvernightReview() {
                     gridTemplateColumns: '2fr 1fr 1fr 1fr',
                     gap: 8,
                     alignItems: 'center',
-                    margin: '8px 0',
+                    padding: '8px 4px',
+                    borderBottom: '1px solid #f1f5f9',
                   }}
                 >
                   <div>{r.customer || ''}</div>
                   <div>{r.phone || ''}</div>
                   <div>{r.dropoff || ''}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <input placeholder="Tag #" id={`t-${r.row}`} />
+                    <input
+                      placeholder="Tag #"
+                      id={`t-${r.row}`}
+                      style={{ background: '#fff' }}
+                    />
                     <button
                       className="btn"
                       onClick={() => {
@@ -158,12 +172,6 @@ export default function OvernightReview() {
                   </div>
                 </div>
               ))}
-
-              {filtered.length === 0 && (
-                <div className="muted" style={{ marginTop: 8 }}>
-                  No untagged overnight intakes.
-                </div>
-              )}
             </div>
           </div>
         )}
