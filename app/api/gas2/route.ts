@@ -166,6 +166,20 @@ export async function POST(req: NextRequest) {
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
   log('POST action=', action);
 
+  /* ---------- SIGNED VIEW LINK ---------- */
+  if (action === 'viewlink') {
+    const tag = String(body.tag || '').trim();
+    if (!tag) {
+      return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    const url = formViewUrl(req, tag);
+    return new Response(JSON.stringify({ ok:true, url }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   /* ---------- SET TAG (from Overnight Review) ---------- */
   if (action === 'settag') {
     const row = Number(body.row || 0) | 0;
@@ -226,6 +240,35 @@ export async function POST(req: NextRequest) {
     }
 
     return new Response(JSON.stringify({ ok:true, emailAttempted, email, alreadyStamped, emailError }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
+  /* ---------- SPECIAL: mark regular processing picked up ---------- */
+  if (action === 'pickedupprocessing') {
+    const tag = String(body.tag || '').trim();
+    if (!tag) {
+      return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    // Save into the sheet fields we standardized in GAS:
+    const now = new Date().toISOString();
+    const res = await gasPost({
+      action: 'save',
+      job: {
+        tag,
+        'Picked Up - Processing': true,
+        'Picked Up - Processing At': now,
+      }
+    });
+    if (res.status >= 400 || (res.json && res.json.ok === false)) {
+      return new Response(
+        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUpProcessing failed' }),
+        { status: res.status, headers: { 'Content-Type': res.text ? 'text/plain' : 'application/json' } }
+      );
+    }
+    return new Response(JSON.stringify({ ok:true }), {
       status: 200, headers: { 'Content-Type': 'application/json' }
     });
   }

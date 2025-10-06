@@ -105,6 +105,12 @@ async function markPickedUp(tag: string) {
   return postJSON({ action: 'pickedUpProcessing', tag });
 }
 
+async function openSigned(tag: string) {
+  const res = await postJSON({ action: 'viewLink', tag });
+  const url = String(res?.url || '');
+  if (url) window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 export default function CalledReport() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,18 +197,20 @@ export default function CalledReport() {
                   borderBottom:'1px solid #f1f5f9'
                 }}
               >
-                {/* TAG → clickable like Call Report */}
+                {/* TAG → signed open */}
                 <div style={{ fontVariantNumeric:'tabular-nums', fontWeight:700 }}>
                   {r.tag ? (
-                    <a
-                      href={`/intake/${encodeURIComponent(r.tag)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      className="linklike"
                       title="Open intake form in a new tab"
-                      style={{ textDecoration:'underline' }}
+                      onClick={() => openSigned(r.tag)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') openSigned(r.tag);
+                      }}
+                      style={{ textDecoration:'underline', background:'none', border:'none', padding:0, cursor:'pointer' }}
                     >
                       {r.tag}
-                    </a>
+                    </button>
                   ) : '—'}
                 </div>
 
