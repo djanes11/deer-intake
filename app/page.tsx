@@ -3,48 +3,37 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-const API = '/api/gas2';
-
-async function postJSON(body: any) {
-  const r = await fetch(API, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    cache: 'no-store',
-    body: JSON.stringify(body),
-  });
-  const t = await r.text();
-  let json: any;
-  try { json = JSON.parse(t); } catch { json = { __raw: t }; }
-  if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
-  return json;
-}
+type Counts = {
+  ok: boolean;
+  needsTag?: number;
+  called?: { meat: number; cape: number; webbs: number };
+};
 
 export default function Home() {
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string>();
-
-  const [needsTag, setNeedsTag] = useState(0);
-  const [ready, setReady] = useState({ meat: 0, cape: 0, webbs: 0 });
-  const [called, setCalled] = useState({ meat: 0, cape: 0, webbs: 0 });
+  const [counts, setCounts] = useState<Counts>({ ok: true, needsTag: 0, called: { meat: 0, cape: 0, webbs: 0 } });
+  const [loading, setLoading] = useState(false);
 
   async function refresh() {
     setLoading(true);
-    setErr(undefined);
     try {
-      const data = await postJSON({ action: 'dashboardcounts' });
-      setNeedsTag(Number(data?.needsTag || 0));
-      setReady({
-        meat: Number(data?.ready?.meat || 0),
-        cape: Number(data?.ready?.cape || 0),
-        webbs: Number(data?.ready?.webbs || 0),
+      const r = await fetch('/api/gas2', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'dashboardcounts' }),
+        cache: 'no-store',
       });
-      setCalled({
-        meat: Number(data?.called?.meat || 0),
-        cape: Number(data?.called?.cape || 0),
-        webbs: Number(data?.called?.webbs || 0),
+      const json = await r.json();
+      setCounts({
+        ok: !!json?.ok,
+        needsTag: Number(json?.needsTag || 0),
+        called: {
+          meat: Number(json?.called?.meat || 0),
+          cape: Number(json?.called?.cape || 0),
+          webbs: Number(json?.called?.webbs || 0),
+        },
       });
-    } catch (e: any) {
-      setErr(String(e?.message || e));
+    } catch {
+      setCounts((c) => ({ ...c, ok: false }));
     } finally {
       setLoading(false);
     }
@@ -52,98 +41,138 @@ export default function Home() {
 
   useEffect(() => { refresh(); }, []);
 
+  const chip = (label: string, n: number) => (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '6px 12px',
+        borderRadius: 999,
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        fontWeight: 700,
+      }}
+    >
+      {label} <span style={{ opacity: 0.85 }}>{n}</span>
+    </span>
+  );
+
+  const card: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    padding: 18,
+  };
+
+  const row: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gap: 14,
+    alignItems: 'center',
+  };
+
+  const sectionGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr 1fr',
+    gap: 16,
+  };
+
   return (
-    <main className="watermark" style={{ maxWidth: 1040, margin: '16px auto', padding: '0 16px 36px' }}>
-      <section className="hero" style={{ marginTop: 6, marginBottom: 8 }}>
-        <div className="hero-kicker">WELCOME</div>
-        <h1 className="hero-title" style={{ marginBottom: 4 }}>McAfee Deer Processing</h1>
-        <p className="hero-sub">Pick what you want to do. Quick access to common actions.</p>
-      </section>
+    <main className="light-page watermark" style={{ maxWidth: 1200, margin: '28px auto', padding: '0 14px 36px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>McAfee Deer Processing</h1>
+        <button className="btn" onClick={refresh} disabled={loading}>
+          {loading ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
+      <p style={{ marginTop: 0, opacity: 0.85 }}>Pick what you want to do. Quick access to the most common actions.</p>
 
-      {/* KPI strip */}
-      <section
-        className="kpi-grid"
-        style={{ display:'grid', gridTemplateColumns:'repeat(5, minmax(0,1fr))', gap:12, margin:'10px 0 16px' }}
-      >
-        <div className="kpi-card"><div className="kpi-label">Needs Tag</div><div className="kpi-value">{needsTag}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Ready — Meat</div><div className="kpi-value">{ready.meat}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Ready — Cape</div><div className="kpi-value">{ready.cape}</div></div>
-        <div className="kpi-card"><div className="kpi-label">Ready — Webbs</div><div className="kpi-value">{ready.webbs}</div></div>
-        <button onClick={refresh} className="btn" style={{ height:'100%', minHeight:0 }}>{loading ? 'Refreshing…' : 'Refresh'}</button>
-      </section>
-
-      {err && <div className="err" style={{ marginBottom: 12 }}>{err}</div>}
-
-      {/* Tiles */}
-      <section className="tile-grid" style={{ gridTemplateColumns:'repeat(3, minmax(0, 1fr))', gap:12 }}>
-        <Link href="/intake" className="tile">
-          <div className="tile-emoji">📝</div>
-          <div className="tile-title">New Intake form</div>
-          <div className="tile-sub">Start a new Intake Form</div>
-        </Link>
-
-        <Link href="/scan" className="tile">
-          <div className="tile-emoji">📷</div>
-          <div className="tile-title">Scan Tags</div>
-          <div className="tile-sub">Update status by scanning a barcode</div>
-        </Link>
-
-        <Link href="/search" className="tile">
-          <div className="tile-emoji">🔎</div>
-          <div className="tile-title">Search</div>
-          <div className="tile-sub">Find jobs by name, tag, or phone #</div>
-        </Link>
-
-        {/* Reports */}
-        <div className="tile tile-alt">
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <div className="tile-emoji">📊</div>
-            <div className="tile-title" style={{ marginRight:'auto' }}>Reports</div>
-            <span className="chip live">Live</span>
-          </div>
-
-          <Link href="/reports/calls" className="row-link">
-            <div className="row-line">
-              <span>Call Report (Ready to Call)</span>
-              <span>
-                <span className="chip">Meat {ready.meat}</span>
-                <span className="chip" style={{ marginLeft:6 }}>Cape {ready.cape}</span>
-                <span className="chip" style={{ marginLeft:6 }}>Webbs {ready.webbs}</span>
-              </span>
-            </div>
-          </Link>
-
-          <Link href="/overnight/review" className="row-link">
-            <div className="row-line">
-              <span>Overnight — Missing Tag</span>
-              <span className="chip">{needsTag}</span>
-            </div>
-          </Link>
-
-          <Link href="/reports/called" className="row-link">
-            <div className="row-line">
-              <span>Called — Pickup Queue</span>
-              <span>
-                <span className="chip">Meat {called.meat}</span>
-                <span className="chip" style={{ marginLeft:6 }}>Cape {called.cape}</span>
-                <span className="chip" style={{ marginLeft:6 }}>Webbs {called.webbs}</span>
-              </span>
-            </div>
-          </Link>
+      {/* Top small KPIs row (only Needs Tag now) */}
+      <div style={{ ...sectionGrid, gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 16 }}>
+        <div style={card}>
+          <div style={{ fontWeight: 800, opacity: 0.9, marginBottom: 6 }}>Needs Tag</div>
+          <div style={{ fontSize: 36, fontWeight: 800 }}>{counts.needsTag ?? 0}</div>
         </div>
 
-        <Link href="/tips" className="tile">
-          <div className="tile-emoji">💡</div>
-          <div className="tile-title">Tip Sheet</div>
-          <div className="tile-sub">Short reminders for staff</div>
+        {/* spacer to keep layout tidy */}
+        <div style={{ visibility: 'hidden' }} />
+        <div style={{ visibility: 'hidden' }} />
+      </div>
+
+      {/* Action tiles */}
+      <div style={{ ...sectionGrid, marginBottom: 16 }}>
+        <Link href="/intake" style={{ textDecoration: 'none' }}>
+          <div style={card}>
+            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 6 }}>New Intake form</div>
+            <div style={{ opacity: 0.8 }}>Start a new Intake Form</div>
+          </div>
         </Link>
 
-        <Link href="/faq" className="tile">
-          <div className="tile-emoji">❓</div>
-          <div className="tile-title">FAQ</div>
-          <div className="tile-sub">Customer questions &amp; answers</div>
+        <Link href="/scan" style={{ textDecoration: 'none' }}>
+          <div style={card}>
+            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 6 }}>Scan Tags</div>
+            <div style={{ opacity: 0.8 }}>Update status by scanning a barcode</div>
+          </div>
         </Link>
-      </section>
+
+        <Link href="/search" style={{ textDecoration: 'none' }}>
+          <div style={card}>
+            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 6 }}>Search</div>
+            <div style={{ opacity: 0.8 }}>Find jobs by name, tag, or phone #</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Reports */}
+      <div style={{ ...sectionGrid }}>
+        <div style={{ ...card, gridColumn: 'span 1' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{ fontWeight: 800, fontSize: 20 }}>Reports</div>
+          </div>
+
+          <div style={{ ...row, padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <Link href="/reports/calls" style={{ textDecoration: 'none' }}>
+              <div style={{ fontWeight: 700 }}>Call Report</div>
+            </Link>
+            {/* removed “Ready — Meat/Cape/Webbs” chips on purpose */}
+          </div>
+
+          <div style={{ ...row, padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <Link href="/overnight/review" style={{ textDecoration: 'none' }}>
+              <div style={{ fontWeight: 700 }}>Overnight — Missing Tag</div>
+            </Link>
+            {chip('Open', counts.needsTag ?? 0)}
+          </div>
+
+          <div style={{ ...row, padding: '10px 0', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <Link href="/reports/called" style={{ textDecoration: 'none' }}>
+              <div style={{ fontWeight: 700 }}>Called — Pickup Queue</div>
+            </Link>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {chip('Meat', counts.called?.meat ?? 0)}
+              {chip('Cape', counts.called?.cape ?? 0)}
+              {chip('Webbs', counts.called?.webbs ?? 0)}
+            </div>
+          </div>
+        </div>
+
+        {/* Tip Sheet */}
+        <Link href="/tips" style={{ textDecoration: 'none' }}>
+          <div style={card}>
+            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 6 }}>Tip Sheet</div>
+            <div style={{ opacity: 0.8 }}>Short reminders for staff</div>
+          </div>
+        </Link>
+
+        {/* FAQ */}
+        <Link href="/faq" style={{ textDecoration: 'none' }}>
+          <div style={card}>
+            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 6 }}>FAQ</div>
+            <div style={{ opacity: 0.8 }}>Customer questions & answers</div>
+          </div>
+        </Link>
+      </div>
     </main>
   );
 }
