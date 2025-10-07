@@ -1,24 +1,33 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Trio = { meat: number; cape: number; webbs: number };
 type Counts = {
   ok: boolean;
   needsTag: number;
   ready: Trio;   // Call Report (Ready to Call)
-  called: Trio;  // Pickup Queue (optional; fallback to zeros)
+  called: Trio;  // Pickup Queue
 };
 
-/* ---------- tiny utils (client-side) ---------- */
 const lc = (v: any) => String(v ?? '').trim().toLowerCase();
-const isReadyToCall = (s?: any) => {
-  const v = lc(s);
-  return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
-};
 
-// Pull a field from common aliases
+/* Treat these as "ready to call" (exclude anything that contains 'called') */
+function isReadyToCall(s?: any) {
+  const v = lc(s);
+  if (!v) return false;
+  if (v.includes('called')) return false;
+  return (
+    v.includes('ready') ||
+    v.includes('finish') ||
+    v.includes('finished') ||
+    v.includes('& ready') || // “Finished & Ready” style strings
+    v.includes('ready for pickup')
+  );
+}
+
+/* Pull a field from common aliases */
 const get = (r: any, ...keys: string[]) => {
   for (const k of keys) {
     if (r?.[k] != null) return r[k];
@@ -26,7 +35,6 @@ const get = (r: any, ...keys: string[]) => {
   return undefined;
 };
 
-/* ---------- page ---------- */
 export default function Home() {
   const [counts, setCounts] = useState<Counts>({
     ok: true,
@@ -34,6 +42,7 @@ export default function Home() {
     ready: { meat: 0, cape: 0, webbs: 0 },
     called: { meat: 0, cape: 0, webbs: 0 },
   });
+  const [busy, setBusy] = useState(false);
 
   async function fetchDashboardCounts(): Promise<Counts> {
     try {
@@ -66,7 +75,7 @@ export default function Home() {
     }
   }
 
-  // Fallback: derive "ready to call" counts from @callreport if API didn’t return (or returned zeros)
+  // Fallback: compute “ready” from @callreport
   async function computeReadyFallback(current: Counts): Promise<Counts> {
     const allZero = (t: Trio) => (t.meat | t.cape | t.webbs) === 0;
     if (!allZero(current.ready)) return current;
@@ -93,20 +102,53 @@ export default function Home() {
     }
   }
 
+  // Fallback: compute “called/pickup queue” from @recall
+  async function computeCalledFallback(current: Counts): Promise<Counts> {
+    const allZero = (t: Trio) => (t.meat | t.cape | t.webbs) === 0;
+    if (!allZero(current.called)) return current;
+
+    try {
+      const r = await fetch('/api/gas2', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'search', q: '@recall' }),
+        cache: 'no-store',
+      });
+      const j = await r.json();
+      const rows: any[] = Array.isArray(j?.rows) ? j.rows : Array.isArray(j) ? j : [];
+
+      // “Called” for each track -> show in pickup queue chips
+      const isCalled = (s?: any) => lc(s) === 'called' || lc(s).startsWith('called'); // handle “Called 10/6”
+      let meat = 0, cape = 0, webbs = 0;
+
+      for (const row of rows) {
+        if (isCalled(get(row, 'status', 'Status'))) meat++;
+        if (isCalled(get(row, 'capingStatus', 'Caping Status'))) cape++;
+        if (isCalled(get(row, 'webbsStatus', 'Webbs Status'))) webbs++;
+      }
+      return { ...current, called: { meat, cape, webbs } };
+    } catch {
+      return current;
+    }
+  }
+
   async function refresh() {
+    setBusy(true);
     const base = await fetchDashboardCounts();
-    const withFallback = await computeReadyFallback(base);
-    setCounts(withFallback);
+    const withReady = await computeReadyFallback(base);
+    const full = await computeCalledFallback(withReady);
+    setCounts(full);
+    setBusy(false);
   }
 
   useEffect(() => { refresh(); }, []);
 
-  /* ---------- styles: compact, professional ---------- */
+  /* ---------------- styles ---------------- */
   const shell: React.CSSProperties = { maxWidth: 1100, margin: '26px auto', padding: '0 16px 40px' };
   const trio: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 };
   const card: React.CSSProperties = {
-    background: 'rgba(12,18,16,.92)',
-    border: '1px solid rgba(255,255,255,.07)',
+    background: 'rgba(18,24,22,.95)',
+    border: '1px solid rgba(255,255,255,.08)',
     borderRadius: 14,
     padding: 16,
   };
@@ -120,17 +162,17 @@ export default function Home() {
     gap: 14,
     alignItems: 'center',
     padding: '12px 0',
-    borderTop: '1px solid rgba(255,255,255,.06)',
+    borderTop: '1px solid rgba(255,255,255,.07)',
   };
   const rowFirst: React.CSSProperties = { ...row, borderTop: 'none', paddingTop: 6 };
 
   const mini: React.CSSProperties = { fontSize: 13, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.9 };
 
-  const softPill = (label: string, n: number, tint: 'green' | 'amber' | 'purple' = 'green') => {
+  const chip = (label: string, n: number, tint: 'green' | 'amber' | 'purple' = 'green') => {
     const map = {
-      green: { bg: 'rgba(51,117,71,.28)', bd: 'rgba(51,117,71,.60)' },
-      amber: { bg: 'rgba(167,115,18,.28)', bd: 'rgba(167,115,18,.58)' },
-      purple: { bg: 'rgba(115,75,170,.30)', bd: 'rgba(115,75,170,.58)' },
+      green: { bg: 'rgba(51,117,71,.20)', bd: 'rgba(51,117,71,.50)' },
+      amber: { bg: 'rgba(167,115,18,.18)', bd: 'rgba(167,115,18,.45)' },
+      purple: { bg: 'rgba(115,75,170,.20)', bd: 'rgba(115,75,170,.45)' },
     }[tint];
     return (
       <span
@@ -144,7 +186,7 @@ export default function Home() {
           border: `1px solid ${map.bd}`,
           fontWeight: 800,
           whiteSpace: 'nowrap',
-          minWidth: 72,
+          minWidth: 84,
           justifyContent: 'center',
         }}
         aria-label={`${label}: ${n}`}
@@ -156,6 +198,72 @@ export default function Home() {
 
   const linkStyle: React.CSSProperties = { textDecoration: 'none', color: 'inherit' };
 
+  const busyOverlay: React.CSSProperties = {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,.25)',
+    borderRadius: 14,
+    backdropFilter: 'blur(1px)',
+    fontWeight: 900,
+    letterSpacing: '.04em',
+  };
+
+  const ReportsCard = useMemo(() => (
+    <div style={{ position: 'relative' }}>
+      <div style={{ ...card, gridColumn: 'span 2' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+          <div style={{ fontWeight: 900, fontSize: 18 }}>Reports</div>
+          <button
+            onClick={refresh}
+            className="btn"
+            aria-label="Refresh dashboard"
+            title="Refresh"
+            disabled={busy}
+            style={{ padding: '6px 12px', opacity: busy ? 0.7 : 1 }}
+          >
+            {busy ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+
+        <div style={rowFirst}>
+          <div style={{ width: 12, height: 12, borderRadius: 999, background: 'rgba(51,117,71,.85)' }} />
+          <Link href="/reports/calls" style={linkStyle}>
+            <div style={{ fontWeight: 800 }}>Call Report — Ready to Call</div>
+          </Link>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {chip('Meat', counts.ready.meat, 'green')}
+            {chip('Cape', counts.ready.cape, 'amber')}
+            {chip('Webbs', counts.ready.webbs, 'purple')}
+          </div>
+        </div>
+
+        <div style={row}>
+          <div style={{ width: 12, height: 12, borderRadius: 999, background: 'rgba(167,115,18,.9)' }} />
+          <Link href="/overnight/review" style={linkStyle}>
+            <div style={{ fontWeight: 800 }}>Overnight — Missing Tag</div>
+          </Link>
+          {chip('Open', counts.needsTag, 'amber')}
+        </div>
+
+        <div style={row}>
+          <div style={{ width: 12, height: 12, borderRadius: 999, background: 'rgba(115,75,170,.95)' }} />
+          <Link href="/reports/called" style={linkStyle}>
+            <div style={{ fontWeight: 800 }}>Called — Pickup Queue</div>
+          </Link>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {chip('Meat', counts.called.meat, 'green')}
+            {chip('Cape', counts.called.cape, 'amber')}
+            {chip('Webbs', counts.called.webbs, 'purple')}
+          </div>
+        </div>
+      </div>
+      {busy && <div style={busyOverlay}>Refreshing…</div>}
+    </div>
+  ), [busy, counts]);
+
   return (
     <main className="watermark" style={shell}>
       {/* header */}
@@ -164,26 +272,26 @@ export default function Home() {
           Welcome
         </div>
         <h1 style={title}>McAfee Deer Processing</h1>
-        <p style={subtitle}>Quick access to common actions and live reports.</p>
+        <p style={subtitle}>Pick what you want to do. Quick access to the most common actions.</p>
       </div>
 
       {/* quick actions */}
       <div style={{ ...trio, marginBottom: 16 }}>
-        <Link href="/intake" style={linkStyle}>
+        <Link href="/intake" style={{ textDecoration: 'none', color: 'inherit' }}>
           <div style={card}>
             <div style={mini}>Intake</div>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>New Intake form</div>
             <div style={{ opacity: 0.8, marginTop: 4 }}>Start a new Intake Form</div>
           </div>
         </Link>
-        <Link href="/scan" style={linkStyle}>
+        <Link href="/scan" style={{ textDecoration: 'none', color: 'inherit' }}>
           <div style={card}>
             <div style={mini}>Scan</div>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>Scan Tags</div>
             <div style={{ opacity: 0.8, marginTop: 4 }}>Update status by scanning a barcode</div>
           </div>
         </Link>
-        <Link href="/search" style={linkStyle}>
+        <Link href="/search" style={{ textDecoration: 'none', color: 'inherit' }}>
           <div style={card}>
             <div style={mini}>Search</div>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>Search Jobs</div>
@@ -192,65 +300,20 @@ export default function Home() {
         </Link>
       </div>
 
-      {/* reports */}
+      {/* reports + help */}
       <div style={trio}>
-        <div style={{ ...card, gridColumn: 'span 2' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-            <div style={{ fontWeight: 900, fontSize: 18 }}>Reports</div>
-            <button
-              onClick={refresh}
-              className="btn"
-              aria-label="Refresh dashboard"
-              title="Refresh"
-              style={{ padding: '6px 12px' }}
-            >
-              Refresh
-            </button>
-          </div>
-
-          <div style={rowFirst}>
-            <div style={{ width: 12, height: 12, borderRadius: 999, background: 'rgba(51,117,71,.8)' }} />
-            <Link href="/reports/calls" style={linkStyle}>
-              <div style={{ fontWeight: 800 }}>Call Report — Ready to Call</div>
-            </Link>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {softPill('Meat', counts.ready.meat, 'green')}
-              {softPill('Cape', counts.ready.cape, 'amber')}
-              {softPill('Webbs', counts.ready.webbs, 'purple')}
-            </div>
-          </div>
-
-          <div style={row}>
-            <div style={{ width: 12, height: 12, borderRadius: 999, background: 'rgba(167,115,18,.8)' }} />
-            <Link href="/overnight/review" style={linkStyle}>
-              <div style={{ fontWeight: 800 }}>Overnight — Missing Tag</div>
-            </Link>
-            {softPill('Open', counts.needsTag, 'amber')}
-          </div>
-
-          <div style={row}>
-            <div style={{ width: 12, height: 12, borderRadius: 999, background: 'rgba(115,75,170,.9)' }} />
-            <Link href="/reports/called" style={linkStyle}>
-              <div style={{ fontWeight: 800 }}>Called — Pickup Queue</div>
-            </Link>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {softPill('Meat', counts.called.meat, 'green')}
-              {softPill('Cape', counts.called.cape, 'amber')}
-              {softPill('Webbs', counts.called.webbs, 'purple')}
-            </div>
-          </div>
-        </div>
+        {ReportsCard}
 
         <div style={card}>
           <div style={mini}>Help</div>
-          <Link href="/tips" style={linkStyle}>
+          <Link href="/tips" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>Tip Sheet</div>
           </Link>
           <div style={{ opacity: 0.8, marginTop: 4 }}>Short reminders for staff</div>
 
           <div style={{ height: 10 }} />
 
-          <Link href="/faq" style={linkStyle}>
+          <Link href="/faq" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>FAQ</div>
           </Link>
           <div style={{ opacity: 0.8, marginTop: 4 }}>Customer questions &amp; answers</div>
