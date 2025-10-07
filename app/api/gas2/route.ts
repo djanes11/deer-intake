@@ -10,6 +10,100 @@ import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
 
+// === Added for job fetch (safe, non-breaking) ===
+const SHEET_HEADERS = [
+  "Tag","Confirmation #","Customer","Phone","Email","Address","City","State","Zip","County Killed","Sex","Process Type","Drop-off Date","Status","Caping Status","Webbs Status","Steak","Steak Size (Other)","Burger Size","Steaks per Package","Beef Fat","Hind Roast Count","Front Roast Count","Backstrap Prep","Backstrap Thickness","Backstrap Thickness (Other)","Notes","Webbs Order","Webbs Order Form Number","Webbs Pounds","Price","Paid","Specialty Products","Specialty Pounds","Summer Sausage (lb)","Summer Sausage + Cheese (lb)","Sliced Jerky (lb)","Hind - Steak","Hind - Roast","Hind - Grind","Hind - None","Front - Steak","Front - Roast","Front - Grind","Front - None","Notified Ready At","Public Token","Public Link Sent At","Drop-off Email Sent At","Processing Price","Specialty Price","Paid Processing","Paid Processing At","Paid Specialty","Paid Specialty At","Picked Up - Processing","Picked Up - Processing At","Picked Up - Cape","Picked Up - Cape At","Picked Up - Webbs","Picked Up - Webbs At","Call Attempts","Last Called At","Last Called By","Last Call Outcome","Last Call At","Call Notes","Meat Attempts","Cape Attempts","Webbs Attempts","Requires Tag","Phone Last4"
+];
+
+// --- canonical key mapping (space/no-space/camel/underscored -> real header) ---
+const toKey = (s: string) =>
+  s?.toString()?.normalize('NFKC').toLowerCase().replace(/[^a-z]/g, '') || '';
+
+const headerKeyIndex: Record<string, string> = (() => {
+  const m: Record<string, string> = {};
+  for (const h of SHEET_HEADERS) m[toKey(h)] = h;
+  // frequent aliases we’ve seen in your payloads
+  Object.assign(m, {
+    customer: 'Customer', customername: 'Customer', name: 'Customer', cust: 'Customer',
+    steaksize: 'Steak',
+    steaksperpkg: 'Steaks per Package', steaksperpackage: 'Steaks per Package',
+    burgersize: 'Burger Size',
+    backstrapprep: 'Backstrap Prep',
+    backstrapthickness: 'Backstrap Thickness',
+    backstrapthicknessother: 'Backstrap Thickness (Other)',
+    steaksizeother: 'Steak Size (Other)',
+    specialtypounds: 'Specialty Pounds',
+    webbsorder: 'Webbs Order',
+    webbsorderformnumber: 'Webbs Order Form Number',
+    webbspounds: 'Webbs Pounds',
+    hindsteak: 'Hind - Steak', hindroast: 'Hind - Roast', hindgrind: 'Hind - Grind', hindnone: 'Hind - None',
+    frontsteak: 'Front - Steak', frontroast: 'Front - Roast', frontgrind: 'Front - Grind', frontnone: 'Front - None',
+  });
+  return m;
+})();
+
+function canonizeDict(d: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(d || {})) {
+    const canon = headerKeyIndex[toKey(k)];
+    if (canon) out[canon] = v;
+  }
+  // ensure Customer if present under any common variant
+  if (!('Customer' in out)) {
+    out['Customer'] =
+      d['Customer'] ??
+      d['Customer Name'] ??
+      (d as any).CustomerName ??
+      (d as any).customerName ??
+      (d as any).customer_name ??
+      (d as any).name ??
+      (d as any).customer ??
+      '';
+  }
+  return out;
+}
+
+function fromArrays(headers: string[], rows: any[]): Record<string, any>[] {
+  return rows.map((arr: any[]) =>
+    Object.fromEntries(headers.map((h, i) => [h, arr?.[i] ?? ""]))
+  );
+}
+
+// This now FLATTENS and CANONIZES to sheet headers.
+function normalizeRows(payload: any): Record<string, any>[] {
+  if (!payload) return [];
+
+  // array of dicts
+  if (Array.isArray(payload) && payload.every(x => x && typeof x === 'object' && !Array.isArray(x))) {
+    return (payload as any[]).map(canonizeDict);
+  }
+
+  // { rows, headers? } or { items }
+  if (payload.rows && Array.isArray(payload.rows)) {
+    const rows = payload.rows;
+    const headers: string[] = Array.isArray(payload.headers) && payload.headers.length ? payload.headers : SHEET_HEADERS;
+    if (rows.length && Array.isArray(rows[0])) {
+      return fromArrays(headers, rows).map(canonizeDict);
+    }
+    if (rows.length && typeof rows[0] === 'object') return rows.map(canonizeDict);
+  }
+  if (payload.items && Array.isArray(payload.items)) {
+    const items = payload.items;
+    if (items.length && Array.isArray(items[0])) return fromArrays(SHEET_HEADERS, items).map(canonizeDict);
+    return items.map(canonizeDict);
+  }
+
+  // array-of-arrays
+  if (Array.isArray(payload) && payload.length && Array.isArray(payload[0])) {
+    return fromArrays(SHEET_HEADERS, payload).map(canonizeDict);
+  }
+
+  // single dict fallback
+  if (typeof payload === 'object') return [canonizeDict(payload)];
+
+  return [];
+}
+
 type AnyRec = Record<string, any>;
 
 const GAS_BASE = (process.env.NEXT_PUBLIC_GAS_BASE || process.env.GAS_BASE || '')
@@ -164,6 +258,43 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as AnyRec;
   const action =
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
+
+  // === NEW: job action: return full flat row keyed by sheet headers ===
+  if (action === 'job') {
+    const tag = String(body?.tag ?? '').trim();
+    if (!tag) return Response.json({ ok: false, error: 'missing tag' }, { status: 400 });
+
+    // 1) Prefer your existing full-row GET
+    try {
+      const got = await gasGet(tag);
+      const rows1 = normalizeRows(got?.job ?? got);
+      const row1 =
+        rows1.find((r: any) => toKey(String(getTagFromRow(r))) === toKey(tag)) ||
+        rows1[0] || null;
+      if (row1) {
+        const job = { Tag: tag, ...row1 };
+        return Response.json({ ok: true, job }, { status: 200 });
+      }
+    } catch {}
+
+    // 2) Fallback: search
+    try {
+      const up = await gasPost({ action: 'search', q: tag, query: tag });
+      if (up.status < 400) {
+        const rows2 = normalizeRows(up.json?.rows ?? up.json?.results ?? up.json ?? []);
+        const row2 =
+          rows2.find((r: any) => toKey(String(getTagFromRow(r))) === toKey(tag)) ||
+          rows2[0] || null;
+        if (row2) {
+          const job = { Tag: tag, ...row2 };
+          return Response.json({ ok: true, job }, { status: 200 });
+        }
+      }
+    } catch {}
+
+    return Response.json({ ok: true, job: { Tag: tag }, exists: false }, { status: 200 });
+  }
+
   log('POST action=', action);
 
   /* ---------- SIGNED VIEW LINK ---------- */

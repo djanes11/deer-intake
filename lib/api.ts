@@ -227,3 +227,17 @@ export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: 
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
+
+
+/** Fetch a full flat row for the overlay (server returns { ok, job }) */
+export async function getJobFull(tag: string) {
+  const r = await fetch('/api/gas2', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'job', tag }),
+    cache: 'no-store',
+  });
+  if (!r.ok) throw new Error(`getJobFull failed: ${r.status}`);
+  const j = await r.json();
+  return j?.job ?? null;
+}
