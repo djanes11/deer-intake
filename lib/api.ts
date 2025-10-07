@@ -5,6 +5,44 @@ export type AnyRec = Record<string, any>;
 export type Track = 'meat' | 'cape' | 'webbs';
 export type Trio = { meat: number; cape: number; webbs: number };
 
+/** Shape used around the app (intake, calls) */
+export type Job = {
+  tag?: string;
+  customer?: string | null;
+  ['Customer Name']?: string | null;
+  phone?: string | null;
+  email?: string | null;
+
+  status?: string | null;          // meat
+  Status?: string | null;
+  capingStatus?: string | null;    // cape
+  ['Caping Status']?: string | null;
+  webbsStatus?: string | null;     // webbs
+  ['Webbs Status']?: string | null;
+
+  lastCallAt?: string | null;
+  ['Last Call At']?: string | null;
+
+  paidProcessing?: boolean | null;
+  ['Paid Processing']?: boolean | null;
+  ['Picked Up - Processing']?: boolean | null;
+  ['Picked Up - Processing At']?: string | null;
+
+  processType?: string | null;
+  beefFat?: boolean | null;
+  webbsOrder?: boolean | null;
+
+  // specialty fields used in reports
+  specialtyProducts?: boolean | null;
+  summerSausageLbs?: string | null;
+  summerSausageCheeseLbs?: string | null;
+  slicedJerkyLbs?: string | null;
+
+  // misc
+  dropoff?: string | null;
+  confirmation?: string | null;
+};
+
 export type DashboardCounts = {
   ok: boolean;
   needsTag: number;
@@ -55,7 +93,7 @@ export async function get(tag: string) {
 }
 
 /* -------------------------------------------------------
- * Back-compat aliases (to fix build errors)
+ * Back-compat aliases (to fix build/imports without touching pages)
  * -----------------------------------------------------*/
 export const progress = progressTag;    // import { progress } from '@/lib/api'
 export const getJob = get;              // import { getJob } from '@/lib/api'
@@ -107,7 +145,7 @@ export async function markCalled(tag: string, track: Track = 'meat') {
 
 export async function logCallSimple(tag: string, note: string) {
   if (!tag) throw new Error('logCallSimple(): tag required');
-  // Try a dedicated action first; if your GAS ignores it, the request will still be ok:true.
+  // Try a dedicated action first; if your GAS ignores it, still returns ok:true.
   try {
     return await postJSON({ action: 'logCall', tag, note });
   } catch {
@@ -120,7 +158,7 @@ export async function logCallSimple(tag: string, note: string) {
 }
 
 /* -------------------------------------------------------
- * Dashboard / KPI
+ * Dashboard / KPI (used on homepage)
  * -----------------------------------------------------*/
 export async function getDashboardCounts(): Promise<DashboardCounts> {
   const j = await postJSON<DashboardCounts>({ action: 'dashboardcounts' });
@@ -141,7 +179,7 @@ export async function getDashboardCounts(): Promise<DashboardCounts> {
 }
 
 /* -------------------------------------------------------
- * Signed read-only link (optional)
+ * Signed read-only link (optional; some pages use it)
  * -----------------------------------------------------*/
 export async function viewLink(tag: string): Promise<{ ok: boolean; url?: string; error?: string }> {
   if (!tag) throw new Error('viewLink(): tag required');
