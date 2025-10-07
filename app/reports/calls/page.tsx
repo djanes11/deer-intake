@@ -166,24 +166,22 @@ const attemptsFor = (r: FlatRow) => {
   };
   useEffect(() => { load(); }, []);
 
-  const paidText = (j: Row) =>
-    (j.Paid || j.paid || (j.paidProcessing && (j.specialtyProducts ? j.paidSpecialty : true))) ? 'Yes' : 'No';
+// Replace the old paidText with this:
+const paidText = (j: Row) => {
+  const a = j as any; // tolerate sheet/row variants without widening Row everywhere
 
-  // NEW: show only the Processing Price column value (no totals)
-  function displayProcessingPrice(r: any) {
-    const raw =
-      r.priceProcessing ??
-      r.processingPrice ??
-      r.PriceProcessing ??
-      r['Processing Price'] ??
-      r.price_processing ??
-      r['processing price'] ??
-      r['processing_price'];
-    if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return '—';
-    const n = typeof raw === 'number' ? raw : Number(String(raw).replace(/[^0-9.\-]/g, ''));
-    if (!Number.isFinite(n)) return '—';
-    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-  }
+  // Common variants your data has used
+  const paidProcessing = !!(a.paidProcessing ?? a['Paid Processing'] ?? a.paid);
+  const paidSpecialty  = !!(a.paidSpecialty  ?? a['Paid Specialty']);
+  const hasSpecialty   = !!(a.specialtyProducts ?? a['Specialty Products'] ?? a.specialty);
+
+  // Some sheets also send a generic Paid flag
+  const genericPaid = !!(a.Paid ?? a['Paid'] ?? a.paid);
+
+  const resolved = genericPaid || (paidProcessing && (!hasSpecialty || paidSpecialty));
+  return resolved ? 'Yes' : 'No';
+};
+
 
   const setNote = (key: string, v: string) =>
     setNotes((p) => ({ ...p, [key]: v }));
