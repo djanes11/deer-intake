@@ -156,12 +156,12 @@ export default async function IntakeView({
                   </div>
                   <div className="col" style={{minWidth:0}}>
                     <label>Processing Price</label>
-                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{processingPrice.toFixed(2)}</div>
+                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{`$${processingPrice.toFixed(2)}`}</div>
                     <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
                   </div>
                   <div className="col" style={{minWidth:0}}>
                     <label>Specialty Price</label>
-                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{(job?.specialtyProducts ? specialtyPrice : 0).toFixed(2)}</div>
+                    <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{`$${(job?.specialtyProducts ? specialtyPrice : 0).toFixed(2)}`}</div>
                     <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
                   </div>
                 </div>
@@ -169,7 +169,7 @@ export default async function IntakeView({
                 <div className="row grid small" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(4, 1fr)', marginTop:6}}>
                   <div className="col total" style={{minWidth:0}}>
                     <label>Total (preview)</label>
-                    <div className="money total" style={{ fontWeight:900, minWidth:0 }}>{totalPrice.toFixed(2)}</div>
+                    <div className="money total" style={{ fontWeight:900, minWidth:0 }}>{`$${totalPrice.toFixed(2)}`}</div>
                   </div>
                   <div className="col" style={{minWidth:0}}>
                     <label>Status</label>
@@ -196,7 +196,7 @@ export default async function IntakeView({
                 <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
                   <div className="c3" style={{gridColumn:'span 3'}}><Field label="Confirmation #" value={job?.confirmation || ''} /></div>
                   <div className="c6" style={{gridColumn:'span 6'}}><Field label="Customer Name" value={job?.customer || ''} /></div>
-                  <div className="c3" style={{gridColumn:'span 3'}}><Field label="Phone" value={job?.phone || ''} /></div>
+                  <div className="c3" style={{gridColumn:'span 3'}}><label>Phone</label><div className="value">{job?.phone ? <a href={`tel:${String(job.phone).replace(/\D/g, '')}`}>{job.phone}</a> : ''}</div></div>
                   <div className="c8" style={{gridColumn:'span 8'}}>
                     <label>Email</label>
                     <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
@@ -213,9 +213,7 @@ export default async function IntakeView({
                           flex:'1 1 auto',
                           minWidth:0
                         }}
-                      >
-                        {job?.email || ''}
-                      </div>
+                      >{job?.email ? <a href={`mailto:${job.email}`}>{job.email}</a> : ''}</div>
                     </div>
                   </div>
                   <div className="c4" style={{gridColumn:'span 4'}}><Field label="Address" value={job?.address || ''} /></div>

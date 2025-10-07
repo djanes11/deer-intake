@@ -1206,3 +1206,33 @@ body.light-page.watermark {
 /* Ensure watermark always sits behind content */
 .watermark::after { z-index: 0; opacity: .8; }
 
+
+
+/* Read-only intake: make the summary sticky on mobile so totals/status stay visible */
+@media (max-width: 640px) {
+  .light-page .form-card .summary {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  }
+}
+
+
+
+/* Money cells: tabular and right aligned */
+.light-page .money {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+
+
+/* Links inside value blocks wrap nicely */
+.light-page .value a {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+}
+
