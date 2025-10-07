@@ -194,7 +194,8 @@ const paidText = (j: Row) => {
         const job = r.job as Row;
         // normalize price on single-row refresh as well
         const normPrice = readProcessingPriceFromRow(job);
-        const jobWithPrice: Row = { ...job, priceProcessing: normPrice ?? undefined };
+        const jobWithPrice = { ...job, priceProcessing: normPrice ?? undefined } as Row & { priceProcessing?: number };
+
 
         setRows((prev) => {
           const others = prev.filter(x => x.tag !== tag);
