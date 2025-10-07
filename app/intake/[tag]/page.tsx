@@ -196,7 +196,7 @@ export default async function IntakeView({
                 <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
                   <div className="c3" style={{gridColumn:'span 3'}}><Field label="Confirmation #" value={job?.confirmation || ''} /></div>
                   <div className="c6" style={{gridColumn:'span 6'}}><Field label="Customer Name" value={job?.customer || ''} /></div>
-                  <div className="c3" style={{gridColumn:'span 3'}}><label>Phone</label><div className="value">{job?.phone ? <a href={`tel:${String(job.phone).replace(/\D/g, '')}`}>{job.phone}</a> : ''}</div></div>
+                  <div className="c3" style={{gridColumn:'span 3'}}><label>Phone</label><div className="value wrap-any">{job?.phone || ''}</div></div>
                   <div className="c8" style={{gridColumn:'span 8'}}>
                     <label>Email</label>
                     <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
@@ -213,7 +213,7 @@ export default async function IntakeView({
                           flex:'1 1 auto',
                           minWidth:0
                         }}
-                      >{job?.email ? <a href={`mailto:${job.email}`}>{job.email}</a> : ''}</div>
+                      >{job?.email || ''}</div>
                     </div>
                   </div>
                   <div className="c4" style={{gridColumn:'span 4'}}><Field label="Address" value={job?.address || ''} /></div>

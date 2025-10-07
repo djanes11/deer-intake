@@ -1236,3 +1236,17 @@ body.light-page.watermark {
   text-decoration: none;
 }
 
+
+
+/* Prevent grid children from overflowing; allow text to wrap */
+.light-page .grid > * { min-width: 0; }
+
+/* Ensure values wrap inside their containers */
+.light-page .value { word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* On small screens, stack grid items to stop labels running into each other */
+@media (max-width: 640px) {
+  .light-page .grid { grid-template-columns: 1fr !important; }
+}
+
+
