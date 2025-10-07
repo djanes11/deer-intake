@@ -118,11 +118,12 @@ export default function CallReportPage() {
     [rows, selectedKey]
   );
 
-  const attemptsFor = (r: FlatRow) => {
-    if (r.__track === 'meat')  return Number(r.callAttemptsMeat ?? r.callAttempts ?? 0);
-    if (r.__track === 'cape')  return Number(r.callAttemptsCape ?? r.callAttempts ?? 0);
-    return Number(r.callAttemptsWebbs ?? r.callAttempts ?? 0);
-  };
+const attemptsFor = (r: FlatRow) => {
+  const a = r as any; // some sheets only provide a generic "Call Attempts"
+  if (r.__track === 'meat')  return Number(a.callAttemptsMeat  ?? a.callAttempts ?? 0);
+  if (r.__track === 'cape')  return Number(a.callAttemptsCape  ?? a.callAttempts ?? 0);
+  return Number(a.callAttemptsWebbs ?? a.callAttempts ?? 0);
+};
 
   const load = async () => {
     setLoading(true);
