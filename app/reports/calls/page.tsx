@@ -4,30 +4,48 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Job } from '@/lib/api';
 import { searchJobs, getJob, markCalled, logCallSimple, saveJob } from '@/lib/api';
-import { suggestedProcessingPrice } from '@/lib/api';
+
 
 /* ---------- helpers ---------- */
 // Show only the regular processing price (meat track). Cape/Webbs show an em dash.
 function displayProcessingPrice(r: any): string {
-  // If the flattened row already carries a computed price, prefer it
-  const fromRow =
-    Number(r.priceProcessing ?? r.processingPrice ?? r['Processing Price'] ?? 0);
+  // Prefer any price already flattened onto the row
+  const fromRow = Number(r.priceProcessing ?? r.processingPrice ?? r['Processing Price'] ?? 0);
 
   if (r.__track === 'meat') {
     if (fromRow > 0) return `$${fromRow.toFixed(2)}`;
 
-    // Fallback: compute from the job fields (matches our global price logic)
+    // Compute locally (same rules used elsewhere in the app)
     const proc =
       r.processType ?? r['Process Type'] ?? r.ProcessType ?? r.process ?? '';
     const beef = !!(r.beefFat ?? r['Beef Fat']);
     const webbs = !!(r.webbsOrder ?? r['Webbs Order']);
-    const price = suggestedProcessingPrice(String(proc), beef, webbs);
+
+    const v = String(proc || '').toLowerCase();
+    let p = '';
+    if (v.includes('donate') && v.includes('cape')) p = 'Cape & Donate';
+    else if (v.includes('donate')) p = 'Donate';
+    else if (v.includes('cape') && !v.includes('skull')) p = 'Caped';
+    else if (v.includes('skull')) p = 'Skull-Cap';
+    else if (v.includes('euro')) p = 'European';
+    else if (v.includes('standard')) p = 'Standard Processing';
+
+    let base =
+      p === 'Caped' ? 150 :
+      p === 'Cape & Donate' ? 50 :
+      (p === 'Standard Processing' || p === 'Skull-Cap' || p === 'European') ? 130 :
+      p === 'Donate' ? 0 : 0;
+
+    if (base <= 0) return '—';
+
+    const price = base + (beef ? 5 : 0) + (webbs ? 20 : 0);
     return price > 0 ? `$${price.toFixed(2)}` : '—';
   }
 
   // Not a meat track → no processing price shown
   return '—';
 }
+
 
 
 type Row = Partial<Job> & { tag: string };
