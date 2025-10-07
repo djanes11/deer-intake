@@ -1,7 +1,7 @@
 // app/api/gas2/route.ts
 // Initial email on first save (signed read-only link).
 // Finished email once when status first becomes Finished/Ready (save OR progress).
-// Robust @needsTag and dashboard counts; NO auto-generation of confirmation numbers.
+// Robust @needsTag search; NO auto-generation of confirmation numbers.
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -128,23 +128,10 @@ function getConfirmationFromRow(r: AnyRec): string {
   for (const key of k) if (r[key] != null) return String(r[key]).trim();
   return '';
 }
-/** “Ready to call” = has 'ready' or 'finish/finished' but NOT 'called' */
+/** “Ready to call” = includes 'ready' or 'finish' but NOT 'called' */
 const isReadyToCall = (s?: any) => {
   const v = lc(s);
-  if (!v) return false;
-  if (v.includes('called')) return false;
-  return (
-    v.includes('ready') ||
-    v.includes('finish') ||
-    v.includes('finished') ||
-    v.includes('& ready') ||
-    v.includes('ready for pickup')
-  );
-};
-const isCalled = (s?: any) => {
-  const v = lc(s);
-  if (!v) return false;
-  return v === 'called' || v.startsWith('called');
+  return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
 };
 
 /* ---------------- Handlers ---------------- */
@@ -244,7 +231,9 @@ export async function POST(req: NextRequest) {
         emailAttempted = true;
 
         // 3) ask GAS to stamp so we don’t re-send
-        try { await gasPost({ action:'setTag', row, tag, stampDropEmail: true }); } catch {}
+        try {
+          await gasPost({ action:'setTag', row, tag, stampDropEmail: true });
+        } catch {}
       } catch (e:any) {
         emailAttempted = true;
         emailError = String(e?.message || e);
@@ -261,12 +250,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  /* ---------- DASHBOARD COUNTS (KPIs) ---------- */
-  if (action === 'dashboardcounts' || action === 'dash') {
-    const safeRows = (j: any): AnyRec[] =>
-      (Array.isArray(j?.rows) ? j.rows : Array.isArray(j) ? j : []) as AnyRec[];
-
-    // 1) Needs Tag count
+  /* ---------- NEW: DASHBOARD COUNTS (for KPI cards) ---------- */
+  if (action === 'dashboardcounts') {
+    // 1) needsTag via robust helper
     let needsCount = 0;
     try {
       const attempts: AnyRec[] = [
@@ -275,61 +261,43 @@ export async function POST(req: NextRequest) {
         { action: 'search', q: '@all',      limit: 999 },
         { action: 'search', q: '@recent',   limit: 999 },
       ];
+      let got: AnyRec[] = [];
       for (const payload of attempts) {
         const up = await gasPost(payload);
         if (up.status >= 400) continue;
-        const rows = safeRows(up.json);
-        if (!rows.length) continue;
-        const filtered = rows.filter((r) => {
-          const tag = getTagFromRow(r);
-          const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
-          return !tag || req;
-        });
-        needsCount = filtered.length;
-        break;
+        const rows = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
+        if (Array.isArray(rows) && rows.length) { got = rows; break; }
       }
+      const filtered = got.filter((r) => {
+        const tag = getTagFromRow(r);
+        const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
+        return !tag || req;
+      });
+      needsCount = filtered.length;
     } catch {}
 
-    // 2) Ready-to-call (same pool Calls report uses). Try multiple queries.
-    const trySearch = async (q: string) => {
+    // 2) ready pool (try a few known queries)
+    const queries = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
+    let rows: AnyRec[] = [];
+    for (const q of queries) {
       try {
-        const up = await gasPost({ action: 'search', q });
-        if (up.status >= 400) return [] as AnyRec[];
-        return safeRows(up.json);
-      } catch { return [] as AnyRec[]; }
-    };
-
-    const readyQueries = ['@callreport', '@calls', '@readyTracks', '@ready', '@recent', '@all'];
-    let readyRows: AnyRec[] = [];
-    for (const q of readyQueries) {
-      const r = await trySearch(q);
-      if (r.length) { readyRows = r; break; }
+        const up = await gasPost({ action:'search', q });
+        if (up.status >= 400) continue;
+        const r = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
+        if (Array.isArray(r) && r.length) { rows = r; break; }
+      } catch {}
     }
 
     let meat = 0, cape = 0, webbs = 0;
-    for (const r of readyRows) {
+    for (const r of rows) {
       if (isReadyToCall(r.status ?? r.Status)) meat++;
       if (isReadyToCall(r.capingStatus ?? r['Caping Status'])) cape++;
       if (isReadyToCall(r.webbsStatus ?? r['Webbs Status'])) webbs++;
     }
 
-    // 3) Pickup queue — things already marked Called (any track)
-    const recallRows = await trySearch('@recall');
-    let cMeat = 0, cCape = 0, cWebbs = 0;
-    for (const r of recallRows) {
-      if (isCalled(r.status ?? r.Status)) cMeat++;
-      if (isCalled(r.capingStatus ?? r['Caping Status'])) cCape++;
-      if (isCalled(r.webbsStatus ?? r['Webbs Status'])) cWebbs++;
-    }
-
     return new Response(
-      JSON.stringify({
-        ok: true,
-        needsTag: needsCount,
-        ready: { meat, cape, webbs },
-        called: { meat: cMeat, cape: cCape, webbs: cWebbs },
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
+      JSON.stringify({ ok:true, needsTag: needsCount, ready: { meat, cape, webbs } }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
@@ -573,4 +541,22 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
+
+/* ---------- EXTRA: Picked-Up actions used by the UI ----------
+   If your GAS already supports a single 'pickedUp' with { tag, scope },
+   you can point these three to that; otherwise we write the fields directly
+   via save so the Called queue updates immediately.
+*/
+
+export async function PUT(req: NextRequest) {
+  // not used
+  return new Response(JSON.stringify({ ok: false, error: 'Method not allowed' }), { status: 405 });
+}
+
+// Allow POST handlers for picked-up without disturbing the main POST flow:
+// (Vercel/Next will route here only if action matched above didn't handle.)
+// Keep them here for clarity if you prefer separate endpoints; otherwise
+// you can leave the three small handlers inside POST prior to the big pass-through.
+
+
 

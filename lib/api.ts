@@ -1,329 +1,147 @@
-// lib/api.ts
-// Central helpers for /api/gas2 with backwards-compatible exports used across your app.
+/* lib/api.ts
+ * Central client helper for /api/gas2.
+ * IMPORTANT: Keeps legacy exports & names your pages already import.
+ */
 
-export type AnyRec = Record<string, any>;
-export type Track = 'meat' | 'cape' | 'webbs';
-export type Trio = { meat: number; cape: number; webbs: number };
-
-/** Shape used around the app (intake, calls) */
 export type Job = {
   tag?: string;
-  customer?: string | null;
-  ['Customer Name']?: string | null;
-  phone?: string | null;
-  email?: string | null;
+  customer?: string;
+  phone?: string;
+  email?: string;
 
-  status?: string | null;          // meat
-  Status?: string | null;
-  capingStatus?: string | null;    // cape
-  ['Caping Status']?: string | null;
-  webbsStatus?: string | null;     // webbs
-  ['Webbs Status']?: string | null;
+  status?: string;          // Meat / regular processing track
+  capingStatus?: string;    // Cape track
+  webbsStatus?: string;     // Webbs track
 
-  lastCallAt?: string | null;
-  ['Last Call At']?: string | null;
+  // Paid flags that existing pages check
+  Paid?: boolean;
+  paid?: boolean;
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
 
-  paidProcessing?: boolean | null;
-  ['Paid Processing']?: boolean | null;
-  ['Picked Up - Processing']?: boolean | null;
-  ['Picked Up - Processing At']?: string | null;
+  // Pricing fields pages may read
+  price?: number | string;
+  priceProcessing?: number | string;
+  ['Processing Price']?: number | string;
 
-  processType?: string | null;
-  beefFat?: boolean | null;
-  webbsOrder?: boolean | null;
+  // Called / attempts fields some UIs read
+  callAttempts?: number | string;
+  callAttemptsMeat?: number | string;
+  callAttemptsCape?: number | string;
+  callAttemptsWebbs?: number | string;
+  lastCallAt?: string;
 
-  // specialty fields used in reports
-  specialtyProducts?: boolean | null;
-  summerSausageLbs?: string | null;
-  summerSausageCheeseLbs?: string | null;
-  slicedJerkyLbs?: string | null;
+  // Specialty fields seen elsewhere
+  specialtyProducts?: boolean;
 
-  // misc
-  dropoff?: string | null;
-  confirmation?: string | null;
+  // Open structure: keep anything coming from GAS
+  [k: string]: any;
 };
 
-export type DashboardCounts = {
-  ok: boolean;
-  needsTag: number;
-  ready: Trio;
-  called: Trio;
-};
+export type Trio = { meat: number; cape: number; webbs: number };
+export type DashboardCounts = { needsTag: number; ready: Trio };
 
-/* -------------------------------------------------------
- * Low-level POST wrapper
- * -----------------------------------------------------*/
-export async function postJSON<T = any>(body: Record<string, any>): Promise<T> {
-  const r = await fetch('/api/gas2', {
+const API = '/api/gas2';
+
+async function postJSON<T = any>(body: any): Promise<T> {
+  const r = await fetch(API, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     cache: 'no-store',
     body: JSON.stringify(body),
   });
-  const txt = await r.text();
-  let j: any;
-  try {
-    j = JSON.parse(txt);
-  } catch {
-    if (!r.ok) throw new Error(`HTTP ${r.status}: ${txt.slice(0, 400)}`);
-    throw new Error(`Bad JSON from /api/gas2: ${txt.slice(0, 400)}`);
+  const text = await r.text();
+  let json: any;
+  try { json = JSON.parse(text); } catch { json = { __raw: text }; }
+  if (!r.ok || json?.ok === false) {
+    throw new Error(json?.error || `HTTP ${r.status}`);
   }
-  if (!r.ok || j?.ok === false) {
-    throw new Error(j?.error || `HTTP ${r.status}`);
-  }
-  return j as T;
+  return json as T;
 }
 
-/* -------------------------------------------------------
- * Generic helpers (existing usage)
- * -----------------------------------------------------*/
-export async function saveJob(job: AnyRec) {
+/* ---------------- Basic job ops (legacy names kept) ---------------- */
+
+export async function getJob(tag: string): Promise<Job> {
+  const url = new URL(API, location.origin);
+  url.searchParams.set('action', 'get');
+  url.searchParams.set('tag', tag);
+  const r = await fetch(url.toString(), { cache: 'no-store' });
+  const t = await r.text();
+  let j: any; try { j = JSON.parse(t); } catch { j = { __raw: t }; }
+  if (!r.ok || j?.ok === false) throw new Error(j?.error || `HTTP ${r.status}`);
+  // GAS get returns { ok, exists, job } or similar — normalize:
+  return (j?.job || j) as Job;
+}
+
+export async function saveJob(job: Job): Promise<any> {
   return postJSON({ action: 'save', job });
 }
-export async function progressTag(tag: string) {
+
+// Legacy “progress(tag)” that some pages import
+export async function progress(tag: string): Promise<any> {
   return postJSON({ action: 'progress', tag });
 }
-export async function search(q: string, limit?: number) {
-  const body: AnyRec = { action: 'search', q };
-  if (limit) body.limit = limit;
-  return postJSON(body);
-}
-export async function get(tag: string) {
-  return postJSON({ action: 'get', tag });
-}
 
-/* -------------------------------------------------------
- * Back-compat aliases (to fix build/imports without touching pages)
- * -----------------------------------------------------*/
-export const progress = progressTag;    // import { progress } from '@/lib/api'
-export const getJob = get;              // import { getJob } from '@/lib/api'
-export const searchJobs = search;       // import { searchJobs } from '@/lib/api'
+/* ---------------- Search helpers ---------------- */
 
-/* -------------------------------------------------------
- * Calls report helpers (back-compat + safe implementations)
- * -----------------------------------------------------*/
-export async function markCalled(tag: string, track: Track = 'meat') {
-  if (!tag) throw new Error('markCalled(): tag required');
-  const now = new Date().toISOString();
-
-  if (track === 'cape') {
-    return postJSON({
-      action: 'save',
-      job: {
-        tag,
-        capingStatus: 'Called',
-        'Caping Status': 'Called',
-        lastCallAt: now,
-        'Last Call At': now,
-      },
-    });
-  }
-  if (track === 'webbs') {
-    return postJSON({
-      action: 'save',
-      job: {
-        tag,
-        webbsStatus: 'Called',
-        'Webbs Status': 'Called',
-        lastCallAt: now,
-        'Last Call At': now,
-      },
-    });
-  }
-  // meat (regular processing)
-  return postJSON({
-    action: 'save',
-    job: {
-      tag,
-      status: 'Called',
-      Status: 'Called',
-      lastCallAt: now,
-      'Last Call At': now,
-    },
-  });
+export async function searchJobs(q: string): Promise<Job[]> {
+  const res = await postJSON<{ rows?: Job[]; results?: Job[]; [k: string]: any }>({ action: 'search', q });
+  const rows = Array.isArray(res?.rows) ? res.rows : Array.isArray(res?.results) ? res.results : Array.isArray(res) ? (res as any) : [];
+  return rows as Job[];
 }
 
-export async function logCallSimple(tag: string, note: string) {
-  if (!tag) throw new Error('logCallSimple(): tag required');
-  // Try a dedicated action first; if your GAS ignores it, still returns ok:true.
-  try {
-    return await postJSON({ action: 'logCall', tag, note });
-  } catch {
-    const stamp = new Date().toISOString();
-    return postJSON({
-      action: 'save',
-      job: { tag, note: `[${stamp}] ${note}` },
-    });
-  }
-}
-
-/* -------------------------------------------------------
- * Dashboard / KPI (used on homepage)
- * -----------------------------------------------------*/
-export async function getDashboardCounts(): Promise<DashboardCounts> {
-  const j = await postJSON<DashboardCounts>({ action: 'dashboardcounts' });
-  return {
-    ok: !!j?.ok,
-    needsTag: Number(j?.needsTag || 0),
-    ready: {
-      meat: Number(j?.ready?.meat || 0),
-      cape: Number(j?.ready?.cape || 0),
-      webbs: Number(j?.ready?.webbs || 0),
-    },
-    called: {
-      meat: Number(j?.called?.meat || 0),
-      cape: Number(j?.called?.cape || 0),
-      webbs: Number(j?.called?.webbs || 0),
-    },
-  };
-}
-
-/* -------------------------------------------------------
- * Signed read-only link (optional; some pages use it)
- * -----------------------------------------------------*/
-export async function viewLink(tag: string): Promise<{ ok: boolean; url?: string; error?: string }> {
-  if (!tag) throw new Error('viewLink(): tag required');
-  return postJSON<{ ok: boolean; url?: string; error?: string }>({ action: 'viewlink', tag });
-}
-
-/* -------------------------------------------------------
- * Per-track actions (pickup / paid)
- * -----------------------------------------------------*/
-export async function markPaidProcessing(tag: string) {
-  if (!tag) throw new Error('markPaidProcessing(): tag required');
-  return postJSON({ action: 'save', job: { tag, paidProcessing: true, 'Paid Processing': true } });
-}
-
-export async function markPickedUp(tag: string, track: Track) {
-  if (!tag) throw new Error('markPickedUp(): tag required');
-  const now = new Date().toISOString();
-
-  if (track === 'cape') {
-    return postJSON({
-      action: 'save',
-      job: {
-        tag,
-        capingStatus: 'Picked Up',
-        'Caping Status': 'Picked Up',
-      },
-    });
-  }
-  if (track === 'webbs') {
-    return postJSON({
-      action: 'save',
-      job: {
-        tag,
-        webbsStatus: 'Picked Up',
-        'Webbs Status': 'Picked Up',
-      },
-    });
-  }
-  // meat
-  return postJSON({
-    action: 'save',
-    job: {
-      tag,
-      status: 'Picked Up',
-      Status: 'Picked Up',
-      'Picked Up - Processing': true,
-      'Picked Up - Processing At': now,
-    },
-  });
-}
-
-/* -------------------------------------------------------
- * Overnight Review helpers
- * -----------------------------------------------------*/
-export type OvernightRow = {
-  row: number;
-  customer: string;
-  confirmation: string;
-  phone: string;
-  dropoff?: string;
-  status?: string;
-  tag?: string;
-  requiresTag?: boolean;
-};
-
-export async function fetchNeedsTag(limit = 500): Promise<OvernightRow[]> {
-  const j = await postJSON<{ ok: boolean; rows: AnyRec[] }>({ action: 'needstag', limit });
-  const rows = Array.isArray(j?.rows) ? j.rows : [];
-  return rows.map((r) => ({
-    row: Number(r?.row ?? r?.Row ?? 0) || 0,
-    customer: String(r?.customer ?? r?.['Customer Name'] ?? r?.Customer ?? '') || '',
-    confirmation: String(r?.confirmation ?? '') || '',
-    phone: String(r?.phone ?? r?.Phone ?? '') || '',
-    dropoff:
-      String(
-        r?.dropoff ?? r?.['Drop-off'] ?? r?.['Drop Off'] ??
-        r?.['Drop-off Date'] ?? r?.['Drop Off Date'] ?? r?.['Date Dropped'] ?? ''
-      ),
-    status: String(r?.status ?? r?.Status ?? '') || '',
-    tag: String(r?.tag ?? r?.Tag ?? '') || '',
-    requiresTag: !!(r?.requiresTag ?? r?.['Requires Tag']),
-  }));
-}
-
-export async function setTag(row: number, tag: string) {
-  if (!row || !tag) throw new Error('setTag(): row and tag are required');
+/* Overnight / tags */
+export async function setTag(row: number, tag: string): Promise<any> {
   return postJSON({ action: 'settag', row, tag });
 }
-
-/* -------------------------------------------------------
- * Called report helper (used by "Pickup Queue / Called" pages)
- * -----------------------------------------------------*/
-export type CalledRow = {
-  tag: string;
-  customer: string;
-  phone: string;
-  dropoff?: string;
-  status?: string;          // meat
-  capingStatus?: string;    // cape
-  webbsStatus?: string;     // webbs
-  paidProcessing?: boolean;
-  pickedUpProcessing?: boolean;
-  lastCallAt?: string;
-  processType?: string;
-  beefFat?: boolean;
-  webbsOrder?: boolean;
-  specialtyProducts?: boolean;
-  summerSausageLbs?: string;
-  summerSausageCheeseLbs?: string;
-  slicedJerkyLbs?: string;
-};
-
-export async function fetchCalled(): Promise<CalledRow[]> {
-  const data = await postJSON<{ ok: boolean; rows: AnyRec[] }>({ action: 'search', q: '@recall' });
-  const rows = Array.isArray(data?.rows) ? data.rows : [];
-  return rows.map((r: AnyRec) => ({
-    tag: String(r?.tag ?? r?.Tag ?? ''),
-    customer: String(r?.customer ?? r?.['Customer Name'] ?? ''),
-    phone: String(r?.phone ?? ''),
-    dropoff: String(r?.dropoff ?? ''),
-    status: String(r?.status ?? r?.Status ?? ''),
-    capingStatus: String(r?.capingStatus ?? r?.['Caping Status'] ?? ''),
-    webbsStatus: String(r?.webbsStatus ?? r?.['Webbs Status'] ?? ''),
-    paidProcessing: !!(r?.paidProcessing || r?.['Paid Processing']),
-    pickedUpProcessing: !!(r?.['Picked Up - Processing']),
-    lastCallAt: String(r?.lastCallAt ?? r?.['Last Call At'] ?? ''),
-    processType: String(r?.processType ?? ''),
-    beefFat: !!r?.beefFat,
-    webbsOrder: !!r?.webbsOrder,
-    specialtyProducts: !!r?.specialtyProducts,
-    summerSausageLbs: String(r?.summerSausageLbs ?? ''),
-    summerSausageCheeseLbs: String(r?.summerSausageCheeseLbs ?? ''),
-    slicedJerkyLbs: String(r?.slicedJerkyLbs ?? ''),
-  }));
+export async function needsTag(limit = 500): Promise<Job[]> {
+  const res = await postJSON<{ rows?: any[] }>({ action: 'needstag', limit });
+  return Array.isArray(res?.rows) ? (res.rows as Job[]) : [];
 }
 
-/* -------------------------------------------------------
- * Light utils
- * -----------------------------------------------------*/
-export function fmtMoney(n: number | string) {
-  const v = Number(n || 0);
-  return `$${v.toFixed(2)}`;
+/* ---------------- Call report helpers (keep names/signatures) ---------------- */
+
+export async function markCalled(args: { tag: string; scope: 'meat'|'cape'|'webbs'|'all'; notes?: string }): Promise<any> {
+  // Your GAS listens for `action: 'markCalled'`
+  return postJSON({ action: 'markCalled', ...args });
 }
-export function toInt(val: any) {
-  const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+
+export async function logCallSimple(args: { tag: string; scope?: 'meat'|'cape'|'webbs'; reason?: string; notes?: string }): Promise<any> {
+  // Your GAS listens for `action: 'log-call'`
+  return postJSON({ action: 'log-call', ...args });
+}
+
+/* ---------------- Picked Up helpers (UI calls these) ----------------
+   NOTE: These call the route actions you added:
+   - pickedUpProcessing
+   - pickedUpCape
+   - pickedUpWebbs
+   If your GAS instead exposes a single pickedUp { tag, scope }, you can
+   switch these three to call that one action in route.ts (already supported).
+*/
+
+export async function pickedUpProcessing(tag: string): Promise<any> {
+  return postJSON({ action: 'pickedUpProcessing', tag });
+}
+export async function pickedUpCape(tag: string): Promise<any> {
+  return postJSON({ action: 'pickedUpCape', tag });
+}
+export async function pickedUpWebbs(tag: string): Promise<any> {
+  return postJSON({ action: 'pickedUpWebbs', tag });
+}
+
+/* ---------------- Dashboard KPI counts ---------------- */
+
+export async function getDashboardCounts(): Promise<DashboardCounts> {
+  const out = await postJSON<{ ok: boolean; needsTag: number; ready: Trio }>({ action: 'dashboardcounts' });
+  const needsTag = Number(out?.needsTag ?? 0);
+  const trio = out?.ready || { meat: 0, cape: 0, webbs: 0 };
+  return { needsTag, ready: { meat: Number(trio.meat||0), cape: Number(trio.cape||0), webbs: Number(trio.webbs||0) } };
+}
+
+/* ---------------- Optional read-only link (kept for compatibility) ---------------- */
+
+export async function viewLink(tag: string): Promise<string> {
+  const res = await postJSON<{ ok: boolean; url?: string }>({ action: 'viewlink', tag });
+  return String(res?.url || '');
 }
