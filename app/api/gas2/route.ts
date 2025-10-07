@@ -111,11 +111,10 @@ function formViewUrl(req: Request, tag: string) {
 }
 
 /* ---------------- Utils ---------------- */
-const lc = (v: any) => String(v ?? '').trim().toLowerCase();
 function truthyBool(v: any): boolean {
   if (v === true) return true;
   if (v === false) return false;
-  const s = lc(v);
+  const s = String(v ?? '').trim().toLowerCase();
   return ['true', 'yes', 'y', '1', 'on', '✓', '✔'].includes(s);
 }
 function getTagFromRow(r: AnyRec): string {
@@ -128,11 +127,6 @@ function getConfirmationFromRow(r: AnyRec): string {
   for (const key of k) if (r[key] != null) return String(r[key]).trim();
   return '';
 }
-/** “Ready to call” = includes 'ready' or 'finish' but NOT 'called' */
-const isReadyToCall = (s?: any) => {
-  const v = lc(s);
-  return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
-};
 
 /* ---------------- Handlers ---------------- */
 export async function GET(req: NextRequest) {
@@ -250,75 +244,53 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  /* ---------- NEW: DASHBOARD COUNTS (for KPI cards) ---------- */
-    /* ---------- NEW: DASHBOARD COUNTS (for KPI cards) ---------- */
-  if (action === 'dashboardcounts') {
-    // 1) needsTag via robust helper
-    let needsCount = 0;
-    try {
-      const attempts: AnyRec[] = [
-        { action: 'search', q: '@needsTag', limit: 999 },
-        { action: 'search', q: '',          limit: 999 },
-        { action: 'search', q: '@all',      limit: 999 },
-        { action: 'search', q: '@recent',   limit: 999 },
-      ];
-      let got: AnyRec[] = [];
-      for (const payload of attempts) {
-        const up = await gasPost(payload);
-        if (up.status >= 400) continue;
-        const rows = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
-        if (Array.isArray(rows) && rows.length) { got = rows; break; }
-      }
-      const filtered = got.filter((r) => {
-        const tag = getTagFromRow(r);
-        const req = truthyBool(r.requiresTag ?? r['Requires Tag'] ?? r.requires_tag);
-        return !tag || req;
+  /* ---------- SPECIAL: mark picked up (any track) & flip track status ---------- */
+  if (action === 'pickedup') {
+    const tag = String(body.tag || '').trim();
+    const scopeRaw = String(body.scope || 'meat').toLowerCase();
+    const scope = scopeRaw === 'webbs' ? 'webbs' : scopeRaw === 'cape' ? 'cape' : 'meat';
+
+    if (!tag) {
+      return new Response(JSON.stringify({ ok:false, error:'Missing tag' }), {
+        status: 400, headers: { 'Content-Type': 'application/json' }
       });
-      needsCount = filtered.length;
-    } catch {}
-
-    // 2) ready/called pool (try a few known queries your call report uses)
-    const queries = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
-    let rows: AnyRec[] = [];
-    for (const q of queries) {
-      try {
-        const up = await gasPost({ action:'search', q });
-        if (up.status >= 400) continue;
-        const r = (up.json?.rows || up.json?.results || up.json || []) as AnyRec[];
-        if (Array.isArray(r) && r.length) { rows = r; break; }
-      } catch {}
     }
 
-    const toLC = (x:any) => String(x ?? '').trim().toLowerCase();
-    const isReadyToCall = (s?: any) => {
-      const v = toLC(s);
-      return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
-    };
-    const isCalled = (s?: any) => toLC(s).includes('called');
+    const now = new Date().toISOString();
 
-    let ready = { meat: 0, cape: 0, webbs: 0 };
-    let called = { meat: 0, cape: 0, webbs: 0 };
-
-    for (const r of rows) {
-      const meat = r.status ?? r.Status;
-      const cape = r.capingStatus ?? r['Caping Status'];
-      const webb = r.webbsStatus ?? r['Webbs Status'];
-
-      if (isReadyToCall(meat)) ready.meat++;
-      if (isReadyToCall(cape)) ready.cape++;
-      if (isReadyToCall(webb)) ready.webbs++;
-
-      if (isCalled(meat)) called.meat++;
-      if (isCalled(cape)) called.cape++;
-      if (isCalled(webb)) called.webbs++;
+    // IMPORTANT:
+    // GAS saveJob() writes the *lower-case* fields:
+    //   - status          -> Status column
+    //   - capingStatus    -> Caping Status column
+    //   - webbsStatus     -> Webbs Status column
+    // So set those exact keys to flip the visible columns to "Picked Up".
+    const updates: AnyRec = { tag };
+    if (scope === 'meat') {
+      updates.status = 'Picked Up';
+      // (optional flags below are ignored by saveJob(), but harmless)
+      updates['Picked Up - Processing'] = true;
+      updates['Picked Up - Processing At'] = now;
+    } else if (scope === 'cape') {
+      updates.capingStatus = 'Picked Up';
+      updates['Picked Up - Cape'] = true;
+      updates['Picked Up - Cape At'] = now;
+    } else {
+      updates.webbsStatus = 'Picked Up';
+      updates['Picked Up - Webbs'] = true;
+      updates['Picked Up - Webbs At'] = now;
     }
 
-    return new Response(
-      JSON.stringify({ ok:true, needsTag: needsCount, ready, called }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+    const res = await gasPost({ action: 'save', job: updates });
+    if (res.status >= 400 || (res.json && res.json.ok === false)) {
+      return new Response(
+        res.text || JSON.stringify(res.json || { ok:false, error:'pickedUp failed' }),
+        { status: res.status, headers: { 'Content-Type': res.text ? 'text/plain' : 'application/json' } }
+      );
+    }
+    return new Response(JSON.stringify({ ok:true }), {
+      status: 200, headers: { 'Content-Type': 'application/json' }
+    });
   }
-
 
   /* ---------- SPECIAL SEARCH: needsTag ---------- */
   const wantsNeedsTag =
@@ -560,22 +532,3 @@ export async function POST(req: NextRequest) {
     headers: { 'Content-Type': 'application/json' },
   });
 }
-
-/* ---------- EXTRA: Picked-Up actions used by the UI ----------
-   If your GAS already supports a single 'pickedUp' with { tag, scope },
-   you can point these three to that; otherwise we write the fields directly
-   via save so the Called queue updates immediately.
-*/
-
-export async function PUT(req: NextRequest) {
-  // not used
-  return new Response(JSON.stringify({ ok: false, error: 'Method not allowed' }), { status: 405 });
-}
-
-// Allow POST handlers for picked-up without disturbing the main POST flow:
-// (Vercel/Next will route here only if action matched above didn't handle.)
-// Keep them here for clarity if you prefer separate endpoints; otherwise
-// you can leave the three small handlers inside POST prior to the big pass-through.
-
-
-

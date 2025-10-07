@@ -3,8 +3,6 @@
 // which in turn talks to Google Apps Script (GAS).
 // Preserves previous helpers (getJob, saveJob, progress, searchJobs)
 // and adds markCalled + logCallSimple used by the Calls report.
-// Now also provides pickupTrack, pickedUpProcessing, and getDashboardCounts
-// for the dashboard KPI cards and pickup actions.
 //
 // NOTE: Do NOT call GAS directly from the browser. Always go through /api/gas2.
 // That keeps your token server-side and lets the server add signatures, links, etc.
@@ -50,15 +48,6 @@ export type SearchParams = {
   limit?: number;
   q?: string;
   [k: string]: any;
-};
-
-// ---------- NEW (for home KPI cards) ----------
-export type Trio = { meat: number; cape: number; webbs: number };
-export type DashboardCounts = {
-  needsTag: number;
-  ready: Trio;
-  called: Trio;
-  ok?: boolean; // optional flag; some code initializes with ok:true
 };
 
 // ----------- low-level fetch helpers (no-cache, JSON-safe) -----------
@@ -166,9 +155,7 @@ export async function searchJobs(q: string | SearchParams, opts: SearchOptions =
   return getJSON<any>(`${API_BASE}?${params.toString()}`);
 }
 
-/** Mark Called with scope: 'auto' | 'meat' | 'cape' | 'webbs' | 'all'
- *  NOTE: route.ts expects lower-case 'markcalled'
- */
+/** Mark Called with scope: 'auto' | 'meat' | 'cape' | 'webbs' | 'all' */
 export async function markCalled(arg1: any, arg2?: any) {
   // Supports: markCalled({ tag, scope, notes })
   // or legacy: markCalled(tag, scope?)
@@ -176,12 +163,12 @@ export async function markCalled(arg1: any, arg2?: any) {
   if (typeof arg1 === 'object' && arg1) {
     const { tag, scope, notes } = arg1 as any;
     if (!tag) throw new Error('Missing tag');
-    payload = { action: 'markcalled', tag, scope, notes };
+    payload = { action: 'markCalled', tag, scope, notes };
   } else {
     const tag = arg1 as string;
     const scope = (arg2 as any) || 'auto';
     if (!tag) throw new Error('Missing tag');
-    payload = { action: 'markcalled', tag, scope };
+    payload = { action: 'markCalled', tag, scope };
   }
   return postJSON<SaveResponse>(payload);
 }
@@ -204,44 +191,6 @@ export async function logCallSimple(arg1: any, arg2?: any, arg3?: any, arg4?: an
     payload = { action: 'log-call', tag, notes: note, who, outcome };
   }
   return postJSON<SaveResponse>(payload);
-}
-
-// ---------- NEW minimal helpers to support pickup + dashboard ----------
-
-/** Pick up a specific track (meat | cape | webbs).
- *  route.ts implements action: 'pickuptrack'
- */
-export async function pickupTrack(params: { tag: string; scope: 'meat' | 'cape' | 'webbs' }) {
-  const { tag, scope } = params || ({} as any);
-  if (!tag) throw new Error('Missing tag');
-  return postJSON<SaveResponse>({ action: 'pickuptrack', tag, scope });
-}
-
-/** Legacy meat pickup (stamps Picked Up - Processing fields too). */
-export async function pickedUpProcessing(tag: string) {
-  if (!tag) throw new Error('Missing tag');
-  return postJSON<SaveResponse>({ action: 'pickedupprocessing', tag });
-}
-
-/** Dashboard KPI counts for home page (needsTag + ready/called by track). */
-export async function getDashboardCounts(): Promise<DashboardCounts> {
-  const res = await postJSON<{ ok?: boolean; needsTag?: number; ready?: Trio; called?: Trio }>({
-    action: 'dashboardcounts',
-  });
-  return {
-    ok: res?.ok ?? true,
-    needsTag: Number(res?.needsTag ?? 0),
-    ready: {
-      meat: Number(res?.ready?.meat ?? 0),
-      cape: Number(res?.ready?.cape ?? 0),
-      webbs: Number(res?.ready?.webbs ?? 0),
-    },
-    called: {
-      meat: Number(res?.called?.meat ?? 0),
-      cape: Number(res?.called?.cape ?? 0),
-      webbs: Number(res?.called?.webbs ?? 0),
-    },
-  };
 }
 
 // ---------------- convenience utilities ----------------
@@ -278,4 +227,3 @@ export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: 
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
-
