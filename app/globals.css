@@ -1250,3 +1250,25 @@ body.light-page.watermark {
 }
 
 
+
+/* Force stacked items on mobile even if children have inline grid-column spans */
+@media (max-width: 640px) {
+  .light-page [data-stack] { grid-column: auto !important; }
+}
+
+
+
+/* Neutralize iOS data detector links so numbers aren't clickable/green */
+a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] {
+  color: inherit !important;
+  text-decoration: none !important;
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+
+
+/* Break long tokens (confirmation numbers, zip+4, etc.) */
+.light-page .value { word-break: break-word; overflow-wrap: anywhere; }
+
+

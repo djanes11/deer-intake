@@ -76,7 +76,7 @@ function Field({ label, value }: { label: string; value?: string }) {
     <div>
       <label>{label}</label>
       <div
-        className="value"
+        className="value wrap-any"
         style={{
           background:'#fff',
           border:'1px solid #cbd5e1',
@@ -194,14 +194,14 @@ export default async function IntakeView({
               <section>
                 <h3>Customer</h3>
                 <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-                  <div className="c3" style={{gridColumn:'span 3'}}><Field label="Confirmation #" value={job?.confirmation || ''} /></div>
+                  <div className="c3" style={{gridColumn:'span 3'}} data-stack="1"><Field label="Confirmation #" value={job?.confirmation || ''} /></div>
                   <div className="c6" style={{gridColumn:'span 6'}}><Field label="Customer Name" value={job?.customer || ''} /></div>
                   <div className="c3" style={{gridColumn:'span 3'}}><label>Phone</label><div className="value wrap-any">{job?.phone || ''}</div></div>
                   <div className="c8" style={{gridColumn:'span 8'}}>
                     <label>Email</label>
                     <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
                       <div
-                        className="value"
+                        className="value wrap-any"
                         style={{
                           background:'#fff',
                           border:'1px solid #cbd5e1',
