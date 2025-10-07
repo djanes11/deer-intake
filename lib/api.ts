@@ -3,12 +3,13 @@
 
 export type AnyRec = Record<string, any>;
 export type Track = 'meat' | 'cape' | 'webbs';
+export type Trio = { meat: number; cape: number; webbs: number };
 
 export type DashboardCounts = {
   ok: boolean;
   needsTag: number;
-  ready: { meat: number; cape: number; webbs: number };
-  called: { meat: number; cape: number; webbs: number };
+  ready: Trio;
+  called: Trio;
 };
 
 /* -------------------------------------------------------
@@ -56,7 +57,6 @@ export async function get(tag: string) {
 /* -------------------------------------------------------
  * Back-compat aliases (to fix build errors)
  * -----------------------------------------------------*/
-// pages import these older names:
 export const progress = progressTag;    // import { progress } from '@/lib/api'
 export const getJob = get;              // import { getJob } from '@/lib/api'
 export const searchJobs = search;       // import { searchJobs } from '@/lib/api'
@@ -64,13 +64,6 @@ export const searchJobs = search;       // import { searchJobs } from '@/lib/api
 /* -------------------------------------------------------
  * Calls report helpers (back-compat + safe implementations)
  * -----------------------------------------------------*/
-/**
- * Mark a tag as "Called" for a specific track.
- * - meat  -> Status = "Called"
- * - cape  -> Caping Status = "Called"
- * - webbs -> Webbs Status = "Called"
- * Also stamps "Last Call At" timestamp used by your report.
- */
 export async function markCalled(tag: string, track: Track = 'meat') {
   if (!tag) throw new Error('markCalled(): tag required');
   const now = new Date().toISOString();
@@ -112,19 +105,12 @@ export async function markCalled(tag: string, track: Track = 'meat') {
   });
 }
 
-/**
- * Very lightweight "call log" note helper used by your Calls page.
- * This stores a row-level note without changing status.
- * If your GAS supports a first-class "logCall" action, this will work.
- * If not, we fall back to appending a simple text note field.
- */
 export async function logCallSimple(tag: string, note: string) {
   if (!tag) throw new Error('logCallSimple(): tag required');
   // Try a dedicated action first; if your GAS ignores it, the request will still be ok:true.
   try {
     return await postJSON({ action: 'logCall', tag, note });
   } catch {
-    // Fallback: write a generic Note field
     const stamp = new Date().toISOString();
     return postJSON({
       action: 'save',
@@ -167,7 +153,6 @@ export async function viewLink(tag: string): Promise<{ ok: boolean; url?: string
  * -----------------------------------------------------*/
 export async function markPaidProcessing(tag: string) {
   if (!tag) throw new Error('markPaidProcessing(): tag required');
-  // Keep both variants for GAS compatibility
   return postJSON({ action: 'save', job: { tag, paidProcessing: true, 'Paid Processing': true } });
 }
 
