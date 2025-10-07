@@ -4,8 +4,32 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Job } from '@/lib/api';
 import { searchJobs, getJob, markCalled, logCallSimple, saveJob } from '@/lib/api';
+import { suggestedProcessingPrice } from '@/lib/api';
 
 /* ---------- helpers ---------- */
+// Show only the regular processing price (meat track). Cape/Webbs show an em dash.
+function displayProcessingPrice(r: any): string {
+  // If the flattened row already carries a computed price, prefer it
+  const fromRow =
+    Number(r.priceProcessing ?? r.processingPrice ?? r['Processing Price'] ?? 0);
+
+  if (r.__track === 'meat') {
+    if (fromRow > 0) return `$${fromRow.toFixed(2)}`;
+
+    // Fallback: compute from the job fields (matches our global price logic)
+    const proc =
+      r.processType ?? r['Process Type'] ?? r.ProcessType ?? r.process ?? '';
+    const beef = !!(r.beefFat ?? r['Beef Fat']);
+    const webbs = !!(r.webbsOrder ?? r['Webbs Order']);
+    const price = suggestedProcessingPrice(String(proc), beef, webbs);
+    return price > 0 ? `$${price.toFixed(2)}` : '—';
+  }
+
+  // Not a meat track → no processing price shown
+  return '—';
+}
+
+
 type Row = Partial<Job> & { tag: string };
 type Track = 'meat' | 'cape' | 'webbs';
 
