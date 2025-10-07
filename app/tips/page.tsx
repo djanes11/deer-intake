@@ -1,9 +1,7 @@
-// app/tips/page.tsx — Staff Tip Sheet (with Overnight Drop QR)
+// app/tips/page.tsx — Staff Tip Sheet (QR removed)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-import Image from 'next/image';
 
 export default function TipsPage() {
   return (
@@ -12,32 +10,6 @@ export default function TipsPage() {
         <h1 style={{margin:'0 0 6px'}}>McAfee Intake App — Tip Sheet</h1>
         <p className="muted">Fast reminders for staff. Keep this page open during busy hours.</p>
       </header>
-
-      {/* Overnight Drop QR */}
-      <section className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
-        <h2 style={{margin:'0 0 8px'}}>Overnight Drop — Scan Me</h2>
-        <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:10}}>
-          <p className="muted" style={{margin:0, textAlign:'center'}}>
-            Ask after-hours customers to scan this code to start the <b>Overnight Drop</b> flow.
-          </p>
-          <div style={{
-            background:'#fff', border:'1px solid #e6e9ec', borderRadius:12,
-            padding:12, display:'inline-block'
-          }}>
-            <Image
-              src="/img/overnight-qr.png"
-              alt="Overnight Drop QR"
-              width={260}
-              height={260}
-              priority
-              style={{ display:'block', height:'auto', width:'260px' }}
-            />
-          </div>
-          <div className="muted" style={{fontSize:12, textAlign:'center'}}>
-            Tip: Print this page and post it by the night drop box.
-          </div>
-        </div>
-      </section>
 
       <section className="form-card" style={{padding:14, borderRadius:12, marginBottom:12}}>
         <h2 style={{margin:'0 0 8px'}}>Quick Start</h2>

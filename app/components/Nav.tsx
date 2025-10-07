@@ -91,6 +91,7 @@ export default function Nav() {
             <div className="dropdown-menu" role="menu">
               <Link href="/tips" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Tip Sheet</Link>
               <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
+                      <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Overnight Drop QR</Link>
             </div>
           </details>
         </nav>
@@ -98,4 +99,5 @@ export default function Nav() {
     </header>
   );
 }
+
 
