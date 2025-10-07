@@ -251,6 +251,7 @@ export async function POST(req: NextRequest) {
   }
 
   /* ---------- NEW: DASHBOARD COUNTS (for KPI cards) ---------- */
+    /* ---------- NEW: DASHBOARD COUNTS (for KPI cards) ---------- */
   if (action === 'dashboardcounts') {
     // 1) needsTag via robust helper
     let needsCount = 0;
@@ -276,7 +277,7 @@ export async function POST(req: NextRequest) {
       needsCount = filtered.length;
     } catch {}
 
-    // 2) ready pool (try a few known queries)
+    // 2) ready/called pool (try a few known queries your call report uses)
     const queries = ['@readyTracks', '@callreport', '@calls', '@ready', '@recent', '@all'];
     let rows: AnyRec[] = [];
     for (const q of queries) {
@@ -288,18 +289,36 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    let meat = 0, cape = 0, webbs = 0;
+    const toLC = (x:any) => String(x ?? '').trim().toLowerCase();
+    const isReadyToCall = (s?: any) => {
+      const v = toLC(s);
+      return (v.includes('ready') || v.includes('finish')) && !v.includes('called');
+    };
+    const isCalled = (s?: any) => toLC(s).includes('called');
+
+    let ready = { meat: 0, cape: 0, webbs: 0 };
+    let called = { meat: 0, cape: 0, webbs: 0 };
+
     for (const r of rows) {
-      if (isReadyToCall(r.status ?? r.Status)) meat++;
-      if (isReadyToCall(r.capingStatus ?? r['Caping Status'])) cape++;
-      if (isReadyToCall(r.webbsStatus ?? r['Webbs Status'])) webbs++;
+      const meat = r.status ?? r.Status;
+      const cape = r.capingStatus ?? r['Caping Status'];
+      const webb = r.webbsStatus ?? r['Webbs Status'];
+
+      if (isReadyToCall(meat)) ready.meat++;
+      if (isReadyToCall(cape)) ready.cape++;
+      if (isReadyToCall(webb)) ready.webbs++;
+
+      if (isCalled(meat)) called.meat++;
+      if (isCalled(cape)) called.cape++;
+      if (isCalled(webb)) called.webbs++;
     }
 
     return new Response(
-      JSON.stringify({ ok:true, needsTag: needsCount, ready: { meat, cape, webbs } }),
+      JSON.stringify({ ok:true, needsTag: needsCount, ready, called }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   }
+
 
   /* ---------- SPECIAL SEARCH: needsTag ---------- */
   const wantsNeedsTag =

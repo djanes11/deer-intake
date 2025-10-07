@@ -132,12 +132,44 @@ export async function pickedUpWebbs(tag: string): Promise<any> {
 
 /* ---------------- Dashboard KPI counts ---------------- */
 
+// ---- keep your other imports/exports above ----
+
+// Counts for the three tracks
+export type Trio = { meat: number; cape: number; webbs: number };
+
+// What the dashboard cards read
+export type DashboardCounts = {
+  ok: boolean;          // <-- add this (your page.tsx expects it)
+  needsTag: number;
+  ready: Trio;
+  called: Trio;         // <-- add this (your page.tsx expects it)
+};
+
+// ...
+
 export async function getDashboardCounts(): Promise<DashboardCounts> {
-  const out = await postJSON<{ ok: boolean; needsTag: number; ready: Trio }>({ action: 'dashboardcounts' });
+  const out = await postJSON<{ ok?: boolean; needsTag?: number; ready?: Trio; called?: Trio }>({
+    action: 'dashboardcounts'
+  });
   const needsTag = Number(out?.needsTag ?? 0);
-  const trio = out?.ready || { meat: 0, cape: 0, webbs: 0 };
-  return { needsTag, ready: { meat: Number(trio.meat||0), cape: Number(trio.cape||0), webbs: Number(trio.webbs||0) } };
+  const readyIn = out?.ready || { meat: 0, cape: 0, webbs: 0 };
+  const calledIn = out?.called || { meat: 0, cape: 0, webbs: 0 };
+  return {
+    ok: out?.ok ?? true,
+    needsTag,
+    ready: {
+      meat: Number(readyIn.meat || 0),
+      cape: Number(readyIn.cape || 0),
+      webbs: Number(readyIn.webbs || 0),
+    },
+    called: {
+      meat: Number(calledIn.meat || 0),
+      cape: Number(calledIn.cape || 0),
+      webbs: Number(calledIn.webbs || 0),
+    },
+  };
 }
+
 
 /* ---------------- Optional read-only link (kept for compatibility) ---------------- */
 
