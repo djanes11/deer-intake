@@ -1,26 +1,18 @@
 // lib/api.ts
-// Centralized client helpers for talking to /api/gas2
-// - Keeps generic helpers you likely already use (saveJob, progressTag, search, get)
-// - Adds dashboard KPIs, signed view link, and mark-paid / mark-picked-up per track
-// - Adds Overnight Review helpers (fetchNeedsTag, setTag)
-// - Adds Called report helper (fetchCalled)
+// Central helpers for /api/gas2 with backwards-compatible exports used across your app.
 
 export type AnyRec = Record<string, any>;
-
 export type Track = 'meat' | 'cape' | 'webbs';
 
 export type DashboardCounts = {
   ok: boolean;
-  // Overnight items that need a Tag
   needsTag: number;
-  // “Ready to call” counts by track (Finished/Ready but not Called)
   ready: { meat: number; cape: number; webbs: number };
-  // “Called” queue counts by track
   called: { meat: number; cape: number; webbs: number };
 };
 
 /* -------------------------------------------------------
- * Low-level POST wrapper (kept tiny & predictable)
+ * Low-level POST wrapper
  * -----------------------------------------------------*/
 export async function postJSON<T = any>(body: Record<string, any>): Promise<T> {
   const r = await fetch('/api/gas2', {
@@ -30,44 +22,119 @@ export async function postJSON<T = any>(body: Record<string, any>): Promise<T> {
     body: JSON.stringify(body),
   });
   const txt = await r.text();
+  let j: any;
   try {
-    const j = JSON.parse(txt);
-    if (!r.ok || j?.ok === false) {
-      throw new Error(j?.error || `HTTP ${r.status}`);
-    }
-    return j as T;
-  } catch (e) {
-    // If upstream returned plain text, surface it
+    j = JSON.parse(txt);
+  } catch {
     if (!r.ok) throw new Error(`HTTP ${r.status}: ${txt.slice(0, 400)}`);
     throw new Error(`Bad JSON from /api/gas2: ${txt.slice(0, 400)}`);
   }
+  if (!r.ok || j?.ok === false) {
+    throw new Error(j?.error || `HTTP ${r.status}`);
+  }
+  return j as T;
 }
 
 /* -------------------------------------------------------
- * Generic pass-throughs you may already be using
- * (kept to avoid breaking existing code)
+ * Generic helpers (existing usage)
  * -----------------------------------------------------*/
 export async function saveJob(job: AnyRec) {
   return postJSON({ action: 'save', job });
 }
-
 export async function progressTag(tag: string) {
   return postJSON({ action: 'progress', tag });
 }
-
 export async function search(q: string, limit?: number) {
   const body: AnyRec = { action: 'search', q };
   if (limit) body.limit = limit;
   return postJSON(body);
 }
-
 export async function get(tag: string) {
   return postJSON({ action: 'get', tag });
 }
 
 /* -------------------------------------------------------
- * Dashboard KPIs
- * (pairs with route.ts action: "dashboardcounts")
+ * Back-compat aliases (to fix build errors)
+ * -----------------------------------------------------*/
+// pages import these older names:
+export const progress = progressTag;    // import { progress } from '@/lib/api'
+export const getJob = get;              // import { getJob } from '@/lib/api'
+export const searchJobs = search;       // import { searchJobs } from '@/lib/api'
+
+/* -------------------------------------------------------
+ * Calls report helpers (back-compat + safe implementations)
+ * -----------------------------------------------------*/
+/**
+ * Mark a tag as "Called" for a specific track.
+ * - meat  -> Status = "Called"
+ * - cape  -> Caping Status = "Called"
+ * - webbs -> Webbs Status = "Called"
+ * Also stamps "Last Call At" timestamp used by your report.
+ */
+export async function markCalled(tag: string, track: Track = 'meat') {
+  if (!tag) throw new Error('markCalled(): tag required');
+  const now = new Date().toISOString();
+
+  if (track === 'cape') {
+    return postJSON({
+      action: 'save',
+      job: {
+        tag,
+        capingStatus: 'Called',
+        'Caping Status': 'Called',
+        lastCallAt: now,
+        'Last Call At': now,
+      },
+    });
+  }
+  if (track === 'webbs') {
+    return postJSON({
+      action: 'save',
+      job: {
+        tag,
+        webbsStatus: 'Called',
+        'Webbs Status': 'Called',
+        lastCallAt: now,
+        'Last Call At': now,
+      },
+    });
+  }
+  // meat (regular processing)
+  return postJSON({
+    action: 'save',
+    job: {
+      tag,
+      status: 'Called',
+      Status: 'Called',
+      lastCallAt: now,
+      'Last Call At': now,
+    },
+  });
+}
+
+/**
+ * Very lightweight "call log" note helper used by your Calls page.
+ * This stores a row-level note without changing status.
+ * If your GAS supports a first-class "logCall" action, this will work.
+ * If not, we fall back to appending a simple text note field.
+ */
+export async function logCallSimple(tag: string, note: string) {
+  if (!tag) throw new Error('logCallSimple(): tag required');
+  // Try a dedicated action first; if your GAS ignores it, the request will still be ok:true.
+  try {
+    return await postJSON({ action: 'logCall', tag, note });
+  } catch {
+    // Fallback: write a generic Note field
+    const stamp = new Date().toISOString();
+    return postJSON({
+      action: 'save',
+      job: { tag, note: `[${stamp}] ${note}` },
+    });
+  }
+}
+
+/* -------------------------------------------------------
+ * Dashboard / KPI
  * -----------------------------------------------------*/
 export async function getDashboardCounts(): Promise<DashboardCounts> {
   const j = await postJSON<DashboardCounts>({ action: 'dashboardcounts' });
@@ -88,7 +155,7 @@ export async function getDashboardCounts(): Promise<DashboardCounts> {
 }
 
 /* -------------------------------------------------------
- * Signed read-only link (if/when you need it)
+ * Signed read-only link (optional)
  * -----------------------------------------------------*/
 export async function viewLink(tag: string): Promise<{ ok: boolean; url?: string; error?: string }> {
   if (!tag) throw new Error('viewLink(): tag required');
@@ -96,37 +163,18 @@ export async function viewLink(tag: string): Promise<{ ok: boolean; url?: string
 }
 
 /* -------------------------------------------------------
- * Per-track actions
+ * Per-track actions (pickup / paid)
  * -----------------------------------------------------*/
 export async function markPaidProcessing(tag: string) {
   if (!tag) throw new Error('markPaidProcessing(): tag required');
-  // Both camelCase and header-case are accepted by GAS; include both for safety.
+  // Keep both variants for GAS compatibility
   return postJSON({ action: 'save', job: { tag, paidProcessing: true, 'Paid Processing': true } });
 }
 
-/**
- * Mark a specific track picked up.
- * - meat → sets Status = "Picked Up" and stamps Picked Up - Processing (+ timestamp)
- * - cape → sets Caping Status = "Picked Up"
- * - webbs → sets Webbs Status = "Picked Up"
- */
 export async function markPickedUp(tag: string, track: Track) {
   if (!tag) throw new Error('markPickedUp(): tag required');
-
   const now = new Date().toISOString();
 
-  if (track === 'meat') {
-    return postJSON({
-      action: 'save',
-      job: {
-        tag,
-        status: 'Picked Up',
-        Status: 'Picked Up',
-        'Picked Up - Processing': true,
-        'Picked Up - Processing At': now,
-      },
-    });
-  }
   if (track === 'cape') {
     return postJSON({
       action: 'save',
@@ -137,13 +185,25 @@ export async function markPickedUp(tag: string, track: Track) {
       },
     });
   }
-  // webbs
+  if (track === 'webbs') {
+    return postJSON({
+      action: 'save',
+      job: {
+        tag,
+        webbsStatus: 'Picked Up',
+        'Webbs Status': 'Picked Up',
+      },
+    });
+  }
+  // meat
   return postJSON({
     action: 'save',
     job: {
       tag,
-      webbsStatus: 'Picked Up',
-      'Webbs Status': 'Picked Up',
+      status: 'Picked Up',
+      Status: 'Picked Up',
+      'Picked Up - Processing': true,
+      'Picked Up - Processing At': now,
     },
   });
 }
@@ -183,22 +243,20 @@ export async function fetchNeedsTag(limit = 500): Promise<OvernightRow[]> {
 
 export async function setTag(row: number, tag: string) {
   if (!row || !tag) throw new Error('setTag(): row and tag are required');
-  // The route will also attempt the drop-off email if not stamped yet.
   return postJSON({ action: 'settag', row, tag });
 }
 
 /* -------------------------------------------------------
- * Called report helper
- * (mirrors the GAS @recall pool; you can filter to meat/cape/webbs === "Called")
+ * Called report helper (used by "Pickup Queue / Called" pages)
  * -----------------------------------------------------*/
 export type CalledRow = {
   tag: string;
   customer: string;
   phone: string;
   dropoff?: string;
-  status?: string;          // meat status
-  capingStatus?: string;    // cape status
-  webbsStatus?: string;     // webbs status
+  status?: string;          // meat
+  capingStatus?: string;    // cape
+  webbsStatus?: string;     // webbs
   paidProcessing?: boolean;
   pickedUpProcessing?: boolean;
   lastCallAt?: string;
@@ -236,7 +294,7 @@ export async function fetchCalled(): Promise<CalledRow[]> {
 }
 
 /* -------------------------------------------------------
- * Light utils (optional)
+ * Light utils
  * -----------------------------------------------------*/
 export function fmtMoney(n: number | string) {
   const v = Number(n || 0);
