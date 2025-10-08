@@ -119,14 +119,17 @@ export default async function Page({
   params,
   searchParams,
 }: {
-  params: { tag: string };
-  searchParams?: SP;
+  params: Promise<{ tag: string }>;
+  searchParams?: Promise<SP>;
 }) {
-  try {
-    const tagDec = decodeURIComponent(params.tag);
-    const t = typeof searchParams?.t === 'string'
-      ? searchParams?.t
-      : Array.isArray(searchParams?.t) ? searchParams?.t[0] : undefined;
+  const { tag } = await params;
+  const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
+
+  const tagDec = decodeURIComponent(tag);
+  const t = typeof sp.t === 'string'
+    ? sp.t
+    : Array.isArray(sp.t) ? sp.t[0] : undefined;
+
 
     if (!verifyToken(tagDec, t)) {
       return (
