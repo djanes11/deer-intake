@@ -12,8 +12,13 @@ import { sendEmail } from '@/lib/email';
 
 // === Added for job fetch (safe, non-breaking) ===
 const SHEET_HEADERS = [
-  "Tag","Confirmation #","Customer","Phone","Email","Address","City","State","Zip","County Killed","Sex","Process Type","Drop-off Date","Status","Caping Status","Webbs Status","Steak","Steak Size (Other)","Burger Size","Steaks per Package","Beef Fat","Hind Roast Count","Front Roast Count","Backstrap Prep","Backstrap Thickness","Backstrap Thickness (Other)","Notes","Webbs Order","Webbs Order Form Number","Webbs Pounds","Price","Paid","Specialty Products","Specialty Pounds","Summer Sausage (lb)","Summer Sausage + Cheese (lb)","Sliced Jerky (lb)","Hind - Steak","Hind - Roast","Hind - Grind","Hind - None","Front - Steak","Front - Roast","Front - Grind","Front - None","Notified Ready At","Public Token","Public Link Sent At","Drop-off Email Sent At","Processing Price","Specialty Price","Paid Processing","Paid Processing At","Paid Specialty","Paid Specialty At","Picked Up - Processing","Picked Up - Processing At","Picked Up - Cape","Picked Up - Cape At","Picked Up - Webbs","Picked Up - Webbs At","Call Attempts","Last Called At","Last Called By","Last Call Outcome","Last Call At","Call Notes","Meat Attempts","Cape Attempts","Webbs Attempts","Requires Tag","Phone Last4"
-];
+  "Tag","Confirmation #","Customer","Phone","Email","Address","City","State","Zip","County Killed","Sex","Process Type","Drop-off Date","Status","Caping Status","Webbs Status","Steak","Steak Size (Other)","Burger Size","Steaks per Package","Beef Fat","Hind Roast Count","Front Roast Count","Backstrap Prep","Backstrap Thickness","Backstrap Thickness (Other)","Notes","Webbs Order","Webbs Order Form Number","Webbs Pounds","Price","Paid","Specialty Products","Specialty Pounds","Summer Sausage (lb)","Summer Sausage + Cheese (lb)","Sliced Jerky (lb)","Hind - Steak","Hind - Roast","Hind - Grind","Hind - None","Front - Steak","Front - Roast","Front - Grind","Front - None","Notified Ready At","Public Token","Public Link Sent At","Drop-off Email Sent At","Processing Price","Specialty Price","Paid Processing","Paid Processing At","Paid Specialty","Paid Specialty At","Picked Up - Processing","Picked Up - Processing At","Picked Up - Cape","Picked Up - Cape At","Picked Up - Webbs","Picked Up - Webbs At","Call Attempts","Last Called At","Last Called By","Last Call Outcome","Last Call At","Call Notes","Meat Attempts","Cape Attempts","Webbs Attempts","Requires Tag","Phone Last4",
+  "Specialty Status",
+  "Pref Email",
+  "Pref SMS",
+  "Pref Call",
+  "SMS Consent",
+  "Auto Call Consent"];
 
 // --- canonical key mapping (space/no-space/camel/underscored -> real header) ---
 const toKey = (s: string) =>
@@ -38,7 +43,13 @@ const headerKeyIndex: Record<string, string> = (() => {
     webbspounds: 'Webbs Pounds',
     hindsteak: 'Hind - Steak', hindroast: 'Hind - Roast', hindgrind: 'Hind - Grind', hindnone: 'Hind - None',
     frontsteak: 'Front - Steak', frontroast: 'Front - Roast', frontgrind: 'Front - Grind', frontnone: 'Front - None',
-  });
+  
+    specialtystatus: 'Specialty Status',
+    prefemail: 'Pref Email',
+    prefsms: 'Pref SMS',
+    prefcall: 'Pref Call',
+    smsconsent: 'SMS Consent',
+    autocallconsent: 'Auto Call Consent',});
   return m;
 })();
 

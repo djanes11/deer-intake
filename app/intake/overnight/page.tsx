@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { saveJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 
@@ -19,6 +19,7 @@ type CutsBlock = {
 };
 
 type Job = {
+  // NOTE: Tag intentionally blank/disabled in UI. We still keep the key in state.
   tag?: string;
   confirmation?: string;
 
@@ -42,9 +43,12 @@ type Job = {
     | 'Cape & Donate'
     | 'Donate';
 
-  status?: string;
-  capingStatus?: string;
-  webbsStatus?: string;
+  status?: string;            // regular status
+  capingStatus?: string;      // only shown if Caped / Cape & Donate
+  webbsStatus?: string;       // only shown if Webbs (and not Donate)
+
+  // NEW: Specialty Status (same flow rules as you requested)
+  specialtyStatus?: '' | 'Dropped Off' | 'In Progress' | 'Finished' | 'Called' | 'Picked Up';
 
   steak?: string;
   steakOther?: string;
@@ -66,6 +70,7 @@ type Job = {
   summerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
   slicedJerkyLbs?: string | number;
+  specialtyPounds?: string;
 
   notes?: string;
 
@@ -73,13 +78,23 @@ type Job = {
   webbsFormNumber?: string;
   webbsPounds?: string;
 
-  // paid flags
+  price?: number | string; // optional override
+
+  // legacy + new paid flags
   Paid?: boolean;
   paid?: boolean;
-  paidProcessing?: boolean;
-  paidSpecialty?: boolean;
+  paidProcessing?: boolean;  // regular processing paid
+  paidSpecialty?: boolean;   // specialty paid
 
+  // overnight signal for backend
   requiresTag?: boolean;
+
+  // NEW: comms prefs + consent
+  prefEmail?: boolean;       // maps to "Pref Email"
+  prefSMS?: boolean;         // maps to "Pref SMS"
+  prefCall?: boolean;        // maps to "Pref Call"
+  smsConsent?: boolean;      // maps to "SMS Consent"
+  autoCallConsent?: boolean; // maps to "Auto Call Consent"
 };
 
 const todayISO = () => {
@@ -121,22 +136,39 @@ const asBool = (v: any): boolean => {
   return ['true','yes','y','1','on','paid','x','✓','✔'].includes(s);
 };
 
+const fullPaid = (j: Job): boolean => {
+  const proc = !!j.paidProcessing;
+  const needsSpec = asBool(j.specialtyProducts);
+  const spec = needsSpec ? !!j.paidSpecialty : true;
+  return proc && spec;
+};
+
+const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
+const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
+const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up'] as const;
+const STATUS_SPEC  = ['Dropped Off', 'In Progress', 'Finished', 'Called', 'Picked Up'] as const;
+
+const coerce = (v: string | undefined, list: readonly string[]) =>
+  list.includes(String(v)) ? String(v) : list[0];
+
 /* ===== Suspense wrapper ===== */
 export default function Page() {
   return (
     <Suspense fallback={<div className="form-card"><div style={{padding:16}}>Loading…</div></div>}>
-      <IntakeOvernightPage />
+      <OvernightIntakePage />
     </Suspense>
   );
 }
 
-function IntakeOvernightPage() {
+function OvernightIntakePage() {
   const [job, setJob] = useState<Job>({
-    tag: '', // blank for overnight
+    tag: '',                  // overnight has no tag at intake time
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
     webbsStatus: '',
+    specialtyStatus: '',
+
     hind: {
       'Hind - Steak': false,
       'Hind - Roast': false,
@@ -156,15 +188,21 @@ function IntakeOvernightPage() {
     paidProcessing: false,
     paidSpecialty: false,
     specialtyProducts: false,
-    requiresTag: true, // key difference
+
+    requiresTag: true,        // THIS is what the backend uses to allow missing tag
+
+    // sensible defaults for prefs
+    prefEmail: true,
+    prefSMS: false,
+    prefCall: false,
+    smsConsent: false,
+    autoCallConsent: false,
   });
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
   const [locked, setLocked] = useState<boolean>(false);
   const [showThanks, setShowThanks] = useState<boolean>(false);
-
-  const tagRef = useRef<HTMLInputElement|null>(null);
 
   const processingPrice = useMemo(
     () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
@@ -179,19 +217,16 @@ function IntakeOvernightPage() {
   }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
   const totalPrice = processingPrice + specialtyPrice;
 
-  const hindRoastOn = !!job.hind?.['Hind - Roast'];
-  const frontRoastOn = !!job.front?.['Front - Roast'];
-  const isWholeBackstrap = job.backstrapPrep === 'Whole';
-  const needsBackstrapOther = !isWholeBackstrap && job.backstrapThickness === 'Other';
-  const needsSteakOther = job.steak === 'Other';
   const procNorm = normProc(job.processType);
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
 
-  const showMainStatus   = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
-  const showCapingStatus = capingFlow;
-  const showWebbsStatus  = webbsOn && procNorm !== 'Donate';
+  const showMainStatus       = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
+  const showCapingStatus     = capingFlow;
+  const showWebbsStatus      = webbsOn && procNorm !== 'Donate';
+  const showSpecialtyStatus  = !!job.specialtyProducts;
 
+  // status coercion/initialization
   useEffect(() => {
     setJob((prev) => {
       const next = { ...prev };
@@ -218,20 +253,11 @@ function IntakeOvernightPage() {
       const next: Job = { ...p };
       if (capingFlow && !next.capingStatus) next.capingStatus = 'Dropped Off';
       if (webbsOn && procNorm !== 'Donate' && !next.webbsStatus) next.webbsStatus = 'Dropped Off';
+      if (next.specialtyProducts && !next.specialtyStatus) next.specialtyStatus = 'Dropped Off';
+      if (!next.specialtyProducts) next.specialtyStatus = '';
       return next;
     });
-  }, [capingFlow, webbsOn, procNorm]);
-
-  useEffect(() => {
-    setJob((prev) => {
-      if (!prev.specialtyProducts && prev.paidSpecialty) {
-        const next = { ...prev, paidSpecialty: false };
-        const fp = (prev.paidProcessing && (!prev.specialtyProducts || next.paidSpecialty));
-        return { ...next, Paid: fp, paid: fp };
-      }
-      return prev;
-    });
-  }, [job.specialtyProducts]);
+  }, [capingFlow, webbsOn, procNorm, job.specialtyProducts]);
 
   const validate = (): string[] => {
     const missing: string[] = [];
@@ -262,10 +288,11 @@ function IntakeOvernightPage() {
 
     const pnorm = normProc(job.processType);
 
+    // Construct payload exactly as backend expects; requiresTag=true allows no tag
     const payload: Job = {
       ...job,
-      tag: '',                 // key: never send a tag
-      requiresTag: true,       // key: mark for staff tagging
+      tag: '',                 // never send a tag on overnight
+      requiresTag: true,
 
       status:
         pnorm === 'Cape & Donate' || pnorm === 'Donate'
@@ -282,14 +309,18 @@ function IntakeOvernightPage() {
           ? (job.webbsStatus || 'Dropped Off')
           : '',
 
-      Paid: (job.paidProcessing && (!job.specialtyProducts || job.paidSpecialty)),
-      paid: (job.paidProcessing && (!job.specialtyProducts || job.paidSpecialty)),
+      specialtyStatus: job.specialtyProducts ? (job.specialtyStatus || 'Dropped Off') : '',
+
+      // keep Paid flags consistent
+      Paid: fullPaid(job),
+      paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
 
-      summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
-      summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
-      slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
+      // sanitize specialty number fields
+      summerSausageLbs:          job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
+      summerSausageCheeseLbs:    job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
+      slicedJerkyLbs:            job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
     };
 
     try {
@@ -299,7 +330,7 @@ function IntakeOvernightPage() {
         setMsg(res?.error || 'Save failed');
         return;
       }
-      // Lock the form and pop the thank-you
+      // Lock and show thank-you; front-of-house will add Tag later.
       setLocked(true);
       setShowThanks(true);
       setMsg('Saved ✓');
@@ -331,7 +362,6 @@ function IntakeOvernightPage() {
             <div className="col">
               <label>Tag Number</label>
               <input
-                ref={tagRef}
                 value={''}
                 onChange={() => {}}
                 placeholder="Assigned by staff"
@@ -363,11 +393,11 @@ function IntakeOvernightPage() {
               <div className="col">
                 <label>Status</label>
                 <select
-                  value={job.status || 'Dropped Off'}
+                  value={coerce(job.status, STATUS_MAIN)}
                   onChange={(e) => setVal('status', e.target.value)}
                   disabled={locked}
                 >
-                  {['Dropped Off','Processing','Finished','Called','Picked Up'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {STATUS_MAIN.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
@@ -376,11 +406,11 @@ function IntakeOvernightPage() {
               <div className="col">
                 <label>Caping Status</label>
                 <select
-                  value={job.capingStatus || 'Dropped Off'}
+                  value={coerce(job.capingStatus, STATUS_CAPE)}
                   onChange={(e) => setVal('capingStatus', e.target.value)}
                   disabled={locked}
                 >
-                  {['Dropped Off','Caped','Called','Picked Up'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {STATUS_CAPE.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
@@ -389,11 +419,24 @@ function IntakeOvernightPage() {
               <div className="col">
                 <label>Webbs Status</label>
                 <select
-                  value={job.webbsStatus || 'Dropped Off'}
+                  value={coerce(job.webbsStatus, STATUS_WEBBS)}
                   onChange={(e) => setVal('webbsStatus', e.target.value)}
                   disabled={locked}
                 >
-                  {['Dropped Off','Sent','Delivered','Called','Picked Up'].map(s => <option key={s} value={s}>{s}</option>)}
+                  {STATUS_WEBBS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+
+            {showSpecialtyStatus && (
+              <div className="col">
+                <label>Specialty Status</label>
+                <select
+                  value={coerce(job.specialtyStatus, STATUS_SPEC)}
+                  onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
+                  disabled={locked}
+                >
+                  {STATUS_SPEC.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
@@ -556,9 +599,9 @@ function IntakeOvernightPage() {
                   <span className="muted">Count</span>
                   <input
                     className="countInp"
-                    value={hindRoastOn ? (job.hindRoastCount || '') : ''}
+                    value={!!job.hind?.['Hind - Roast'] ? (job.hindRoastCount || '') : ''}
                     onChange={(e) => setVal('hindRoastCount', e.target.value)}
-                    disabled={!hindRoastOn || locked}
+                    disabled={!job.hind?.['Hind - Roast'] || locked}
                     inputMode="numeric"
                   />
                 </span>
@@ -608,9 +651,9 @@ function IntakeOvernightPage() {
                   <span className="muted">Count</span>
                   <input
                     className="countInp"
-                    value={frontRoastOn ? (job.frontRoastCount || '') : ''}
+                    value={!!job.front?.['Front - Roast'] ? (job.frontRoastCount || '') : ''}
                     onChange={(e) => setVal('frontRoastCount', e.target.value)}
-                    disabled={!frontRoastOn || locked}
+                    disabled={!job.front?.['Front - Roast'] || locked}
                     inputMode="numeric"
                   />
                 </span>
@@ -695,9 +738,9 @@ function IntakeOvernightPage() {
             <div className="c3">
               <label>Steak Size (Other)</label>
               <input
-                value={needsSteakOther ? (job.steakOther || '') : ''}
+                value={job.steak === 'Other' ? (job.steakOther || '') : ''}
                 onChange={(e) => setVal('steakOther', e.target.value)}
-                disabled={!needsSteakOther || locked}
+                disabled={job.steak !== 'Other' || locked}
                 placeholder='e.g., 5/8"'
               />
             </div>
@@ -726,11 +769,11 @@ function IntakeOvernightPage() {
             <div className="c4">
               <label>Thickness</label>
               <select
-                value={isWholeBackstrap ? '' : (job.backstrapThickness || '')}
+                value={job.backstrapPrep === 'Whole' ? '' : (job.backstrapThickness || '')}
                 onChange={(e) =>
                   setVal('backstrapThickness', e.target.value as Job['backstrapThickness'])
                 }
-                disabled={isWholeBackstrap || locked}
+                disabled={job.backstrapPrep === 'Whole' || locked}
               >
                 <option value="">—</option>
                 <option>1/2"</option>
@@ -741,9 +784,9 @@ function IntakeOvernightPage() {
             <div className="c4">
               <label>Thickness (Other)</label>
               <input
-                value={needsBackstrapOther ? (job.backstrapThicknessOther || '') : ''}
+                value={job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other' ? (job.backstrapThicknessOther || '') : ''}
                 onChange={(e) => setVal('backstrapThicknessOther', e.target.value)}
-                disabled={!needsBackstrapOther || locked}
+                disabled={!(job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other') || locked}
               />
             </div>
           </div>
@@ -790,6 +833,83 @@ function IntakeOvernightPage() {
                 onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
                 disabled={!job.specialtyProducts || locked}
               />
+            </div>
+          </div>
+
+          {showSpecialtyStatus && (
+            <div className="grid" style={{marginTop:8}}>
+              <div className="c3">
+                <label>Specialty Status</label>
+                <select
+                  value={coerce(job.specialtyStatus, STATUS_SPEC)}
+                  onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
+                  disabled={locked}
+                >
+                  {STATUS_SPEC.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Communication & Consent */}
+        <section>
+          <h3>Communication Preference & Consent</h3>
+          <div className="grid">
+            <div className="c6">
+              <label>Preferred Contact Methods</label>
+              <div className="checks">
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={!!job.prefEmail}
+                    onChange={(e) => setVal('prefEmail', e.target.checked)}
+                    disabled={locked}
+                  />
+                  <span>Email</span>
+                </label>
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={!!job.prefSMS}
+                    onChange={(e) => setVal('prefSMS', e.target.checked)}
+                    disabled={locked}
+                  />
+                  <span>Text (SMS)</span>
+                </label>
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={!!job.prefCall}
+                    onChange={(e) => setVal('prefCall', e.target.checked)}
+                    disabled={locked}
+                  />
+                  <span>Phone Call</span>
+                </label>
+              </div>
+            </div>
+            <div className="c6">
+              <label>Legal Consent</label>
+              <div className="checks">
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={!!job.smsConsent}
+                    onChange={(e) => setVal('smsConsent', e.target.checked)}
+                    disabled={locked}
+                  />
+                  <span>I consent to receive informational/automated SMS</span>
+                </label>
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={!!job.autoCallConsent}
+                    onChange={(e) => setVal('autoCallConsent', e.target.checked)}
+                    disabled={locked}
+                  />
+                  <span>I consent to receive automated phone calls</span>
+                </label>
+              </div>
             </div>
           </div>
         </section>
@@ -844,7 +964,7 @@ function IntakeOvernightPage() {
         {/* Actions */}
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
-          {/* Print button intentionally removed for overnight */}
+          {/* Overnight = no print button */}
           <button className="btn" onClick={onSave} disabled={busy || locked}>
             {busy ? 'Saving…' : locked ? 'Saved' : 'Save'}
           </button>
@@ -861,22 +981,18 @@ function IntakeOvernightPage() {
           <div className="modal-card">
             <h3>Thank you!</h3>
             <p style={{marginTop:8}}>
-              Please use a small tag to write the <b>last 5 digits</b> of your confirmation number
+              Please leave a note with the <b>last 5 digits</b> of your confirmation number
               {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
-              {' '}and leave it with the deer.
+              {' '}with your deer.
             </p>
             <p className="muted" style={{marginTop:8}}>
-              Your form has been submitted and is now locked.
+              Your form has been submitted and locked. Our front desk will assign your tag.
             </p>
             <button
               className="btn wide"
               onClick={() => {
-                // Try to close if it was opened as a standalone page; otherwise go back.
-                if (window.history.length > 1) {
-                  window.location.replace('/'); // cleaner than back to avoid resubmits
-                } else {
-                  window.close();
-                }
+                if (window.history.length > 1) window.location.replace('/');
+                else window.close();
               }}
             >
               Done
@@ -893,9 +1009,9 @@ function IntakeOvernightPage() {
         input, select, textarea {
           width: 100%; padding: 6px 8px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box;
         }
-        input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
-
         textarea { resize: vertical; }
+
+        input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
 
         .grid { display: grid; gap: 8px; grid-template-columns: repeat(12, 1fr); }
         .c3{grid-column: span 3} .c4{grid-column: span 4} .c6{grid-column: span 6} .c8{grid-column: span 8}
@@ -915,8 +1031,6 @@ function IntakeOvernightPage() {
         .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
         .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
-        .btn.wide { width: 100%; margin-top: 12px; }
-
         .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
         .status.ok { color: #065f46; }
         .status.err { color: #b91c1c; }
@@ -929,10 +1043,8 @@ function IntakeOvernightPage() {
           .summary .row { grid-template-columns: 1fr; }
           .summary .row.small { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
+          .summary .checks { gap: 8px; }
         }
-
-        /* Lock overlay style change (no overlay, but disabled controls + cursor) */
-        .locked { opacity: 1; }
 
         /* Modal */
         .modal {
@@ -944,6 +1056,7 @@ function IntakeOvernightPage() {
         }
         .modal-card h3 { margin: 4px 0 0; }
         .modal-card code { background: #f3f4f6; padding: 0 6px; border-radius: 4px; }
+        .btn.wide { width: 100%; margin-top: 12px; }
       `}</style>
     </div>
   );

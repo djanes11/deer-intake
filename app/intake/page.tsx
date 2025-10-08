@@ -47,6 +47,9 @@ type Job = {
   capingStatus?: string;      // only shown if Caped / Cape & Donate
   webbsStatus?: string;       // only shown if Webbs (and not Donate)
 
+  // NEW: specialty status (mirrors cape-style flow)
+  specialtyStatus?: '' | 'Dropped Off' | 'In Progress' | 'Finished' | 'Called' | 'Picked Up';
+
   steak?: string;
   steakOther?: string;
   burgerSize?: string;
@@ -60,7 +63,7 @@ type Job = {
   front?: CutsBlock;
 
   backstrapPrep?: '' | 'Whole' | 'Sliced' | 'Butterflied';
-  backstrapThickness?: '' | '1/2\"' | '3/4\"' | 'Other';
+  backstrapThickness?: '' | '1/2"' | '3/4"' | 'Other';
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
@@ -82,6 +85,13 @@ type Job = {
   paid?: boolean;
   paidProcessing?: boolean;  // NEW
   paidSpecialty?: boolean;   // NEW
+
+  // NEW: communication prefs + consents
+  prefEmail?: boolean;
+  prefSMS?: boolean;
+  prefCall?: boolean;
+  smsConsent?: boolean;
+  autoCallConsent?: boolean;
 };
 
 const todayISO = () => {
@@ -138,6 +148,8 @@ const fullPaid = (j: Job): boolean => {
 const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
 const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
 const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up'] as const;
+// NEW: Specialty flow like requested
+const STATUS_SPECIALTY = ['Dropped Off', 'In Progress', 'Finished', 'Called', 'Picked Up'] as const;
 
 const coerce = (v: string | undefined, list: readonly string[]) =>
   list.includes(String(v)) ? String(v) : list[0];
@@ -161,6 +173,8 @@ function IntakePage() {
     status: 'Dropped Off',
     capingStatus: '',
     webbsStatus: '',
+    specialtyStatus: '',
+
     hind: {
       'Hind - Steak': false,
       'Hind - Roast': false,
@@ -175,11 +189,20 @@ function IntakePage() {
     },
     beefFat: false,
     webbsOrder: false,
+
     Paid: false,
     paid: false,
     paidProcessing: false,
     paidSpecialty: false,
+
     specialtyProducts: false,
+
+    // NEW: defaults for comms/consent
+    prefEmail: true,
+    prefSMS: false,
+    prefCall: false,
+    smsConsent: false,
+    autoCallConsent: false,
   });
 
   const [busy, setBusy] = useState(false);
@@ -219,6 +242,11 @@ function IntakePage() {
                   ? coerce(j.webbsStatus || 'Dropped Off', STATUS_WEBBS)
                   : '',
 
+              // NEW: specialty status (if specialtyProducts)
+              specialtyStatus: asBool(j.specialtyProducts)
+                ? coerce(j.specialtyStatus || 'Dropped Off', STATUS_SPECIALTY)
+                : '',
+
               hind: {
                 'Hind - Steak': pickCut(j?.hind, 'Hind - Steak'),
                 'Hind - Roast': pickCut(j?.hind, 'Hind - Roast'),
@@ -242,6 +270,13 @@ function IntakePage() {
               paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
               paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
               specialtyProducts: asBool(j.specialtyProducts),
+
+              // NEW: load prefs + consents
+              prefEmail:  asBool(j.prefEmail),
+              prefSMS:    asBool(j.prefSMS),
+              prefCall:   asBool(j.prefCall),
+              smsConsent: asBool(j.smsConsent),
+              autoCallConsent: asBool(j.autoCallConsent),
             };
             const fp = fullPaid(next);
             next.Paid = !!(j.Paid ?? j.paid ?? fp);
@@ -277,9 +312,10 @@ function IntakePage() {
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
 
-  const showMainStatus   = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
-  const showCapingStatus = capingFlow;
-  const showWebbsStatus  = webbsOn && procNorm !== 'Donate';
+  const showMainStatus      = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
+  const showCapingStatus    = capingFlow;
+  const showWebbsStatus     = webbsOn && procNorm !== 'Donate';
+  const showSpecialtyStatus = !!job.specialtyProducts;
 
   useEffect(() => {
     setJob((prev) => {
@@ -313,10 +349,13 @@ function IntakePage() {
 
   useEffect(() => {
     setJob((prev) => {
-      if (!asBool(prev.specialtyProducts) && prev.paidSpecialty) {
-        const next = { ...prev, paidSpecialty: false };
+      if (!asBool(prev.specialtyProducts)) {
+        // Turn off specialty paid + status if they uncheck the section
+        const next: Job = { ...prev, paidSpecialty: false, specialtyStatus: '' };
         const fp = fullPaid(next);
         return { ...next, Paid: fp, paid: fp };
+      } else if (!prev.specialtyStatus) {
+        return { ...prev, specialtyStatus: 'Dropped Off' };
       }
       return prev;
     });
@@ -365,6 +404,11 @@ function IntakePage() {
           ? coerce(job.webbsStatus, STATUS_WEBBS)
           : '',
 
+      // keep specialty status only if section is on
+      specialtyStatus: job.specialtyProducts
+        ? coerce(job.specialtyStatus, STATUS_SPECIALTY)
+        : '',
+
       Paid: fullPaid(job),
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
@@ -395,6 +439,13 @@ function IntakePage() {
                 j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? p.confirmation ?? '',
               paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
               paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
+
+              // ensure prefs/consents reflect sheet
+              prefEmail:  asBool(j.prefEmail),
+              prefSMS:    asBool(j.prefSMS),
+              prefCall:   asBool(j.prefCall),
+              smsConsent: asBool(j.smsConsent),
+              autoCallConsent: asBool(j.autoCallConsent),
             };
             const fp = fullPaid(merged);
             merged.Paid = !!(j.Paid ?? j.paid ?? fp);
@@ -489,6 +540,18 @@ function IntakePage() {
                   onChange={(e) => setVal('webbsStatus', e.target.value)}
                 >
                   {STATUS_WEBBS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            )}
+
+            {showSpecialtyStatus && (
+              <div className="col">
+                <label>Specialty Status</label>
+                <select
+                  value={coerce(job.specialtyStatus, STATUS_SPECIALTY)}
+                  onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
+                >
+                  {STATUS_SPECIALTY.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             )}
@@ -894,33 +957,44 @@ function IntakePage() {
                 <span><strong>Would like specialty products</strong></span>
               </label>
             </div>
-            <div className="c3">
-              <label>Summer Sausage (lb)</label>
-              <input
-                inputMode="numeric"
-                value={job.specialtyProducts ? String(job.summerSausageLbs ?? '') : ''}
-                onChange={(e) => setVal('summerSausageLbs', e.target.value)}
-                disabled={!job.specialtyProducts}
-              />
-            </div>
-            <div className="c3">
-              <label>Summer Sausage + Cheese (lb)</label>
-              <input
-                inputMode="numeric"
-                value={job.specialtyProducts ? String(job.summerSausageCheeseLbs ?? '') : ''}
-                onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
-                disabled={!job.specialtyProducts}
-              />
-            </div>
-            <div className="c3">
-              <label>Sliced Jerky (lb)</label>
-              <input
-                inputMode="numeric"
-                value={job.specialtyProducts ? String(job.slicedJerkyLbs ?? '') : ''}
-                onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
-                disabled={!job.specialtyProducts}
-              />
-            </div>
+
+            {job.specialtyProducts && (
+              <>
+                <div className="c3">
+                  <label>Specialty Status</label>
+                  <select
+                    value={coerce(job.specialtyStatus, STATUS_SPECIALTY)}
+                    onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
+                  >
+                    {STATUS_SPECIALTY.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="c3">
+                  <label>Summer Sausage (lb)</label>
+                  <input
+                    inputMode="numeric"
+                    value={String(job.summerSausageLbs ?? '')}
+                    onChange={(e) => setVal('summerSausageLbs', e.target.value)}
+                  />
+                </div>
+                <div className="c3">
+                  <label>Summer Sausage + Cheese (lb)</label>
+                  <input
+                    inputMode="numeric"
+                    value={String(job.summerSausageCheeseLbs ?? '')}
+                    onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
+                  />
+                </div>
+                <div className="c3">
+                  <label>Sliced Jerky (lb)</label>
+                  <input
+                    inputMode="numeric"
+                    value={String(job.slicedJerkyLbs ?? '')}
+                    onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
+                  />
+                </div>
+              </>
+            )}
           </div>
         </section>
 
@@ -963,6 +1037,64 @@ function IntakePage() {
                 value={job.webbsPounds || ''}
                 onChange={(e) => setVal('webbsPounds', e.target.value)}
               />
+            </div>
+          </div>
+        </section>
+
+        {/* Communication & Consent */}
+        <section>
+          <h3>Communication & Consent</h3>
+          <div className="grid">
+            <div className="c4">
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={!!job.prefEmail}
+                  onChange={(e) => setVal('prefEmail', e.target.checked)}
+                />
+                <span>Prefer Email</span>
+              </label>
+            </div>
+            <div className="c4">
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={!!job.prefSMS}
+                  onChange={(e) => setVal('prefSMS', e.target.checked)}
+                />
+                <span>Prefer Text (SMS)</span>
+              </label>
+            </div>
+            <div className="c4">
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={!!job.prefCall}
+                  onChange={(e) => setVal('prefCall', e.target.checked)}
+                />
+                <span>Prefer Phone Call</span>
+              </label>
+            </div>
+
+            <div className="c6">
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={!!job.smsConsent}
+                  onChange={(e) => setVal('smsConsent', e.target.checked)}
+                />
+                <span>Consent to receive SMS texts</span>
+              </label>
+            </div>
+            <div className="c6">
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={!!job.autoCallConsent}
+                  onChange={(e) => setVal('autoCallConsent', e.target.checked)}
+                />
+                <span>Consent to receive automated calls</span>
+              </label>
             </div>
           </div>
         </section>
@@ -1010,7 +1142,7 @@ function IntakePage() {
 
         .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
-        .summary .row.small { margin-top: 6px; grid-template-columns: repeat(4, 1fr); }
+        .summary .row.small { margin-top: 6px; grid-template-columns: repeat(5, 1fr); }
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
@@ -1045,4 +1177,3 @@ function IntakePage() {
     </div>
   );
 }
-

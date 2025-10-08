@@ -26,7 +26,7 @@ function asBool(v: any): boolean {
   if (v === false) return false;
   const s = String(v ?? '').trim().toLowerCase();
   if (!s) return false;
-  return ['1', 'true', 'yes', 'y', 'on', 'checked'].includes(s);
+  return ['1', 'true', 'yes', 'y', 'on', 'checked', '✓', '✔', 'x'].includes(s);
 }
 function asPounds(x: any): string {
   const n = Number(x);
@@ -159,6 +159,13 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     return ssN * 4.25 + sscN * 4.60 + jerN * 15.0;
   }, [ssN, sscN, jerN]);
   const totalPrice = processingPrice + specialtyPrice;
+
+  // --- NEW: derive comms prefs + consent ---
+  const prefEmail = asBool(jpick(job, ['prefEmail', 'Pref Email']));
+  const prefSMS   = asBool(jpick(job, ['prefSMS', 'Pref SMS']));
+  const prefCall  = asBool(jpick(job, ['prefCall', 'Pref Call']));
+  const smsConsent = asBool(jpick(job, ['smsConsent', 'SMS Consent']));
+  const autoCallConsent = asBool(jpick(job, ['autoCallConsent', 'Auto Call Consent']));
 
   return (
     <div ref={rootRef}>
@@ -400,6 +407,34 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
                 </div>
               </div>
 
+              {/* ===== NEW: Communication Preference & Consent ===== */}
+              <div className="grid" style={{ marginTop: '6px' }}>
+                <div className="col-6 box">
+                  <div className="label">Communication Preference</div>
+                  <div className="val">
+                    <strong className="check">{prefEmail ? '✓' : '□'}</strong>{' '}Email
+                  </div>
+                  <div className="val">
+                    <strong className="check">{prefSMS ? '✓' : '□'}</strong>{' '}Text (SMS)
+                  </div>
+                  <div className="val">
+                    <strong className="check">{prefCall ? '✓' : '□'}</strong>{' '}Phone Call
+                  </div>
+                </div>
+                <div className="col-6 box">
+                  <div className="label">Consent</div>
+                  <div className="val">
+                    <strong className="check">{smsConsent ? '✓' : '□'}</strong>{' '}
+                    I consent to receive informational/automated SMS
+                  </div>
+                  <div className="val">
+                    <strong className="check">{autoCallConsent ? '✓' : '□'}</strong>{' '}
+                    I consent to receive automated phone calls
+                  </div>
+                </div>
+              </div>
+              {/* ===== END NEW BLOCK ===== */}
+
             </div>
           </div>
         ))}
@@ -407,3 +442,4 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     </div>
   );
 }
+
