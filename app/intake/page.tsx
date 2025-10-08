@@ -151,8 +151,11 @@ const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up']
 // NEW: Specialty flow like requested
 const STATUS_SPECIALTY = ['Dropped Off', 'In Progress', 'Finished', 'Called', 'Picked Up'] as const;
 
-const coerce = (v: string | undefined, list: readonly string[]) =>
-  list.includes(String(v)) ? String(v) : list[0];
+// replace your current coerce with this typed version
+const coerce = <T extends readonly string[]>(
+  v: string | undefined,
+  list: T
+): T[number] => (list.includes(String(v)) ? String(v) : list[0]) as T[number];
 
 /* ===== Suspense wrapper ===== */
 export default function Page() {
