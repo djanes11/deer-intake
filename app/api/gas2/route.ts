@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
+import twilio from 'twilio'; // <-- NEW
 
 // === Added for job fetch (safe, non-breaking) ===
 const SHEET_HEADERS = [
@@ -18,7 +19,8 @@ const SHEET_HEADERS = [
   "Pref SMS",
   "Pref Call",
   "SMS Consent",
-  "Auto Call Consent"];
+  "Auto Call Consent"
+];
 
 // --- canonical key mapping (space/no-space/camel/underscored -> real header) ---
 const toKey = (s: string) =>
@@ -43,13 +45,14 @@ const headerKeyIndex: Record<string, string> = (() => {
     webbspounds: 'Webbs Pounds',
     hindsteak: 'Hind - Steak', hindroast: 'Hind - Roast', hindgrind: 'Hind - Grind', hindnone: 'Hind - None',
     frontsteak: 'Front - Steak', frontroast: 'Front - Roast', frontgrind: 'Front - Grind', frontnone: 'Front - None',
-  
+
     specialtystatus: 'Specialty Status',
     prefemail: 'Pref Email',
     prefsms: 'Pref SMS',
     prefcall: 'Pref Call',
     smsconsent: 'SMS Consent',
-    autocallconsent: 'Auto Call Consent',});
+    autocallconsent: 'Auto Call Consent',
+  });
   return m;
 })();
 
@@ -124,6 +127,13 @@ const GAS_TOKEN = process.env.GAS_TOKEN || '';
 const SITE = process.env.SITE_NAME || 'McAfee Custom Deer Processing';
 const EMAIL_DEBUG = process.env.EMAIL_DEBUG === '1';
 
+// --- Twilio (optional) ---
+const TWILIO_SID   = (process.env.TWILIO_ACCOUNT_SID || '').trim();
+const TWILIO_TOKEN = (process.env.TWILIO_AUTH_TOKEN || '').trim();
+const TWILIO_FROM  = (process.env.TWILIO_FROM || '').trim();
+const hasTwilio    = !!(TWILIO_SID && TWILIO_TOKEN && TWILIO_FROM);
+const smsClient    = hasTwilio ? twilio(TWILIO_SID, TWILIO_TOKEN) : null;
+
 const mask = (s?: string) => (s ? s.replace(/.(?=.{4})/g, '•') : '');
 const log = (...args: any[]) => console.log('[gas2]', ...args);
 
@@ -138,7 +148,9 @@ function logEnvOnce() {
     'SMTP_USER:',
     mask(process.env.SMTP_USER || ''),
     'RESEND:',
-    !!process.env.RESEND_API_KEY ? 'on' : 'off'
+    !!process.env.RESEND_API_KEY ? 'on' : 'off',
+    'TWILIO:',
+    hasTwilio ? 'on' : 'off'
   );
 }
 
@@ -231,6 +243,70 @@ function getConfirmationFromRow(r: AnyRec): string {
   const k = ['confirmation','Confirmation #','Confirmation','Confirm #','confirm','CONFIRMATION'];
   for (const key of k) if (r[key] != null) return String(r[key]).trim();
   return '';
+}
+
+// ---- NEW Twilio helpers (trial-safe) ----
+const GSM7_REGEX =
+  // GSM-7 basic + common ext chars we use (kept simple; we avoid fancy punctuation in body builder)
+  /^[\u0000-\u007F€£¥ÄÖÑÜ§äöñüà^{}\[~\]|\\]*$/;
+
+function isGsm7(s: string) {
+  return GSM7_REGEX.test(s);
+}
+
+// Trim message to a conservative single segment on Trial (Trial adds a preface).
+function fitSmsForTrial(body: string) {
+  // Normalize curly quotes/dashes to stay GSM-7
+  const normalized = body
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, '-') // en/em dash -> hyphen
+    .replace(/\u00A0/g, ' ')
+    .trim();
+
+  const gsm = isGsm7(normalized);
+  const segmentLimit = gsm ? 160 : 70;
+  const trialHeadroom = gsm ? 30 : 20; // reserve for Twilio trial preface
+  const maxUserChars = Math.max(0, segmentLimit - trialHeadroom);
+
+  if (normalized.length <= maxUserChars) return normalized;
+
+  const clipped = normalized.slice(0, maxUserChars);
+  const lastSpace = clipped.lastIndexOf(' ');
+  return (lastSpace > 40 ? clipped.slice(0, lastSpace) : clipped).trim() + '…';
+}
+
+function toE164US(phoneRaw: any): string | null {
+  const digits = String(phoneRaw ?? '').replace(/\D+/g, '');
+  if (!digits) return null;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return digits.startsWith('+') ? digits : null;
+}
+function pickVal(job: Record<string, any> | undefined, ...keys: string[]) {
+  if (!job) return undefined;
+  for (const k of keys) if (job[k] !== undefined && job[k] !== null) return job[k];
+  return undefined;
+}
+function wantsSms(job: Record<string, any>): boolean {
+  const prefSms = truthyBool(pickVal(job, 'Pref SMS','prefSMS','prefsms'));
+  const smsOk   = truthyBool(pickVal(job, 'SMS Consent','smsConsent','smsconsent'));
+  return prefSms && smsOk;
+}
+
+// ASCII-only body for GSM-7; no emojis or fancy dashes/quotes
+function buildFinishedSmsBody(job: Record<string, any>, tag: string, siteLabel: string): string {
+  const procPrice = processingPrice(job.processType, !!job.beefFat, !!job.webbsOrder);
+  const paidProcessing = !!(job.paidProcessing || job['Paid Processing']);
+  const stillOwe = paidProcessing ? 0 : Math.max(0, procPrice);
+  const owedTxt = stillOwe > 0 ? ` Amount due (processing): $${stillOwe.toFixed(2)}.` : '';
+  return (
+    `Your deer processing is finished and ready for pickup. ` +
+    `Tag ${tag}.` +
+    owedTxt +
+    ` Hours: 6-8pm Mon-Fri, 9-5 Sat, 9-12 Sun. ` +
+    `Questions? Call (502) 643-3916. - ${siteLabel}`
+  );
 }
 
 /* ---------------- Handlers ---------------- */
@@ -658,6 +734,31 @@ export async function POST(req: NextRequest) {
             `<p>— ${SITE}</p>`,
           ].join(''),
         });
+
+        // ----- NEW: SMS when finished & customer prefers SMS w/ consent -----
+        try {
+          if (hasTwilio && wantsSms(latest)) {
+            const to =
+              toE164US(latest.phone || latest.Phone || body.job?.phone) ||
+              null;
+
+            if (to) {
+              const raw = buildFinishedSmsBody(latest, tag, SITE);
+              const smsBody = fitSmsForTrial(raw);
+              await smsClient!.messages.create({
+                to,
+                from: TWILIO_FROM,
+                body: smsBody,
+              });
+              log('twilio: sent SMS', { to, tag });
+            } else {
+              log('twilio: invalid phone; skipping SMS', { tag });
+            }
+          }
+        } catch (e: any) {
+          log('twilio error', e?.message || e);
+        }
+        // -----------------------------------------
       }
     } catch (e: any) {
       if (EMAIL_DEBUG) {
@@ -666,6 +767,24 @@ export async function POST(req: NextRequest) {
           { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
       }
+    }
+  } else if (shouldFinished && hasTwilio && wantsSms(latest)) {
+    // Edge case: no email but wants SMS — still try SMS
+    try {
+      const to =
+        toE164US(latest.phone || latest.Phone || body.job?.phone) ||
+        null;
+
+      if (to) {
+        const raw = buildFinishedSmsBody(latest, tag, SITE);
+        const smsBody = fitSmsForTrial(raw);
+        await smsClient!.messages.create({ to, from: TWILIO_FROM, body: smsBody });
+        log('twilio: sent SMS (no email case)', { to, tag });
+      } else {
+        log('twilio: invalid phone; skipping SMS (no email case)', { tag });
+      }
+    } catch (e:any) {
+      log('twilio error (no email case)', e?.message || e);
     }
   }
 

@@ -946,60 +946,55 @@ function IntakePage() {
           </div>
         </section>
 
-        {/* Specialty Products */}
-        <section>
-          <h3>McAfee Specialty Products</h3>
-          <div className="grid">
-            <div className="c3 rowInline">
-              <label className="chk tight">
-                <input
-                  type="checkbox"
-                  checked={!!job.specialtyProducts}
-                  onChange={(e) => setVal('specialtyProducts', e.target.checked)}
-                />
-                <span><strong>Would like specialty products</strong></span>
-              </label>
-            </div>
+{/* Specialty Products */}
+<section>
+  <h3>McAfee Specialty Products</h3>
+  <div className="grid">
+    <div className="c3 rowInline">
+      <label className="chk tight">
+        <input
+          type="checkbox"
+          checked={!!job.specialtyProducts}
+          onChange={(e) => setVal('specialtyProducts', e.target.checked)}
+        />
+        <span><strong>Would like specialty products</strong></span>
+      </label>
+    </div>
 
-            {job.specialtyProducts && (
-              <>
-                <div className="c3">
-                  <label>Specialty Status</label>
-                  <select
-                    value={coerce(job.specialtyStatus, STATUS_SPECIALTY)}
-                    onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
-                  >
-                    {STATUS_SPECIALTY.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="c3">
-                  <label>Summer Sausage (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    value={String(job.summerSausageLbs ?? '')}
-                    onChange={(e) => setVal('summerSausageLbs', e.target.value)}
-                  />
-                </div>
-                <div className="c3">
-                  <label>Summer Sausage + Cheese (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    value={String(job.summerSausageCheeseLbs ?? '')}
-                    onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
-                  />
-                </div>
-                <div className="c3">
-                  <label>Sliced Jerky (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    value={String(job.slicedJerkyLbs ?? '')}
-                    onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        </section>
+    {job.specialtyProducts && (
+      <>
+        {/* Removed the Specialty Status select here on purpose.
+            Status control remains in the SUMMARY BAR only. */}
+
+        <div className="c4">
+          <label>Summer Sausage (lb)</label>
+          <input
+            inputMode="numeric"
+            value={String(job.summerSausageLbs ?? '')}
+            onChange={(e) => setVal('summerSausageLbs', e.target.value)}
+          />
+        </div>
+        <div className="c4">
+          <label>Summer Sausage + Cheese (lb)</label>
+          <input
+            inputMode="numeric"
+            value={String(job.summerSausageCheeseLbs ?? '')}
+            onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
+          />
+        </div>
+        <div className="c4">
+          <label>Sliced Jerky (lb)</label>
+          <input
+            inputMode="numeric"
+            value={String(job.slicedJerkyLbs ?? '')}
+            onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
+          />
+        </div>
+      </>
+    )}
+  </div>
+</section>
+
 
         {/* Notes */}
         <section>
