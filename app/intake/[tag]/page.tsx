@@ -144,16 +144,10 @@ const PillMoney: React.CSSProperties = { ...Pill, fontWeight: 800, textAlign: 'r
 const Grid2: React.CSSProperties = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, 1fr)' };
 
 // ---- Page (Server Component) ----
-// NOTE: Next 15's typed PageProps can make `params` a Promise. Accept union and await it.
-export default async function ReadOnlyByTagPage({
-  params,
-  searchParams,
-}: {
-  params: { tag: string } | Promise<{ tag: string }>;
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
+// IMPORTANT: no explicit prop types — avoids Next 15 PageProps mismatch.
+export default async function ReadOnlyByTagPage({ params, searchParams }: any) {
   try {
-    const p = await params;               // handles both plain object and Promise
+    const p = await params; // handles both plain object and Promise in Next 15
     const tag = String(p?.tag || '').trim();
     if (!tag) throw new Error('Missing tag parameter.');
 
