@@ -20,7 +20,7 @@ type Row = {
 type AnyRec = Record<string, any>;
 
 const API = '/api/gas2';
-// Keep your existing column widths. If you want the Name narrower, change the first number.
+// Keep your existing column widths (Name slightly narrower as you had it)
 const GRID = '1fr 0.9fr 1.2fr 1fr 1.25fr';
 
 async function parseJsonSafe(r: Response) {
@@ -73,7 +73,7 @@ async function waitForRender() {
   await nextFrame();
 }
 
-// NEW: wait until the PrintSheet signals the barcode is drawn or timeout
+// Wait until the PrintSheet signals the barcode is drawn or timeout
 function waitForBarcodeReady(timeoutMs = 2000): Promise<boolean> {
   return new Promise((resolve) => {
     let resolved = false;
@@ -86,7 +86,6 @@ function waitForBarcodeReady(timeoutMs = 2000): Promise<boolean> {
     };
 
     const checkAttr = () => {
-      // any element inside print area sets data-barcode-ready
       const el = document.querySelector('#print-area [data-barcode-ready]');
       if (el) done(true);
     };
@@ -155,7 +154,7 @@ export default function OvernightReview() {
         await waitForRender();                // 4) ensure it's laid out
         await waitForBarcodeReady(2000);      // 5) wait for barcode (or timeout)
         const cleanup = () => {
-          setTimeout(() => {                  // small delay after print dialog
+          setTimeout(() => {
             setPrintJob(null);
             printingRef.current = false;
           }, 250);
@@ -238,7 +237,7 @@ export default function OvernightReview() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') assign(r.row, (e.currentTarget as HTMLInputElement).value);
                     }}
-                    // show at least 6 digits; 10ch gives some buffer
+                    // fits ~6 digits
                     style={{ width:'10ch', fontVariantNumeric:'tabular-nums', padding:'6px 8px' }}
                   />
                   <button
@@ -279,4 +278,3 @@ export default function OvernightReview() {
     </main>
   );
 }
-
