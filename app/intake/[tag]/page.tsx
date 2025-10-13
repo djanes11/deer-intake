@@ -398,7 +398,9 @@ export default async function ReadOnlyIntakePage({
       <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
         <h1 style={{color:'#0b0f12'}}>Unable to load form</h1>
         <p style={{whiteSpace:'pre-wrap', color:'#374151'}}>{String(err?.message || err)}</p>
-        <div style={{marginTop:8, fontSize:12, color:'#6b7280'}}...ensure NEXT_PUBLIC_GAS_BASE is your Apps Script /exec URL.</div>
+        <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>
+  Tip: ensure <code>NEXT_PUBLIC_GAS_BASE</code> is your Apps Script <code>/exec</code> URL.
+</div>
       </div>
     );
   }
