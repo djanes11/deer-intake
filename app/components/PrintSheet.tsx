@@ -402,9 +402,9 @@ const h3: React.CSSProperties = { margin:'12px 0 6px' };
 
 const grid12: React.CSSProperties = { display:'grid', gap:8, gridTemplateColumns:'repeat(12,1fr)' };
 const c12 = { gridColumn:'span 12' } as React.CSSProperties;
+const c8  = { gridColumn:'span 8' } as React.CSSProperties;   // <-- added
 const c6  = { gridColumn:'span 6' } as React.CSSProperties;
 const c4  = { gridColumn:'span 4' } as React.CSSProperties;
 const c3  = { gridColumn:'span 3' } as React.CSSProperties;
 const c2  = { gridColumn:'span 2' } as React.CSSProperties;
 const checks: React.CSSProperties = { display:'flex', flexWrap:'wrap', gap:10 };
-
