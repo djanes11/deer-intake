@@ -1,3 +1,4 @@
+// app/overnight/page.tsx
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +20,7 @@ type Row = {
 type AnyRec = Record<string, any>;
 
 const API = '/api/gas2';
+// Keep your existing column widths. If you want the Name narrower, change the first number.
 const GRID = '1fr 0.9fr 1.2fr 1fr 1.25fr';
 
 async function parseJsonSafe(r: Response) {
@@ -71,6 +73,47 @@ async function waitForRender() {
   await nextFrame();
 }
 
+// NEW: wait until the PrintSheet signals the barcode is drawn or timeout
+function waitForBarcodeReady(timeoutMs = 2000): Promise<boolean> {
+  return new Promise((resolve) => {
+    let resolved = false;
+    const done = (ok: boolean) => {
+      if (!resolved) {
+        resolved = true;
+        cleanup();
+        resolve(ok);
+      }
+    };
+
+    const checkAttr = () => {
+      // any element inside print area sets data-barcode-ready
+      const el = document.querySelector('#print-area [data-barcode-ready]');
+      if (el) done(true);
+    };
+
+    const onReady = () => done(true);
+    const cleanup = () => {
+      document.removeEventListener('barcode:ready', onReady as any);
+    };
+
+    document.addEventListener('barcode:ready', onReady as any, { once: true });
+
+    // poll via RAF until timeout
+    const start = performance.now();
+    const tick = () => {
+      if (resolved) return;
+      checkAttr();
+      if (resolved) return;
+      if (performance.now() - start >= timeoutMs) {
+        done(false);
+      } else {
+        requestAnimationFrame(tick);
+      }
+    };
+    tick();
+  });
+}
+
 export default function OvernightReview() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,26 +145,27 @@ export default function OvernightReview() {
 
     setBusyRow(row);
     try {
-      await setTag(row, t);             // 1) assign on server (and send email)
-      const fresh = await fetchJobFromApi(t);   // 2) get normalized job (same as Intake page)
+      await setTag(row, t);                   // 1) assign on server (and send email)
+      const fresh = await fetchJobFromApi(t); // 2) get normalized job
       const job = fresh?.job ?? null;
 
       if (job) {
         printingRef.current = true;
-        setPrintJob(job);               // 3) mount into #print-area
-        await waitForRender();
+        setPrintJob(job);                     // 3) mount into #print-area
+        await waitForRender();                // 4) ensure it's laid out
+        await waitForBarcodeReady(2000);      // 5) wait for barcode (or timeout)
         const cleanup = () => {
-          setTimeout(() => {            // give browser a breath after print dialog
+          setTimeout(() => {                  // small delay after print dialog
             setPrintJob(null);
             printingRef.current = false;
           }, 250);
           window.removeEventListener('afterprint', cleanup as any);
         };
         window.addEventListener('afterprint', cleanup as any);
-        window.print();                 // 4) print just the sheet via CSS below
+        window.print();                       // 6) print just the sheet via CSS below
       }
 
-      await load();                     // 5) refresh table
+      await load();                           // 7) refresh table
     } catch (e) {
       console.error(e);
     } finally {
