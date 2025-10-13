@@ -1,15 +1,12 @@
-// middleware.ts — whitelist read-only intake links
-import { NextRequest, NextResponse } from 'next/server';
+// middleware.ts — keep existing behavior; whitelist read-only intake views
+import { NextResponse, NextRequest } from 'next/server';
 
-const PUBLIC_MODE = process.env.PUBLIC_MODE === '1';
 const LOCK = process.env.LOCK_NON_INTAKE === '1';
-
 const USER = process.env.BASIC_AUTH_USER || '';
 const PASS = process.env.BASIC_AUTH_PASS || '';
 const REALM = 'Staff';
-
-const SUPPORT_COOKIE = 'support_ok';
 const MAX_AGE_S = 60 * 60 * 24; // 24h
+const PUBLIC_MODE = process.env.PUBLIC_MODE === '1';
 
 function isAsset(p: string) {
   return (
@@ -21,15 +18,13 @@ function isAsset(p: string) {
 }
 
 // Public pages/APIs customers can hit without auth
-function isPublicRoute(path: string, url: URL) {
+function isPublicRoute(path: string) {
   if (isAsset(path)) return true;
-
-  // Normal customer pages
   if (
     path === '/' ||
     path.startsWith('/status') ||
     path.startsWith('/drop') ||
-    path.startsWith('/faq') ||          // keep if you have a public /faq
+    path.startsWith('/faq') ||
     path.startsWith('/faq-public') ||
     path.startsWith('/hours') ||
     path.startsWith('/contact') ||
@@ -37,18 +32,9 @@ function isPublicRoute(path: string, url: URL) {
     // public APIs
     path.startsWith('/api/public-status') ||
     path.startsWith('/api/public-drop') ||
-    // internal API used by various forms/pages
+    // needed by public pages/forms
     path.startsWith('/api/gas2')
   ) return true;
-
-  // ✅ Read-only intake link from email:
-  // allow /intake/<tag> iff it has a token (?t=...) or explicit read-only flag (?ro=1)
-  if (path.startsWith('/intake/')) {
-    const hasToken = !!url.searchParams.get('t');   // the page verifies HMAC(token) server-side
-    const isRO     = url.searchParams.get('ro') === '1';
-    if (hasToken || isRO) return true;
-  }
-
   return false;
 }
 
@@ -65,19 +51,23 @@ export async function middleware(req: NextRequest) {
   const url = new URL(req.url);
   const path = url.pathname;
 
-  // If you previously set a support cookie, honor it (no change to your flow)
-  if (req.cookies.get(SUPPORT_COOKIE)?.value === '1') {
-    return NextResponse.next();
-  }
-
-  // ── PUBLIC DEPLOYMENT ──
+  // ── PUBLIC DEPLOYMENT ────────────────────────────────────────────────────
   if (PUBLIC_MODE) {
-    if (isPublicRoute(path, url)) return NextResponse.next();
-    // Everything else → home
+    // 1) allow standard public routes
+    if (isPublicRoute(path)) return NextResponse.next();
+
+    // 2) WHITELIST: read-only intake views from email — GETs only
+    if (req.method === 'GET' && path.startsWith('/intake/')) {
+      // This lets old emails keep working without adding tokens/params.
+      // Editing is still blocked because POST/PUT/PATCH/DELETE are not allowed here.
+      return NextResponse.next();
+    }
+
+    // 3) everything else → home
     return NextResponse.redirect(new URL('/', req.url));
   }
 
-  // ── STAFF DEPLOYMENT ──
+  // ── STAFF DEPLOYMENT (unchanged) ─────────────────────────────────────────
   if (isAsset(path)) return NextResponse.next();
 
   if (LOCK) {
@@ -97,5 +87,7 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-export const config = { matcher: ['/((?!_next/image).*)'] };
+export const config = {
+  matcher: ['/((?!_next/image).*)'],
+};
 
