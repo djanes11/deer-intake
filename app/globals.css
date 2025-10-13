@@ -1271,4 +1271,18 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 /* Break long tokens (confirmation numbers, zip+4, etc.) */
 .light-page .value { word-break: break-word; overflow-wrap: anywhere; }
 
+/* --- Print fixes: prevent blank trailing page --- */
+@media print {
+  /* Hide fixed watermark so it can't force an extra page */
+  .watermark::after { display: none !important; }
+
+  /* Collapse any stray margins/padding around the print pages */
+  #pages { margin: 0 !important; padding: 0 !important; }
+  .page  { margin: 0 !important; page-break-after: auto !important; break-after: auto !important; }
+  .page:last-child { page-break-after: avoid !important; break-after: auto !important; }
+  .page > .wrap.sheet { margin: 0 !important; padding-bottom: 0 !important; }
+  .page > .wrap.sheet > *:last-child { margin-bottom: 0 !important; }
+}
+
+
 

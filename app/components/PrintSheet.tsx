@@ -13,7 +13,6 @@ function jget(job: AnyRec | null | undefined, keys: string[]): string {
   }
   return '';
 }
-// Return the *first present raw value* without stringifying
 function jpick(job: AnyRec | null | undefined, keys: string[]) {
   if (!job) return undefined;
   for (const k of keys) {
@@ -42,7 +41,6 @@ function normProc(s: any): string {
   if (v.includes('standard')) return 'Standard Processing';
   return '';
 }
-
 function suggestedProcessingPrice(proc: any, beef: boolean, webbs: boolean): number {
   const p = normProc(proc);
   const base =
@@ -53,7 +51,6 @@ function suggestedProcessingPrice(proc: any, beef: boolean, webbs: boolean): num
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
-
 function hasSpecialty(job: AnyRec | null | undefined): boolean {
   if (!job) return false;
   const rawFlag = jpick(job, [
@@ -71,8 +68,6 @@ function money(n: number): string { return '$' + (Number.isFinite(n) ? n.toFixed
 /* ---------------- Component ---------------- */
 export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const pageCount = useMemo(() => (hasSpecialty(job) ? 2 : 1), [job]);
-  const pages = Array.from({ length: pageCount }, (_, i) => i);
-
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   // Barcode rendering + readiness signal
@@ -145,6 +140,37 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     };
   }, [job?.tag, tag]);
 
+  // === NEW: Fit-to-page guard (prevents blank second page) ===
+  useEffect(() => {
+    const adjust = () => {
+      const root = rootRef.current;
+      if (!root) return;
+      const pages = root.querySelectorAll<HTMLElement>('.page');
+      pages.forEach(p => {
+        p.classList.remove('t1', 't2');
+        // ~ Letter page @ 96dpi with 6mm top/bottom margins => ~1010px usable
+        // We allow some buffer for printer differences.
+        const h = p.scrollHeight;
+        if (h > 1060) {
+          p.classList.add('t2'); // tighter
+        } else if (h > 1000) {
+          p.classList.add('t1'); // slightly tight
+        }
+      });
+    };
+
+    // Run now and around print/resize
+    adjust();
+    const onBeforePrint = () => adjust();
+    const onResize = () => adjust();
+    window.addEventListener('beforeprint', onBeforePrint);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('beforeprint', onBeforePrint);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [job, tag, pageCount]);
+
   // ---- Derived fields ----
   const steakOtherShown =
     String(job?.steak || '').toLowerCase() === 'other' &&
@@ -167,7 +193,6 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   }, [ssN, sscN, jerN]);
   const totalPrice = processingPrice + specialtyPrice;
 
-  // Comms/consent
   const prefEmail = asBool(jpick(job, ['prefEmail', 'Pref Email']));
   const prefSMS   = asBool(jpick(job, ['prefSMS', 'Pref SMS']));
   const prefCall  = asBool(jpick(job, ['prefCall', 'Pref Call']));
@@ -202,18 +227,26 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
         .splitPriceRow{ display:flex; align-items:center; gap:6px; }
         .splitPriceRow .lhs{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .splitSep{ border-top:1px dashed #ccd7ee; margin:3px 0; }
+
         [data-barcode-wrap] { margin-top:4px; }
         svg[data-tag-barcode]{ width:100%; max-width:180px; height:auto; display:block; }
+
         .noprint{ display:block; }
         .page{ position:relative; margin:0 auto; }
         .sheet{ margin:0; }
 
+        /* ------ PRINT RULES ------ */
         @media print{
-          @page { size: Letter; margin:6mm; }
-          .noprint{ display:none !important; }
-          body{ margin:0; }
-          .wrap{ margin:0; }
+          @page { size: Letter; margin: 6mm; }
+          html, body { margin: 0 !important; padding: 0 !important; }
 
+          .noprint{ display:none !important; }
+
+          /* Only break if there are multiple .page elements */
+          .page { page-break-after: auto; break-after: auto; }
+          .page:not(:last-child) { page-break-after: always !important; break-after: page !important; }
+
+          /* Base print scale (keeps your look) */
           :root{
             --fs-base:18px;
             --fs-h:20px;
@@ -223,14 +256,30 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
             --gap-row:5px;
             --gap-col:5px;
           }
-
           h2{ margin:0 0 4px !important; }
           .row{ gap:4px !important; }
           .val{ line-height:1.10 !important; }
           [data-barcode-wrap]{ margin-top:2mm; }
           svg[data-tag-barcode]{ max-width:56mm; }
-          .page{ page-break-after: always; }
-          .page:last-of-type{ page-break-after: auto; }
+
+          /* === Fit-to-page guard (kicks in only when needed) === */
+          .page.t1 :root, .page.t1{
+            --fs-base:17px;
+            --fs-h:19px;
+            --fs-label:11px;
+            --gap-row:4px;
+            --gap-col:4px;
+          }
+          .page.t1 .val{ padding: 0 2px; }
+
+          .page.t2 :root, .page.t2{
+            --fs-base:16px;
+            --fs-h:18px;
+            --fs-label:10.5px;
+            --gap-row:3px;
+            --gap-col:3px;
+          }
+          .page.t2 .val{ padding: 0 2px; }
         }
       `}</style>
 
