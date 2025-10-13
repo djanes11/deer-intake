@@ -1,4 +1,3 @@
-// app/status/page.tsx
 'use client';
 import { useState } from 'react';
 import { SITE } from '@/lib/config';
@@ -21,7 +20,7 @@ export default function StatusPage() {
         body: JSON.stringify({ confirmation, tag, lastName }),
       });
       const j = await r.json();
-      if (!j.ok) setErr(j.error || 'Not found.');
+      if (!j.ok) setErr(j.error || (j.notFound ? 'No match.' : 'Not found.'));
       else setRes(j);
     } catch (e:any) {
       setErr(e?.message || 'Lookup failed');
@@ -56,18 +55,15 @@ export default function StatusPage() {
           <div>Confirmation: {res.confirmation || '—'}</div>
 
           {/* Extra tracks (only show when present) */}
-          <div style={{ marginTop: 10, opacity: .95 }}>
-            {res.tracks?.regularStatus ? (
-              <div><b>Processing:</b> {res.tracks.regularStatus}</div>
-            ) : null}
-            {res.tracks?.capeStatus ? (
-              <div><b>Cape:</b> {res.tracks.capeStatus}</div>
-            ) : null}
+          <div style={{ marginTop: 10, display:'grid', gap:6 }}>
             {res.tracks?.webbsStatus ? (
-              <div><b>Webbs/Euro:</b> {res.tracks.webbsStatus}</div>
+              <div><b>Webbs:</b> <span style={pill}>{res.tracks.webbsStatus}</span></div>
             ) : null}
             {res.tracks?.specialtyStatus ? (
-              <div><b>Specialty:</b> {res.tracks.specialtyStatus}</div>
+              <div><b>Specialty:</b> <span style={pill}>{res.tracks.specialtyStatus}</span></div>
+            ) : null}
+            {res.tracks?.capeStatus ? (
+              <div><b>Cape:</b> <span style={pill}>{res.tracks.capeStatus}</span></div>
             ) : null}
           </div>
 
@@ -86,4 +82,5 @@ const field: React.CSSProperties = { padding:'10px 12px', border:'1px solid #1f2
 const btn: React.CSSProperties = { padding:'10px 14px', border:'1px solid #1f2937', borderRadius:10, background:'#121821', color:'#e5e7eb', fontWeight:800 };
 const card: React.CSSProperties = { marginTop:16, padding:16, border:'1px solid #1f2937', borderRadius:12, background:'#0b0f12', color:'#e5e7eb' };
 const errBox: React.CSSProperties = { marginTop:12, padding:12, border:'1px solid #7f1d1d', borderRadius:10, background:'rgba(127,29,29,.15)', color:'#fecaca' };
+const pill: React.CSSProperties = { display:'inline-block', border:'1px solid #1f2937', borderRadius:999, padding:'2px 8px', background:'#0b0f12', fontWeight:800 };
 
