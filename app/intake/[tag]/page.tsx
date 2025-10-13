@@ -13,351 +13,384 @@ const RAW_GAS_BASE =
     .replace(/^['"]|['"]$/g, '');
 const GAS_TOKEN = process.env.GAS_TOKEN || process.env.EMAIL_SIGNING_SECRET || '';
 
-// ---- Helpers ----
-function assertValidGasBase() {
-  if (!RAW_GAS_BASE) throw new Error('NEXT_PUBLIC_GAS_BASE is not set.');
-  new URL(RAW_GAS_BASE); // throws if invalid
+function isHttpUrl(s: string) { try { new URL(s); return true; } catch { return false; } }
+function buildGasExecUrl(input: string): string {
+  const s = (input || '').trim();
+  if (!s) throw new Error('Missing GAS_BASE');
+  if (isHttpUrl(s)) return /\/exec(\?|$)/.test(s) ? s : s.replace(/\/dev(\?|$).*/i, '/exec');
+  if (/^[A-Za-z0-9_-]+$/.test(s)) return `https://script.google.com/macros/s/${s}/exec`;
+  throw new Error('GAS_BASE must be a full https URL (ending with /exec) or a valid script ID');
 }
+const GAS_EXEC = buildGasExecUrl(RAW_GAS_BASE);
 
-function hmac16(tag: string) {
-  if (!GAS_TOKEN) return '';
-  return crypto.createHmac('sha256', GAS_TOKEN).update(tag).digest('hex').slice(0, 16);
-}
-function verifyToken(tag: string, token?: string | null) {
-  if (!GAS_TOKEN) return true; // if no secret configured, allow
-  return token === hmac16(tag);
-}
+type Job = {
+  tag?: string;
+  confirmation?: string;
+  customer?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
 
-async function getJob(tag: string) {
-  assertValidGasBase();
-  const url = new URL(RAW_GAS_BASE);
-  url.searchParams.set('action', 'get');
-  url.searchParams.set('tag', tag);
-  if (process.env.GAS_TOKEN) url.searchParams.set('token', process.env.GAS_TOKEN);
-  const r = await fetch(url.toString(), { cache: 'no-store' });
-  if (!r.ok) throw new Error(`GAS get failed: HTTP ${r.status}`);
-  const data = await r.json();
-  if (!data?.job) throw new Error('Form not found for that tag.');
-  return data.job as Record<string, any>;
-}
+  county?: string;
+  dropoff?: string;
+  sex?: string;
+  processType?: string;
 
-// ---- Simple pricing helpers to show the summary numbers like the intake page ----
-const normProc = (s?: string) => {
-  const v = String(s || '').toLowerCase();
-  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
-  if (v.includes('donate')) return 'Donate';
-  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
-  if (v.includes('skull')) return 'Skull-Cap';
-  if (v.includes('euro')) return 'European';
-  if (v.includes('standard')) return 'Standard Processing';
-  return '';
+  status?: string;
+  capingStatus?: string;
+  webbsStatus?: string;
+
+  specialtyProducts?: boolean;
+  specialtyStatus?: string;
+
+  steak?: string;
+  steakOther?: string;
+  burgerSize?: string;
+  steaksPerPackage?: string;
+  beefFat?: boolean;
+
+  hindRoastCount?: string;
+  frontRoastCount?: string;
+
+  backstrapPrep?: string;
+  backstrapThickness?: string;
+  backstrapThicknessOther?: string;
+
+  notes?: string;
+
+  webbsOrder?: boolean;
+  webbsFormNumber?: string;
+  webbsPounds?: string;
+
+  price?: number | string;
+
+  Paid?: boolean;
+  paid?: boolean;
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
+
+  prefEmail?: boolean;
+  prefSMS?: boolean;
+  prefCall?: boolean;
+  smsConsent?: boolean;
+  autoCallConsent?: boolean;
 };
 
-const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
-  const p = normProc(proc);
-  const base =
-    p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 50 :
-    ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
-    p === 'Donate' ? 0 : 0;
+function digits(s: string) { return (s || '').replace(/\D+/g, ''); }
+function lc(s: string) { return (s || '').toLowerCase().trim(); }
+
+async function gasGet(params: Record<string, string>) {
+  const url = new URL(GAS_EXEC);
+  url.searchParams.set('action', params.action);
+  for (const k of Object.keys(params)) {
+    if (k !== 'action' && params[k] != null) url.searchParams.set(k, params[k]);
+  }
+  if (GAS_TOKEN) url.searchParams.set('token', GAS_TOKEN);
+  const r = await fetch(url.toString(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(`GAS ${params.action} ${r.status}`);
+  return r.json();
+}
+
+function money(n: number | string | undefined) {
+  const v = typeof n === 'string' ? parseFloat(n) : (n ?? 0);
+  if (!isFinite(v as number)) return '$0.00';
+  return (v as number).toLocaleString(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2 });
+}
+
+function normalizeProc(proc?: string) {
+  const s = lc(proc || '');
+  if (s.includes('donate') && s.includes('cape')) return 'Cape & Donate';
+  if (s.includes('donate')) return 'Donate';
+  if (s.includes('cape') && !s.includes('skull')) return 'Caped';
+  if (s.includes('skull')) return 'Skull-Cap';
+  if (s.includes('euro'))  return 'European';
+  if (s.includes('standard')) return 'Standard Processing';
+  return '';
+}
+
+function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean) {
+  const p = normalizeProc(proc);
+  let base =
+    (p === 'Caped') ? 150 :
+    (p === 'Cape & Donate') ? 50 :
+    (['Standard Processing','Skull-Cap','European'].includes(p) ? 130 : 0);
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-};
-
-const toInt = (val: any) => {
-  const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-};
-
-// ---- tiny UI bits ----
-function Field({ label, value }: { label: string; value?: string }) {
-  return (
-    <div>
-      <label>{label}</label>
-      <div
-        className="value wrap-any"
-        style={{
-          background:'#fff',
-          border:'1px solid #cbd5e1',
-          borderRadius:10,
-          padding:'6px 8px',
-          wordBreak:'break-word',
-          overflowWrap:'anywhere',
-          whiteSpace:'pre-wrap',
-          minWidth: 0,
-        }}
-      >
-        {value || ''}
-      </div>
-    </div>
-  );
-}
-function Check({ on, text }: { on?: boolean; text: string }) {
-  return (
-    <div style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
-      <input type="checkbox" checked={!!on} readOnly />
-      <span>{text}</span>
-    </div>
-  );
-}
-function asBool(v: any): boolean {
-  if (v === true) return true;
-  if (v === false) return false;
-  const s = String(v ?? '').trim().toLowerCase();
-  return ['1','true','yes','y','on','checked','✓','✔','x'].includes(s);
-}
-function pick(job: Record<string, any> | undefined, keys: string[]) {
-  if (!job) return undefined;
-  for (const k of keys) if (job[k] !== undefined && job[k] !== null) return job[k];
-  return undefined;
 }
 
-type SP = Record<string, string | string[] | undefined>;
-export default async function IntakeView({
-  params,
+function specialtyPrice(job: Job) {
+  const toInt = (v?: string) => {
+    const n = parseInt(String(v ?? '').replace(/[^0-9]/g, ''), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  if (!job.specialtyProducts) return 0;
+  const ss  = toInt(job.summerSausageLbs as any);
+  const ssc = toInt(job.summerSausageCheeseLbs as any);
+  const jer = toInt(job.slicedJerkyLbs as any);
+  return ss * 4.25 + ssc * 4.60 + jer * 15.0;
+}
+
+// @ts-ignore: these may exist on Job in your project typing
+declare global {
+  interface Job {
+    summerSausageLbs?: string;
+    summerSausageCheeseLbs?: string;
+    slicedJerkyLbs?: string;
+  }
+}
+
+// ---- Server component ----
+export default async function ReadOnlyIntakePage({
   searchParams,
 }: {
-  params: Promise<{ tag: string }>;
-  searchParams?: Promise<SP>;
+  searchParams?: Record<string, string | string[] | undefined>;
 }) {
   try {
-    // Promise props (Next 15)
-    const { tag } = await params;
-    const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
+    const t = String(searchParams?.t || '').trim();    // public token
+    const tag = String(searchParams?.tag || searchParams?.id || '').trim(); // allow tag override
+    const conf = String(searchParams?.conf || '').trim();
 
-    const tagDec = decodeURIComponent(tag);
-    const t = typeof sp.t === 'string' ? sp.t : Array.isArray(sp.t) ? sp.t[0] : undefined;
-    if (!verifyToken(tagDec, t)) {
-      return (
-        <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
-          <h1 className="text-lg font-bold mb-2" style={{color:'#0b0f12'}}>Access denied</h1>
-          <p style={{color:'#374151'}}>Invalid or missing token.</p>
-        </div>
-      );
+    let job: Job | null = null;
+
+    // 1) If tag present, get exact
+    if (tag) {
+      const gr = await gasGet({ action: 'get', tag });
+      if (gr?.ok && gr.exists && gr.job) job = gr.job as Job;
     }
 
-    const job = await getJob(tagDec);
+    // 2) Else by confirmation (full or digits-only)
+    if (!job && conf) {
+      for (const q of [conf, digits(conf)].filter(Boolean)) {
+        const sr = await gasGet({ action: 'search', q });
+        const rows: Job[] = (sr && sr.rows) || [];
+        const found = rows.find(r =>
+          lc(String(r.confirmation || '')) === lc(conf) ||
+          (digits(String(r.confirmation || '')) === digits(conf))
+        );
+        if (found?.tag) {
+          const gr = await gasGet({ action: 'get', tag: String(found.tag) });
+          if (gr?.ok && gr.exists && gr.job) { job = gr.job as Job; break; }
+        }
+      }
+    }
 
-    const processingPrice = suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
-    const specialtyPrice =
-      (toInt(job?.summerSausageLbs) * 4.25) +
-      (toInt(job?.summerSausageCheeseLbs) * 4.60) +
-      (toInt(job?.slicedJerkyLbs) * 15.0);
-    const totalPrice = processingPrice + (job?.specialtyProducts ? specialtyPrice : 0);
+    if (!job) throw new Error('No matching intake found for this link.');
 
-    // --- Communication Preference + Consent (accept header or camel case) ---
-    const prefEmail        = asBool(pick(job, ['Pref Email','prefEmail']));
-    const prefSMS          = asBool(pick(job, ['Pref SMS','prefSMS']));
-    const prefCall         = asBool(pick(job, ['Pref Call','prefCall']));
-    const smsConsent       = asBool(pick(job, ['SMS Consent','smsConsent']));
-    const autoCallConsent  = asBool(pick(job, ['Auto Call Consent','autoCallConsent']));
+    const proc = normalizeProc(job.processType);
+    const priceProc = suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder);
+    const priceSpec = specialtyPrice(job);
+    const totalPrice = (priceProc + priceSpec);
 
     return (
-      <main style={{maxWidth:1040, margin:'18px auto', padding:'0 14px 40px'}}>
-        <div className="form-card" style={{maxWidth:980, margin:'16px auto', padding:14}}>
-          <h2 style={{margin:'6px 0 10px'}}>Deer Intake (Read-only)</h2>
+      <main className="light-page" style={{maxWidth: 980, margin: '24px auto', padding: '12px'}}>
+        <header style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 10}}>
+          <h1 style={{margin:0, color:'#0b0f12'}}>McAfee Deer Intake (Read Only)</h1>
+          <div style={{fontSize:12, color:'#6b7280'}}>Confirmation: <b>{job.confirmation || '—'}</b></div>
+        </header>
 
-          {/* Summary bar */}
-          <div className="summary" style={{position:'relative', background:'#f8fafc', border:'1px solid #e6e9ec', borderRadius:10, padding:8, marginBottom:10}}>
-            <div className="row grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(3, 1fr)'}}>
-              <div className="col" style={{minWidth:0}}>
-                <label>Tag Number</label>
-                <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.tag || ''}</div>
-                <div className="muted" style={{fontSize:12}}>Deer Tag</div>
-              </div>
-              <div className="col" style={{minWidth:0}}>
-                <label>Processing Price</label>
-                <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{`$${processingPrice.toFixed(2)}`}</div>
-                <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
-              </div>
-              <div className="col" style={{minWidth:0}}>
-                <label>Specialty Price</label>
-                <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{`$${(job?.specialtyProducts ? specialtyPrice : 0).toFixed(2)}`}</div>
-                <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
-              </div>
-            </div>
+        {/* Summary Row 1: pricing */}
+        <div className="summary wrap" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(3, 1fr)'}}>
+          <div className="card">
+            <label>Processing Price</label>
+            <div className="pill money">{money(priceProc)}</div>
+          </div>
+          <div className="card">
+            <label>Specialty Price</label>
+            <div className="pill money">{money(priceSpec)}</div>
+          </div>
+          <div className="card">
+            <label>Total</label>
+            <div className="pill money strong">{money(totalPrice)}</div>
+          </div>
+        </div>
 
-            <div className="row grid small" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(4, 1fr)', marginTop:6}}>
-              <div className="col total" style={{minWidth:0}}>
-                <label>Total (preview)</label>
-                <div className="money total" style={{ fontWeight:900, minWidth:0 }}>{`$${totalPrice.toFixed(2)}`}</div>
-              </div>
-              <div className="col" style={{minWidth:0}}>
-                <label>Status</label>
-                <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.status || ''}</div>
-              </div>
-              {job?.processType === 'Caped' && (
-                <div className="col" style={{minWidth:0}}>
-                  <label>Caping Status</label>
-                  <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.capingStatus || ''}</div>
-                </div>
-              )}
-              {job?.webbsOrder && (
-                <div className="col" style={{minWidth:0}}>
-                  <label>Webbs Status</label>
-                  <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.webbsStatus || ''}</div>
-                </div>
-              )}
-            </div>
+        {/* Summary Row 2: statuses — includes Specialty Status now */}
+        <div className="summary wrap" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(5, 1fr)', marginTop:8}}>
+          <div className="card">
+            <label>Status</label>
+            <div className="pill">{job.status || ''}</div>
           </div>
 
-          {/* Customer */}
-          <section>
-            <h3>Customer</h3>
-            <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c3" style={{gridColumn:'span 3'}}><Field label="Confirmation #" value={job?.confirmation || ''} /></div>
-              <div className="c6" style={{gridColumn:'span 6'}}><Field label="Customer Name" value={job?.customer || ''} /></div>
-              <div className="c3" style={{gridColumn:'span 3'}}><label>Phone</label><div className="value wrap-any">{job?.phone || ''}</div></div>
-              <div className="c8" style={{gridColumn:'span 8'}}>
-                <label>Email</label>
-                <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                  <div
-                    className="value wrap-any"
-                    style={{
-                      background:'#fff',
-                      border:'1px solid #cbd5e1',
-                      borderRadius:10,
-                      padding:'6px 8px',
-                      wordBreak:'break-word',
-                      overflowWrap:'anywhere',
-                      whiteSpace:'pre-wrap',
-                      flex:'1 1 auto',
-                      minWidth:0
-                    }}
-                  >{job?.email || ''}</div>
-                </div>
-              </div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="Address" value={job?.address || ''} /></div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="City" value={job?.city || ''} /></div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="State" value={job?.state || ''} /></div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="Zip" value={job?.zip || ''} /></div>
+          {(proc === 'Caped' || proc === 'Cape & Donate') && (
+            <div className="card">
+              <label>Caping Status</label>
+              <div className="pill">{job.capingStatus || ''}</div>
             </div>
-          </section>
-
-          {/* Hunt */}
-          <section>
-            <h3>Hunt Details</h3>
-            <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="County Killed" value={job?.county || ''} /></div>
-              <div className="c3" style={{gridColumn:'span 3'}}><Field label="Drop-off Date" value={job?.dropoff || ''} /></div>
-              <div className="c2" style={{gridColumn:'span 2'}}><Field label="Deer Sex" value={job?.sex || ''} /></div>
-              <div className="c3" style={{gridColumn:'span 3'}}><Field label="Process Type" value={job?.processType || ''} /></div>
-            </div>
-          </section>
-
-          {/* Cuts */}
-          <section>
-            <h3>Cuts</h3>
-            <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c6" style={{gridColumn:'span 6'}}>
-                <label>Hind Quarter</label>
-                <div className="checks" style={{display:'flex', flexWrap:'wrap', gap:10}}>
-                  <Check on={!!job?.hind?.['Hind - Steak']} text="Steak" />
-                  <Check on={!!job?.hind?.['Hind - Roast']} text={`Roast (Count: ${job?.hindRoastCount || ''})`} />
-                  <Check on={!!job?.hind?.['Hind - Grind']} text="Grind" />
-                  <Check on={!!job?.hind?.['Hind - None']} text="None" />
-                </div>
-              </div>
-              <div className="c6" style={{gridColumn:'span 6'}}>
-                <label>Front Shoulder</label>
-                <div className="checks" style={{display:'flex', flexWrap:'wrap', gap:10}}>
-                  <Check on={!!job?.front?.['Front - Steak']} text="Steak" />
-                  <Check on={!!job?.front?.['Front - Roast']} text={`Roast (Count: ${job?.frontRoastCount || ''})`} />
-                  <Check on={!!job?.front?.['Front - Grind']} text="Grind" />
-                  <Check on={!!job?.front?.['Front - None']} text="None" />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Packaging & Add-ons */}
-          <section>
-            <h3>Packaging & Add-ons</h3>
-            <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steak Size" value={job?.steak || ''} /></div>
-              <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steaks per Package" value={job?.steaksPerPackage || ''} /></div>
-              <div className="c3" style={{gridColumn:'span 3'}}><Field label="Burger Size" value={job?.burgerSize || ''} /></div>
-              <div className="c3" style={{gridColumn:'span 3'}}>
-                <label style={{ fontSize:12, fontWeight:700, color:'#0b0f12', display:'block', marginBottom:4 }}>Beef Fat</label>
-                <Check on={!!job?.beefFat} text="Add (+$5)" />
-              </div>
-              {String(job?.steak).toLowerCase() === 'other' && job?.steakOther && (
-                <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steak Size (Other)" value={job?.steakOther || ''} /></div>
-              )}
-            </div>
-          </section>
-
-          {/* Backstrap */}
-          <section>
-            <h3>Backstrap</h3>
-            <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="Prep" value={job?.backstrapPrep || ''} /></div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="Thickness" value={job?.backstrapPrep === 'Whole' ? '' : (job?.backstrapThickness || '')} /></div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="Thickness (Other)" value={job?.backstrapPrep === 'Whole' || job?.backstrapThickness !== 'Other' ? '' : (job?.backstrapThicknessOther || '')} /></div>
-            </div>
-          </section>
-
-          {/* Specialty */}
-          <section>
-            <h3>McAfee Specialty Products</h3>
-            <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c12" style={{gridColumn:'span 12'}}>
-                <Check on={!!job?.specialtyProducts} text="Would like specialty products" />
-              </div>
-              {job?.specialtyProducts && (
-                <>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Summer Sausage (lb)" value={String(job?.summerSausageLbs ?? '')} /></div>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Summer Sausage + Cheese (lb)" value={String(job?.summerSausageCheeseLbs ?? '')} /></div>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Sliced Jerky (lb)" value={String(job?.slicedJerkyLbs ?? '')} /></div>
-                </>
-              )}
-            </div>
-          </section>
-
-          {/* Webbs */}
-          {job?.webbsOrder && (
-            <section>
-              <h3>Webbs</h3>
-              <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-                <div className="c12" style={{gridColumn:'span 12'}}>
-                  <Check on={true} text="Webbs Order (+$20 fee)" />
-                </div>
-                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Order Form Number" value={job?.webbsFormNumber || ''} /></div>
-                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
-              </div>
-            </section>
           )}
 
-          {/* Notes */}
-          <section>
-            <h3>Notes</h3>
-            <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', whiteSpace:'pre-wrap' }}>
-              {job?.notes || ''}
+          {job.webbsOrder && (
+            <div className="card">
+              <label>Webbs Status</label>
+              <div className="pill">{job.webbsStatus || ''}</div>
             </div>
-          </section>
+          )}
 
-          {/* Communication & Consent (NEW) */}
-          <section>
-            <h3>Communication & Consent</h3>
-            <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c6" style={{gridColumn:'span 6'}}>
-                <label>Communication Preference</label>
-                <div style={{display:'flex', flexDirection:'column', gap:6}}>
-                  <Check on={prefEmail} text="Email" />
-                  <Check on={prefSMS} text="Text (SMS)" />
-                  <Check on={prefCall} text="Phone Call" />
-                </div>
-              </div>
-              <div className="c6" style={{gridColumn:'span 6'}}>
-                <label>Consent</label>
-                <div style={{display:'flex', flexDirection:'column', gap:6}}>
-                  <Check on={smsConsent} text="I consent to receive informational/automated SMS" />
-                  <Check on={autoCallConsent} text="I consent to receive automated phone calls" />
-                </div>
+          {(job.specialtyProducts || (job.specialtyStatus && String(job.specialtyStatus).trim())) && (
+            <div className="card">
+              <label>Specialty Status</label>
+              <div className="pill">{job.specialtyStatus || ''}</div>
+            </div>
+          )}
+
+          {/* Filler to keep grid neat if fewer cards render */}
+          <div className="card" style={{visibility:'hidden'}} aria-hidden />
+        </div>
+
+        {/* Identity */}
+        <section className="grid2" style={{marginTop:16}}>
+          <div>
+            <label>Customer</label>
+            <div className="pill">{job.customer || ''}</div>
+          </div>
+          <div>
+            <label>Phone</label>
+            <div className="pill">{job.phone || ''}</div>
+          </div>
+          <div>
+            <label>Email</label>
+            <div className="pill">{job.email || ''}</div>
+          </div>
+          <div>
+            <label>Address</label>
+            <div className="pill">{[job.address, job.city, job.state, job.zip].filter(Boolean).join(', ')}</div>
+          </div>
+        </section>
+
+        {/* Hunt */}
+        <section className="grid2">
+          <div>
+            <label>County Killed</label>
+            <div className="pill">{job.county || ''}</div>
+          </div>
+          <div>
+            <label>Drop-off Date</label>
+            <div className="pill">{job.dropoff || ''}</div>
+          </div>
+          <div>
+            <label>Deer Sex</label>
+            <div className="pill">{job.sex || ''}</div>
+          </div>
+          <div>
+            <label>Process Type</label>
+            <div className="pill">{job.processType || ''}</div>
+          </div>
+        </section>
+
+        {/* Cuts */}
+        <section>
+          <h3 style={{margin:'10px 0 6px'}}>Cuts</h3>
+          <div className="grid2">
+            <div>
+              <label>Hind Roast Count</label>
+              <div className="pill">{job.hindRoastCount || ''}</div>
+            </div>
+            <div>
+              <label>Front Roast Count</label>
+              <div className="pill">{job.frontRoastCount || ''}</div>
+            </div>
+          </div>
+        </section>
+
+        {/* Backstrap */}
+        <section>
+          <h3 style={{margin:'10px 0 6px'}}>Backstrap</h3>
+          <div className="grid2">
+            <div>
+              <label>Prep</label>
+              <div className="pill">{job.backstrapPrep || ''}</div>
+            </div>
+            <div>
+              <label>Thickness</label>
+              <div className="pill">
+                {job.backstrapThickness === 'Other'
+                  ? (job.backstrapThicknessOther || '')
+                  : (job.backstrapThickness || '')}
               </div>
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
+
+        {/* Specialty */}
+        <section>
+          <h3 style={{margin:'10px 0 6px'}}>Specialty Products</h3>
+          <div className="grid2">
+            <div>
+              <label>Would like specialty products</label>
+              <div className="pill">{job.specialtyProducts ? 'Yes' : 'No'}</div>
+            </div>
+            {job.specialtyProducts && (
+              <>
+                <div>
+                  <label>Summer Sausage (lb)</label>
+                  <div className="pill">{(job as any).summerSausageLbs || ''}</div>
+                </div>
+                <div>
+                  <label>Summer Sausage + Cheese (lb)</label>
+                  <div className="pill">{(job as any).summerSausageCheeseLbs || ''}</div>
+                </div>
+                <div>
+                  <label>Sliced Jerky (lb)</label>
+                  <div className="pill">{(job as any).slicedJerkyLbs || ''}</div>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* Webbs */}
+        <section>
+          <h3 style={{margin:'10px 0 6px'}}>Webbs</h3>
+          <div className="grid2">
+            <div>
+              <label>Webbs Order</label>
+              <div className="pill">{job.webbsOrder ? 'Yes' : 'No'}</div>
+            </div>
+            {job.webbsOrder && (
+              <>
+                <div>
+                  <label>Order Form Number</label>
+                  <div className="pill">{job.webbsFormNumber || ''}</div>
+                </div>
+                <div>
+                  <label>Webbs Pounds</label>
+                  <div className="pill">{job.webbsPounds || ''}</div>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* Notes */}
+        <section>
+          <h3 style={{margin:'10px 0 6px'}}>Notes</h3>
+          <div className="pill">{job.notes || ''}</div>
+        </section>
+
+        <style jsx>{`
+          .light-page { color:#0b0f12; }
+          h1 { font-size: 22px; }
+
+          label { font-size:12px; font-weight:700; color:#0b0f12; display:block; margin-bottom:4px; }
+          .pill {
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 6px 8px;
+          }
+          .money { font-weight: 800; text-align: right; }
+          .money.strong { font-weight: 900; }
+
+          .summary.wrap { margin-bottom: 8px; }
+          .card { min-width: 0; }
+
+          .grid2 { display:grid; gap:8px; grid-template-columns: repeat(2, 1fr); }
+          @media (max-width:720px){
+            .grid2, .summary.wrap { grid-template-columns: 1fr; }
+          }
+        `}</style>
       </main>
     );
   } catch (err:any) {
@@ -365,7 +398,7 @@ export default async function IntakeView({
       <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
         <h1 style={{color:'#0b0f12'}}>Unable to load form</h1>
         <p style={{whiteSpace:'pre-wrap', color:'#374151'}}>{String(err?.message || err)}</p>
-        <div style={{marginTop:8, fontSize:12, color:'#6b7280'}}>Tip: ensure NEXT_PUBLIC_GAS_BASE is your Apps Script /exec URL.</div>
+        <div style={{marginTop:8, fontSize:12, color:'#6b7280'}}...ensure NEXT_PUBLIC_GAS_BASE is your Apps Script /exec URL.</div>
       </div>
     );
   }
