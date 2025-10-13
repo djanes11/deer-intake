@@ -1,16 +1,25 @@
+// app/api/public-status/route.ts
 import { NextRequest } from 'next/server';
 import { rateLimit } from '@/lib/ratelimit';
 import { SITE } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
+// ───────── helpers ─────────
 function ip(req: NextRequest) {
   return (req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim()
       || req.headers.get('x-real-ip') || '0.0.0.0';
 }
 
-// ── helpers ────────────────────────────────────────────────────────────────
 function norm(s: any) { return String(s ?? '').replace(/\s+/g, ' ').trim(); }
+
+function hasCell(v: any) {
+  const s = norm(v).toLowerCase();
+  // treat empty/placeholder as missing; anything else counts as "exists"
+  return !!s && !['', 'n/a', 'na', 'none', '--', '-'].includes(s);
+}
+
+// exact getter for known header variants
 function g(row: any, names: string[], fallback = ''): string {
   for (const k of names) {
     const v = row?.[k];
@@ -19,7 +28,7 @@ function g(row: any, names: string[], fallback = ''): string {
   return fallback;
 }
 
-// Canonicalize to the exact vocab you want
+// Canonicalize to your vocab
 function canonSpecialty(input?: string | null) {
   const s = norm(input).toLowerCase();
   if (!s) return '';
@@ -40,6 +49,16 @@ function canonWebbs(input?: string | null) {
   if (/dropped[_\s-]*off|drop/.test(s))        return 'Dropped Off';
   return 'Dropped Off';
 }
+function canonCape(input?: string | null) {
+  const s = norm(input).toLowerCase();
+  if (!s) return '';
+  if (/(in[_\s-]*progress)/.test(s))    return 'In Progress';
+  if (/finished|ready/.test(s))         return 'Finished';
+  if (/called|notified/.test(s))        return 'Called';
+  if (/picked[_\s-]*up|pickup/.test(s)) return 'Picked Up';
+  if (/dropped[_\s-]*off|drop/.test(s)) return 'Dropped Off';
+  return 'Dropped Off';
+}
 
 function toPublic(row: any) {
   const confirmation = g(row, ['Confirmation #','Confirmation','confirmation']);
@@ -47,13 +66,15 @@ function toPublic(row: any) {
   const customer     = g(row, ['Customer','customer']);
   const primary      = g(row, ['Status','status'], 'Dropped Off');
 
-  // Read exact columns first; include common alternates
+  // read columns
+  const rawCape      = g(row, ['Caping Status','Cape Status','Caped Status','CapeStatus','capingStatus']);
   const rawWebbs     = g(row, ['Webbs Status','WebbsStatus','Euro Status','Skull Status','euroStatus','skullStatus']);
   const rawSpecialty = g(row, ['Specialty Status','Specialty Products Status','SpecialtyStatus','specialtyStatus']);
 
-  // Canonicalize
-  const webbsCanon     = canonWebbs(rawWebbs);
-  const specialtyCanon = canonSpecialty(rawSpecialty);
+  // canonicalize
+  const capeCanon      = canonCape(rawCape);             // show if the cell exists (any value)
+  const webbsCanon     = canonWebbs(rawWebbs);           // show only if not "Dropped Off"
+  const specialtyCanon = canonSpecialty(rawSpecialty);   // show only if not "Dropped Off"
 
   return {
     ok: true,
@@ -62,10 +83,10 @@ function toPublic(row: any) {
     customer: customer ? customer.replace(/(.).+\s+(.+)/, '$1*** $2') : '',
     status: primary,
     tracks: {
-      // show all so you can verify; remove if you want to hide “Dropped Off”
-      webbsStatus: webbsCanon || null,
-      specialtyStatus: specialtyCanon || null,
       regularStatus: primary,
+      capeStatus: hasCell(rawCape) ? (capeCanon || 'Dropped Off') : null,
+      webbsStatus: hasCell(rawWebbs) && webbsCanon !== 'Dropped Off' ? webbsCanon : null,
+      specialtyStatus: hasCell(rawSpecialty) && specialtyCanon !== 'Dropped Off' ? specialtyCanon : null,
     },
     pickup: {
       hours: SITE.hours,
@@ -76,7 +97,7 @@ function toPublic(row: any) {
   };
 }
 
-// ── handler ────────────────────────────────────────────────────────────────
+// ───────── handler ─────────
 export async function POST(req: NextRequest) {
   const rl = rateLimit(ip(req), 'public-status', 30, 60_000);
   if (!rl.allowed) return new Response(JSON.stringify({ ok:false, error:'Rate limited' }), { status:429 });
@@ -88,10 +109,12 @@ export async function POST(req: NextRequest) {
 
   const origin = new URL(req.url).origin;
 
-  // 1) Exact TAG path (full job includes all fields)
+  // 1) Exact TAG path (full job → has all fields)
   if (tagParam && lastName) {
     const r = await fetch(`${origin}/api/gas2`, {
-      method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      cache:'no-store',
       body: JSON.stringify({ action:'job', tag: tagParam }),
     }).catch(() => null);
     const j = await r?.json().catch(()=> ({}));
@@ -111,7 +134,9 @@ export async function POST(req: NextRequest) {
     let rows: any[] = [];
     for (const q of queries) {
       const r = await fetch(`${origin}/api/gas2`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        cache:'no-store',
         body: JSON.stringify({ action:'search', q }),
       }).catch(() => null);
       if (!r?.ok) continue;
@@ -124,11 +149,13 @@ export async function POST(req: NextRequest) {
     const match = rows.find((row:any) => g(row, ['Confirmation #','Confirmation','confirmation']) === confirmation);
     if (!match) return new Response(JSON.stringify({ ok:false, notFound:true }), { status:200 });
 
-    // 🔑 pull the full job by Tag so we get Webbs/Specialty columns
+    // Pull the full job by Tag so we get all columns (Webbs/Specialty/Cape)
     const tag = g(match, ['Tag','tag']);
     if (tag) {
       const r2 = await fetch(`${origin}/api/gas2`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        cache:'no-store',
         body: JSON.stringify({ action:'job', tag }),
       }).catch(() => null);
       const j2 = await r2?.json().catch(()=> ({}));
@@ -137,7 +164,7 @@ export async function POST(req: NextRequest) {
         return new Response(JSON.stringify(toPublic(job)), { headers:{ 'Content-Type':'application/json' } });
       }
     }
-    // fallback to match if job call fails
+    // fallback if job call failed
     return new Response(JSON.stringify(toPublic(match)), { headers:{ 'Content-Type':'application/json' } });
   }
 
