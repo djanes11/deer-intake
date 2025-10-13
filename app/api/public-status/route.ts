@@ -5,16 +5,20 @@ import { SITE } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
-// ───────── helpers ─────────
+/* ───────────────── helpers ───────────────── */
+
 function ip(req: NextRequest) {
   return (req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim()
       || req.headers.get('x-real-ip') || '0.0.0.0';
 }
+
 function norm(s: any) { return String(s ?? '').replace(/\s+/g, ' ').trim(); }
+
 function hasCell(v: any) {
   const s = norm(v).toLowerCase();
   return !!s && !['n/a','na','none','--','-'].includes(s);
 }
+
 // exact getter for known header variants
 function g(row: any, names: string[], fallback = ''): string {
   for (const k of names) {
@@ -23,7 +27,19 @@ function g(row: any, names: string[], fallback = ''): string {
   }
   return fallback;
 }
-// Canonicalize to your vocab (keeps whatever the sheet implies)
+
+// normalize confirmations for comparison: strip non-alphanum, uppercase
+function nconf(v: string) {
+  return norm(v).replace(/[^a-z0-9]/gi, '').toUpperCase();
+}
+
+function matchesConfirmation(row: any, confirmation: string) {
+  const a = nconf(confirmation);
+  const b = nconf(g(row, ['Confirmation #','Confirmation','confirmation']));
+  return !!a && a === b;
+}
+
+// Canonicalizers (keep your vocab)
 function canonSpecialty(input?: string | null) {
   const s = norm(input).toLowerCase();
   if (!s) return '';
@@ -61,7 +77,7 @@ function toPublic(row: any) {
   const customer     = g(row, ['Customer','customer']);
   const primary      = g(row, ['Status','status'], 'Dropped Off');
 
-  // read raw cells (add generous aliases)
+  // read raw cells (generous aliases)
   const rawCape      = g(row, ['Caping Status','Cape Status','Caped Status','CapeStatus','capingStatus']);
   const rawWebbs     = g(row, ['Webbs Status','Webb Status','WebbsStatus','Euro Status','Skull Status','euroStatus','skullStatus']);
   const rawSpecialty = g(row, ['Specialty Status','Speciality Status','Specialty Products Status','SpecialtyStatus','specialtyStatus']);
@@ -73,11 +89,11 @@ function toPublic(row: any) {
     customer: customer ? customer.replace(/(.).+\s+(.+)/, '$1*** $2') : '',
     status: primary,
     tracks: {
-      // SHOW if the cell exists (non-blank) — including “Dropped Off”
-      capeStatus:      hasCell(rawCape)      ? canonCape(rawCape)         : null,
-      webbsStatus:     hasCell(rawWebbs)     ? canonWebbs(rawWebbs)       : null,
-      specialtyStatus: hasCell(rawSpecialty) ? canonSpecialty(rawSpecialty) : null,
       regularStatus: primary,
+      // SHOW if the sheet cell exists (even if it's "Dropped Off"); hide only when the cell is blank/N/A.
+      capeStatus:      hasCell(rawCape)      ? canonCape(rawCape)           : null,
+      webbsStatus:     hasCell(rawWebbs)     ? canonWebbs(rawWebbs)         : null,
+      specialtyStatus: hasCell(rawSpecialty) ? canonSpecialty(rawSpecialty) : null,
     },
     pickup: {
       hours: SITE.hours,
@@ -88,7 +104,8 @@ function toPublic(row: any) {
   };
 }
 
-// ───────── handler ─────────
+/* ───────────────── handler ───────────────── */
+
 export async function POST(req: NextRequest) {
   const rl = rateLimit(ip(req), 'public-status', 30, 60_000);
   if (!rl.allowed) return new Response(JSON.stringify({ ok:false, error:'Rate limited' }), { status:429 });
@@ -100,7 +117,7 @@ export async function POST(req: NextRequest) {
 
   const origin = new URL(req.url).origin;
 
-  // Fast path: Tag + Last Name → 1 call, full job
+  // 1) Fast path: Tag + Last Name → 1 call, full job
   if (tagParam && lastName) {
     const r = await fetch(`${origin}/api/gas2`, {
       method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
@@ -117,24 +134,36 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ ok:false, notFound:true }), { status:200 });
   }
 
-  // Faster confirmation path: ONE search by confirmation → then ONE job by tag
+  // 2) Confirmation path: keep it snappy but robust
   if (confirmation) {
-    const r = await fetch(`${origin}/api/gas2`, {
-      method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
-      body: JSON.stringify({ action:'search', q: confirmation }),
-    }).catch(() => null);
-
-    if (!r?.ok) {
-      return new Response(JSON.stringify({ ok:false, notFound:true }), { status:200 });
+    // First try: direct search with the confirmation string
+    let rows: any[] = [];
+    {
+      const r = await fetch(`${origin}/api/gas2`, {
+        method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
+        body: JSON.stringify({ action:'search', q: confirmation }),
+      }).catch(() => null);
+      if (r?.ok) {
+        const data = await r.json().catch(()=> ({}));
+        if (Array.isArray(data?.rows)) rows = data.rows;
+      }
     }
-    const data = await r.json().catch(()=> ({}));
-    const rows: any[] = Array.isArray(data?.rows) ? data.rows : [];
 
-    const match = rows.find((row:any) => g(row, ['Confirmation #','Confirmation','confirmation']) === confirmation);
+    // If not found, single broad fallback '@all' (don’t loop through many buckets)
+    let match = rows.find((row:any) => matchesConfirmation(row, confirmation));
     if (!match) {
-      // No broad fallback to keep it snappy; tell them to try Tag+Last Name
-      return new Response(JSON.stringify({ ok:false, notFound:true }), { status:200 });
+      const r = await fetch(`${origin}/api/gas2`, {
+        method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
+        body: JSON.stringify({ action:'search', q: '@all' }),
+      }).catch(() => null);
+      if (r?.ok) {
+        const data = await r.json().catch(()=> ({}));
+        const rows2: any[] = Array.isArray(data?.rows) ? data.rows : [];
+        match = rows2.find((row:any) => matchesConfirmation(row, confirmation)) || null;
+      }
     }
+
+    if (!match) return new Response(JSON.stringify({ ok:false, notFound:true }), { status:200 });
 
     // Pull full job by Tag so we get Webbs/Specialty/Cape columns
     const tag = g(match, ['Tag','tag']);
@@ -150,10 +179,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fallback: we’ll at least return what we saw on the search row
+    // Fallback: at least render what we saw on the search row
     return new Response(JSON.stringify(toPublic(match)), { headers:{ 'Content-Type':'application/json' } });
   }
 
   return new Response(JSON.stringify({ ok:false, error:'Provide Confirmation # OR (Tag + Last Name).' }), { status:400 });
 }
-
