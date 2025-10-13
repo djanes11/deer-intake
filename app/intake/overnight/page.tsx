@@ -1,3 +1,4 @@
+// app/(public)/overnight/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState, Suspense } from 'react';
@@ -43,11 +44,11 @@ type Job = {
     | 'Cape & Donate'
     | 'Donate';
 
-  status?: string;            // regular status
-  capingStatus?: string;      // only shown if Caped / Cape & Donate
-  webbsStatus?: string;       // only shown if Webbs (and not Donate)
+  status?: string;            // regular status (hidden in UI)
+  capingStatus?: string;      // cape status (hidden in UI)
+  webbsStatus?: string;       // webbs status (hidden in UI)
 
-  // NEW: Specialty Status (same flow rules as you requested)
+  // Specialty Status (hidden in UI but kept in payload)
   specialtyStatus?: '' | 'Dropped Off' | 'In Progress' | 'Finished' | 'Called' | 'Picked Up';
 
   steak?: string;
@@ -89,7 +90,7 @@ type Job = {
   // overnight signal for backend
   requiresTag?: boolean;
 
-  // NEW: comms prefs + consent
+  // comms prefs + consent
   prefEmail?: boolean;       // maps to "Pref Email"
   prefSMS?: boolean;         // maps to "Pref SMS"
   prefCall?: boolean;        // maps to "Pref Call"
@@ -143,6 +144,7 @@ const fullPaid = (j: Job): boolean => {
   return proc && spec;
 };
 
+// keep lists for internal coercion only (not rendered)
 const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
 const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
 const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up'] as const;
@@ -189,7 +191,7 @@ function OvernightIntakePage() {
     paidSpecialty: false,
     specialtyProducts: false,
 
-    requiresTag: true,        // THIS is what the backend uses to allow missing tag
+    requiresTag: true,        // backend allows missing tag
 
     // sensible defaults for prefs
     prefEmail: true,
@@ -221,12 +223,7 @@ function OvernightIntakePage() {
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
 
-  const showMainStatus       = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
-  const showCapingStatus     = capingFlow;
-  const showWebbsStatus      = webbsOn && procNorm !== 'Donate';
-  const showSpecialtyStatus  = !!job.specialtyProducts;
-
-  // status coercion/initialization
+  // status coercion/initialization (hidden UI)
   useEffect(() => {
     setJob((prev) => {
       const next = { ...prev };
@@ -383,63 +380,12 @@ function OvernightIntakePage() {
             </div>
           </div>
 
+          {/* Trimmed summary: ONLY the total (no status UI at all) */}
           <div className="row small">
             <div className="col total">
               <label>Total (preview)</label>
               <div className="money total">{totalPrice.toFixed(2)}</div>
             </div>
-
-            {showMainStatus && (
-              <div className="col">
-                <label>Status</label>
-                <select
-                  value={coerce(job.status, STATUS_MAIN)}
-                  onChange={(e) => setVal('status', e.target.value)}
-                  disabled={locked}
-                >
-                  {STATUS_MAIN.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
-
-            {showCapingStatus && (
-              <div className="col">
-                <label>Caping Status</label>
-                <select
-                  value={coerce(job.capingStatus, STATUS_CAPE)}
-                  onChange={(e) => setVal('capingStatus', e.target.value)}
-                  disabled={locked}
-                >
-                  {STATUS_CAPE.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
-
-            {showWebbsStatus && (
-              <div className="col">
-                <label>Webbs Status</label>
-                <select
-                  value={coerce(job.webbsStatus, STATUS_WEBBS)}
-                  onChange={(e) => setVal('webbsStatus', e.target.value)}
-                  disabled={locked}
-                >
-                  {STATUS_WEBBS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
-
-            {showSpecialtyStatus && (
-              <div className="col">
-                <label>Specialty Status</label>
-                <select
-                  value={coerce(job.specialtyStatus, STATUS_SPEC)}
-                  onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
-                  disabled={locked}
-                >
-                  {STATUS_SPEC.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
           </div>
         </div>
 
@@ -792,7 +738,7 @@ function OvernightIntakePage() {
           </div>
         </section>
 
-        {/* Specialty Products */}
+        {/* Specialty Products (no Specialty Status UI) */}
         <section>
           <h3>McAfee Specialty Products</h3>
           <div className="grid">
@@ -835,21 +781,6 @@ function OvernightIntakePage() {
               />
             </div>
           </div>
-
-          {showSpecialtyStatus && (
-            <div className="grid" style={{marginTop:8}}>
-              <div className="c3">
-                <label>Specialty Status</label>
-                <select
-                  value={coerce(job.specialtyStatus, STATUS_SPEC)}
-                  onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
-                  disabled={locked}
-                >
-                  {STATUS_SPEC.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
         </section>
 
         {/* Communication & Consent */}
@@ -1023,7 +954,7 @@ function OvernightIntakePage() {
 
         .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
-        .summary .row.small { margin-top: 6px; grid-template-columns: repeat(4, 1fr); }
+        .summary .row.small { margin-top: 6px; grid-template-columns: 1fr; } /* total only */
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
@@ -1037,11 +968,12 @@ function OvernightIntakePage() {
 
         .print-only { display: none; }
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
-        @media (max-width: 900px) { .summary .row.small { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 720px) {
-          .grid { grid-template-columns: 1fr; }
+        @media (max-width: 900px) {
           .summary .row { grid-template-columns: 1fr; }
           .summary .row.small { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 720px) {
+          .grid { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
           .summary .checks { gap: 8px; }
         }
