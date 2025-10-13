@@ -963,31 +963,38 @@ function IntakePage() {
 
     {job.specialtyProducts && (
       <>
-        {/* Removed the Specialty Status select here on purpose.
-            Status control remains in the SUMMARY BAR only. */}
+        {/* Specialty Status is intentionally NOT shown here; it's in the summary bar only */}
 
         <div className="c4">
           <label>Summer Sausage (lb)</label>
           <input
             inputMode="numeric"
+            pattern="[0-9]*"
             value={String(job.summerSausageLbs ?? '')}
             onChange={(e) => setVal('summerSausageLbs', e.target.value)}
+            placeholder="e.g., 10"
           />
         </div>
+
         <div className="c4">
           <label>Summer Sausage + Cheese (lb)</label>
           <input
             inputMode="numeric"
+            pattern="[0-9]*"
             value={String(job.summerSausageCheeseLbs ?? '')}
             onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
+            placeholder="e.g., 5"
           />
         </div>
+
         <div className="c4">
           <label>Sliced Jerky (lb)</label>
           <input
             inputMode="numeric"
+            pattern="[0-9]*"
             value={String(job.slicedJerkyLbs ?? '')}
             onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
+            placeholder="e.g., 3"
           />
         </div>
       </>
