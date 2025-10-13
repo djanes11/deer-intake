@@ -10,28 +10,35 @@ function ip(req: NextRequest) {
       || req.headers.get('x-real-ip') || '0.0.0.0';
 }
 
-// Safe getter that tolerates different column headers / casing
 function g(row: any, names: string[], fallback = ''): string {
   for (const k of names) {
-    if (row == null) break;
-    const v = row[k] ?? row[k.toLowerCase?.()] ?? row[k.replace(/\s+/g, '')];
+    const v = row?.[k];
     if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
   }
   return fallback;
 }
+function relevant(v?: string | null) {
+  if (!v) return false;
+  const s = String(v).trim().toLowerCase();
+  return !!s && !['n/a','na','none','no','false','-','--'].includes(s);
+}
 
-// Build the public-safe payload we’ll return
 function toPublic(row: any) {
   const confirmation = g(row, ['Confirmation #','Confirmation','confirmation']);
   const tag          = g(row, ['Tag','tag']);
   const customer     = g(row, ['Customer','customer']);
   const status       = g(row, ['Status','status'], 'Dropped Off');
 
-  // extra tracks (use whatever your sheet calls them; include generous aliases)
-  const regularStatus   = status; // main status is the “regular/processing” status
+  // exact columns you asked to surface:
+  const webbsExact      = g(row, ['Webbs Status']);
+  const specialtyExact  = g(row, ['Specialty Status']);
+
+  // fallbacks/aliases if your sheet uses different headers in some rows
   const capeStatus      = g(row, ['Cape Status','Caping Status','Caped Status','CapeStatus','capingStatus']);
-  const webbsStatus     = g(row, ['Webbs Status','Skull Status','Euro Status','WebbsStatus','euroStatus']);
-  const specialtyStatus = g(row, ['Specialty Status','Specialty Products Status','SpecialtyStatus','specialtyStatus']);
+  const webbsStatus     = relevant(webbsExact) ? webbsExact
+                        : g(row, ['Skull Status','Euro Status','WebbsStatus','euroStatus']);
+  const specialtyStatus = relevant(specialtyExact) ? specialtyExact
+                        : g(row, ['Specialty Products Status','SpecialtyStatus','specialtyStatus']);
 
   return {
     ok: true,
@@ -40,10 +47,10 @@ function toPublic(row: any) {
     customer: customer ? customer.replace(/(.).+\s+(.+)/, '$1*** $2') : '',
     status,
     tracks: {
-      regularStatus,
-      capeStatus: capeStatus || null,
-      webbsStatus: webbsStatus || null,
-      specialtyStatus: specialtyStatus || null,
+      regularStatus: status,
+      capeStatus: relevant(capeStatus) ? capeStatus : null,
+      webbsStatus: relevant(webbsStatus) ? webbsStatus : null,
+      specialtyStatus: relevant(specialtyStatus) ? specialtyStatus : null,
     },
     pickup: {
       hours: SITE.hours,
@@ -72,13 +79,12 @@ export async function POST(req: NextRequest) {
 
   const origin = new URL(req.url).origin;
 
-  // 1) Exact TAG path first
+  // Exact tag path (fast)
   if (tag) {
     const r = await fetch(`${origin}/api/gas2`, {
       method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
       body: JSON.stringify({ action:'job', tag }),
     }).catch(() => null);
-
     const j = await r?.json().catch(()=> ({}));
     const job = j?.job;
     if (job) {
@@ -88,7 +94,7 @@ export async function POST(req: NextRequest) {
     return notFound();
   }
 
-  // 2) Confirmation path: query broadly, then filter by exact Confirmation #
+  // Confirmation path: search broadly, then exact match by Confirmation #
   const queries = [confirmation, '@report', '@needsTag', '@calls', '@all', ''];
   let rows: any[] = [];
   for (const q of queries) {
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
     if (got.some((row:any) => g(row, ['Confirmation #','Confirmation','confirmation']) === confirmation)) break;
   }
 
-  // de-dupe
+  // de-dupe and choose exact confirmation
   const seen = new Set<string>();
   rows = rows.filter((row:any) => {
     const id = `${g(row,['Tag','tag'])}|${g(row,['Confirmation #','Confirmation','confirmation'])}`;
