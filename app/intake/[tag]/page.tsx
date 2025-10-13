@@ -1,4 +1,4 @@
-// app/intake/[tag]/page.tsx — public read-only view by tag (Server Component, deploy-safe)
+// app/intake/[tag]/page.tsx — public read-only view by tag (Server Component, with CSS restored)
 import 'server-only';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -137,17 +137,11 @@ function specialtyPrice(job: Job) {
   return ss * 4.25 + ssc * 4.60 + jer * 15.0;
 }
 
-// Shared inline style objects (no styled-jsx)
-const L: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#0b0f12', display: 'block', marginBottom: 4 };
-const Pill: React.CSSProperties = { background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, padding: '6px 8px' };
-const PillMoney: React.CSSProperties = { ...Pill, fontWeight: 800, textAlign: 'right' };
-const Grid2: React.CSSProperties = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, 1fr)' };
-
 // ---- Page (Server Component) ----
 // IMPORTANT: no explicit prop types — avoids Next 15 PageProps mismatch.
 export default async function ReadOnlyByTagPage({ params, searchParams }: any) {
   try {
-    const p = await params; // handles both plain object and Promise in Next 15
+    const p = await params; // supports object or Promise in Next 15
     const tag = String(p?.tag || '').trim();
     if (!tag) throw new Error('Missing tag parameter.');
 
@@ -158,7 +152,7 @@ export default async function ReadOnlyByTagPage({ params, searchParams }: any) {
     const gr = await gasGet({ action: 'get', tag });
     if (gr?.ok && gr.exists && gr.job) job = gr.job as Job;
 
-    // 2) Optional sanity: if conf present but doesn't match, cross-check by confirmation
+    // 2) Optional: if conf present and doesn't match, try lookup by conf
     if (conf && job && digits(String(job.confirmation || '')) !== digits(conf)) {
       const sr = await gasGet({ action: 'search', q: conf });
       const rows: Job[] = (sr && sr.rows) || [];
@@ -177,128 +171,128 @@ export default async function ReadOnlyByTagPage({ params, searchParams }: any) {
     const totalPrice = (priceProc + priceSpec);
 
     return (
-      <main style={{ maxWidth: 980, margin: '24px auto', padding: '12px', color: '#0b0f12' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <h1 style={{ margin: 0, color: '#0b0f12' }}>McAfee Deer Intake (Read Only)</h1>
-          <div style={{ fontSize: 12, color: '#6b7280' }}>
+      <main className="light-page">
+        <header className="header">
+          <h1>McAfee Deer Intake (Read Only)</h1>
+          <div className="meta">
             Tag: <b>{job.tag || '—'}</b> &nbsp;|&nbsp; Confirmation: <b>{job.confirmation || '—'}</b>
           </div>
         </header>
 
         {/* Summary Row 1: pricing */}
-        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 8 }}>
-          <div>
-            <label style={L}>Processing Price</label>
-            <div style={PillMoney}>{money(priceProc)}</div>
+        <div className="summary grid3">
+          <div className="card">
+            <label>Processing Price</label>
+            <div className="pill money">{money(priceProc)}</div>
           </div>
-          <div>
-            <label style={L}>Specialty Price</label>
-            <div style={PillMoney}>{money(priceSpec)}</div>
+          <div className="card">
+            <label>Specialty Price</label>
+            <div className="pill money">{money(priceSpec)}</div>
           </div>
-          <div>
-            <label style={L}>Total</label>
-            <div style={{ ...PillMoney, fontWeight: 900 }}>{money(totalPrice)}</div>
+          <div className="card">
+            <label>Total</label>
+            <div className="pill money strong">{money(totalPrice)}</div>
           </div>
         </div>
 
         {/* Summary Row 2: statuses (includes Specialty Status) */}
-        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(5, 1fr)', marginTop: 8, marginBottom: 8 }}>
-          <div>
-            <label style={L}>Status</label>
-            <div style={Pill}>{job.status || ''}</div>
+        <div className="summary grid5">
+          <div className="card">
+            <label>Status</label>
+            <div className="pill">{job.status || ''}</div>
           </div>
 
           {(proc === 'Caped' || proc === 'Cape & Donate') && (
-            <div>
-              <label style={L}>Caping Status</label>
-              <div style={Pill}>{job.capingStatus || ''}</div>
+            <div className="card">
+              <label>Caping Status</label>
+              <div className="pill">{job.capingStatus || ''}</div>
             </div>
           )}
 
           {job.webbsOrder && (
-            <div>
-              <label style={L}>Webbs Status</label>
-              <div style={Pill}>{job.webbsStatus || ''}</div>
+            <div className="card">
+              <label>Webbs Status</label>
+              <div className="pill">{job.webbsStatus || ''}</div>
             </div>
           )}
 
           {(job.specialtyProducts || (job.specialtyStatus && String(job.specialtyStatus).trim())) && (
-            <div>
-              <label style={L}>Specialty Status</label>
-              <div style={Pill}>{job.specialtyStatus || ''}</div>
+            <div className="card">
+              <label>Specialty Status</label>
+              <div className="pill">{job.specialtyStatus || ''}</div>
             </div>
           )}
 
-          {/* filler to keep grid neat */}
-          <div aria-hidden style={{ visibility: 'hidden' }} />
+          {/* Filler to keep grid neat if fewer cards render */}
+          <div className="card filler" aria-hidden />
         </div>
 
         {/* Identity */}
-        <section style={Grid2}>
+        <section className="grid2">
           <div>
-            <label style={L}>Customer</label>
-            <div style={Pill}>{job.customer || ''}</div>
+            <label>Customer</label>
+            <div className="pill">{job.customer || ''}</div>
           </div>
           <div>
-            <label style={L}>Phone</label>
-            <div style={Pill}>{job.phone || ''}</div>
+            <label>Phone</label>
+            <div className="pill">{job.phone || ''}</div>
           </div>
           <div>
-            <label style={L}>Email</label>
-            <div style={Pill}>{job.email || ''}</div>
+            <label>Email</label>
+            <div className="pill">{job.email || ''}</div>
           </div>
           <div>
-            <label style={L}>Address</label>
-            <div style={Pill}>{[job.address, job.city, job.state, job.zip].filter(Boolean).join(', ')}</div>
+            <label>Address</label>
+            <div className="pill">{[job.address, job.city, job.state, job.zip].filter(Boolean).join(', ')}</div>
           </div>
         </section>
 
         {/* Hunt */}
-        <section style={Grid2}>
+        <section className="grid2">
           <div>
-            <label style={L}>County Killed</label>
-            <div style={Pill}>{job.county || ''}</div>
+            <label>County Killed</label>
+            <div className="pill">{job.county || ''}</div>
           </div>
           <div>
-            <label style={L}>Drop-off Date</label>
-            <div style={Pill}>{job.dropoff || ''}</div>
+            <label>Drop-off Date</label>
+            <div className="pill">{job.dropoff || ''}</div>
           </div>
           <div>
-            <label style={L}>Deer Sex</label>
-            <div style={Pill}>{job.sex || ''}</div>
+            <label>Deer Sex</label>
+            <div className="pill">{job.sex || ''}</div>
           </div>
           <div>
-            <label style={L}>Process Type</label>
-            <div style={Pill}>{job.processType || ''}</div>
+            <label>Process Type</label>
+            <div className="pill">{job.processType || ''}</div>
           </div>
         </section>
 
         {/* Cuts */}
         <section>
-          <h3 style={{ margin: '10px 0 6px' }}>Cuts</h3>
-          <div style={Grid2}>
+          <h3>Cuts</h3>
+          <div className="grid2">
             <div>
-              <label style={L}>Hind Roast Count</label>
-              <div style={Pill}>{job.hindRoastCount || ''}</div>
+              <label>Hind Roast Count</label>
+              <div className="pill">{job.hindRoastCount || ''}</div>
             </div>
             <div>
-              <label style={L}>Front Roast Count</label>
-              <div style={Pill}>{job.frontRoastCount || ''}</div>
+              <label>Front Roast Count</label>
+              <div className="pill">{job.frontRoastCount || ''}</div>
             </div>
           </div>
         </section>
 
         {/* Backstrap */}
         <section>
-          <h3 style={{ margin: '10px 0 6px' }}>Backstrap</h3>
-          <div style={Grid2}>
+          <h3>Backstrap</h3>
+          <div className="grid2">
             <div>
-              <label style={L}>Prep</label>
-              <div style={Pill}>{job.backstrapPrep || ''}</div>
+              <label>Prep</label>
+              <div className="pill">{job.backstrapPrep || ''}</div>
             </div>
             <div>
-              <label style={L}>Thickness</label>
-              <div style={Pill}>
+              <label>Thickness</label>
+              <div className="pill">
                 {job.backstrapThickness === 'Other'
                   ? (job.backstrapThicknessOther || '')
                   : (job.backstrapThickness || '')}
@@ -309,25 +303,25 @@ export default async function ReadOnlyByTagPage({ params, searchParams }: any) {
 
         {/* Specialty */}
         <section>
-          <h3 style={{ margin: '10px 0 6px' }}>Specialty Products</h3>
-          <div style={Grid2}>
+          <h3>Specialty Products</h3>
+          <div className="grid2">
             <div>
-              <label style={L}>Would like specialty products</label>
-              <div style={Pill}>{job.specialtyProducts ? 'Yes' : 'No'}</div>
+              <label>Would like specialty products</label>
+              <div className="pill">{job.specialtyProducts ? 'Yes' : 'No'}</div>
             </div>
             {job.specialtyProducts && (
               <>
                 <div>
-                  <label style={L}>Summer Sausage (lb)</label>
-                  <div style={Pill}>{job.summerSausageLbs || ''}</div>
+                  <label>Summer Sausage (lb)</label>
+                  <div className="pill">{job.summerSausageLbs || ''}</div>
                 </div>
                 <div>
-                  <label style={L}>Summer Sausage + Cheese (lb)</label>
-                  <div style={Pill}>{job.summerSausageCheeseLbs || ''}</div>
+                  <label>Summer Sausage + Cheese (lb)</label>
+                  <div className="pill">{job.summerSausageCheeseLbs || ''}</div>
                 </div>
                 <div>
-                  <label style={L}>Sliced Jerky (lb)</label>
-                  <div style={Pill}>{job.slicedJerkyLbs || ''}</div>
+                  <label>Sliced Jerky (lb)</label>
+                  <div className="pill">{job.slicedJerkyLbs || ''}</div>
                 </div>
               </>
             )}
@@ -336,21 +330,21 @@ export default async function ReadOnlyByTagPage({ params, searchParams }: any) {
 
         {/* Webbs */}
         <section>
-          <h3 style={{ margin: '10px 0 6px' }}>Webbs</h3>
-          <div style={Grid2}>
+          <h3>Webbs</h3>
+          <div className="grid2">
             <div>
-              <label style={L}>Webbs Order</label>
-              <div style={Pill}>{job.webbsOrder ? 'Yes' : 'No'}</div>
+              <label>Webbs Order</label>
+              <div className="pill">{job.webbsOrder ? 'Yes' : 'No'}</div>
             </div>
             {job.webbsOrder && (
               <>
                 <div>
-                  <label style={L}>Order Form Number</label>
-                  <div style={Pill}>{job.webbsFormNumber || ''}</div>
+                  <label>Order Form Number</label>
+                  <div className="pill">{job.webbsFormNumber || ''}</div>
                 </div>
                 <div>
-                  <label style={L}>Webbs Pounds</label>
-                  <div style={Pill}>{job.webbsPounds || ''}</div>
+                  <label>Webbs Pounds</label>
+                  <div className="pill">{job.webbsPounds || ''}</div>
                 </div>
               </>
             )}
@@ -359,19 +353,101 @@ export default async function ReadOnlyByTagPage({ params, searchParams }: any) {
 
         {/* Notes */}
         <section>
-          <h3 style={{ margin: '10px 0 6px' }}>Notes</h3>
-          <div style={Pill}>{job.notes || ''}</div>
+          <h3>Notes</h3>
+          <div className="pill">{job.notes || ''}</div>
         </section>
+
+        {/* Page CSS (no styled-jsx; plain style tag works in Server Components) */}
+        <style>{`
+          :root { color-scheme: light; }
+          .light-page {
+            max-width: 980px;
+            margin: 24px auto;
+            padding: 12px;
+            color: #0b0f12;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+          }
+          h1 {
+            margin: 0;
+            font-size: 22px;
+            color: #0b0f12;
+            letter-spacing: 0.1px;
+          }
+          .meta { font-size: 12px; color: #6b7280; }
+
+          label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0b0f12;
+            display: block;
+            margin-bottom: 4px;
+          }
+          h3 {
+            margin: 10px 0 6px;
+            font-size: 14px;
+            color: #0b0f12;
+          }
+
+          .pill {
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 6px 8px;
+          }
+          .money { font-weight: 800; text-align: right; }
+          .money.strong { font-weight: 900; }
+
+          .summary { margin-bottom: 8px; }
+          .grid3 {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(3, 1fr);
+          }
+          .grid5 {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(5, 1fr);
+            margin-top: 8px;
+            margin-bottom: 8px;
+          }
+          .grid2 {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(2, 1fr);
+          }
+          .card { min-width: 0; }
+          .card.filler { visibility: hidden; }
+
+          @media (max-width: 720px) {
+            .grid3, .grid5, .grid2 { grid-template-columns: 1fr; }
+          }
+        `}</style>
       </main>
     );
   } catch (err: any) {
     return (
-      <div style={{ maxWidth: 760, margin: '24px auto', padding: '16px', color: '#0b0f12' }}>
-        <h1 style={{ color: '#0b0f12' }}>Unable to load form</h1>
+      <div className="light-page">
+        <h1>Unable to load form</h1>
         <p style={{ whiteSpace: 'pre-wrap', color: '#374151' }}>{String(err?.message || err)}</p>
         <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>
           Tip: ensure <code>NEXT_PUBLIC_GAS_BASE</code> is your Apps Script <code>/exec</code> URL.
         </div>
+        <style>{`
+          .light-page {
+            max-width: 760px;
+            margin: 24px auto;
+            padding: 16px;
+            color: #0b0f12;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+          }
+          h1 { margin: 0 0 8px; font-size: 22px; color: #0b0f12; }
+        `}</style>
       </div>
     );
   }
