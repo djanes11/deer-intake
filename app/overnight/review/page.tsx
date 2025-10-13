@@ -19,7 +19,7 @@ type Row = {
 type AnyRec = Record<string, any>;
 
 const API = '/api/gas2';
-const GRID = '2fr 0.9fr 1.2fr 1fr 1.25fr';
+const GRID = '1fr 0.9fr 1.2fr 1fr 1.25fr';
 
 async function parseJsonSafe(r: Response) {
   const t = await r.text();
