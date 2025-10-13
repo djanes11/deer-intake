@@ -42,18 +42,40 @@ export default function StatusPage() {
       </form>
 
       {err ? <div style={errBox}>{err}</div> : null}
-      {res ? (
-        <div style={card}>
-          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>Status: {res.status}</div>
-          <div>Tag: {res.tag || '—'}</div>
-          <div>Confirmation: {res.confirmation || '—'}</div>
-          <div style={{ marginTop: 12, fontSize: 14, opacity: .9 }}>
-            <div><b>Pickup hours:</b> {SITE.hours.map(h => `${h.label} ${h.value}`).join(' · ')}</div>
-            <div><b>Address:</b> <a href={SITE.mapsUrl} target="_blank" rel="noreferrer">{SITE.address}</a></div>
-            <div><b>Phone:</b> {SITE.phone}</div>
-          </div>
-        </div>
+// app/status/page.tsx (only replace the result rendering block)
+{res ? (
+  <div style={card}>
+    <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 6 }}>
+      Status: {res.status}
+    </div>
+
+    <div>Tag: {res.tag || '—'}</div>
+    <div>Confirmation: {res.confirmation || '—'}</div>
+
+    {/* Extra tracks (only show when present) */}
+    <div style={{ marginTop: 10, opacity: .95 }}>
+      {res.tracks?.regularStatus ? (
+        <div><b>Processing:</b> {res.tracks.regularStatus}</div>
       ) : null}
+      {res.tracks?.capeStatus ? (
+        <div><b>Cape:</b> {res.tracks.capeStatus}</div>
+      ) : null}
+      {res.tracks?.webbsStatus ? (
+        <div><b>Webbs/Euro:</b> {res.tracks.webbsStatus}</div>
+      ) : null}
+      {res.tracks?.specialtyStatus ? (
+        <div><b>Specialty:</b> {res.tracks.specialtyStatus}</div>
+      ) : null}
+    </div>
+
+    <div style={{ marginTop: 12, fontSize: 14, opacity: .9 }}>
+      <div><b>Pickup hours:</b> {SITE.hours.map(h => `${h.label} ${h.value}`).join(' · ')}</div>
+      <div><b>Address:</b> <a href={SITE.mapsUrl} target="_blank" rel="noreferrer">{SITE.address}</a></div>
+      <div><b>Phone:</b> {SITE.phone}</div>
+    </div>
+  </div>
+) : null}
+
     </main>
   );
 }

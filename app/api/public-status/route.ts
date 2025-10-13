@@ -2,11 +2,60 @@
 import { NextRequest } from 'next/server';
 import { rateLimit } from '@/lib/ratelimit';
 import { SITE } from '@/lib/config';
+
 export const dynamic = 'force-dynamic';
 
 function ip(req: NextRequest) {
   return (req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim()
       || req.headers.get('x-real-ip') || '0.0.0.0';
+}
+
+// Safe getter that tolerates different column headers / casing
+function g(row: any, names: string[], fallback = ''): string {
+  for (const k of names) {
+    if (row == null) break;
+    const v = row[k] ?? row[k.toLowerCase?.()] ?? row[k.replace(/\s+/g, '')];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+  }
+  return fallback;
+}
+
+// Build the public-safe payload we’ll return
+function toPublic(row: any) {
+  const confirmation = g(row, ['Confirmation #','Confirmation','confirmation']);
+  const tag          = g(row, ['Tag','tag']);
+  const customer     = g(row, ['Customer','customer']);
+  const status       = g(row, ['Status','status'], 'Dropped Off');
+
+  // extra tracks (use whatever your sheet calls them; include generous aliases)
+  const regularStatus   = status; // main status is the “regular/processing” status
+  const capeStatus      = g(row, ['Cape Status','Caping Status','Caped Status','CapeStatus','capingStatus']);
+  const webbsStatus     = g(row, ['Webbs Status','Skull Status','Euro Status','WebbsStatus','euroStatus']);
+  const specialtyStatus = g(row, ['Specialty Status','Specialty Products Status','SpecialtyStatus','specialtyStatus']);
+
+  return {
+    ok: true,
+    confirmation,
+    tag,
+    customer: customer ? customer.replace(/(.).+\s+(.+)/, '$1*** $2') : '',
+    status,
+    tracks: {
+      regularStatus,
+      capeStatus: capeStatus || null,
+      webbsStatus: webbsStatus || null,
+      specialtyStatus: specialtyStatus || null,
+    },
+    pickup: {
+      hours: SITE.hours,
+      address: SITE.address,
+      mapsUrl: SITE.mapsUrl,
+      phone: SITE.phone,
+    },
+  };
+}
+
+function notFound() {
+  return new Response(JSON.stringify({ ok:false, notFound:true }), { status:200 });
 }
 
 export async function POST(req: NextRequest) {
@@ -23,71 +72,46 @@ export async function POST(req: NextRequest) {
 
   const origin = new URL(req.url).origin;
 
-  // 1) Exact TAG path first (fast and precise)
+  // 1) Exact TAG path first
   if (tag) {
     const r = await fetch(`${origin}/api/gas2`, {
       method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
       body: JSON.stringify({ action:'job', tag }),
-    });
-    const j = await r.json().catch(()=> ({}));
+    }).catch(() => null);
+
+    const j = await r?.json().catch(()=> ({}));
     const job = j?.job;
     if (job) {
-      const ln = String((job['Customer'] || job.customer || '')).trim().split(' ').slice(-1)[0].toLowerCase();
-      if (ln === lastName) return ok(job);
+      const ln = g(job, ['Customer','customer']).split(' ').slice(-1)[0]?.toLowerCase() || '';
+      if (ln === lastName) return new Response(JSON.stringify(toPublic(job)), { headers:{ 'Content-Type':'application/json' } });
     }
     return notFound();
   }
 
-  // 2) Confirmation path: query broadly, then match EXACT 'Confirmation #' in code
-  const queries = [
-    confirmation,        // direct hit if supported
-    '@report',           // finished / caped / delivered queues
-    '@needsTag',         // overnight / missing-tag queues
-    '@calls',            // ready-to-call queue (if you expose it)
-    '@all',              // fallback if your GAS supports it
-    ''                   // worst-case: full list (server will still restrict)
-  ];
-
+  // 2) Confirmation path: query broadly, then filter by exact Confirmation #
+  const queries = [confirmation, '@report', '@needsTag', '@calls', '@all', ''];
   let rows: any[] = [];
   for (const q of queries) {
-    try {
-      const r = await fetch(`${origin}/api/gas2`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
-        body: JSON.stringify({ action:'search', q }),
-      });
-      if (!r.ok) continue;
-      const data = await r.json().catch(()=> ({}));
-      const got = Array.isArray(data?.rows) ? data.rows : [];
-      rows = rows.concat(got);
-      // small optimization: if we already found an exact match, bail early
-      if (got.some((row:any) => String(row['Confirmation #'] || row.confirmation || '').trim() === confirmation)) break;
-    } catch { /* ignore and try next */ }
+    const r = await fetch(`${origin}/api/gas2`, {
+      method:'POST', headers:{ 'Content-Type':'application/json' }, cache:'no-store',
+      body: JSON.stringify({ action:'search', q }),
+    }).catch(() => null);
+    if (!r?.ok) continue;
+    const data = await r.json().catch(()=> ({}));
+    const got = Array.isArray(data?.rows) ? data.rows : [];
+    rows = rows.concat(got);
+    if (got.some((row:any) => g(row, ['Confirmation #','Confirmation','confirmation']) === confirmation)) break;
   }
 
-  // de-dupe and match by exact confirmation
+  // de-dupe
   const seen = new Set<string>();
   rows = rows.filter((row:any) => {
-    const id = `${row['Tag'] || row.tag || ''}|${row['Confirmation #'] || row.confirmation || ''}`;
+    const id = `${g(row,['Tag','tag'])}|${g(row,['Confirmation #','Confirmation','confirmation'])}`;
     if (seen.has(id)) return false; seen.add(id); return true;
   });
 
-  const match = rows.find((row:any) => String(row['Confirmation #'] || row.confirmation || '').trim() === confirmation);
-  if (match) return ok(match);
-  return notFound();
+  const match = rows.find((row:any) => g(row, ['Confirmation #','Confirmation','confirmation']) === confirmation);
+  if (!match) return notFound();
 
-  function ok(row:any) {
-    const status = String(row['Status'] || row.status || 'Dropped Off');
-    const safe = {
-      ok: true,
-      confirmation: String(row['Confirmation #'] || ''),
-      tag: String(row['Tag'] || ''),
-      customer: String(row['Customer'] || '').replace(/(.).+\\s+(.+)/, '$1*** $2'),
-      status,
-      pickup: { hours: SITE.hours, address: SITE.address, mapsUrl: SITE.mapsUrl, phone: SITE.phone },
-    };
-    return new Response(JSON.stringify(safe), { headers:{ 'Content-Type':'application/json' } });
-  }
-  function notFound() {
-    return new Response(JSON.stringify({ ok:false, notFound:true }), { status:200 });
-  }
+  return new Response(JSON.stringify(toPublic(match)), { headers:{ 'Content-Type':'application/json' } });
 }
