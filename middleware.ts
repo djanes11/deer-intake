@@ -1,4 +1,4 @@
-// middleware.ts
+// middleware.ts (env-aware public/staff split)
 import { NextResponse, NextRequest } from 'next/server';
 
 const LOCK = process.env.LOCK_NON_INTAKE === '1';
@@ -6,111 +6,80 @@ const USER = process.env.BASIC_AUTH_USER || '';
 const PASS = process.env.BASIC_AUTH_PASS || '';
 const REALM = 'Staff';
 const MAX_AGE_S = 60 * 60 * 24; // 24h
+const PUBLIC_MODE = process.env.PUBLIC_MODE === '1';
 
-// Support token for temporary access (set this in Vercel env)
 const SUPPORT_TOKEN = process.env.SUPPORT_TOKEN || 'AIISTAKINGOVERTHEWORLD';
 const SUPPORT_COOKIE = 'support_ok';
 
 function isAsset(p: string) {
   return (
     p.startsWith('/_next/') ||
-    p === '/favicon.ico' ||
-    p === '/robots.txt' ||
-    p === '/sitemap.xml' ||
-    p.startsWith('/assets/') ||
-    /\.(css|js|png|jpg|jpeg|gif|webp|svg|ico|txt|map)$/.test(p)
+    p.startsWith('/favicon') ||
+    p.startsWith('/public/') ||
+    p.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|otf|eot|css|js)$/i) !== null
   );
 }
-// Public routes that never require auth
-function isPublic(p: string) {
-  // Public intake viewer + GAS endpoint + 404 page
-  return p.startsWith('/intake/') || p.startsWith('/api/gas2') || p === '/404';
+
+// Allowlist of public routes when PUBLIC_MODE=1
+function isPublicRoute(p: string) {
+  if (isAsset(p)) return true;
+  // Home + public pages
+  if (p === '/' || p.startsWith('/status') || p.startsWith('/drop') || p.startsWith('/faq') ||
+      p.startsWith('/hours') || p.startsWith('/contact') || p.startsWith('/tips')) return true;
+  // Public API endpoints we expose
+  if (p.startsWith('/api/public-status') || p.startsWith('/api/public-drop')) return true;
+  return false;
 }
 
-function decodeBasicAuth(h: string): { user: string; pass: string } | null {
-  if (!h?.startsWith('Basic ')) return null;
-  const b64 = h.slice(6).trim();
+function parseBasicAuth(req: NextRequest) {
+  const hdr = req.headers.get('authorization') || '';
+  if (!hdr.startsWith('Basic ')) return null;
   try {
-    const txt = atob(b64);
-    const i = txt.indexOf(':');
-    if (i < 0) return null;
-    return { user: txt.slice(0, i), pass: txt.slice(i + 1) };
-  } catch {
-    return null;
-  }
+    const b64 = hdr.slice(6).trim();
+    const [u, p] = Buffer.from(b64, 'base64').toString('utf8').split(':', 2);
+    return { u, p };
+  } catch { return null; }
 }
 
-function cookieExpired(req: NextRequest) {
-  const tsStr = req.cookies.get('auth_ts')?.value;
-  if (!tsStr) return true;
-  const ts = Number(tsStr);
-  if (!Number.isFinite(ts)) return true;
-  const age = Math.floor(Date.now() / 1000) - ts;
-  return age > MAX_AGE_S;
-}
+export async function middleware(req: NextRequest) {
+  const url = new URL(req.url);
+  const path = url.pathname;
 
-function unauthorized() {
-  return new NextResponse('Authentication required', {
-    status: 401,
-    headers: { 'WWW-Authenticate': `Basic realm="${REALM}", charset="UTF-8"` },
-  });
-}
-
-export function middleware(req: NextRequest) {
-  // Public Overnight Intake (render-only): allow GET/HEAD/OPTIONS without auth
-  {
-    const { pathname } = req.nextUrl;
-    const method = req.method.toUpperCase();
-    if ((pathname === '/intake/overnight' || pathname.startsWith('/intake/overnight/')) &&
-        (method === 'GET' || method === 'HEAD' || method === 'OPTIONS')) {
+  // Public deployment: only gate non-public routes
+  if (PUBLIC_MODE) {
+    if (isPublicRoute(path)) {
       return NextResponse.next();
     }
+    // Everything else blocked in public mode
+    return NextResponse.redirect(new URL('/', req.url));
   }
 
-  const { pathname, searchParams } = req.nextUrl;
+  // Staff deployment: keep prior behavior with optional lock + basic auth
+  if (isAsset(path)) return NextResponse.next();
 
-  // Always allow static assets and explicitly public routes
-  if (isAsset(pathname) || isPublic(pathname)) return NextResponse.next();
-
-  // --- Support token bypass (for you/me to review site) ---
-  // Grant access if ?support=SUPPORT_TOKEN, and persist for 24h via cookie.
-  const supportParam = searchParams.get('support');
-  const supportCookie = req.cookies.get(SUPPORT_COOKIE)?.value;
-  if (supportParam === SUPPORT_TOKEN || supportCookie === SUPPORT_TOKEN) {
+  // Support token bypass (for quick shared access)
+  const token = req.headers.get('x-support-token') || url.searchParams.get('support') || '';
+  if (token && token === SUPPORT_TOKEN) {
     const res = NextResponse.next();
-    if (supportParam === SUPPORT_TOKEN && supportCookie !== SUPPORT_TOKEN) {
-      res.cookies.set(SUPPORT_COOKIE, SUPPORT_TOKEN, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: true,
-        path: '/',
-        maxAge: MAX_AGE_S,
-      });
-    }
+    res.cookies.set(SUPPORT_COOKIE, '1', { httpOnly: true, sameSite: 'lax', secure: true, path: '/', maxAge: MAX_AGE_S });
     return res;
   }
-  // --------------------------------------------------------
+  if (req.cookies.get(SUPPORT_COOKIE)?.value === '1') return NextResponse.next();
 
-  // If lock is off, let everything through
-  if (!LOCK) return NextResponse.next();
-
-  // If creds not configured, hide everything else
-  if (!USER || !PASS) return NextResponse.rewrite(new URL('/404', req.url));
-
-  // Basic auth for staff routes
-  const creds = decodeBasicAuth(req.headers.get('authorization') || '');
-  if (!creds || creds.user !== USER || creds.pass !== PASS) {
-    return unauthorized();
+  // Basic auth if LOCK or if accessing staff-only pages
+  if (LOCK || true) {
+    const creds = parseBasicAuth(req);
+    if (!creds || creds.u !== USER || creds.p !== PASS) {
+      return new NextResponse('Authentication required', {
+        status: 401,
+        headers: { 'WWW-Authenticate': `Basic realm="${REALM}"` },
+      });
+    }
   }
 
-  // Valid creds -> refresh sliding session cookie
   const res = NextResponse.next();
   res.cookies.set('auth_ts', String(Math.floor(Date.now() / 1000)), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: true,
-    path: '/',
-    maxAge: MAX_AGE_S,
+    httpOnly: true, sameSite: 'lax', secure: true, path: '/', maxAge: MAX_AGE_S,
   });
   return res;
 }
@@ -118,4 +87,3 @@ export function middleware(req: NextRequest) {
 export const config = {
   matcher: ['/((?!_next/image).*)'],
 };
-
