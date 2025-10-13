@@ -1,10 +1,8 @@
-// app/intake/page.tsx — public read-only view (no actions)
+// app/intake/[tag]/page.tsx — public read-only view by tag (Server Component, NO styled-jsx)
 import 'server-only';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-import crypto from 'crypto';
 
 // ---- Config/env ----
 const RAW_GAS_BASE =
@@ -23,6 +21,7 @@ function buildGasExecUrl(input: string): string {
 }
 const GAS_EXEC = buildGasExecUrl(RAW_GAS_BASE);
 
+// ---- Types ----
 type Job = {
   tag?: string;
   confirmation?: string;
@@ -77,8 +76,14 @@ type Job = {
   prefCall?: boolean;
   smsConsent?: boolean;
   autoCallConsent?: boolean;
+
+  // optional specialty weights used for pricing calc on read-only views
+  summerSausageLbs?: string;
+  summerSausageCheeseLbs?: string;
+  slicedJerkyLbs?: string;
 };
 
+// ---- Helpers ----
 function digits(s: string) { return (s || '').replace(/\D+/g, ''); }
 function lc(s: string) { return (s || '').toLowerCase().trim(); }
 
@@ -127,57 +132,44 @@ function specialtyPrice(job: Job) {
     return Number.isFinite(n) && n > 0 ? n : 0;
   };
   if (!job.specialtyProducts) return 0;
-  const ss  = toInt(job.summerSausageLbs as any);
-  const ssc = toInt(job.summerSausageCheeseLbs as any);
-  const jer = toInt(job.slicedJerkyLbs as any);
+  const ss  = toInt(job.summerSausageLbs);
+  const ssc = toInt(job.summerSausageCheeseLbs);
+  const jer = toInt(job.slicedJerkyLbs);
   return ss * 4.25 + ssc * 4.60 + jer * 15.0;
 }
 
-// @ts-ignore: these may exist on Job in your project typing
-declare global {
-  interface Job {
-    summerSausageLbs?: string;
-    summerSausageCheeseLbs?: string;
-    slicedJerkyLbs?: string;
-  }
-}
-
-// ---- Server component ----
-export default async function ReadOnlyIntakePage({
+// ---- Page (Server Component) ----
+export default async function ReadOnlyByTagPage({
+  params,
   searchParams,
 }: {
+  params: { tag: string };
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   try {
-    const t = String(searchParams?.t || '').trim();    // public token
-    const tag = String(searchParams?.tag || searchParams?.id || '').trim(); // allow tag override
+    const tag = String(params?.tag || '').trim();
+    if (!tag) throw new Error('Missing tag parameter.');
+
+    // Support ?conf= override to cross-check, but we primarily load by tag here.
     const conf = String(searchParams?.conf || '').trim();
 
+    // 1) Load by tag
     let job: Job | null = null;
+    const gr = await gasGet({ action: 'get', tag });
+    if (gr?.ok && gr.exists && gr.job) job = gr.job as Job;
 
-    // 1) If tag present, get exact
-    if (tag) {
-      const gr = await gasGet({ action: 'get', tag });
-      if (gr?.ok && gr.exists && gr.job) job = gr.job as Job;
-    }
-
-    // 2) Else by confirmation (full or digits-only)
-    if (!job && conf) {
-      for (const q of [conf, digits(conf)].filter(Boolean)) {
-        const sr = await gasGet({ action: 'search', q });
-        const rows: Job[] = (sr && sr.rows) || [];
-        const found = rows.find(r =>
-          lc(String(r.confirmation || '')) === lc(conf) ||
-          (digits(String(r.confirmation || '')) === digits(conf))
-        );
-        if (found?.tag) {
-          const gr = await gasGet({ action: 'get', tag: String(found.tag) });
-          if (gr?.ok && gr.exists && gr.job) { job = gr.job as Job; break; }
-        }
+    // 2) Optional sanity: if conf present but doesn't match, try lookup by conf -> tag -> get (best effort)
+    if (conf && job && digits(String(job.confirmation || '')) !== digits(conf)) {
+      const sr = await gasGet({ action: 'search', q: conf });
+      const rows: Job[] = (sr && sr.rows) || [];
+      const found = rows.find(r => digits(String(r.confirmation || '')) === digits(conf));
+      if (found?.tag && found.tag !== tag) {
+        const gr2 = await gasGet({ action: 'get', tag: String(found.tag) });
+        if (gr2?.ok && gr2.exists && gr2.job) job = gr2.job as Job;
       }
     }
 
-    if (!job) throw new Error('No matching intake found for this link.');
+    if (!job) throw new Error('No matching intake found for this tag.');
 
     const proc = normalizeProc(job.processType);
     const priceProc = suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder);
@@ -185,126 +177,128 @@ export default async function ReadOnlyIntakePage({
     const totalPrice = (priceProc + priceSpec);
 
     return (
-      <main className="light-page" style={{maxWidth: 980, margin: '24px auto', padding: '12px'}}>
-        <header style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 10}}>
-          <h1 style={{margin:0, color:'#0b0f12'}}>McAfee Deer Intake (Read Only)</h1>
-          <div style={{fontSize:12, color:'#6b7280'}}>Confirmation: <b>{job.confirmation || '—'}</b></div>
+      <main style={{ maxWidth: 980, margin: '24px auto', padding: '12px', color: '#0b0f12' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <h1 style={{ margin: 0, color: '#0b0f12' }}>McAfee Deer Intake (Read Only)</h1>
+          <div style={{ fontSize: 12, color: '#6b7280' }}>
+            Tag: <b>{job.tag || '—'}</b> &nbsp;|&nbsp; Confirmation: <b>{job.confirmation || '—'}</b>
+          </div>
         </header>
 
         {/* Summary Row 1: pricing */}
-        <div className="summary wrap" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(3, 1fr)'}}>
-          <div className="card">
-            <label>Processing Price</label>
-            <div className="pill money">{money(priceProc)}</div>
+        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 8 }}>
+          <div>
+            <label style={L}>Processing Price</label>
+            <div style={PillMoney}>{money(priceProc)}</div>
           </div>
-          <div className="card">
-            <label>Specialty Price</label>
-            <div className="pill money">{money(priceSpec)}</div>
+          <div>
+            <label style={L}>Specialty Price</label>
+            <div style={PillMoney}>{money(priceSpec)}</div>
           </div>
-          <div className="card">
-            <label>Total</label>
-            <div className="pill money strong">{money(totalPrice)}</div>
+          <div>
+            <label style={L}>Total</label>
+            <div style={{ ...PillMoney, fontWeight: 900 }}>{money(totalPrice)}</div>
           </div>
         </div>
 
-        {/* Summary Row 2: statuses — includes Specialty Status now */}
-        <div className="summary wrap" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(5, 1fr)', marginTop:8}}>
-          <div className="card">
-            <label>Status</label>
-            <div className="pill">{job.status || ''}</div>
+        {/* Summary Row 2: statuses — includes Specialty Status */}
+        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(5, 1fr)', marginTop: 8, marginBottom: 8 }}>
+          <div>
+            <label style={L}>Status</label>
+            <div style={Pill}>{job.status || ''}</div>
           </div>
 
           {(proc === 'Caped' || proc === 'Cape & Donate') && (
-            <div className="card">
-              <label>Caping Status</label>
-              <div className="pill">{job.capingStatus || ''}</div>
+            <div>
+              <label style={L}>Caping Status</label>
+              <div style={Pill}>{job.capingStatus || ''}</div>
             </div>
           )}
 
           {job.webbsOrder && (
-            <div className="card">
-              <label>Webbs Status</label>
-              <div className="pill">{job.webbsStatus || ''}</div>
+            <div>
+              <label style={L}>Webbs Status</label>
+              <div style={Pill}>{job.webbsStatus || ''}</div>
             </div>
           )}
 
           {(job.specialtyProducts || (job.specialtyStatus && String(job.specialtyStatus).trim())) && (
-            <div className="card">
-              <label>Specialty Status</label>
-              <div className="pill">{job.specialtyStatus || ''}</div>
+            <div>
+              <label style={L}>Specialty Status</label>
+              <div style={Pill}>{job.specialtyStatus || ''}</div>
             </div>
           )}
 
-          {/* Filler to keep grid neat if fewer cards render */}
-          <div className="card" style={{visibility:'hidden'}} aria-hidden />
+          {/* filler to keep grid neat */}
+          <div aria-hidden style={{ visibility: 'hidden' }} />
         </div>
 
         {/* Identity */}
-        <section className="grid2" style={{marginTop:16}}>
+        <section style={Grid2}>
           <div>
-            <label>Customer</label>
-            <div className="pill">{job.customer || ''}</div>
+            <label style={L}>Customer</label>
+            <div style={Pill}>{job.customer || ''}</div>
           </div>
           <div>
-            <label>Phone</label>
-            <div className="pill">{job.phone || ''}</div>
+            <label style={L}>Phone</label>
+            <div style={Pill}>{job.phone || ''}</div>
           </div>
           <div>
-            <label>Email</label>
-            <div className="pill">{job.email || ''}</div>
+            <label style={L}>Email</label>
+            <div style={Pill}>{job.email || ''}</div>
           </div>
           <div>
-            <label>Address</label>
-            <div className="pill">{[job.address, job.city, job.state, job.zip].filter(Boolean).join(', ')}</div>
+            <label style={L}>Address</label>
+            <div style={Pill}>{[job.address, job.city, job.state, job.zip].filter(Boolean).join(', ')}</div>
           </div>
         </section>
 
         {/* Hunt */}
-        <section className="grid2">
+        <section style={Grid2}>
           <div>
-            <label>County Killed</label>
-            <div className="pill">{job.county || ''}</div>
+            <label style={L}>County Killed</label>
+            <div style={Pill}>{job.county || ''}</div>
           </div>
           <div>
-            <label>Drop-off Date</label>
-            <div className="pill">{job.dropoff || ''}</div>
+            <label style={L}>Drop-off Date</label>
+            <div style={Pill}>{job.dropoff || ''}</div>
           </div>
           <div>
-            <label>Deer Sex</label>
-            <div className="pill">{job.sex || ''}</div>
+            <label style={L}>Deer Sex</label>
+            <div style={Pill}>{job.sex || ''}</div>
           </div>
           <div>
-            <label>Process Type</label>
-            <div className="pill">{job.processType || ''}</div>
+            <label style={L}>Process Type</label>
+            <div style={Pill}>{job.processType || ''}</div>
           </div>
         </section>
 
         {/* Cuts */}
         <section>
-          <h3 style={{margin:'10px 0 6px'}}>Cuts</h3>
-          <div className="grid2">
+          <h3 style={{ margin: '10px 0 6px' }}>Cuts</h3>
+          <div style={Grid2}>
             <div>
-              <label>Hind Roast Count</label>
-              <div className="pill">{job.hindRoastCount || ''}</div>
+              <label style={L}>Hind Roast Count</label>
+              <div style={Pill}>{job.hindRoastCount || ''}</div>
             </div>
             <div>
-              <label>Front Roast Count</label>
-              <div className="pill">{job.frontRoastCount || ''}</div>
+              <label style={L}>Front Roast Count</label>
+              <div style={Pill}>{job.frontRoastCount || ''}</div>
             </div>
           </div>
         </section>
 
         {/* Backstrap */}
         <section>
-          <h3 style={{margin:'10px 0 6px'}}>Backstrap</h3>
-          <div className="grid2">
+          <h3 style={{ margin: '10px 0 6px' }}>Backstrap</h3>
+          <div style={Grid2}>
             <div>
-              <label>Prep</label>
-              <div className="pill">{job.backstrapPrep || ''}</div>
+              <label style={L}>Prep</label>
+              <div style={Pill}>{job.backstrapPrep || ''}</div>
             </div>
             <div>
-              <label>Thickness</label>
-              <div className="pill">
+              <label style={L}>Thickness</label>
+              <div style={Pill}>
                 {job.backstrapThickness === 'Other'
                   ? (job.backstrapThicknessOther || '')
                   : (job.backstrapThickness || '')}
@@ -315,25 +309,25 @@ export default async function ReadOnlyIntakePage({
 
         {/* Specialty */}
         <section>
-          <h3 style={{margin:'10px 0 6px'}}>Specialty Products</h3>
-          <div className="grid2">
+          <h3 style={{ margin: '10px 0 6px' }}>Specialty Products</h3>
+          <div style={Grid2}>
             <div>
-              <label>Would like specialty products</label>
-              <div className="pill">{job.specialtyProducts ? 'Yes' : 'No'}</div>
+              <label style={L}>Would like specialty products</label>
+              <div style={Pill}>{job.specialtyProducts ? 'Yes' : 'No'}</div>
             </div>
             {job.specialtyProducts && (
               <>
                 <div>
-                  <label>Summer Sausage (lb)</label>
-                  <div className="pill">{(job as any).summerSausageLbs || ''}</div>
+                  <label style={L}>Summer Sausage (lb)</label>
+                  <div style={Pill}>{job.summerSausageLbs || ''}</div>
                 </div>
                 <div>
-                  <label>Summer Sausage + Cheese (lb)</label>
-                  <div className="pill">{(job as any).summerSausageCheeseLbs || ''}</div>
+                  <label style={L}>Summer Sausage + Cheese (lb)</label>
+                  <div style={Pill}>{job.summerSausageCheeseLbs || ''}</div>
                 </div>
                 <div>
-                  <label>Sliced Jerky (lb)</label>
-                  <div className="pill">{(job as any).slicedJerkyLbs || ''}</div>
+                  <label style={L}>Sliced Jerky (lb)</label>
+                  <div style={Pill}>{job.slicedJerkyLbs || ''}</div>
                 </div>
               </>
             )}
@@ -342,21 +336,21 @@ export default async function ReadOnlyIntakePage({
 
         {/* Webbs */}
         <section>
-          <h3 style={{margin:'10px 0 6px'}}>Webbs</h3>
-          <div className="grid2">
+          <h3 style={{ margin: '10px 0 6px' }}>Webbs</h3>
+          <div style={Grid2}>
             <div>
-              <label>Webbs Order</label>
-              <div className="pill">{job.webbsOrder ? 'Yes' : 'No'}</div>
+              <label style={L}>Webbs Order</label>
+              <div style={Pill}>{job.webbsOrder ? 'Yes' : 'No'}</div>
             </div>
             {job.webbsOrder && (
               <>
                 <div>
-                  <label>Order Form Number</label>
-                  <div className="pill">{job.webbsFormNumber || ''}</div>
+                  <label style={L}>Order Form Number</label>
+                  <div style={Pill}>{job.webbsFormNumber || ''}</div>
                 </div>
                 <div>
-                  <label>Webbs Pounds</label>
-                  <div className="pill">{job.webbsPounds || ''}</div>
+                  <label style={L}>Webbs Pounds</label>
+                  <div style={Pill}>{job.webbsPounds || ''}</div>
                 </div>
               </>
             )}
@@ -365,43 +359,26 @@ export default async function ReadOnlyIntakePage({
 
         {/* Notes */}
         <section>
-          <h3 style={{margin:'10px 0 6px'}}>Notes</h3>
-          <div className="pill">{job.notes || ''}</div>
+          <h3 style={{ margin: '10px 0 6px' }}>Notes</h3>
+          <div style={Pill}>{job.notes || ''}</div>
         </section>
-
-        <style jsx>{`
-          .light-page { color:#0b0f12; }
-          h1 { font-size: 22px; }
-
-          label { font-size:12px; font-weight:700; color:#0b0f12; display:block; margin-bottom:4px; }
-          .pill {
-            background: #fff;
-            border: 1px solid #cbd5e1;
-            border-radius: 10px;
-            padding: 6px 8px;
-          }
-          .money { font-weight: 800; text-align: right; }
-          .money.strong { font-weight: 900; }
-
-          .summary.wrap { margin-bottom: 8px; }
-          .card { min-width: 0; }
-
-          .grid2 { display:grid; gap:8px; grid-template-columns: repeat(2, 1fr); }
-          @media (max-width:720px){
-            .grid2, .summary.wrap { grid-template-columns: 1fr; }
-          }
-        `}</style>
       </main>
     );
-  } catch (err:any) {
+  } catch (err: any) {
     return (
-      <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
-        <h1 style={{color:'#0b0f12'}}>Unable to load form</h1>
-        <p style={{whiteSpace:'pre-wrap', color:'#374151'}}>{String(err?.message || err)}</p>
+      <div style={{ maxWidth: 760, margin: '24px auto', padding: '16px', color: '#0b0f12' }}>
+        <h1 style={{ color: '#0b0f12' }}>Unable to load form</h1>
+        <p style={{ whiteSpace: 'pre-wrap', color: '#374151' }}>{String(err?.message || err)}</p>
         <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280' }}>
-  Tip: ensure <code>NEXT_PUBLIC_GAS_BASE</code> is your Apps Script <code>/exec</code> URL.
-</div>
+          Tip: ensure <code>NEXT_PUBLIC_GAS_BASE</code> is your Apps Script <code>/exec</code> URL.
+        </div>
       </div>
     );
   }
 }
+
+// ---- Shared inline style objects (so we don't need styled-jsx) ----
+const L: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#0b0f12', display: 'block', marginBottom: 4 };
+const Pill: React.CSSProperties = { background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, padding: '6px 8px' };
+const PillMoney: React.CSSProperties = { ...Pill, fontWeight: 800, textAlign: 'right' };
+const Grid2: React.CSSProperties = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, 1fr)' };
