@@ -23,11 +23,22 @@ function isAsset(p: string) {
 // Allowlist of public routes when PUBLIC_MODE=1
 function isPublicRoute(p: string) {
   if (isAsset(p)) return true;
-  // Home + public pages
-  if (p === '/' || p.startsWith('/status') || p.startsWith('/drop') || p.startsWith('/faq') ||
-      p.startsWith('/hours') || p.startsWith('/contact') || p.startsWith('/tips')) return true;
-  // Public API endpoints we expose
-  if (p.startsWith('/api/public-status') || p.startsWith('/api/public-drop')) return true;
+  if (
+    p === '/' ||
+    p.startsWith('/status') ||
+    p.startsWith('/drop') ||
+    p.startsWith('/faq') ||
+    p.startsWith('/faq-public') ||
+    p.startsWith('/hours') ||
+    p.startsWith('/contact') ||
+    // kiosk Overnight page
+    p.startsWith('/intake/overnight') ||
+    // 🔓 allow internal API needed by public pages
+    p.startsWith('/api/gas2') ||   // <<–– add this
+    // already had:
+    p.startsWith('/api/public-status') ||
+    p.startsWith('/api/public-drop')
+  ) return true;
   return false;
 }
 
