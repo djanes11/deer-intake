@@ -1,4 +1,4 @@
-// app/intake/[tag]/page.tsx — public read-only view by tag (Server Component, NO styled-jsx)
+// app/intake/[tag]/page.tsx — public read-only view by tag (Server Component, deploy-safe)
 import 'server-only';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,7 +77,6 @@ type Job = {
   smsConsent?: boolean;
   autoCallConsent?: boolean;
 
-  // optional specialty weights used for pricing calc on read-only views
   summerSausageLbs?: string;
   summerSausageCheeseLbs?: string;
   slicedJerkyLbs?: string;
@@ -138,19 +137,26 @@ function specialtyPrice(job: Job) {
   return ss * 4.25 + ssc * 4.60 + jer * 15.0;
 }
 
+// Shared inline style objects (no styled-jsx)
+const L: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#0b0f12', display: 'block', marginBottom: 4 };
+const Pill: React.CSSProperties = { background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, padding: '6px 8px' };
+const PillMoney: React.CSSProperties = { ...Pill, fontWeight: 800, textAlign: 'right' };
+const Grid2: React.CSSProperties = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, 1fr)' };
+
 // ---- Page (Server Component) ----
+// NOTE: Next 15's typed PageProps can make `params` a Promise. Accept union and await it.
 export default async function ReadOnlyByTagPage({
   params,
   searchParams,
 }: {
-  params: { tag: string };
+  params: { tag: string } | Promise<{ tag: string }>;
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   try {
-    const tag = String(params?.tag || '').trim();
+    const p = await params;               // handles both plain object and Promise
+    const tag = String(p?.tag || '').trim();
     if (!tag) throw new Error('Missing tag parameter.');
 
-    // Support ?conf= override to cross-check, but we primarily load by tag here.
     const conf = String(searchParams?.conf || '').trim();
 
     // 1) Load by tag
@@ -158,7 +164,7 @@ export default async function ReadOnlyByTagPage({
     const gr = await gasGet({ action: 'get', tag });
     if (gr?.ok && gr.exists && gr.job) job = gr.job as Job;
 
-    // 2) Optional sanity: if conf present but doesn't match, try lookup by conf -> tag -> get (best effort)
+    // 2) Optional sanity: if conf present but doesn't match, cross-check by confirmation
     if (conf && job && digits(String(job.confirmation || '')) !== digits(conf)) {
       const sr = await gasGet({ action: 'search', q: conf });
       const rows: Job[] = (sr && sr.rows) || [];
@@ -201,7 +207,7 @@ export default async function ReadOnlyByTagPage({
           </div>
         </div>
 
-        {/* Summary Row 2: statuses — includes Specialty Status */}
+        {/* Summary Row 2: statuses (includes Specialty Status) */}
         <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(5, 1fr)', marginTop: 8, marginBottom: 8 }}>
           <div>
             <label style={L}>Status</label>
@@ -376,9 +382,3 @@ export default async function ReadOnlyByTagPage({
     );
   }
 }
-
-// ---- Shared inline style objects (so we don't need styled-jsx) ----
-const L: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#0b0f12', display: 'block', marginBottom: 4 };
-const Pill: React.CSSProperties = { background: '#fff', border: '1px solid #cbd5e1', borderRadius: 10, padding: '6px 8px' };
-const PillMoney: React.CSSProperties = { ...Pill, fontWeight: 800, textAlign: 'right' };
-const Grid2: React.CSSProperties = { display: 'grid', gap: 8, gridTemplateColumns: 'repeat(2, 1fr)' };
