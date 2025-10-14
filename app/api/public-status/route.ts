@@ -1,126 +1,130 @@
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-
+// app/api/public-status/route.ts
 import type { NextRequest } from 'next/server';
 
-const RAW_GAS_BASE =
-  (process.env.GAS_BASE || process.env.NEXT_PUBLIC_GAS_BASE || '').trim().replace(/^['"]|['"]$/g, '');
-const GAS_TOKEN = (process.env.GAS_TOKEN || process.env.EMAIL_SIGNING_SECRET || '').trim();
+export const dynamic = 'force-dynamic';
 
-function assertGas() {
-  if (!RAW_GAS_BASE) throw new Error('GAS_BASE is not configured.');
-  // throws if invalid
-  new URL(RAW_GAS_BASE);
+// Prefer GAS_BASE, fall back to GAS_URL for compatibility
+const RAW_GAS = (process.env.GAS_BASE || process.env.GAS_URL || '').trim();
+const GAS_TOKEN = (process.env.GAS_TOKEN || '').trim();
+
+function isHttpUrl(s: string) { try { new URL(s); return true; } catch { return false; } }
+
+function buildGasUrl(input: string): string {
+  const s = (input || '').trim();
+  if (!s) throw new Error('GAS_BASE is empty');
+  if (isHttpUrl(s)) {
+    // ensure /exec
+    return /\/exec(\?|$)/.test(s) ? s : s.replace(/\/dev(\?|$).*/i, '/exec');
+  }
+  // allow just a script ID
+  if (/^[A-Za-z0-9_-]+$/.test(s)) {
+    return `https://script.google.com/macros/s/${s}/exec`;
+  }
+  throw new Error('GAS_BASE must be a full https URL (ending with /exec) or a valid script ID');
 }
 
-function asBool(v: any): boolean {
-  if (v === true) return true;
-  if (v === false) return false;
-  const s = String(v ?? '').trim().toLowerCase();
-  return ['1', 'true', 'yes', 'y', 'paid', 'paid-in-full'].includes(s);
+let GAS_URL = '';
+let GAS_URL_ERR = '';
+try {
+  GAS_URL = buildGasUrl(RAW_GAS);
+  if (!/^https:\/\//i.test(GAS_URL) || !/\/exec(\?|$)/.test(GAS_URL)) {
+    throw new Error('GAS_BASE must be an https Apps Script deployment URL ending with /exec');
+  }
+} catch (e: any) {
+  GAS_URL_ERR = e?.message || String(e);
 }
 
-function toMoney(v: any): number | undefined {
-  const n = Number(String(v ?? '').replace(/[^0-9.\-]/g, ''));
-  return Number.isFinite(n) ? n : undefined;
+function digits(s: string) { return (s || '').replace(/\D+/g, ''); }
+function lc(s: string) { return (s || '').toLowerCase().trim(); }
+
+async function gasGet(params: Record<string, string>) {
+  if (!GAS_URL) throw new Error(GAS_URL_ERR || 'Invalid GAS_BASE');
+  const url = new URL(GAS_URL);
+  url.searchParams.set('action', params.action);
+  for (const k of Object.keys(params)) {
+    if (k !== 'action' && params[k] != null) url.searchParams.set(k, params[k]);
+  }
+  if (GAS_TOKEN) url.searchParams.set('token', GAS_TOKEN);
+  const r = await fetch(url.toString(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(`GAS ${params.action} ${r.status}`);
+  return r.json();
 }
 
-function pick(obj: Record<string, any> | undefined, keys: string[]) {
-  if (!obj) return undefined;
-  for (const k of keys) if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
-  return undefined;
+type GasJob = {
+  tag?: string;
+  confirmation?: string;
+  customer?: string;
+  status?: string;
+  capingStatus?: string;   // GAS spelling
+  webbsStatus?: string;
+  specialtyStatus?: string;
+};
+
+function lastNameOf(full: string) {
+  const parts = lc(full).split(/\s+/).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : '';
 }
+function hasValue(s?: string) { return !!(s && String(s).trim()); }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({} as any));
-    const confirmation = String(body?.confirmation || '').trim();
-    const tag = String(body?.tag || '').trim();
-    const lastName = String(body?.lastName || '').trim();
+    if (!GAS_URL) throw new Error(GAS_URL_ERR || 'Invalid GAS_BASE');
 
-    if (!confirmation && !(tag && lastName)) {
-      return Response.json({ ok: false, error: 'Provide Confirmation # — or Tag + Last Name.' }, { status: 400 });
+    const body = (await req.json?.()) || {};
+    const confIn = String(body.confirmation || '').trim();
+    const tagIn  = String(body.tag || '').trim();
+    const lastIn = lc(String(body.lastName || ''));
+
+    const confDigits = digits(confIn);
+
+    let job: GasJob | null = null;
+
+    // 1) Fast path: confirmation (full and digits-only), then exact compare
+    if (confIn) {
+      for (const q of [confIn, confDigits].filter(Boolean)) {
+        const sr = await gasGet({ action: 'search', q });
+        const rows: GasJob[] = (sr && sr.rows) || [];
+        job = rows.find(r =>
+          lc(String(r.confirmation || '')) === lc(confIn) ||
+          (confDigits && digits(String(r.confirmation || '')) === confDigits)
+        ) || null;
+        if (job?.tag) {
+          const gr = await gasGet({ action: 'get', tag: String(job.tag) });
+          if (gr && gr.ok && gr.exists && gr.job) job = gr.job as GasJob;
+          break;
+        }
+      }
     }
 
-    assertGas();
-    const url = new URL(RAW_GAS_BASE);
-    // Keep your existing Apps Script behavior; just pass through inputs.
-    // Prefer a generic "publicStatus" action if your script supports it.
-    url.searchParams.set('action', 'publicStatus');
-    if (confirmation) url.searchParams.set('confirmation', confirmation);
-    if (tag) url.searchParams.set('tag', tag);
-    if (lastName) url.searchParams.set('lastName', lastName);
-    if (GAS_TOKEN) url.searchParams.set('token', GAS_TOKEN);
-
-    const r = await fetch(url.toString(), { cache: 'no-store' });
-    if (!r.ok) {
-      return Response.json({ ok: false, error: `Upstream error: ${r.status}` }, { status: 502 });
-    }
-    const data = await r.json();
-
-    // The script may already return the shape we need. Normalize defensively.
-    const job: Record<string, any> | undefined =
-      data?.job || data?.result?.job || data?.result || data?.record || undefined;
-
-    if (!data?.ok && !job) {
-      return Response.json({ ok: false, notFound: true }, { status: 200 });
+    // 2) Fallback: Tag + Last Name
+    if (!job && tagIn) {
+      const gr = await gasGet({ action: 'get', tag: tagIn });
+      if (gr && gr.ok && gr.exists && gr.job) {
+        const j: GasJob = gr.job;
+        if (!lastIn || lastNameOf(String(j.customer || '')) === lastIn) job = j;
+      }
     }
 
-    // Extract statuses (keep existing keys you already send)
-    const status =
-      pick(job, ['status', 'Status']) ?? data?.status ?? data?.result?.status ?? '';
+    if (!job) {
+      return Response.json({ ok: false, notFound: true, error: 'No match.' }, { status: 404 });
+    }
 
-    const tracks = {
-      webbsStatus: pick(job, ['webbsStatus', 'Webbs Status', 'webbs_status']),
-      specialtyStatus: pick(job, ['specialtyStatus', 'Specialty Status', 'specialty_status']),
-      capeStatus: pick(job, ['capingStatus', 'Caping Status', 'Cape Status', 'capeStatus']),
-    };
-
-    // ---------- NEW: payment normalization ----------
-    const paidRaw =
-      pick(job, ['paid', 'Paid', 'paymentReceived', 'Payment Received', 'paidInFull', 'Paid In Full', 'paymentStatus']) ??
-      undefined;
-
-    const totalDue = toMoney(
-      pick(job, ['totalDue', 'Total Due', 'total', 'Total', 'amountDue', 'Amount Due'])
-    );
-    const amountPaid = toMoney(
-      pick(job, ['amountPaid', 'Amount Paid', 'paidAmount', 'Paid Amount'])
-    );
-    const balanceDue =
-      toMoney(pick(job, ['balanceDue', 'Balance Due', 'balance', 'Balance'])) ??
-      (totalDue !== undefined && amountPaid !== undefined ? Math.max(0, totalDue - amountPaid) : undefined);
-
-    const payment = {
-      paid: paidRaw !== undefined ? asBool(paidRaw) : (balanceDue === 0 && totalDue !== undefined),
-      amountPaid,
-      totalDue,
-      balanceDue,
-      display:
-        totalDue !== undefined || amountPaid !== undefined || balanceDue !== undefined
-          ? [
-              totalDue !== undefined ? `Total $${totalDue.toFixed(2)}` : null,
-              amountPaid !== undefined ? `Paid $${amountPaid.toFixed(2)}` : null,
-              balanceDue !== undefined ? `Balance $${balanceDue.toFixed(2)}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')
-          : undefined,
-    };
-
-    return Response.json(
-      {
-        ok: true,
-        tag: pick(job, ['tag', 'Tag']) ?? data?.tag,
-        confirmation: pick(job, ['confirmation', 'Confirmation']) ?? data?.confirmation,
-        status,
-        tracks,
-        payment,
+    // Build payload expected by the customer status page
+    const resp = {
+      ok: true,
+      tag: job.tag || '',
+      confirmation: job.confirmation || '',
+      status: job.status || '—',
+      tracks: {
+        // map capingStatus -> capeStatus for UI
+        capeStatus: hasValue(job.capingStatus) ? String(job.capingStatus) : undefined,
+        webbsStatus: hasValue(job.webbsStatus) ? String(job.webbsStatus) : undefined,
+        specialtyStatus: hasValue(job.specialtyStatus) ? String(job.specialtyStatus) : undefined,
       },
-      { status: 200 }
-    );
+    };
+
+    return Response.json(resp, { status: 200 });
   } catch (err: any) {
-    return Response.json({ ok: false, error: String(err?.message || err) }, { status: 500 });
+    return Response.json({ ok: false, error: err?.message || 'Lookup failed' }, { status: 500 });
   }
 }
-
