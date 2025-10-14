@@ -2,7 +2,8 @@
 'use client';
 
 import Link from 'next/link';
-import CustomerHeader from '@/components/CustomerHeader';
+import CustomerHeader from './components/CustomerHeader';
+
 import { SITE, phoneHref } from '@/lib/config';
 
 const CONTACT_EMAIL = (process.env.NEXT_PUBLIC_EMAIL || '').toString().trim();
