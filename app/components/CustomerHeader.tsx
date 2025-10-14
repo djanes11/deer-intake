@@ -66,7 +66,7 @@ export default function CustomerHeader() {
           </div>
           <div style={{ lineHeight: 1 }}>
             <div style={{ fontWeight: 900, color: '#e6e7eb' }}>McAfee Custom Deer Processing</div>
-            <div style={{ fontSize: 12, color: '#9ca3af' }}>Fort Branch, IN</div>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>Palmyra, IN</div>
           </div>
         </Link>
 
