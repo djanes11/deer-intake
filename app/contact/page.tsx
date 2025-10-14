@@ -105,7 +105,7 @@ export default function ContactPage() {
             }}
           >
             <Image
-              src="/public/property-overview.jpg" // <-- place your image at public/images/property-aerial.jpg
+              src="/property-overview.jpg" // <-- place your image at public/images/property-aerial.jpg
               alt="Aerial view of the McAfee drop-off entrance and cooler"
               width={1600}
               height={1000}
