@@ -30,7 +30,7 @@ export default function CustomerHeader() {
       }}>
         <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
           <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:44, height:44 }}>
-            <Image src="/crest.png" alt="McAfee Crest" width={44} height={44} priority />
+            <Image src="/mcafee-logo.png" alt="McAfee Crest" width={44} height={44} priority />
           </div>
           <span style={{ fontSize: 18, fontWeight: 800, color: '#E5E7EB' }}>McAfee Custom Deer Processing</span>
         </Link>

@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
 import CustomerHeader from '../components/CustomerHeader';
 
-
 /**
  * Public status lookup
  * - Search by Confirmation #, or Tag + Last Name
@@ -67,99 +66,104 @@ export default function StatusPage() {
     if (!res) return false;
     const t = res.tracks || {};
     return (
-      READY_WORDS.some(w => textHas(res.status).includes(w)) ||
-      READY_WORDS.some(w => textHas(t.capeStatus).includes(w)) ||
-      READY_WORDS.some(w => textHas(t.webbsStatus).includes(w)) ||
-      READY_WORDS.some(w => textHas(t.specialtyStatus).includes(w))
+      READY_WORDS.some((w) => textHas(res.status).includes(w)) ||
+      READY_WORDS.some((w) => textHas(t.capeStatus).includes(w)) ||
+      READY_WORDS.some((w) => textHas(t.webbsStatus).includes(w)) ||
+      READY_WORDS.some((w) => textHas(t.specialtyStatus).includes(w))
     );
   })();
 
-  const mapsUrl = SITE.mapsUrl; // built centrally from env: explicit → lat/lng → address
+  const mapsUrl = SITE.mapsUrl; // from central config
 
   return (
-    <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
-      <p style={{ opacity: 0.8, marginBottom: 16 }}>
-        Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>.
-      </p>
+    <>
+      {/* Public customer header/nav */}
+      <CustomerHeader />
 
-      <form onSubmit={lookup} style={{ display: 'grid', gap: 12 }}>
-        <input
-          value={confirmation}
-          onChange={(e) => setConfirmation(e.target.value)}
-          placeholder="Confirmation #"
-          inputMode="numeric"
-          style={field}
-          aria-label="Confirmation number"
-        />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
+        <p style={{ opacity: 0.8, marginBottom: 16 }}>
+          Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>.
+        </p>
+
+        <form onSubmit={lookup} style={{ display: 'grid', gap: 12 }}>
           <input
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-            placeholder="Tag"
+            value={confirmation}
+            onChange={(e) => setConfirmation(e.target.value)}
+            placeholder="Confirmation #"
+            inputMode="numeric"
             style={field}
-            aria-label="Tag number"
+            aria-label="Confirmation number"
           />
-          <input
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder="Last Name"
-            style={field}
-            aria-label="Customer last name"
-          />
-        </div>
-        <button disabled={loading} style={btn} aria-busy={loading}>
-          {loading ? 'Checking…' : 'Check status'}
-        </button>
-      </form>
-
-      {err ? (
-        <div role="alert" style={errBox}>
-          {err}
-        </div>
-      ) : null}
-
-      {res ? (
-        <div style={card}>
-          {/* Summary */}
-          <div style={{ display: 'grid', gap: 10 }}>
-            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: 0.2 }}>
-              Status: <span style={pill}>{res.status || '—'}</span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Info label="Tag" value={res.tag || '—'} />
-              <Info label="Confirmation" value={res.confirmation || '—'} />
-            </div>
-
-            {/* Extra tracks (only show when present) */}
-            <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
-              {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} /> : null}
-              {res.tracks?.specialtyStatus ? <Track label="Specialty" value={res.tracks.specialtyStatus} /> : null}
-              {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} /> : null}
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <input
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              placeholder="Tag"
+              style={field}
+              aria-label="Tag number"
+            />
+            <input
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              placeholder="Last Name"
+              style={field}
+              aria-label="Customer last name"
+            />
           </div>
+          <button disabled={loading} style={btn} aria-busy={loading}>
+            {loading ? 'Checking…' : 'Check status'}
+          </button>
+        </form>
 
-          {/* Pickup panel (directions, hours, phone) */}
-          <PickupPanel
-            ready={isReady}
-            addressText={SITE.address}
-            mapsUrl={mapsUrl}
-            phoneHref={phoneHref}
-            phoneDisplay={SITE.phone}
-            hours={SITE.hours} // accepts ReadonlyArray
-          />
+        {err ? (
+          <div role="alert" style={errBox}>
+            {err}
+          </div>
+        ) : null}
+
+        {res ? (
+          <div style={card}>
+            {/* Summary */}
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: 0.2 }}>
+                Status: <span style={pill}>{res.status || '—'}</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <Info label="Tag" value={res.tag || '—'} />
+                <Info label="Confirmation" value={res.confirmation || '—'} />
+              </div>
+
+              {/* Extra tracks (only show when present) */}
+              <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
+                {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} /> : null}
+                {res.tracks?.specialtyStatus ? <Track label="Specialty" value={res.tracks.specialtyStatus} /> : null}
+                {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} /> : null}
+              </div>
+            </div>
+
+            {/* Pickup panel (directions, hours, phone) */}
+            <PickupPanel
+              ready={isReady}
+              addressText={SITE.address}
+              mapsUrl={mapsUrl}
+              phoneHref={phoneHref}
+              phoneDisplay={SITE.phone}
+              hours={SITE.hours} // ReadonlyArray OK
+            />
+          </div>
+        ) : null}
+
+        <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
+          Tip: Don’t see your order? Try a different query (Confirmation # is best), or{' '}
+          <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+            check the FAQ
+          </Link>
+          .
         </div>
-      ) : null}
-
-      <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
-        Tip: Don’t see your order? Try a different query (Confirmation # is best), or{' '}
-        <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-          check the FAQ
-        </Link>
-        .
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
 
