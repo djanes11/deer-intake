@@ -152,7 +152,7 @@ function PublicLanding() {
         </div>
         <nav style={nav} aria-label="Primary">
           <Link href="/status" style={navBtn(false)}>Check Status</Link>
-          <Link href="/drop" style={navBtn(false)}>Overnight Drop</Link>
+          <Link href="/overnight" style={navBtn(false)}>Overnight Drop</Link>
           <Link href="/faq-public" style={navBtn(false)}>FAQ</Link>
           <Link href="/contact" style={navBtn(true)}>Contact</Link>
         </nav>
@@ -168,7 +168,7 @@ function PublicLanding() {
         </p>
         <div style={ctas}>
           <Link href="/status" style={cta(true)}>Check Your Status</Link>
-          <Link href="/drop" style={cta(false)}>Start Overnight Drop</Link>
+          <Link href="/overnight" style={cta(false)}>Start Overnight Drop</Link>
           <Link href="/faq-public" style={cta(false)}>View FAQ</Link>
         </div>
 
@@ -222,7 +222,7 @@ function PublicLanding() {
       <section style={{ marginTop: 16 }} aria-label="Quick actions">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
           <Tile href="/status" title="Check Status" subtitle="Find by tag or confirmation #" />
-          <Tile href="/drop" title="Overnight Drop" subtitle="After-hours intake form" />
+          <Tile href="/overnight" title="Overnight Drop" subtitle="After-hours intake form" />
           <Tile href="/faq-public" title="FAQ" subtitle="Common questions answered" />
           <Tile href="/hours" title="Hours & Location" subtitle="Plan your visit" />
           <Tile href="/contact" title="Contact" subtitle="Call or email the shop" />
