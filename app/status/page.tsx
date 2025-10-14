@@ -2,17 +2,14 @@
 'use client';
 
 import { useState } from 'react';
-import { SITE } from '@/lib/config';
 import Link from 'next/link';
+import { SITE, phoneHref } from '@/lib/config';
 
 /**
- * Search by:
- *  - Confirmation #
- *  - Tag + Last Name
- *
- * Renders:
- *  - Core status + extra tracks (Webbs / Specialty / Cape) when present
- *  - Pickup panel with address, hours, Call, and Google Maps
+ * Public status lookup
+ * - Search by Confirmation #, or Tag + Last Name
+ * - Shows core status + Webbs / Specialty / Cape tracks (only if present)
+ * - Clear pickup panel with Google Maps + tap-to-call
  */
 
 type LookupResult = {
@@ -39,7 +36,9 @@ export default function StatusPage() {
 
   async function lookup(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true); setErr(null); setRes(null);
+    setLoading(true);
+    setErr(null);
+    setRes(null);
     try {
       const r = await fetch('/api/public-status', {
         method: 'POST',
@@ -73,41 +72,35 @@ export default function StatusPage() {
     );
   })();
 
-  const phoneHref = `tel:${(SITE.phone || '').replace(/\D+/g, '')}`;
-  const mapsUrl =
-    SITE.mapsUrl && SITE.mapsUrl.trim().length > 0
-      ? SITE.mapsUrl
-      : Number.isFinite(SITE.lat) && Number.isFinite(SITE.lng)
-        ? `https://www.google.com/maps/dir/?api=1&destination=${SITE.lat},${SITE.lng}`
-        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(SITE.address || '')}`;
+  const mapsUrl = SITE.mapsUrl; // built centrally from env: explicit → lat/lng → address
 
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
-      <p style={{ opacity: .8, marginBottom: 16 }}>
+      <p style={{ opacity: 0.8, marginBottom: 16 }}>
         Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>.
       </p>
 
       <form onSubmit={lookup} style={{ display: 'grid', gap: 12 }}>
         <input
           value={confirmation}
-          onChange={e=>setConfirmation(e.target.value)}
+          onChange={(e) => setConfirmation(e.target.value)}
           placeholder="Confirmation #"
           inputMode="numeric"
           style={field}
           aria-label="Confirmation number"
         />
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <input
             value={tag}
-            onChange={e=>setTag(e.target.value)}
+            onChange={(e) => setTag(e.target.value)}
             placeholder="Tag"
             style={field}
             aria-label="Tag number"
           />
           <input
             value={lastName}
-            onChange={e=>setLastName(e.target.value)}
+            onChange={(e) => setLastName(e.target.value)}
             placeholder="Last Name"
             style={field}
             aria-label="Customer last name"
@@ -118,32 +111,30 @@ export default function StatusPage() {
         </button>
       </form>
 
-      {err ? <div role="alert" style={errBox}>{err}</div> : null}
+      {err ? (
+        <div role="alert" style={errBox}>
+          {err}
+        </div>
+      ) : null}
 
       {res ? (
         <div style={card}>
           {/* Summary */}
-          <div style={{ display:'grid', gap:10 }}>
-            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: .2 }}>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: 0.2 }}>
               Status: <span style={pill}>{res.status || '—'}</span>
             </div>
 
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <Info label="Tag" value={res.tag || '—'} />
               <Info label="Confirmation" value={res.confirmation || '—'} />
             </div>
 
             {/* Extra tracks (only show when present) */}
-            <div style={{ marginTop: 6, display:'grid', gap:6 }}>
-              {res.tracks?.webbsStatus ? (
-                <Track label="Webbs" value={res.tracks.webbsStatus} />
-              ) : null}
-              {res.tracks?.specialtyStatus ? (
-                <Track label="Specialty" value={res.tracks.specialtyStatus} />
-              ) : null}
-              {res.tracks?.capeStatus ? (
-                <Track label="Cape" value={res.tracks.capeStatus} />
-              ) : null}
+            <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
+              {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} /> : null}
+              {res.tracks?.specialtyStatus ? <Track label="Specialty" value={res.tracks.specialtyStatus} /> : null}
+              {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} /> : null}
             </div>
           </div>
 
@@ -154,25 +145,28 @@ export default function StatusPage() {
             mapsUrl={mapsUrl}
             phoneHref={phoneHref}
             phoneDisplay={SITE.phone}
-            hours={SITE.hours} // read-only; prop type accepts ReadonlyArray
+            hours={SITE.hours} // accepts ReadonlyArray
           />
         </div>
       ) : null}
 
-      <div style={{ marginTop: 18, opacity: .8, fontSize: 13 }}>
+      <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
         Tip: Don’t see your order? Try a different query (Confirmation # is best), or{' '}
-        <Link href="/faq-public" style={{ color:'#a7e3ba', textDecoration:'underline' }}>check the FAQ</Link>.
+        <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+          check the FAQ
+        </Link>
+        .
       </div>
     </main>
   );
 }
 
-/* ---------- Small presentational bits (inline to keep this file self-contained) ---------- */
+/* ---------- small presentational bits ---------- */
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: 12, opacity: .8, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>{label}</div>
       <div style={valueBox}>{value}</div>
     </div>
   );
@@ -182,7 +176,7 @@ function Track({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <div>
-      <b style={{ opacity:.85 }}>{label}:</b> <span style={pill}>{value}</span>
+      <b style={{ opacity: 0.85 }}>{label}:</b> <span style={pill}>{value}</span>
     </div>
   );
 }
@@ -200,7 +194,7 @@ function PickupPanel({
   mapsUrl: string;
   phoneHref: string;
   phoneDisplay: string;
-  // accept readonly array so SITE.hours can be passed directly
+  // Readonly so SITE.hours can be passed directly
   hours: ReadonlyArray<{ label: string; value: string }>;
 }) {
   return (
@@ -246,7 +240,9 @@ function PickupPanel({
           <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Hours</div>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, opacity: 0.9 }}>
             {hours.map((h, i) => (
-              <li key={i}>{h.label} {h.value}</li>
+              <li key={i}>
+                {h.label} {h.value}
+              </li>
             ))}
           </ul>
         </div>
@@ -271,61 +267,61 @@ function PickupPanel({
 /* ---------- styles ---------- */
 
 const field: React.CSSProperties = {
-  padding:'10px 12px',
-  border:'1px solid #1f2937',
-  borderRadius:10,
-  background:'#0b0f12',
-  color:'#e5e7eb'
+  padding: '10px 12px',
+  border: '1px solid #1f2937',
+  borderRadius: 10,
+  background: '#0b0f12',
+  color: '#e5e7eb',
 };
 
 const valueBox: React.CSSProperties = {
-  padding:'8px 10px',
-  border:'1px solid #1f2937',
-  borderRadius:10,
-  background:'#0b0f12',
-  color:'#e5e7eb',
+  padding: '8px 10px',
+  border: '1px solid #1f2937',
+  borderRadius: 10,
+  background: '#0b0f12',
+  color: '#e5e7eb',
   fontWeight: 800,
 };
 
 const btn: React.CSSProperties = {
-  display:'inline-block',
-  padding:'10px 12px',
-  border:'1px solid #1f2937',
-  borderRadius:10,
-  background:'#121821',
-  color:'#e5e7eb',
-  fontWeight:800,
-  textDecoration:'none',
+  display: 'inline-block',
+  padding: '10px 12px',
+  border: '1px solid #1f2937',
+  borderRadius: 10,
+  background: '#121821',
+  color: '#e5e7eb',
+  fontWeight: 800,
+  textDecoration: 'none',
 };
 
 const btnGhost: React.CSSProperties = {
   ...btn,
-  background:'transparent'
+  background: 'transparent',
 };
 
 const card: React.CSSProperties = {
-  marginTop:16,
-  padding:16,
-  border:'1px solid #1f2937',
-  borderRadius:12,
-  background:'#0b0f12',
-  color:'#e5e7eb',
+  marginTop: 16,
+  padding: 16,
+  border: '1px solid #1f2937',
+  borderRadius: 12,
+  background: '#0b0f12',
+  color: '#e5e7eb',
 };
 
 const errBox: React.CSSProperties = {
-  marginTop:12,
-  padding:12,
-  border:'1px solid #7f1d1d',
-  borderRadius:10,
-  background:'rgba(127,29,29,.15)',
-  color:'#fecaca'
+  marginTop: 12,
+  padding: 12,
+  border: '1px solid #7f1d1d',
+  borderRadius: 10,
+  background: 'rgba(127,29,29,.15)',
+  color: '#fecaca',
 };
 
 const pill: React.CSSProperties = {
-  display:'inline-block',
-  border:'1px solid #1f2937',
-  borderRadius:999,
-  padding:'4px 10px',
-  background:'#0b0f12',
-  fontWeight:900
+  display: 'inline-block',
+  border: '1px solid #1f2937',
+  borderRadius: 999,
+  padding: '4px 10px',
+  background: '#0b0f12',
+  fontWeight: 900,
 };
