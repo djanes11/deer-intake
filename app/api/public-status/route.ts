@@ -1,130 +1,209 @@
 // app/api/public-status/route.ts
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-// Prefer GAS_BASE, fall back to GAS_URL for compatibility
-const RAW_GAS = (process.env.GAS_BASE || process.env.GAS_URL || '').trim();
-const GAS_TOKEN = (process.env.GAS_TOKEN || '').trim();
-
-function isHttpUrl(s: string) { try { new URL(s); return true; } catch { return false; } }
-
-function buildGasUrl(input: string): string {
-  const s = (input || '').trim();
-  if (!s) throw new Error('GAS_BASE is empty');
-  if (isHttpUrl(s)) {
-    // ensure /exec
-    return /\/exec(\?|$)/.test(s) ? s : s.replace(/\/dev(\?|$).*/i, '/exec');
-  }
-  // allow just a script ID
-  if (/^[A-Za-z0-9_-]+$/.test(s)) {
-    return `https://script.google.com/macros/s/${s}/exec`;
-  }
-  throw new Error('GAS_BASE must be a full https URL (ending with /exec) or a valid script ID');
-}
-
-let GAS_URL = '';
-let GAS_URL_ERR = '';
-try {
-  GAS_URL = buildGasUrl(RAW_GAS);
-  if (!/^https:\/\//i.test(GAS_URL) || !/\/exec(\?|$)/.test(GAS_URL)) {
-    throw new Error('GAS_BASE must be an https Apps Script deployment URL ending with /exec');
-  }
-} catch (e: any) {
-  GAS_URL_ERR = e?.message || String(e);
-}
-
-function digits(s: string) { return (s || '').replace(/\D+/g, ''); }
-function lc(s: string) { return (s || '').toLowerCase().trim(); }
-
-async function gasGet(params: Record<string, string>) {
-  if (!GAS_URL) throw new Error(GAS_URL_ERR || 'Invalid GAS_BASE');
-  const url = new URL(GAS_URL);
-  url.searchParams.set('action', params.action);
-  for (const k of Object.keys(params)) {
-    if (k !== 'action' && params[k] != null) url.searchParams.set(k, params[k]);
-  }
-  if (GAS_TOKEN) url.searchParams.set('token', GAS_TOKEN);
-  const r = await fetch(url.toString(), { cache: 'no-store' });
-  if (!r.ok) throw new Error(`GAS ${params.action} ${r.status}`);
-  return r.json();
-}
-
-type GasJob = {
+type GasRow = {
   tag?: string;
   confirmation?: string;
   customer?: string;
   status?: string;
-  capingStatus?: string;   // GAS spelling
+  capingStatus?: string;
   webbsStatus?: string;
   specialtyStatus?: string;
+
+  // pricing from GAS
+  priceProcessing?: number;
+  priceSpecialty?: number;
+  priceTotal?: number;
+
+  // paid flags from GAS
+  Paid?: boolean; // sometimes capitalized
+  paid?: boolean; // alias
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
 };
 
-function lastNameOf(full: string) {
-  const parts = lc(full).split(/\s+/).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : '';
+type GasSearchResp = { ok?: boolean; rows?: GasRow[]; error?: string };
+
+function envTrim(v?: string | null) {
+  return String(v ?? '').trim().replace(/^['"]|['"]$/g, '');
 }
-function hasValue(s?: string) { return !!(s && String(s).trim()); }
+
+function getGasBase(): string {
+  const raw =
+    envTrim(process.env.GAS_BASE) ||
+    envTrim(process.env.NEXT_PUBLIC_GAS_BASE) ||
+    '';
+  if (!raw) throw new Error('GAS_BASE (or NEXT_PUBLIC_GAS_BASE) is not set.');
+  // will throw if invalid
+  new URL(raw);
+  return raw;
+}
+
+function getGasToken(): string {
+  return (
+    envTrim(process.env.GAS_TOKEN) ||
+    envTrim(process.env.API_TOKEN) ||
+    envTrim(process.env.EMAIL_SIGNING_SECRET) ||
+    ''
+  );
+}
+
+function digits(s?: string) {
+  return String(s || '').replace(/\D+/g, '');
+}
+
+function lastNameOnly(s?: string) {
+  const t = String(s || '').trim();
+  if (!t) return '';
+  const parts = t.split(/\s+/);
+  return parts[parts.length - 1].toLowerCase();
+}
+
+function normalizeBool(v: any): boolean {
+  if (v === true) return true;
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'paid', 'x', '✓', '✔', 'on'].includes(s);
+}
 
 export async function POST(req: NextRequest) {
   try {
-    if (!GAS_URL) throw new Error(GAS_URL_ERR || 'Invalid GAS_BASE');
+    const body = await req.json().catch(() => ({} as any));
+    const confirmation = String(body?.confirmation ?? '').trim();
+    const tag = String(body?.tag ?? '').trim();
+    const lastName = String(body?.lastName ?? '').trim();
 
-    const body = (await req.json?.()) || {};
-    const confIn = String(body.confirmation || '').trim();
-    const tagIn  = String(body.tag || '').trim();
-    const lastIn = lc(String(body.lastName || ''));
+    // Build the search query for GAS
+    let query = '';
+    let mode: 'confirmation' | 'tag+name' | '' = '';
+    if (confirmation) {
+      query = confirmation;
+      mode = 'confirmation';
+    } else if (tag && lastName) {
+      query = `${tag} ${lastName}`;
+      mode = 'tag+name';
+    } else {
+      return NextResponse.json(
+        { ok: false, error: 'Provide Confirmation # OR Tag + Last Name.' },
+        { status: 400 }
+      );
+    }
 
-    const confDigits = digits(confIn);
+    // Call GAS search
+    const base = getGasBase();
+    const url = new URL(base);
+    url.searchParams.set('action', 'search');
+    url.searchParams.set('q', query);
+    const tok = getGasToken();
+    if (tok) url.searchParams.set('token', tok);
 
-    let job: GasJob | null = null;
+    const r = await fetch(url.toString(), { cache: 'no-store' });
+    if (!r.ok) {
+      return NextResponse.json(
+        { ok: false, error: `GAS search failed: HTTP ${r.status}` },
+        { status: 502 }
+      );
+    }
+    const data = (await r.json()) as GasSearchResp;
+    if (!data?.ok) {
+      return NextResponse.json(
+        { ok: false, error: data?.error || 'GAS returned an error' },
+        { status: 502 }
+      );
+    }
 
-    // 1) Fast path: confirmation (full and digits-only), then exact compare
-    if (confIn) {
-      for (const q of [confIn, confDigits].filter(Boolean)) {
-        const sr = await gasGet({ action: 'search', q });
-        const rows: GasJob[] = (sr && sr.rows) || [];
-        job = rows.find(r =>
-          lc(String(r.confirmation || '')) === lc(confIn) ||
-          (confDigits && digits(String(r.confirmation || '')) === confDigits)
-        ) || null;
-        if (job?.tag) {
-          const gr = await gasGet({ action: 'get', tag: String(job.tag) });
-          if (gr && gr.ok && gr.exists && gr.job) job = gr.job as GasJob;
-          break;
-        }
+    const rows = data.rows || [];
+    if (!rows.length) {
+      return NextResponse.json({ ok: false, notFound: true });
+    }
+
+    // Pick the best match
+    const pick = (() => {
+      if (mode === 'confirmation') {
+        const want = digits(confirmation);
+        // Strongest match: confirmation digits exact (fallback to first row)
+        const exact = rows.find((row) => digits(row.confirmation) === want);
+        return exact || rows[0];
+      } else {
+        const wantTag = tag.toLowerCase();
+        const wantLast = lastName.toLowerCase();
+        // Prefer exact tag & last name match
+        const exact = rows.find((row) => {
+          const t = String(row.tag || '').toLowerCase();
+          const ln = lastNameOnly(row.customer);
+          return t === wantTag && ln === wantLast;
+        });
+        if (exact) return exact;
+        // Fallback: tag only
+        const tagOnly = rows.find(
+          (row) => String(row.tag || '').toLowerCase() === wantTag
+        );
+        return tagOnly || rows[0];
       }
+    })();
+
+    if (!pick) {
+      return NextResponse.json({ ok: false, notFound: true });
     }
 
-    // 2) Fallback: Tag + Last Name
-    if (!job && tagIn) {
-      const gr = await gasGet({ action: 'get', tag: tagIn });
-      if (gr && gr.ok && gr.exists && gr.job) {
-        const j: GasJob = gr.job;
-        if (!lastIn || lastNameOf(String(j.customer || '')) === lastIn) job = j;
-      }
-    }
+    // Map fields the Status page expects
+    const paidAll = normalizeBool(pick.Paid ?? pick.paid);
+    const paidProcessing = normalizeBool(pick.paidProcessing);
+    const paidSpecialty = normalizeBool(pick.paidSpecialty);
 
-    if (!job) {
-      return Response.json({ ok: false, notFound: true, error: 'No match.' }, { status: 404 });
-    }
+    const priceProcessing =
+      typeof pick.priceProcessing === 'number'
+        ? pick.priceProcessing
+        : undefined;
+    const priceSpecialty =
+      typeof pick.priceSpecialty === 'number' ? pick.priceSpecialty : undefined;
+    const priceTotal =
+      typeof pick.priceTotal === 'number' ? pick.priceTotal : undefined;
 
-    // Build payload expected by the customer status page
-    const resp = {
+    return NextResponse.json({
       ok: true,
-      tag: job.tag || '',
-      confirmation: job.confirmation || '',
-      status: job.status || '—',
+      tag: pick.tag || '',
+      confirmation: pick.confirmation || '',
+      status: pick.status || '',
       tracks: {
-        // map capingStatus -> capeStatus for UI
-        capeStatus: hasValue(job.capingStatus) ? String(job.capingStatus) : undefined,
-        webbsStatus: hasValue(job.webbsStatus) ? String(job.webbsStatus) : undefined,
-        specialtyStatus: hasValue(job.specialtyStatus) ? String(job.specialtyStatus) : undefined,
+        webbsStatus: pick.webbsStatus || '',
+        specialtyStatus: pick.specialtyStatus || '',
+        capeStatus: pick.capingStatus || '',
       },
-    };
 
-    return Response.json(resp, { status: 200 });
+      // Pricing
+      priceProcessing,
+      priceSpecialty,
+      priceTotal,
+
+      // Paid flags
+      paid: paidAll,
+      paidProcessing,
+      paidSpecialty,
+    });
   } catch (err: any) {
-    return Response.json({ ok: false, error: err?.message || 'Lookup failed' }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: String(err?.message || err) },
+      { status: 500 }
+    );
   }
+}
+
+// Optional: allow simple GET forwarding (useful for quick tests)
+export async function GET(req: NextRequest) {
+  // Encourage POST, but support GET ?confirmation=... or ?tag=...&lastName=...
+  const u = new URL(req.url);
+  const confirmation = u.searchParams.get('confirmation') || '';
+  const tag = u.searchParams.get('tag') || '';
+  const lastName = u.searchParams.get('lastName') || '';
+  return POST(
+    new NextRequest(req.url, {
+      method: 'POST',
+      body: JSON.stringify({ confirmation, tag, lastName }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+  );
 }
