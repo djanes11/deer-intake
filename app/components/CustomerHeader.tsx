@@ -10,7 +10,7 @@ type NavItem = { href: string; label: string; exact?: boolean };
 const NAV: NavItem[] = [
   { href: '/', label: 'Home', exact: true },
   { href: '/status', label: 'Check Status' },
-  { href: '/intake/overnight', label: 'Overnight Drop' },
+  { href: '/overnight', label: 'Overnight Drop' },
   { href: '/faq-public', label: 'FAQ' },
   { href: '/hours', label: 'Hours' },
   { href: '/contact', label: 'Contact' },
@@ -56,7 +56,7 @@ export default function CustomerHeader() {
           >
             {/* Update src to your actual crest asset in /public if different */}
             <Image
-              src="/crest.png"
+              src="/mcafee-logo.png"
               alt="McAfee Crest"
               fill
               sizes="44px"
