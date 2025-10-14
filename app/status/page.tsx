@@ -74,10 +74,13 @@ export default function StatusPage() {
   })();
 
   const phoneHref = `tel:${(SITE.phone || '').replace(/\D+/g, '')}`;
-  const mapsUrl =
-    SITE.mapsUrl && SITE.mapsUrl.trim().length > 0
-      ? SITE.mapsUrl
+const mapsUrl =
+  SITE.mapsUrl && SITE.mapsUrl.trim().length > 0
+    ? SITE.mapsUrl
+    : Number.isFinite(SITE.lat) && Number.isFinite(SITE.lng)
+      ? `https://www.google.com/maps/dir/?api=1&destination=${SITE.lat},${SITE.lng}`
       : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(SITE.address || '')}`;
+
 
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
