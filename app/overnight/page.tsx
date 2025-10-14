@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import CustomerHeader from '../components/CustomerHeader';
+
 
 export const dynamic = 'force-dynamic';
 

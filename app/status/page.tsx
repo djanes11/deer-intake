@@ -4,6 +4,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
+import CustomerHeader from '../components/CustomerHeader';
+
 
 /**
  * Public status lookup

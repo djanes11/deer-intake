@@ -1,7 +1,7 @@
 // app/hours/page.tsx
 'use client';
 
-import CustomerHeader from './components/CustomerHeader';
+import CustomerHeader from '../components/CustomerHeader';
 
 import { SITE, phoneHref } from '@/lib/config';
 
