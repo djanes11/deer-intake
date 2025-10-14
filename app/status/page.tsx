@@ -74,13 +74,12 @@ export default function StatusPage() {
   })();
 
   const phoneHref = `tel:${(SITE.phone || '').replace(/\D+/g, '')}`;
-const mapsUrl =
-  SITE.mapsUrl && SITE.mapsUrl.trim().length > 0
-    ? SITE.mapsUrl
-    : Number.isFinite(SITE.lat) && Number.isFinite(SITE.lng)
-      ? `https://www.google.com/maps/dir/?api=1&destination=${SITE.lat},${SITE.lng}`
-      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(SITE.address || '')}`;
-
+  const mapsUrl =
+    SITE.mapsUrl && SITE.mapsUrl.trim().length > 0
+      ? SITE.mapsUrl
+      : Number.isFinite(SITE.lat) && Number.isFinite(SITE.lng)
+        ? `https://www.google.com/maps/dir/?api=1&destination=${SITE.lat},${SITE.lng}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(SITE.address || '')}`;
 
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
@@ -115,7 +114,7 @@ const mapsUrl =
           />
         </div>
         <button disabled={loading} style={btn} aria-busy={loading}>
-          {loading ? 'Checking...' : 'Check status'}
+          {loading ? 'Checking…' : 'Check status'}
         </button>
       </form>
 
@@ -125,7 +124,7 @@ const mapsUrl =
         <div style={card}>
           {/* Summary */}
           <div style={{ display:'grid', gap:10 }}>
-            <div style={{ fontWeight: 700, fontSize: 18 }}>
+            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: .2 }}>
               Status: <span style={pill}>{res.status || '—'}</span>
             </div>
 
@@ -155,7 +154,7 @@ const mapsUrl =
             mapsUrl={mapsUrl}
             phoneHref={phoneHref}
             phoneDisplay={SITE.phone}
-            hours={SITE.hours}
+            hours={SITE.hours} // read-only; prop type accepts ReadonlyArray
           />
         </div>
       ) : null}
@@ -183,7 +182,7 @@ function Track({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <div>
-      <b>{label}:</b> <span style={pill}>{value}</span>
+      <b style={{ opacity:.85 }}>{label}:</b> <span style={pill}>{value}</span>
     </div>
   );
 }
@@ -201,7 +200,8 @@ function PickupPanel({
   mapsUrl: string;
   phoneHref: string;
   phoneDisplay: string;
-  hours: { label: string; value: string }[];
+  // accept readonly array so SITE.hours can be passed directly
+  hours: ReadonlyArray<{ label: string; value: string }>;
 }) {
   return (
     <section
@@ -279,12 +279,12 @@ const field: React.CSSProperties = {
 };
 
 const valueBox: React.CSSProperties = {
-  padding:'6px 8px',
+  padding:'8px 10px',
   border:'1px solid #1f2937',
   borderRadius:10,
   background:'#0b0f12',
   color:'#e5e7eb',
-  fontWeight: 700,
+  fontWeight: 800,
 };
 
 const btn: React.CSSProperties = {
@@ -325,7 +325,7 @@ const pill: React.CSSProperties = {
   display:'inline-block',
   border:'1px solid #1f2937',
   borderRadius:999,
-  padding:'2px 8px',
+  padding:'4px 10px',
   background:'#0b0f12',
-  fontWeight:800
+  fontWeight:900
 };
