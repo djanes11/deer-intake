@@ -180,6 +180,8 @@ function PublicLanding() {
 	    <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sat: 9:00 AM – 5:00 PM</div></div>
 	    <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sun: 9:00 AM – 12:00 PM</div></div>
             <div style={row}><div style={dot('rgba(167,115,18,.9)')} /><div>After Hours: Overnight Drop Available</div></div>
+          </div>
+          <div style={{ height: 10 }} />
         </aside>
       </section>
 
