@@ -1,5 +1,4 @@
 import 'server-only';
-import CustomerHeader from '../components/CustomerHeader';
 import Link from 'next/link';
 
 let SITE: any = {
@@ -19,7 +18,6 @@ export default function FAQPublic() {
 
   return (
     <main>
-      <CustomerHeader />
       <div style={{maxWidth: 1000, margin:'20px auto', padding:'0 16px'}}>
         <h1 style={{ fontSize:28, fontWeight:800, marginBottom:10 }}>Frequently Asked Questions</h1>
 

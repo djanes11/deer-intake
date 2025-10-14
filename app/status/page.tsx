@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
-import CustomerHeader from '../components/CustomerHeader';
 
 /**
  * Public status lookup
@@ -125,8 +124,6 @@ export default function StatusPage() {
   return (
     <>
       {/* Public customer header/nav */}
-      <CustomerHeader />
-
       <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
         <p style={{ opacity: 0.8, marginBottom: 16 }}>

@@ -1,5 +1,4 @@
 import 'server-only';
-import CustomerHeader from '../components/CustomerHeader';
 import Image from 'next/image';
 
 // Falls back to your central SITE config if present
@@ -23,7 +22,6 @@ export default function ContactPage() {
 
   return (
     <main>
-      <CustomerHeader />
       <div style={{ maxWidth: 1000, margin: '20px auto', padding: '0 16px' }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Contact</h1>
 

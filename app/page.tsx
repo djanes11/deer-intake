@@ -10,7 +10,8 @@ export default function Home() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   PUBLIC LANDING (shown when PUBLIC_MODE=1) — simplified & de-duplicated
+   PUBLIC LANDING (shown when PUBLIC_MODE=1)
+   — Header/Nav removed here to avoid duplicate with layout header
    ────────────────────────────────────────────────────────────────────────── */
 function PublicLanding() {
   const colors = {
@@ -31,38 +32,8 @@ function PublicLanding() {
     color: colors.text,
   };
 
-  const header: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '16px 0',
-  };
-
-  const logoWrap: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10 };
-  const logo: React.CSSProperties = {
-    width: 36, height: 36, borderRadius: 8,
-    background: colors.brand, display: 'inline-block',
-  };
-  const brand: React.CSSProperties = {
-    fontWeight: 900, letterSpacing: '.02em', fontSize: 16,
-    textTransform: 'uppercase', color: colors.accent,
-  };
-
-  const nav: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'center' };
-  const navBtn = (primary = false): React.CSSProperties => ({
-    display: 'inline-block',
-    padding: '8px 12px',
-    borderRadius: 10,
-    textDecoration: 'none',
-    color: primary ? '#0b0f0d' : colors.text,
-    background: primary ? colors.brand : 'transparent',
-    border: primary ? '1px solid transparent' : `1px solid ${colors.panelBorder}`,
-    fontWeight: 800,
-    fontSize: 13,
-  });
-
   const hero: React.CSSProperties = {
-    marginTop: 10,
+    marginTop: 10, // slight offset under the layout header
     borderRadius: 16,
     background: `linear-gradient(180deg, rgba(22,28,25,1) 0%, rgba(12,16,14,1) 100%)`,
     border: `1px solid ${colors.panelBorder}`,
@@ -129,21 +100,6 @@ function PublicLanding() {
 
   return (
     <main style={shell}>
-      {/* Header */}
-      <header style={header} aria-label="Site header">
-        <div style={logoWrap}>
-          <span aria-hidden style={logo} />
-          <span style={brand}>McAfee Custom Deer Processing</span>
-        </div>
-        <nav style={nav} aria-label="Primary">
-          {/* Keep just one path per task */}
-          <Link href="/status" style={navBtn(false)}>Status</Link>
-          <Link href="/overnight" style={navBtn(false)}>Overnight Drop</Link>
-          <Link href="/faq-public" style={navBtn(false)}>FAQ</Link>
-          <Link href="/contact" style={navBtn(true)}>Contact</Link>
-        </nav>
-      </header>
-
       {/* Hero */}
       <section style={hero} aria-label="Hero">
         <div style={eyebrow}>Welcome</div>
@@ -153,7 +109,6 @@ function PublicLanding() {
           We’ll notify you when it’s ready.
         </p>
         <div style={ctas}>
-          {/* Two primary actions, no duplicates elsewhere */}
           <Link href="/overnight" style={cta(true)}>Start Overnight Drop</Link>
           <Link href="/status" style={cta(false)}>Check Your Status</Link>
         </div>
@@ -177,8 +132,8 @@ function PublicLanding() {
           <div style={h3}>Hours &amp; Location</div>
           <div style={list}>
             <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Mon–Fri: 6:00 PM – 8:00 PM</div></div>
-	    <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sat: 9:00 AM – 5:00 PM</div></div>
-	    <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sun: 9:00 AM – 12:00 PM</div></div>
+            <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sat: 9:00 AM – 5:00 PM</div></div>
+            <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sun: 9:00 AM – 12:00 PM</div></div>
             <div style={row}><div style={dot('rgba(167,115,18,.9)')} /><div>After Hours: Overnight Drop Available</div></div>
           </div>
           <div style={{ height: 10 }} />

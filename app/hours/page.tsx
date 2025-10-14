@@ -1,5 +1,4 @@
 import 'server-only';
-import CustomerHeader from '../components/CustomerHeader';
 
 // Falls back to local defaults; will use central config if available
 let SITE: any = {
@@ -24,7 +23,6 @@ export default function HoursPage() {
 
   return (
     <main>
-      <CustomerHeader />
       <div style={{ maxWidth: 900, margin: '20px auto', padding: '0 16px' }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Season Hours</h1>
 
