@@ -10,6 +10,7 @@ import CustomerHeader from '../components/CustomerHeader';
  * Public status lookup
  * - Search by Confirmation #, or Tag + Last Name
  * - Shows core status + Webbs / Specialty / Cape tracks (only if present)
+ * - Payment preview (processing/specialty/total + paid flags) — if API returns them
  * - Clear pickup panel with Google Maps + tap-to-call
  */
 
@@ -17,14 +18,30 @@ type LookupResult = {
   ok?: boolean;
   notFound?: boolean;
   error?: string;
+
+  // identity
   tag?: string;
   confirmation?: string;
+
+  // core status
   status?: string;
+
+  // extra tracks
   tracks?: {
     webbsStatus?: string;
     specialtyStatus?: string;
     capeStatus?: string;
   };
+
+  // pricing (optional — shown only if provided)
+  priceProcessing?: number | string;
+  priceSpecialty?: number | string;
+  priceTotal?: number | string;
+
+  // paid flags (optional — shown only if provided)
+  paidProcessing?: boolean | string;
+  paidSpecialty?: boolean | string;
+  paid?: boolean | string;
 };
 
 export default function StatusPage() {
@@ -47,8 +64,8 @@ export default function StatusPage() {
         body: JSON.stringify({ confirmation, tag, lastName }),
       });
       const j = (await r.json()) as LookupResult;
-      if (!j.ok) {
-        setErr(j.error || (j.notFound ? 'No match.' : 'Not found.'));
+      if (!j?.ok) {
+        setErr(j?.error || (j?.notFound ? 'No match.' : 'Not found.'));
       } else {
         setRes(j);
       }
@@ -74,6 +91,36 @@ export default function StatusPage() {
   })();
 
   const mapsUrl = SITE.mapsUrl; // from central config
+
+  // payment helpers
+  const toNum = (v: unknown) => {
+    const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(n) ? n : undefined;
+  };
+  const toBool = (v: unknown) => {
+    if (v === true) return true;
+    const s = String(v ?? '').trim().toLowerCase();
+    return ['1', 'true', 'yes', 'y', 'paid', '✓', '✔', 'x'].includes(s);
+  };
+  const money = (n?: number) => (typeof n === 'number' ? `$${n.toFixed(2)}` : '—');
+
+  const priceProcessing = toNum(res?.priceProcessing);
+  const priceSpecialty = toNum(res?.priceSpecialty);
+  const priceTotal =
+    toNum(res?.priceTotal) ??
+    (typeof priceProcessing === 'number' || typeof priceSpecialty === 'number'
+      ? (priceProcessing || 0) + (priceSpecialty || 0)
+      : undefined);
+
+  const hasAnyPricing =
+    typeof priceProcessing === 'number' ||
+    typeof priceSpecialty === 'number' ||
+    typeof priceTotal === 'number';
+
+  const paidOverall = toBool(res?.paid);
+  const paidProc = toBool(res?.paidProcessing);
+  const paidSpec = toBool(res?.paidSpecialty);
+  const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some((v) => v !== undefined && v !== null);
 
   return (
     <>
@@ -141,6 +188,42 @@ export default function StatusPage() {
                 {res.tracks?.specialtyStatus ? <Track label="Specialty" value={res.tracks.specialtyStatus} /> : null}
                 {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} /> : null}
               </div>
+
+              {/* Payment (only if API provided anything) */}
+              {hasAnyPricing || hasAnyPaid ? (
+                <section
+                  aria-label="Payment"
+                  style={{
+                    marginTop: 8,
+                    border: '1px solid #1f2937',
+                    borderRadius: 10,
+                    background: '#0b0f12',
+                    padding: 10,
+                    display: 'grid',
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ fontWeight: 900, color: '#d4e7db' }}>Payment</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    <Info label="Processing" value={money(priceProcessing)} />
+                    <Info label="Specialty" value={money(priceSpecialty)} />
+                    <Info label="Total" value={money(priceTotal)} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {hasAnyPaid ? (
+                      <>
+                        <Badge ok={paidOverall} label={paidOverall ? 'Paid (overall)' : 'Unpaid (overall)'} />
+                        {'paidProcessing' in (res || {}) ? (
+                          <Badge ok={paidProc} label={paidProc ? 'Processing Paid' : 'Processing Unpaid'} />
+                        ) : null}
+                        {'paidSpecialty' in (res || {}) ? (
+                          <Badge ok={paidSpec} label={paidSpec ? 'Specialty Paid' : 'Specialty Unpaid'} />
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                </section>
+              ) : null}
             </div>
 
             {/* Pickup panel (directions, hours, phone) */}
@@ -150,7 +233,7 @@ export default function StatusPage() {
               mapsUrl={mapsUrl}
               phoneHref={phoneHref}
               phoneDisplay={SITE.phone}
-              hours={SITE.hours} // ReadonlyArray OK
+              hours={SITE.hours as ReadonlyArray<{ label: string; value: string }>}
             />
           </div>
         ) : null}
@@ -185,6 +268,29 @@ function Track({ label, value }: { label: string; value?: string }) {
       <b style={{ opacity: 0.85 }}>{label}:</b> <span style={pill}>{value}</span>
     </div>
   );
+}
+
+function Badge({ ok, label }: { ok?: boolean; label: string }) {
+  const style: React.CSSProperties = ok
+    ? {
+        display: 'inline-block',
+        border: '1px solid #2a5f47',
+        background: '#193b2e',
+        color: '#a7e3ba',
+        borderRadius: 999,
+        padding: '4px 10px',
+        fontWeight: 800,
+      }
+    : {
+        display: 'inline-block',
+        border: '1px solid #7f1d1d',
+        background: 'rgba(127,29,29,.15)',
+        color: '#fecaca',
+        borderRadius: 999,
+        padding: '4px 10px',
+        fontWeight: 800,
+      };
+  return <span style={style}>{label}</span>;
 }
 
 function PickupPanel({
