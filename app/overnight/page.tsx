@@ -25,10 +25,10 @@ const OVERNIGHT_INTAKE_PATH = '/intake/overnight';
 // Optional contact details for quick actions (click-to-call/maps).
 const BUSINESS = {
   name: 'McAfee Custom Deer Processing',
-  address: '5349 W 700 S, Rossville, IN 46065', // update if needed
-  phoneDisplay: '(765) 242-3811',               // update if needed
-  phoneE164: '+17652423811',                    // update if needed
-  mapsUrl: 'https://maps.google.com/?q=5349+W+700+S,+Rossville,+IN+46065',
+  address: '10977 Buffalo Trace Rd NW, Palmyra, IN 47164', // update if needed
+  phoneDisplay: '(502) 643-3916',               // update if needed
+  phoneE164: '+15026433916',                    // update if needed
+  mapsUrl: 'https://www.google.com/maps/place/McAfee+Custom+Deer+Processing/@38.3589993,-86.1374638,17z/data=!3m1!4b1!4m6!3m5!1s0x88694f6a5bbc0d69:0x55f1bf1b2c069cd4!8m2!3d38.3589951!4d-86.1348889!16s%2Fg%2F11fn4yq71c?entry=ttu&g_ep=EgoyMDI1MTAwOC4wIKXMDSoASAFQAw%3D%3D',
 };
 
 export default function DropInstructionsPage() {
