@@ -76,6 +76,9 @@ export default function StatusPage() {
     );
   })();
 
+  // Build phone href from SITE.phone (no SITE.phoneHref dependency)
+  const phoneHref = `tel:${(SITE.phone || '').replace(/\D+/g, '')}`;
+
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
@@ -156,7 +159,7 @@ export default function StatusPage() {
             ready={isReady}
             addressText={SITE.address}
             mapsUrl={SITE.mapsUrl}
-            phoneHref={SITE.phoneHref || `tel:${(SITE.phone || '').replace(/\D+/g,'')}`}
+            phoneHref={phoneHref}
             phoneDisplay={SITE.phone}
             hours={SITE.hours}
           />
@@ -332,4 +335,3 @@ const pill: React.CSSProperties = {
   background:'#0b0f12',
   fontWeight:800
 };
-
