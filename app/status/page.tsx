@@ -44,7 +44,6 @@ export default function StatusPage() {
       const r = await fetch('/api/public-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // No phoneLast4 anymore
         body: JSON.stringify({ confirmation, tag, lastName }),
       });
       const j = (await r.json()) as LookupResult;
@@ -74,10 +73,7 @@ export default function StatusPage() {
     );
   })();
 
-  // Build phone href from SITE.phone
   const phoneHref = `tel:${(SITE.phone || '').replace(/\D+/g, '')}`;
-
-  // If SITE.mapsUrl is missing/blank, build one from the address.
   const mapsUrl =
     SITE.mapsUrl && SITE.mapsUrl.trim().length > 0
       ? SITE.mapsUrl
@@ -281,7 +277,7 @@ const field: React.CSSProperties = {
 
 const valueBox: React.CSSProperties = {
   padding:'6px 8px',
-  border:'1px solid '#1f2937',
+  border:'1px solid #1f2937',
   borderRadius:10,
   background:'#0b0f12',
   color:'#e5e7eb',
