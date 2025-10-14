@@ -209,7 +209,7 @@ export default function OvernightPrepPage() {
           <Link href="/faq-public" style={ghostBtn}>Read FAQ</Link>
         </div>
 
-        <div style={help}>Questions or no service? Call the shop during business hours.</div>
+        <div style={help}>No Service? Fill out the Tag in it's entirety and leave it with the deer. We will call you with any questions!</div>
       </section>
     </main>
   );
