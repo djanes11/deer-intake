@@ -7,9 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-// Where to send them after prep. You can override with:
-//  - querystring ?to=/your/path
-//  - env NEXT_PUBLIC_DROP_START_PATH=/your/path
+// Where to send them after prep. Override with ?to=/path or NEXT_PUBLIC_DROP_START_PATH
 const DEFAULT_TARGET =
   (process.env.NEXT_PUBLIC_DROP_START_PATH ?? '/drop/start') as string;
 
@@ -17,9 +15,7 @@ const TTL_HOURS = 12;
 const LS_KEY = 'dropPrepOK'; // JSON: { ok: true, at: epoch_ms }
 
 function setPrepFlag() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ ok: true, at: Date.now() }));
-  } catch {}
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ ok: true, at: Date.now() })); } catch {}
 }
 function isPrepFlagFresh(): boolean {
   try {
@@ -28,30 +24,22 @@ function isPrepFlagFresh(): boolean {
     const obj = JSON.parse(raw) as { ok?: boolean; at?: number };
     if (!obj?.ok || !obj?.at) return false;
     return Date.now() - obj.at < TTL_HOURS * 60 * 60 * 1000;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 export default function OvernightPrepPage() {
   const router = useRouter();
   const sp = useSearchParams();
-  const fast = sp.get('fast') === '1'; // staff bypass if needed
+  const fast = sp.get('fast') === '1'; // staff bypass
   const target = sp.get('to') || DEFAULT_TARGET;
 
   const [ack, setAck] = useState(false);
   const canStart = fast || ack;
 
   const alreadyPrepped = useMemo(() => isPrepFlagFresh(), []);
+  useEffect(() => { if (alreadyPrepped) setAck(true); }, [alreadyPrepped]);
 
-  useEffect(() => {
-    if (alreadyPrepped) setAck(true);
-  }, [alreadyPrepped]);
-
-  const goStart = () => {
-    setPrepFlag();
-    router.push(target);
-  };
+  const goStart = () => { setPrepFlag(); router.push(target); };
 
   return (
     <main style={shell}>
@@ -68,42 +56,95 @@ export default function OvernightPrepPage() {
         </nav>
       </header>
 
-      {/* Card */}
+      {/* Intro / Property note (optional image via env) */}
       <section style={card}>
         <div style={eyebrow}>Overnight Drop</div>
         <h1 style={title}>Before you start</h1>
-        <p style={sub}>This is the after-hours intake. The form takes about a minute.</p>
+        <p style={sub}>
+          Quick instructions for the after-hours drop. The intake form takes about a minute.
+        </p>
 
-        {/* Steps */}
+        {/* Steps matching your flow */}
         <ol style={steps}>
           <li style={step}>
             <div style={bullet}>1</div>
             <div>
-              <div style={stepTitle}>Fill out the intake form</div>
-              <div style={stepText}>Have your name, phone, email, county, and cut choices ready.</div>
-            </div>
-          </li>
-          <li style={step}>
-            <div style={bullet}>2</div>
-            <div>
-              <div style={stepTitle}>Write the tag</div>
+              <div style={stepTitle}>Stop at the first door</div>
               <div style={stepText}>
-                After submit, you’ll see a confirmation. <b>Write the LAST 5 + your name</b> on the paper tag and attach it to your deer.
+                Grab a <b>deer tag</b>. If you want <b>Webbs Specialty</b>, also grab a Webbs form.
               </div>
             </div>
           </li>
+
+          <li style={step}>
+            <div style={bullet}>2</div>
+            <div>
+              <div style={stepTitle}>Drive to the rear 24/7 Drop</div>
+              <div style={stepText}>
+                Continue to the back of the barn. You’ll see a cooler door marked <b>“24/7 DROP”</b>.
+              </div>
+            </div>
+          </li>
+
           <li style={step}>
             <div style={bullet}>3</div>
             <div>
-              <div style={stepTitle}>Put deer in freezer</div>
-              <div style={stepText}>Slide it into an open bay and close the lid/door.</div>
+              <div style={stepTitle}>DNR Confirmation Required</div>
+              <div style={stepText}>
+                You must already have a <b>Confirmation #</b> from your check-in on <b>GoOutdoorsIN</b>.
+                <br/>If you don’t have a confirmation, we <b>will not process</b> your deer.
+              </div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>4</div>
             <div>
+              <div style={stepTitle}>Webbs (optional)</div>
+              <div style={stepText}>
+                Fill out the Webbs form. On the intake, enter the <b>Webbs form #</b> and the
+                <b> number of pounds</b> you want sent. Keep the <b>back copy</b> and leave the other
+                two copies in the <b>mailbox inside the cooler</b>.
+              </div>
+            </div>
+          </li>
+
+          <li style={step}>
+            <div style={bullet}>5</div>
+            <div>
+              <div style={stepTitle}>Fill out the intake form</div>
+              <div style={stepText}>
+                Tap <b>Start Intake</b> below. After submitting you’ll see a confirmation number.
+              </div>
+            </div>
+          </li>
+
+          <li style={step}>
+            <div style={bullet}>6</div>
+            <div>
+              <div style={stepTitle}>Tag your deer</div>
+              <div style={stepText}>
+                On the paper tag write your <b>Full Name</b>, <b>Phone Number</b>, and your <b>DNR Confirmation #</b>.
+                Attach the tag to your deer.
+              </div>
+            </div>
+          </li>
+
+          <li style={step}>
+            <div style={bullet}>7</div>
+            <div>
+              <div style={stepTitle}>Place deer in the cooler</div>
+              <div style={stepText}>Take it to the <b>furthest point</b> in the cooler and close the door firmly.</div>
+            </div>
+          </li>
+
+          <li style={step}>
+            <div style={bullet}>8</div>
+            <div>
               <div style={stepTitle}>Watch your email</div>
-              <div style={stepText}>We’ll email when it’s officially tagged and again when it’s ready.</div>
+              <div style={stepText}>
+                We’ll email when staff have <b>attached the official tag</b>, and again when your order is <b>ready for pickup</b>.
+              </div>
             </div>
           </li>
         </ol>
@@ -117,7 +158,8 @@ export default function OvernightPrepPage() {
             style={{ width: 18, height: 18 }}
           />
           <span>
-            I’ll write the <b>last 5</b> of my confirmation + my name on the tag and place the deer in the freezer.
+            I understand I must have a <b>DNR Confirmation #</b>, tag my deer with my
+            <b> Full Name</b>, <b>Phone</b>, and <b>Confirmation #</b>, and place it in the cooler.
           </span>
         </label>
 
@@ -135,13 +177,13 @@ export default function OvernightPrepPage() {
           <Link href="/faq-public" style={ghostBtn}>Read FAQ</Link>
         </div>
 
-        <div style={help}>No service or stuck? Call the shop during business hours.</div>
+        <div style={help}>Questions or no service? Call the shop during business hours.</div>
       </section>
     </main>
   );
 }
 
-/* ——— styles (matches your dark look) ——— */
+/* ——— styles (dark theme, consistent with the rest of your app) ——— */
 
 const colors = {
   bg: '#0b0f0d',
