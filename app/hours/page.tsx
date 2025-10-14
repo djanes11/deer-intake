@@ -1,19 +1,72 @@
-import { SITE } from '@/lib/config';
+// app/hours/page.tsx
+'use client';
 
-export default function Hours() {
+import { SITE, phoneHref } from '@/lib/config';
+
+const CONTACT_EMAIL = (process.env.NEXT_PUBLIC_EMAIL || '').toString().trim();
+
+export default function HoursPage() {
   return (
-    <main style={{ maxWidth: 720, margin: '20px auto', padding: '0 12px' }}>
+    <main style={{ maxWidth: 720, margin: '24px auto', padding: '0 12px' }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Hours & Location</h1>
-      <ul style={{ listStyle:'none', padding:0, margin:0 }}>
-        {SITE.hours.map((h, i) => (
-          <li key={i} style={{ padding:'8px 0' }}><b>{h.label}</b>: {h.value}</li>
-        ))}
-      </ul>
-      <div style={{ marginTop: 12 }}>
-        <a href={SITE.mapsUrl} target="_blank" rel="noreferrer">{SITE.address}</a>
-      </div>
-      <div style={{ marginTop: 8 }}>Phone: {SITE.phone}</div>
-      <div>Email: {SITE.email}</div>
+
+      <section style={card}>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <div>
+            <div style={{ fontWeight: 900, marginBottom: 4 }}>Our Hours</div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, opacity: 0.9 }}>
+              {SITE.hours.map((h, i) => (
+                <li key={i}>
+                  {h.label} {h.value}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 900, marginBottom: 4 }}>Address</div>
+            <a href={SITE.mapsUrl} target="_blank" rel="noreferrer" style={link}>
+              {SITE.address}
+            </a>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 900, marginBottom: 4 }}>Phone</div>
+            <a href={phoneHref} style={link}>
+              {SITE.phone}
+            </a>
+          </div>
+
+          {CONTACT_EMAIL ? (
+            <div>
+              <div style={{ fontWeight: 900, marginBottom: 4 }}>Email</div>
+              <a href={`mailto:${CONTACT_EMAIL}`} style={link}>
+                {CONTACT_EMAIL}
+              </a>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <p style={{ marginTop: 14, opacity: 0.8, fontSize: 13 }}>
+        Tap the phone number on mobile to call, or open our address in Google Maps for directions.
+      </p>
     </main>
   );
 }
+
+/* ---------- styles ---------- */
+
+const card: React.CSSProperties = {
+  padding: 16,
+  border: '1px solid #1f2937',
+  borderRadius: 12,
+  background: '#0b0f12',
+  color: '#e5e7eb',
+};
+
+const link: React.CSSProperties = {
+  color: '#a7e3ba',
+  textDecoration: 'underline',
+  wordBreak: 'break-word',
+};
