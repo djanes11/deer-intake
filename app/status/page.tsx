@@ -9,12 +9,10 @@ import Link from 'next/link';
  * Search by:
  *  - Confirmation #
  *  - Tag + Last Name
- *  - Phone last-4
  *
  * Renders:
  *  - Core status + extra tracks (Webbs / Specialty / Cape) when present
  *  - Pickup panel with address, hours, Call, and Google Maps
- *  - No payments
  */
 
 type LookupResult = {
@@ -35,7 +33,6 @@ export default function StatusPage() {
   const [confirmation, setConfirmation] = useState('');
   const [tag, setTag] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phoneLast4, setPhoneLast4] = useState('');
   const [res, setRes] = useState<LookupResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,7 +44,8 @@ export default function StatusPage() {
       const r = await fetch('/api/public-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation, tag, lastName, phoneLast4 }),
+        // No phoneLast4 anymore
+        body: JSON.stringify({ confirmation, tag, lastName }),
       });
       const j = (await r.json()) as LookupResult;
       if (!j.ok) {
@@ -76,14 +74,20 @@ export default function StatusPage() {
     );
   })();
 
-  // Build phone href from SITE.phone (no SITE.phoneHref dependency)
+  // Build phone href from SITE.phone
   const phoneHref = `tel:${(SITE.phone || '').replace(/\D+/g, '')}`;
+
+  // If SITE.mapsUrl is missing/blank, build one from the address.
+  const mapsUrl =
+    SITE.mapsUrl && SITE.mapsUrl.trim().length > 0
+      ? SITE.mapsUrl
+      : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(SITE.address || '')}`;
 
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
       <p style={{ opacity: .8, marginBottom: 16 }}>
-        Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>, or <b>Phone last-4</b>.
+        Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>.
       </p>
 
       <form onSubmit={lookup} style={{ display: 'grid', gap: 12 }}>
@@ -111,15 +115,6 @@ export default function StatusPage() {
             aria-label="Customer last name"
           />
         </div>
-        <input
-          value={phoneLast4}
-          onChange={e=>setPhoneLast4(e.target.value.replace(/\D+/g,''))}
-          placeholder="Phone last-4"
-          inputMode="numeric"
-          maxLength={4}
-          style={field}
-          aria-label="Phone last four digits"
-        />
         <button disabled={loading} style={btn} aria-busy={loading}>
           {loading ? 'Checking...' : 'Check status'}
         </button>
@@ -158,7 +153,7 @@ export default function StatusPage() {
           <PickupPanel
             ready={isReady}
             addressText={SITE.address}
-            mapsUrl={SITE.mapsUrl}
+            mapsUrl={mapsUrl}
             phoneHref={phoneHref}
             phoneDisplay={SITE.phone}
             hours={SITE.hours}
@@ -286,7 +281,7 @@ const field: React.CSSProperties = {
 
 const valueBox: React.CSSProperties = {
   padding:'6px 8px',
-  border:'1px solid #1f2937',
+  border:'1px solid '#1f2937',
   borderRadius:10,
   background:'#0b0f12',
   color:'#e5e7eb',
