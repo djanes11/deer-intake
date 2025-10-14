@@ -1,17 +1,25 @@
-// app/status/page.tsx
 'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
-import CustomerHeader from '../components/CustomerHeader';
+import CustomerHeader from '@/app/components/CustomerHeader';
 
 /**
  * Public status lookup
  * - Search by Confirmation #, or Tag + Last Name
  * - Shows core status + Webbs / Specialty / Cape tracks (only if present)
+ * - Payment indicator (Paid / Unpaid)
  * - Clear pickup panel with Google Maps + tap-to-call
  */
+
+type PaymentResult = {
+  paid?: boolean;
+  amountPaid?: number;
+  totalDue?: number;
+  balanceDue?: number;
+  display?: string;
+};
 
 type LookupResult = {
   ok?: boolean;
@@ -25,6 +33,7 @@ type LookupResult = {
     specialtyStatus?: string;
     capeStatus?: string;
   };
+  payment?: PaymentResult;
 };
 
 export default function StatusPage() {
@@ -74,6 +83,18 @@ export default function StatusPage() {
   })();
 
   const mapsUrl = SITE.mapsUrl; // from central config
+  const paid = !!res?.payment?.paid;
+  const paymentLine =
+    res?.payment?.display ??
+    (res?.payment
+      ? [
+          typeof res.payment.totalDue === 'number' ? `Total $${res.payment.totalDue.toFixed(2)}` : null,
+          typeof res.payment.amountPaid === 'number' ? `Paid $${res.payment.amountPaid.toFixed(2)}` : null,
+          typeof res.payment.balanceDue === 'number' ? `Balance $${res.payment.balanceDue.toFixed(2)}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : '');
 
   return (
     <>
@@ -128,6 +149,22 @@ export default function StatusPage() {
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: 0.2 }}>
                 Status: <span style={pill}>{res.status || '—'}</span>
+              </div>
+
+              {/* NEW: Payment */}
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ fontWeight: 900 }}>Payment:</div>
+                <span
+                  style={{
+                    ...pill,
+                    borderColor: paid ? '#264d39' : '#5b1b1b',
+                    background: paid ? '#11261c' : '#1f1313',
+                    color: paid ? '#a7e3ba' : '#fecaca',
+                  }}
+                >
+                  {paid ? 'Paid' : 'Unpaid'}
+                </span>
+                {paymentLine ? <span style={{ opacity: 0.85 }}>{paymentLine}</span> : null}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
