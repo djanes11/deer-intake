@@ -7,16 +7,22 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-// After prep, send users here.
-// You can still override with ?to=/path or NEXT_PUBLIC_DROP_START_PATH
+// After prep, send users here (your intake form route).
+// Override with ?to=/path or NEXT_PUBLIC_DROP_START_PATH if needed.
 const DEFAULT_TARGET =
   (process.env.NEXT_PUBLIC_DROP_START_PATH ?? '/intake/overnight') as string;
+
+// Webbs price sheet URL (put file at /public/webbs-price.pdf or set this env var)
+const WEBBS_PRICE_URL =
+  (process.env.NEXT_PUBLIC_WEBBS_PRICE_URL ?? '/webbs-price.pdf') as string;
 
 const TTL_HOURS = 12;
 const LS_KEY = 'dropPrepOK'; // JSON: { ok: true, at: epoch_ms }
 
 function setPrepFlag() {
-  try { localStorage.setItem(LS_KEY, JSON.stringify({ ok: true, at: Date.now() })); } catch {}
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({ ok: true, at: Date.now() }));
+  } catch {}
 }
 function isPrepFlagFresh(): boolean {
   try {
@@ -25,22 +31,29 @@ function isPrepFlagFresh(): boolean {
     const obj = JSON.parse(raw) as { ok?: boolean; at?: number };
     if (!obj?.ok || !obj?.at) return false;
     return Date.now() - obj.at < TTL_HOURS * 60 * 60 * 1000;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }
 
 export default function OvernightPrepPage() {
   const router = useRouter();
   const sp = useSearchParams();
-  const fast = sp.get('fast') === '1'; // staff bypass
+  const fast = sp.get('fast') === '1'; // staff bypass for testing
   const target = sp.get('to') || DEFAULT_TARGET;
 
   const [ack, setAck] = useState(false);
   const canStart = fast || ack;
 
   const alreadyPrepped = useMemo(() => isPrepFlagFresh(), []);
-  useEffect(() => { if (alreadyPrepped) setAck(true); }, [alreadyPrepped]);
+  useEffect(() => {
+    if (alreadyPrepped) setAck(true);
+  }, [alreadyPrepped]);
 
-  const goStart = () => { setPrepFlag(); router.push(target); };
+  const goStart = () => {
+    setPrepFlag();
+    router.push(target);
+  };
 
   return (
     <main style={shell}>
@@ -76,6 +89,7 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>2</div>
             <div>
@@ -85,6 +99,7 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>3</div>
             <div>
@@ -103,6 +118,7 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>4</div>
             <div>
@@ -110,10 +126,21 @@ export default function OvernightPrepPage() {
               <div style={stepText}>
                 Fill out the Webbs form. On the intake, enter the <b>Webbs form #</b> and the
                 <b> number of pounds</b> you want sent. Keep the <b>back copy</b> and leave the other
-                two copies in the <b>mailbox inside the cooler</b>.
+                two copies in the <b>mailbox inside the cooler</b>.{' '}
+                <a
+                  href={WEBBS_PRICE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  style={{ color: '#a7e3ba', textDecoration: 'underline', fontWeight: 800 }}
+                >
+                  Download Webbs price sheet
+                </a>
+                .
               </div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>5</div>
             <div>
@@ -123,6 +150,7 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>6</div>
             <div>
@@ -133,6 +161,7 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>7</div>
             <div>
@@ -140,6 +169,7 @@ export default function OvernightPrepPage() {
               <div style={stepText}>Take it to the <b>furthest point</b> in the cooler and close the door firmly.</div>
             </div>
           </li>
+
           <li style={step}>
             <div style={bullet}>8</div>
             <div>
