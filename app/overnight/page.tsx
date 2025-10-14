@@ -56,7 +56,7 @@ export default function OvernightPrepPage() {
         </nav>
       </header>
 
-      {/* Intro / Property note (optional image via env) */}
+      {/* Card */}
       <section style={card}>
         <div style={eyebrow}>Overnight Drop</div>
         <h1 style={title}>Before you start</h1>
@@ -91,8 +91,16 @@ export default function OvernightPrepPage() {
             <div>
               <div style={stepTitle}>DNR Confirmation Required</div>
               <div style={stepText}>
-                You must already have a <b>Confirmation #</b> from your check-in on <b>GoOutdoorsIN</b>.
-                <br/>If you don’t have a confirmation, we <b>will not process</b> your deer.
+                You must already have a <b>Confirmation #</b> from your check-in on{' '}
+                <a
+                  href="https://www.gooutdoorsin.com/login"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: '#a7e3ba', textDecoration: 'underline', fontWeight: 800 }}
+                >
+                  GoOutdoorsIN
+                </a>
+                . If you don’t have a confirmation, we <b>will not process</b> your deer.
               </div>
             </div>
           </li>
