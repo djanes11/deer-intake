@@ -10,7 +10,7 @@ export default function Home() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   PUBLIC LANDING (shown when PUBLIC_MODE=1)
+   PUBLIC LANDING (shown when PUBLIC_MODE=1) — simplified & de-duplicated
    ────────────────────────────────────────────────────────────────────────── */
 function PublicLanding() {
   const colors = {
@@ -89,22 +89,7 @@ function PublicLanding() {
     fontSize: 16,
   });
 
-  const featuresGrid: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: 12,
-    marginTop: 16,
-  };
-  const feature: React.CSSProperties = {
-    background: colors.tileBg,
-    border: `1px solid ${colors.panelBorder}`,
-    borderRadius: 14,
-    padding: 14,
-  };
-  const featureTitle: React.CSSProperties = { fontWeight: 900, fontSize: 18, marginBottom: 4, color: colors.accent };
-  const featureSub: React.CSSProperties = { opacity: 0.85, lineHeight: 1.4 };
-
-  const split: React.CSSProperties = {
+  const twoCol: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: '2fr 1fr',
     gap: 12,
@@ -151,7 +136,8 @@ function PublicLanding() {
           <span style={brand}>McAfee Custom Deer Processing</span>
         </div>
         <nav style={nav} aria-label="Primary">
-          <Link href="/status" style={navBtn(false)}>Check Status</Link>
+          {/* Keep just one path per task */}
+          <Link href="/status" style={navBtn(false)}>Status</Link>
           <Link href="/overnight" style={navBtn(false)}>Overnight Drop</Link>
           <Link href="/faq-public" style={navBtn(false)}>FAQ</Link>
           <Link href="/contact" style={navBtn(true)}>Contact</Link>
@@ -161,49 +147,30 @@ function PublicLanding() {
       {/* Hero */}
       <section style={hero} aria-label="Hero">
         <div style={eyebrow}>Welcome</div>
-        <h1 style={title}>Fast, clean, professional processing—done right.</h1>
+        <h1 style={title}>Fast, clean, professional—done right.</h1>
         <p style={subtitle}>
-          From drop-off to pick-up, we keep you informed. Check your status anytime, start an after-hours drop,
-          and get exactly the cuts and specialty products you want.
+          Drop off after-hours, choose your cuts and specialty products, and track progress online.
+          We’ll notify you when it’s ready.
         </p>
         <div style={ctas}>
-          <Link href="/status" style={cta(true)}>Check Your Status</Link>
-          <Link href="/overnight" style={cta(false)}>Start Overnight Drop</Link>
-          <Link href="/faq-public" style={cta(false)}>View FAQ</Link>
-        </div>
-
-        {/* Key highlights */}
-        <div style={featuresGrid} aria-label="Highlights">
-          <div style={feature}>
-            <div style={featureTitle}>Text & Email Updates</div>
-            <div style={featureSub}>We’ll notify you when your order moves stages and when it’s ready for pickup.</div>
-          </div>
-          <div style={feature}>
-            <div style={featureTitle}>After-Hours Drop</div>
-            <div style={featureSub}>Use our secure overnight drop with a simple mobile form and freezer storage.</div>
-          </div>
-          <div style={feature}>
-            <div style={featureTitle}>Specialty Products</div>
-            <div style={featureSub}>Summer sausage, jerky, and more—processed to McAfee standards.</div>
-          </div>
+          {/* Two primary actions, no duplicates elsewhere */}
+          <Link href="/overnight" style={cta(true)}>Start Overnight Drop</Link>
+          <Link href="/status" style={cta(false)}>Check Your Status</Link>
         </div>
       </section>
 
-      {/* Info panels */}
-      <section style={split} aria-label="Info">
+      {/* Two-column: How it Works + Hours/Location */}
+      <section style={twoCol} aria-label="Info">
         <div style={panel}>
           <div style={h3}>How it Works</div>
           <ol style={{ margin: 0, padding: '0 0 0 18px', lineHeight: 1.6 }}>
-            <li>Bring your deer during business hours—or use Overnight Drop after hours.</li>
-            <li>Choose your cuts and any specialty products. We’ll confirm via email.</li>
-            <li>Track progress on the status page. We’ll notify you when it’s ready.</li>
-            <li>Pick up fast. Our team keeps it organized, clean, and cold.</li>
+            <li>Arrive during business hours or use our 24/7 Overnight Drop.</li>
+            <li>Fill the simple intake form and choose your cuts/specialty items.</li>
+            <li>Track progress on the Status page. We’ll also email updates.</li>
+            <li>Pick up quickly when notified. Cold, clean, organized.</li>
           </ol>
-          <div style={{ height: 10 }} />
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Link href="/faq-public" style={cta(false)}>Read the FAQ</Link>
-            <Link href="/status" style={cta(false)}>Check Status</Link>
-          </div>
+          <div style={{ height: 12 }} />
+          <Link href="/faq-public" style={cta(false)}>Read the FAQ</Link>
         </div>
 
         <aside style={panel} aria-label="Hours & Location">
@@ -211,22 +178,11 @@ function PublicLanding() {
           <div style={list}>
             <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Mon–Sat: 8:00 AM – 6:00 PM</div></div>
             <div style={row}><div style={dot('rgba(167,115,18,.9)')} /><div>After Hours: Overnight Drop Available</div></div>
-            <div style={row}><div style={dot('rgba(115,75,170,.95)')} /><div>123 McAfee Rd, YourTown, KY</div></div>
+            <div style={row}><div style={dot('rgba(115,75,170,.95)')} /><div>See address & map</div></div>
           </div>
           <div style={{ height: 10 }} />
-          <Link href="/hours" style={cta(false)}>See Full Details</Link>
+          <Link href="/hours" style={cta(false)}>Open in Maps</Link>
         </aside>
-      </section>
-
-      {/* Quick actions */}
-      <section style={{ marginTop: 16 }} aria-label="Quick actions">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
-          <Tile href="/status" title="Check Status" subtitle="Find by tag or confirmation #" />
-          <Tile href="/overnight" title="Overnight Drop" subtitle="After-hours intake form" />
-          <Tile href="/faq-public" title="FAQ" subtitle="Common questions answered" />
-          <Tile href="/hours" title="Hours & Location" subtitle="Plan your visit" />
-          <Tile href="/contact" title="Contact" subtitle="Call or email the shop" />
-        </div>
       </section>
 
       {/* Footer */}
@@ -243,28 +199,8 @@ function PublicLanding() {
   );
 }
 
-function Tile({ href, title, subtitle }: { href: string; title: string; subtitle: string }) {
-  return (
-    <Link
-      href={href}
-      style={{
-        display: 'block',
-        textDecoration: 'none',
-        color: 'inherit',
-        padding: '14px 16px',
-        border: '1px solid rgba(255,255,255,.08)',
-        background: 'rgba(18,24,22,.95)',
-        borderRadius: 14,
-      }}
-    >
-      <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
-      <div style={{ opacity: 0.85, marginTop: 4 }}>{subtitle}</div>
-    </Link>
-  );
-}
-
 /* ──────────────────────────────────────────────────────────────────────────
-   STAFF HOME (retains your existing staff dashboard patterns)
+   STAFF HOME (unchanged)
    ────────────────────────────────────────────────────────────────────────── */
 function StaffHome() {
   const shell: React.CSSProperties = {
