@@ -1,325 +1,443 @@
-// app/overnight/page.tsx
-'use client';
-
+// app/drop-instructions/page.tsx
+import 'server-only';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import CustomerHeader from '../components/CustomerHeader';
 
-
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-// ---- Config ----
-// Where to send folks when they click Start Intake (can override with ?to=/path)
-const DEFAULT_TARGET =
-  (process.env.NEXT_PUBLIC_DROP_START_PATH ?? '/intake/overnight') as string;
+export const metadata = {
+  title: 'Overnight Drop-Off Instructions | McAfee Custom Deer Processing',
+  description:
+    'Step-by-step guide for using the 24/7 overnight drop at McAfee Custom Deer Processing.',
+};
 
-// Webbs price sheet (put a PDF at /public/webbs-price.pdf or point the env var at a URL)
-const WEBBS_PRICE_URL =
-  (process.env.NEXT_PUBLIC_WEBBS_PRICE_URL ?? '/webbs-price.pdf') as string;
+const GO_OUTDOORS_URL = 'https://www.gooutdoorsin.com/login';
+// Put your Webbs price sheet in /public as /webbs-price-list.pdf
+const WEBBS_PRICE_SHEET_URL = '/webbs-price-list.pdf';
+// Property photo placed in /public (optional). Replace path/name if needed.
+const PROPERTY_IMAGE = '/property-overview.jpg';
+// Where your overnight intake form lives:
+const OVERNIGHT_INTAKE_PATH = '/intake/overnight';
 
-// Optional crest image in /public or remote URL allowed by next.config
-const CREST_SRC =
-  (process.env.NEXT_PUBLIC_CREST_SRC ?? '/crest.png') as string;
+// Optional contact details for quick actions (click-to-call/maps).
+const BUSINESS = {
+  name: 'McAfee Custom Deer Processing',
+  address: '5349 W 700 S, Rossville, IN 46065', // update if needed
+  phoneDisplay: '(765) 242-3811',               // update if needed
+  phoneE164: '+17652423811',                    // update if needed
+  mapsUrl: 'https://maps.google.com/?q=5349+W+700+S,+Rossville,+IN+46065',
+};
 
-// LocalStorage “you already acknowledged the steps” flag
-const TTL_HOURS = 12;
-const LS_KEY = 'dropPrepOK'; // JSON: { ok: true, at: epoch_ms }
-
-function setPrepFlag() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ ok: true, at: Date.now() }));
-  } catch {}
-}
-function isPrepFlagFresh(): boolean {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return false;
-    const obj = JSON.parse(raw) as { ok?: boolean; at?: number };
-    if (!obj?.ok || !obj?.at) return false;
-    return Date.now() - obj.at < TTL_HOURS * 60 * 60 * 1000;
-  } catch {
-    return false;
-  }
-}
-
-export default function OvernightPrepPage() {
-  const router = useRouter();
-  const sp = useSearchParams();
-
-  // staff/test bypass: /overnight?fast=1
-  const fast = sp.get('fast') === '1';
-  const target = sp.get('to') || DEFAULT_TARGET;
-
-  const [ack, setAck] = useState(false);
-  const canStart = fast || ack;
-
-  const alreadyPrepped = useMemo(() => isPrepFlagFresh(), []);
-  useEffect(() => {
-    if (alreadyPrepped) setAck(true);
-  }, [alreadyPrepped]);
-
-  const goStart = () => {
-    setPrepFlag();
-    router.push(String(target));
-  };
-
+export default function DropInstructionsPage() {
   return (
-    <main style={shell}>
-      {/* Header with crest + nav */}
-      <header style={header}>
-        <div style={logoWrap}>
-          {/* If crest image exists, show it. Otherwise show a brand square. */}
-          {CREST_SRC ? (
-            <Image
-              src={CREST_SRC}
-              alt="McAfee crest"
-              width={36}
-              height={36}
-              style={{ borderRadius: 8, objectFit: 'cover' }}
-              priority
-            />
-          ) : (
-            <span aria-hidden style={logoFallback} />
-          )}
-          <span style={brand}>McAfee Custom Deer Processing</span>
-        </div>
-        <nav aria-label="Primary" style={nav}>
-          <Link href="/" style={navLink}>Home</Link>
-          <Link href="/status" style={navLink}>Check Status</Link>
-          <Link href="/faq-public" style={navLink}>FAQ</Link>
-        </nav>
-      </header>
+    <main style={{ background: '#0b0f12', minHeight: '100vh', color: '#e5e7eb' }}>
+      <CustomerHeader />
 
-      {/* Instructions card */}
-      <section style={card}>
-        <div style={eyebrow}>Overnight Drop</div>
-        <h1 style={title}>Before you start</h1>
-        <p style={sub}>
-          Quick instructions for the after-hours drop. The intake form takes about a minute.
-        </p>
+      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '20px 14px 40px' }}>
+        {/* Hero / Intro */}
+        <section
+          style={{
+            background: 'linear-gradient(180deg,#111827 0%, #0b0f12 100%)',
+            border: '1px solid #1f2937',
+            borderRadius: 14,
+            padding: '18px 18px 14px',
+            marginBottom: 18,
+          }}
+        >
+          <h1
+            style={{
+              fontSize: 28,
+              fontWeight: 900,
+              letterSpacing: 0.2,
+              margin: '0 0 8px',
+              color: '#f3f4f6',
+            }}
+          >
+            24/7 Overnight Drop-Off — How It Works
+          </h1>
+          <p style={{ margin: 0, color: '#cbd5e1', lineHeight: 1.5 }}>
+            Quick, secure, and available anytime. Follow the steps below and you’ll be done in a few minutes.
+          </p>
+
+          {/* Quick Actions */}
+          <div
+            style={{
+              marginTop: 14,
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Link
+              href={OVERNIGHT_INTAKE_PATH}
+              style={{
+                background: '#10b981',
+                color: '#06291f',
+                fontWeight: 800,
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid #064e3b',
+                textDecoration: 'none',
+              }}
+            >
+              Start Overnight Intake Form
+            </Link>
+
+            <a
+              href={GO_OUTDOORS_URL}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: '#e5e7eb',
+                color: '#0b0f12',
+                fontWeight: 800,
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid #9ca3af',
+                textDecoration: 'none',
+              }}
+            >
+              Check-In at GoOutdoorsIN
+            </a>
+
+            <a
+              href={WEBBS_PRICE_SHEET_URL}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: '#fef3c7',
+                color: '#7c2d12',
+                fontWeight: 800,
+                padding: '10px 14px',
+                border: '1px solid #f59e0b',
+                borderRadius: 10,
+                textDecoration: 'none',
+              }}
+            >
+              Webbs Price Sheet (PDF)
+            </a>
+          </div>
+        </section>
+
+        {/* Property / Visual (optional) */}
+        <section
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1.2fr 1fr',
+            gap: 16,
+            alignItems: 'stretch',
+          }}
+        >
+          <div
+            style={{
+              border: '1px solid #1f2937',
+              borderRadius: 14,
+              overflow: 'hidden',
+              background: '#0b0f12',
+            }}
+          >
+            <div style={{ position: 'relative', width: '100%', height: 300 }}>
+              {/* If you don’t have this image in /public, delete this block */}
+              <Image
+                src={PROPERTY_IMAGE}
+                alt="Property overview"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                style={{ objectFit: 'cover' }}
+                priority
+              />
+            </div>
+            <div style={{ padding: '10px 12px', borderTop: '1px solid #1f2937' }}>
+              <div style={{ fontSize: 12, color: '#93c5fd' }}>
+                Tip: The cooler door is labeled <b>“24/7 Drop”</b> at the rear of the barn.
+              </div>
+            </div>
+          </div>
+
+          {/* Contact / Location card */}
+          <div
+            style={{
+              border: '1px solid #1f2937',
+              borderRadius: 14,
+              padding: 14,
+              background: '#0b0f12',
+            }}
+          >
+            <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 900, color: '#f3f4f6' }}>
+              Location & Contact
+            </h2>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>Address</div>
+                <a
+                  href={BUSINESS.mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    marginTop: 4,
+                    background: '#111827',
+                    color: '#e5e7eb',
+                    border: '1px solid #374151',
+                    borderRadius: 10,
+                    padding: '8px 10px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {BUSINESS.address}
+                </a>
+              </div>
+              <div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>Phone</div>
+                <a
+                  href={`tel:${BUSINESS.phoneE164 || (BUSINESS.phoneDisplay || '').replace(/\D+/g, '')}`}
+                  style={{
+                    display: 'inline-block',
+                    marginTop: 4,
+                    background: '#111827',
+                    color: '#e5e7eb',
+                    border: '1px solid #374151',
+                    borderRadius: 10,
+                    padding: '8px 10px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  {BUSINESS.phoneDisplay}
+                </a>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12, borderTop: '1px dashed #334155', paddingTop: 12 }}>
+              <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>
+                Storage Policy
+              </div>
+              <div
+                style={{
+                  background: '#111827',
+                  border: '1px solid #374151',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                  color: '#e5e7eb',
+                }}
+              >
+                Deer are stored in our locked cooler. We’ll email you once it’s officially tagged,
+                and again when it’s ready for pickup.
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Steps */}
-        <ol style={steps}>
-          <li style={step}>
-            <div style={bullet}>1</div>
-            <div>
-              <div style={stepTitle}>Stop at the first door</div>
-              <div style={stepText}>
-                Grab a <b>deer tag</b>. If you want <b>Webbs Specialty</b>, also grab a Webbs form.
-              </div>
-            </div>
-          </li>
+        <section
+          style={{
+            marginTop: 18,
+            border: '1px solid #1f2937',
+            borderRadius: 14,
+            padding: 14,
+            background: '#0b0f12',
+          }}
+        >
+          <h2 style={{ margin: '0 0 10px', fontSize: 20, fontWeight: 900, color: '#f3f4f6' }}>
+            Step-by-Step Instructions
+          </h2>
 
-          <li style={step}>
-            <div style={bullet}>2</div>
-            <div>
-              <div style={stepTitle}>Drive to the rear 24/7 Drop</div>
-              <div style={stepText}>
-                Continue to the back of the barn. You’ll see a cooler door marked <b>“24/7 DROP”</b>.
-              </div>
-            </div>
-          </li>
+          <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>1) Stop at the first door</b> and grab:
+              <ul style={{ margin: '6px 0 0 18px' }}>
+                <li>a <b>Deer Tag</b></li>
+                <li>a <b>Webbs form</b> (only if you want Webbs specialty products)</li>
+              </ul>
+            </li>
 
-          <li style={step}>
-            <div style={bullet}>3</div>
-            <div>
-              <div style={stepTitle}>DNR Confirmation Required</div>
-              <div style={stepText}>
-                You must already have a <b>Confirmation #</b> from your check-in on{' '}
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>2) Go to the rear of the barn.</b> You’ll see a cooler door marked <b>“24/7 Drop”</b>.
+            </li>
+
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>3) Fill out the Overnight Intake Form.</b>{' '}
+              <Link href={OVERNIGHT_INTAKE_PATH} style={{ color: '#93c5fd', textDecoration: 'underline' }}>
+                Open the intake form
+              </Link>
+              . You <u>must</u> have a{' '}
+              <a href={GO_OUTDOORS_URL} target="_blank" rel="noreferrer" style={{ color: '#93c5fd' }}>
+                GoOutdoorsIN confirmation number
+              </a>
+              {' '}from your check-in or we will not process your deer.
+            </li>
+
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>4) Webbs (optional):</b> If you want Webbs products, fill out the Webbs form and include:
+              <ul style={{ margin: '6px 0 0 18px' }}>
+                <li>the <b>form number</b> and</li>
+                <li>the <b>number of pounds</b> to send to Webbs</li>
+              </ul>
+              <div style={{ marginTop: 6 }}>
                 <a
-                  href="https://www.gooutdoorsin.com/login"
+                  href={WEBBS_PRICE_SHEET_URL}
                   target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: '#a7e3ba', textDecoration: 'underline', fontWeight: 800 }}
+                  rel="noreferrer"
+                  style={{ color: '#fcd34d', textDecoration: 'underline' }}
                 >
-                  GoOutdoorsIN
+                  View Webbs price sheet (PDF)
                 </a>
-                . If you don’t have a confirmation, we <b>will not process</b> your deer.
               </div>
-            </div>
-          </li>
-
-          <li style={step}>
-            <div style={bullet}>4</div>
-            <div>
-              <div style={stepTitle}>Webbs (optional)</div>
-              <div style={stepText}>
-                Fill out the Webbs form. On the intake, enter the <b>Webbs form #</b> and the
-                <b> number of pounds</b> you want sent. Keep the <b>back copy</b> and leave the other
-                two copies in the <b>mailbox inside the cooler</b>.{' '}
-                <a
-                  href={WEBBS_PRICE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  style={{ color: '#a7e3ba', textDecoration: 'underline', fontWeight: 800 }}
-                >
-                  Download Webbs price sheet
-                </a>
-                .
+              <div style={{ marginTop: 6, fontSize: 13, color: '#cbd5e1' }}>
+                Take the <b>back copy</b> of the Webbs form with you, and leave the other two in the mailbox inside the cooler.
               </div>
-            </div>
-          </li>
+            </li>
 
-          <li style={step}>
-            <div style={bullet}>5</div>
-            <div>
-              <div style={stepTitle}>Fill out the intake form</div>
-              <div style={stepText}>
-                Tap <b>Start Intake</b> below, complete the form, and tap <b>Save</b>. After submitting
-                you’ll see a confirmation number.
-              </div>
-            </div>
-          </li>
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>5) Save the intake form.</b> After you tap “Save,” we’ll record your drop-off.
+            </li>
 
-          <li style={step}>
-            <div style={bullet}>6</div>
-            <div>
-              <div style={stepTitle}>Tag your deer</div>
-              <div style={stepText}>
-                On the paper tag write your <b>Full Name</b>, <b>Phone Number</b>, and your <b>DNR Confirmation #</b>.
-                Attach the tag to your deer.
-              </div>
-            </div>
-          </li>
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>6) Tag your deer:</b> on the Deer Tag, write your <b>Full Name</b>, <b>Phone Number</b>, and{' '}
+              <b>GoOutdoorsIN Confirmation Number</b>. Attach the tag securely to the deer.
+            </li>
 
-          <li style={step}>
-            <div style={bullet}>7</div>
-            <div>
-              <div style={stepTitle}>Place deer in the cooler</div>
-              <div style={stepText}>
-                Take it to the <b>furthest point</b> in the cooler and close the door firmly.
-              </div>
-            </div>
-          </li>
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>7) Place your deer at the furthest point in the cooler.</b>
+            </li>
 
-          <li style={step}>
-            <div style={bullet}>8</div>
-            <div>
-              <div style={stepTitle}>Watch your email</div>
-              <div style={stepText}>
-                We’ll email when staff have <b>attached the official tag</b>, and again when your order is
-                <b> ready for pickup</b>.
-              </div>
-            </div>
-          </li>
-        </ol>
+            <li
+              style={{
+                background: '#0b1220',
+                border: '1px solid #1f2937',
+                borderRadius: 12,
+                padding: '10px 12px',
+              }}
+            >
+              <b>8) Watch your email.</b> We’ll email once it’s officially tagged, and again when it’s ready for pickup.
+            </li>
+          </ol>
 
-        {/* Required acknowledgement */}
-        <label style={ackRow}>
-          <input
-            type="checkbox"
-            checked={ack}
-            onChange={(e) => setAck(e.target.checked)}
-            style={{ width: 18, height: 18 }}
-          />
-          <span>
-            I understand I must have a <b>DNR Confirmation #</b>, tag my deer with my
-            <b> Full Name</b>, <b>Phone</b>, and <b>Confirmation #</b>, and place it in the cooler.
-          </span>
-        </label>
-
-        {/* Actions */}
-        <div style={actions}>
-          <button
-            type="button"
-            onClick={goStart}
-            disabled={!canStart}
-            style={{ ...primaryBtn, ...(canStart ? {} : disabledBtn) }}
-            aria-disabled={!canStart}
+          {/* Bottom CTAs */}
+          <div
+            style={{
+              marginTop: 14,
+              display: 'flex',
+              gap: 10,
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}
           >
-            Start Intake
-          </button>
-          <Link href="/faq-public" style={ghostBtn}>Read FAQ</Link>
-        </div>
-
-        <div style={help}>
-          No Service? Fill out the tag in its entirety and leave it with the deer. We’ll call you with any questions.
-        </div>
-      </section>
+            <Link
+              href={OVERNIGHT_INTAKE_PATH}
+              style={{
+                background: '#10b981',
+                color: '#06291f',
+                fontWeight: 900,
+                padding: '10px 14px',
+                border: '1px solid #064e3b',
+                borderRadius: 10,
+                textDecoration: 'none',
+              }}
+            >
+              Start Overnight Intake Form
+            </Link>
+            <a
+              href={GO_OUTDOORS_URL}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: '#e5e7eb',
+                color: '#0b0f12',
+                fontWeight: 800,
+                padding: '10px 14px',
+                border: '1px solid #9ca3af',
+                borderRadius: 10,
+                textDecoration: 'none',
+              }}
+            >
+              GoOutdoorsIN Check-In
+            </a>
+            <a
+              href={BUSINESS.mapsUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: '#111827',
+                color: '#93c5fd',
+                fontWeight: 800,
+                padding: '10px 14px',
+                border: '1px solid #1f2937',
+                borderRadius: 10,
+                textDecoration: 'none',
+              }}
+            >
+              Open in Google Maps
+            </a>
+            <a
+              href={`tel:${BUSINESS.phoneE164 || (BUSINESS.phoneDisplay || '').replace(/\D+/g, '')}`}
+              style={{
+                background: '#111827',
+                color: '#cbd5e1',
+                fontWeight: 800,
+                padding: '10px 14px',
+                border: '1px solid #1f2937',
+                borderRadius: 10,
+                textDecoration: 'none',
+              }}
+            >
+              Call {BUSINESS.phoneDisplay}
+            </a>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
 
-/* ——— styles ——— */
-
-const colors = {
-  bg: '#0b0f0d',
-  panel: 'rgba(18,24,22,.95)',
-  panelBorder: 'rgba(255,255,255,.08)',
-  brand: '#89c096',
-  text: '#e6ebe8',
-  sub: 'rgba(230,235,232,.8)',
-  tileBg: 'rgba(18,24,22,.95)',
-  accent: '#d4e7db',
-} as const;
-
-const shell: React.CSSProperties = {
-  maxWidth: 980,
-  margin: '0 auto',
-  padding: '0 16px 40px',
-  color: colors.text,
-};
-
-const header: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '16px 0',
-};
-const logoWrap: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10 };
-const logoFallback: React.CSSProperties = { width: 36, height: 36, borderRadius: 8, background: colors.brand, display: 'inline-block' };
-const brand: React.CSSProperties = { fontWeight: 900, letterSpacing: '.02em', fontSize: 16, textTransform: 'uppercase', color: colors.accent };
-
-const nav: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'center' };
-const navLink: React.CSSProperties = {
-  display: 'inline-block',
-  padding: '8px 12px',
-  borderRadius: 10,
-  textDecoration: 'none',
-  color: colors.text,
-  border: `1px solid ${colors.panelBorder}`,
-  fontWeight: 800,
-  fontSize: 13,
-};
-
-const card: React.CSSProperties = {
-  background: colors.panel,
-  border: `1px solid ${colors.panelBorder}`,
-  borderRadius: 14,
-  padding: 16,
-  marginTop: 8,
-};
-
-const eyebrow: React.CSSProperties = { color: colors.brand, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', fontSize: 12 };
-const title: React.CSSProperties = { margin: '6px 0 10px', fontSize: 28, lineHeight: 1.2, fontWeight: 900 };
-const sub: React.CSSProperties = { margin: '0 0 12px', color: colors.sub };
-
-const steps: React.CSSProperties = { listStyle: 'none', padding: 0, margin: '8px 0 12px', display: 'grid', gap: 10 };
-const step: React.CSSProperties = {
-  display: 'grid', gridTemplateColumns: '32px 1fr', gap: 10, alignItems: 'center',
-  border: `1px solid ${colors.panelBorder}`, background: 'rgba(18,24,22,.92)', borderRadius: 12, padding: '10px 12px',
-};
-const bullet: React.CSSProperties = {
-  width: 28, height: 28, borderRadius: 999, display: 'grid', placeItems: 'center',
-  background: colors.brand, color: '#0b0f0d', fontWeight: 900,
-};
-const stepTitle: React.CSSProperties = { fontWeight: 900, color: colors.accent };
-const stepText: React.CSSProperties = { opacity: 0.9 };
-
-const ackRow: React.CSSProperties = { display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 6, userSelect: 'none' };
-
-const actions: React.CSSProperties = { display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' };
-const primaryBtn: React.CSSProperties = {
-  display: 'inline-block', padding: '10px 14px', borderRadius: 12, textDecoration: 'none',
-  color: '#0b0f0d', background: colors.brand, border: '1px solid transparent', fontWeight: 900, fontSize: 16, cursor: 'pointer',
-};
-const ghostBtn: React.CSSProperties = {
-  display: 'inline-block', padding: '10px 14px', borderRadius: 12, textDecoration: 'none',
-  color: colors.text, background: colors.tileBg, border: `1px solid ${colors.panelBorder}`, fontWeight: 900, fontSize: 16,
-};
-const disabledBtn: React.CSSProperties = { opacity: 0.5, cursor: 'not-allowed' };
-
-const help: React.CSSProperties = { marginTop: 10, fontSize: 13, color: colors.sub };

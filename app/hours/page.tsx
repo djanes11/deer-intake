@@ -1,71 +1,45 @@
-// app/hours/page.tsx
-'use client';
-
+import 'server-only';
 import CustomerHeader from '../components/CustomerHeader';
 
-import { SITE, phoneHref } from '@/lib/config';
-
-const CONTACT_EMAIL = (process.env.NEXT_PUBLIC_EMAIL || '').toString().trim();
+let SITE: any = {
+  hours: [
+    { label: 'Mon–Fri', value: '6–8 pm' },
+    { label: 'Sat', value: '9–5' },
+    { label: 'Sun', value: '9–12' },
+  ],
+  phone: '(765) 564-0048',
+  phoneE164: '+17655640048',
+  address: '3172 W 1100 N, Delphi, IN 46923',
+  mapsUrl: 'https://maps.google.com/?q=3172%20W%201100%20N%2C%20Delphi%2C%20IN%2046923',
+};
+try {
+  // @ts-ignore
+  const cfg = require('@/lib/config'); SITE = cfg.SITE ?? SITE;
+} catch {}
 
 export default function HoursPage() {
+  const tel = SITE?.phoneE164 || (SITE?.phone ? 'tel:' + String(SITE.phone).replace(/\D+/g, '') : '');
+  const phoneHref = String(tel).startsWith('tel:') ? tel : `tel:${tel}`;
+
   return (
-    <main style={{ maxWidth: 980, margin: '0 auto', padding: '0 12px 24px' }}>
+    <main>
       <CustomerHeader />
+      <div style={{ maxWidth: 900, margin:'20px auto', padding:'0 16px' }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Season Hours</h1>
+        <ul style={{ listStyle:'none', padding:0, margin:0, display:'grid', gap:8 }}>
+          {(SITE.hours as readonly {label:string; value:string}[]).map((h:any) => (
+            <li key={h.label} style={{ display:'flex', justifyContent:'space-between', border:'1px solid #E5E7EB', borderRadius:10, padding:'8px 10px', background:'#fff' }}>
+              <span style={{ fontWeight:700 }}>{h.label}</span>
+              <span>{h.value}</span>
+            </li>
+          ))}
+        </ul>
 
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: '16px 0 10px' }}>Hours & Location</h1>
-
-        <section style={card}>
-          <div style={{ display: 'grid', gap: 10 }}>
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Our Hours</div>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, opacity: 0.9 }}>
-                {SITE.hours.map((h, i) => (
-                  <li key={i}>{h.label} {h.value}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Address</div>
-              <a href={SITE.mapsUrl} target="_blank" rel="noreferrer" style={link}>
-                {SITE.address}
-              </a>
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 900, marginBottom: 4 }}>Phone</div>
-              <a href={phoneHref} style={link}>{SITE.phone}</a>
-            </div>
-
-            {CONTACT_EMAIL ? (
-              <div>
-                <div style={{ fontWeight: 900, marginBottom: 4 }}>Email</div>
-                <a href={`mailto:${CONTACT_EMAIL}`} style={link}>{CONTACT_EMAIL}</a>
-              </div>
-            ) : null}
-          </div>
-        </section>
-
-        <p style={{ marginTop: 14, opacity: 0.8, fontSize: 13 }}>
-          Tap the phone number on mobile to call, or open our address in Google Maps for directions.
-        </p>
+        <div style={{ marginTop: 12 }}>
+          <b>Address:</b> <a href={SITE.mapsUrl} target="_blank" rel="noreferrer">{SITE.address}</a><br/>
+          <b>Phone:</b> <a href={phoneHref}>{SITE.phone}</a>
+        </div>
       </div>
     </main>
   );
 }
-
-/* styles */
-const card: React.CSSProperties = {
-  padding: 16,
-  border: '1px solid #1f2937',
-  borderRadius: 12,
-  background: '#0b0f12',
-  color: '#e5e7eb',
-};
-
-const link: React.CSSProperties = {
-  color: '#a7e3ba',
-  textDecoration: 'underline',
-  wordBreak: 'break-word',
-};

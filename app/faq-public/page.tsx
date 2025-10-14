@@ -1,112 +1,59 @@
-// app/faq-public/page.tsx
-'use client';
-
-import Link from 'next/link';
+import 'server-only';
 import CustomerHeader from '../components/CustomerHeader';
+import Link from 'next/link';
 
+let SITE: any = {
+  address: '3172 W 1100 N, Delphi, IN 46923',
+  mapsUrl: 'https://maps.google.com/?q=3172%20W%201100%20N%2C%20Delphi%2C%20IN%2046923',
+  phone: '(765) 564-0048',
+  phoneE164: '+17655640048'
+};
+try {
+  // @ts-ignore
+  const cfg = require('@/lib/config'); SITE = cfg.SITE ?? SITE;
+} catch {}
 
-import { SITE, phoneHref } from '@/lib/config';
+export default function FAQPublic() {
+  const tel = SITE?.phoneE164 || (SITE?.phone ? 'tel:' + String(SITE.phone).replace(/\D+/g, '') : '');
+  const phoneHref = String(tel).startsWith('tel:') ? tel : `tel:${tel}`;
 
-const CONTACT_EMAIL = (process.env.NEXT_PUBLIC_EMAIL || '').toString().trim();
-
-export default function FaqPublicPage() {
   return (
-    <main style={{ maxWidth: 980, margin: '0 auto', padding: '0 12px 24px' }}>
+    <main>
       <CustomerHeader />
+      <div style={{maxWidth: 1000, margin:'20px auto', padding:'0 16px'}}>
+        <h1 style={{ fontSize:28, fontWeight:800, marginBottom:10 }}>Frequently Asked Questions</h1>
 
-      <div style={{ maxWidth: 820, margin: '0 auto' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: '16px 0 12px' }}>Customer FAQ</h1>
+        <div style={{ display:'grid', gap:12 }}>
+          <section>
+            <h3 style={{ fontSize:18, fontWeight:800 }}>How do I use Overnight Drop?</h3>
+            <p>See our <Link href="/drop-instructions">step-by-step overnight drop guide</Link>. It also links to the online intake form.</p>
+          </section>
 
-        <section style={card}>
-          <h2 style={h2}>How do I check my order status?</h2>
-          <p>
-            Go to{' '}
-            <Link href="/status" style={a}>
-              the Status page
-            </Link>{' '}
-            and search by <b>Confirmation #</b> (best) or <b>Tag + Last Name</b>.
-          </p>
-        </section>
+          <section>
+            <h3 style={{ fontSize:18, fontWeight:800 }}>Where are you located?</h3>
+            <p>
+              <a href={SITE.mapsUrl} target="_blank" rel="noreferrer">{SITE.address}</a>
+            </p>
+          </section>
 
-        <section style={card}>
-          <h2 style={h2}>Overnight drop-off instructions</h2>
-          <ol style={{ paddingLeft: 18, margin: '8px 0' }}>
-            <li>Stop at the first door and grab a deer tag and a Webbs form if you want specialty products.</li>
-            <li>Go to the rear of the barn and use the cooler door marked <b>24/7 Drop</b>.</li>
-            <li>
-              Fill out the{' '}
-              <Link href="/overnight" style={a}>
-                drop-off intake form
-              </Link>
-              . You <b>must</b> have a Confirmation # from{' '}
-              <a href="https://www.gooutdoorsin.com/login" target="_blank" rel="noreferrer" style={a}>
-                GoOutdoorsIN
-              </a>
-              .
-            </li>
-            <li>
-              Doing Webbs? Review the{' '}
-              <a href="/files/webbs-price.pdf" target="_blank" rel="noreferrer" style={a}>
-                price sheet
-              </a>
-              , write your Webbs form # and pounds on the form. Keep the back copy and leave the other two in the
-              mailbox inside the cooler.
-            </li>
-            <li>Save the intake form, then write your Full Name, Phone, and Confirmation # on the tag and attach it.</li>
-            <li>Place the deer at the furthest point in the cooler.</li>
-            <li>Watch your email—we’ll email when it’s officially tagged and again when it’s ready.</li>
-          </ol>
-        </section>
+          <section>
+            <h3 style={{ fontSize:18, fontWeight:800 }}>What are your hours?</h3>
+            <p>See our <Link href="/hours">season hours</Link>. If in doubt, call ahead.</p>
+          </section>
 
-        <section style={card}>
-          <h2 style={h2}>Pickup</h2>
-          <p>We’ll notify you when it’s ready. After-hours pickup? Call—we’ll work with you.</p>
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontWeight: 900, marginBottom: 4 }}>Contact</div>
-            <div>
-              <b>Address:</b>{' '}
-              <a href={SITE.mapsUrl} target="_blank" rel="noreferrer" style={a}>
-                {SITE.address}
-              </a>
-            </div>
-            <div>
-              <b>Phone:</b>{' '}
-              <a href={phoneHref} style={a}>
-                {SITE.phone}
-              </a>
-            </div>
-            {CONTACT_EMAIL ? (
-              <div>
-                <b>Email:</b>{' '}
-                <a href={`mailto:${CONTACT_EMAIL}`} style={a}>
-                  {CONTACT_EMAIL}
-                </a>
-              </div>
-            ) : null}
-          </div>
-        </section>
+          <section>
+            <h3 style={{ fontSize:18, fontWeight:800 }}>How will I know my deer is ready?</h3>
+            <p>We’ll email you as soon as it’s officially tagged and again when it’s ready. You can also <Link href="/status">check status</Link> any time.</p>
+          </section>
 
-        <section style={card}>
-          <h2 style={h2}>What should I bring with my deer?</h2>
-          <ul style={{ paddingLeft: 18, margin: '8px 0' }}>
-            <li>Your GoOutdoorsIN Confirmation #.</li>
-            <li>Any specialty instructions (Webbs pounds, jerky/summer sausage preferences).</li>
-            <li>Valid contact info (phone + email) so we can reach you fast.</li>
-          </ul>
-        </section>
+          <section>
+            <h3 style={{ fontSize:18, fontWeight:800 }}>What’s the best way to contact you?</h3>
+            <p>
+              Call us at <a href={phoneHref}>{SITE.phone}</a>.
+            </p>
+          </section>
+        </div>
       </div>
     </main>
   );
 }
-
-/* styles */
-const card: React.CSSProperties = {
-  padding: 16,
-  border: '1px solid #1f2937',
-  borderRadius: 12,
-  background: '#0b0f12',
-  color: '#e5e7eb',
-  marginBottom: 14,
-};
-const h2: React.CSSProperties = { fontSize: 18, fontWeight: 800, margin: '0 0 8px' };
-const a: React.CSSProperties = { color: '#a7e3ba', textDecoration: 'underline' };

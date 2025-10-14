@@ -1,97 +1,58 @@
-'use client';
-
+import 'server-only';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import * as React from 'react';
 
-type NavLink = { href: string; label: string; exact?: boolean };
+type NavLink = { href: string; label: string };
 
-export default function CustomerHeader({
-  brand = 'McAfee Custom Deer Processing',
-  crestSrc = '/crest.png', // put crest at /public/crest.png
-  nav = [
-    { href: '/', label: 'Home', exact: true },
-    { href: '/status', label: 'Check Status' },
-    { href: '/overnight', label: 'Overnight Drop' },
-    { href: '/faq-public', label: 'FAQ' },
-    { href: '/contact', label: 'Contact' },
-  ],
-}: {
-  brand?: string;
-  crestSrc?: string;
-  nav?: NavLink[];
-}) {
-  const pathname = usePathname() || '/';
-  const isActive = (l: NavLink) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
+const NAV: readonly NavLink[] = [
+  { href: '/', label: 'Home' },
+  { href: '/status', label: 'Check Status' },
+  { href: '/drop-instructions', label: 'Overnight Drop' },
+  { href: '/faq-public', label: 'FAQ' },
+  { href: '/hours', label: 'Hours' },
+  { href: '/contact', label: 'Contact' },
+];
 
+export default function CustomerHeader() {
   return (
-    <header style={header}>
-      <div style={left}>
-        <div style={crestWrap}>
-          {crestSrc ? (
-            <Image
-              src={crestSrc}
-              alt="McAfee crest"
-              width={36}
-              height={36}
-              priority
-              style={{ borderRadius: 8, objectFit: 'cover' }}
-            />
-          ) : (
-            <span aria-hidden style={crestFallback} />
-          )}
-        </div>
-        <Link href="/" style={brandLink}>
-          <span style={brandText}>{brand}</span>
+    <header style={{
+      borderBottom: '1px solid #E5E7EB',
+      background: '#0b0f12',
+      color: '#E5E7EB'
+    }}>
+      <div style={{
+        maxWidth: 1100,
+        margin: '0 auto',
+        padding: '10px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16
+      }}>
+        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
+          <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:44, height:44 }}>
+            <Image src="/crest.png" alt="McAfee Crest" width={44} height={44} priority />
+          </div>
+          <span style={{ fontSize: 18, fontWeight: 800, color: '#E5E7EB' }}>McAfee Custom Deer Processing</span>
         </Link>
-      </div>
 
-      <nav aria-label="Customer navigation" style={navWrap}>
-        {nav.map((l) => {
-          const active = isActive(l);
-          return (
+        <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center', flexWrap:'wrap' }}>
+          {NAV.map(item => (
             <Link
-              key={l.href}
-              href={l.href}
-              style={{ ...navItem, ...(active ? navItemActive : {}) }}
-              aria-current={active ? 'page' : undefined}
+              key={item.href}
+              href={item.href}
+              style={{
+                padding: '6px 10px',
+                borderRadius: 8,
+                border: '1px solid #334155',
+                color: '#E5E7EB',
+                textDecoration: 'none'
+              }}
             >
-              {l.label}
+              {item.label}
             </Link>
-          );
-        })}
-      </nav>
+          ))}
+        </nav>
+      </div>
     </header>
   );
 }
-
-/* styles */
-const colors = {
-  panelBorder: 'rgba(255,255,255,.10)',
-  brand: '#89c096',
-  text: '#e6ebe8',
-  textDim: 'rgba(230,235,232,.85)',
-  activeBg: 'rgba(137,192,150,.15)',
-} as const;
-
-const header: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0', gap: 12,
-};
-const left: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 };
-const crestWrap: React.CSSProperties = {
-  width: 36, height: 36, borderRadius: 8, overflow: 'hidden', background: colors.brand, flex: '0 0 auto', display: 'grid', placeItems: 'center',
-};
-const crestFallback: React.CSSProperties = { width: 36, height: 36, borderRadius: 8, background: colors.brand, display: 'inline-block' };
-const brandLink: React.CSSProperties = { textDecoration: 'none', color: colors.text, display: 'inline-flex', alignItems: 'center', minWidth: 0 };
-const brandText: React.CSSProperties = {
-  fontWeight: 900, letterSpacing: '.02em', fontSize: 16, textTransform: 'uppercase', color: colors.text,
-  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60vw',
-};
-const navWrap: React.CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' };
-const navItem: React.CSSProperties = {
-  display: 'inline-block', padding: '8px 12px', borderRadius: 10, textDecoration: 'none',
-  color: colors.textDim, border: `1px solid ${colors.panelBorder}`, fontWeight: 800, fontSize: 13, lineHeight: 1,
-};
-const navItemActive: React.CSSProperties = { color: colors.text, background: colors.activeBg, borderColor: colors.brand };
-
