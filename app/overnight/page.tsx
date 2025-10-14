@@ -7,9 +7,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-// Where to send them after prep. Override with ?to=/path or NEXT_PUBLIC_DROP_START_PATH
+// After prep, send users here.
+// You can still override with ?to=/path or NEXT_PUBLIC_DROP_START_PATH
 const DEFAULT_TARGET =
-  (process.env.NEXT_PUBLIC_DROP_START_PATH ?? '/drop/start') as string;
+  (process.env.NEXT_PUBLIC_DROP_START_PATH ?? '/intake/overnight') as string;
 
 const TTL_HOURS = 12;
 const LS_KEY = 'dropPrepOK'; // JSON: { ok: true, at: epoch_ms }
@@ -64,7 +65,7 @@ export default function OvernightPrepPage() {
           Quick instructions for the after-hours drop. The intake form takes about a minute.
         </p>
 
-        {/* Steps matching your flow */}
+        {/* Steps */}
         <ol style={steps}>
           <li style={step}>
             <div style={bullet}>1</div>
@@ -75,7 +76,6 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
-
           <li style={step}>
             <div style={bullet}>2</div>
             <div>
@@ -85,7 +85,6 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
-
           <li style={step}>
             <div style={bullet}>3</div>
             <div>
@@ -104,7 +103,6 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
-
           <li style={step}>
             <div style={bullet}>4</div>
             <div>
@@ -116,7 +114,6 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
-
           <li style={step}>
             <div style={bullet}>5</div>
             <div>
@@ -126,7 +123,6 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
-
           <li style={step}>
             <div style={bullet}>6</div>
             <div>
@@ -137,7 +133,6 @@ export default function OvernightPrepPage() {
               </div>
             </div>
           </li>
-
           <li style={step}>
             <div style={bullet}>7</div>
             <div>
@@ -145,7 +140,6 @@ export default function OvernightPrepPage() {
               <div style={stepText}>Take it to the <b>furthest point</b> in the cooler and close the door firmly.</div>
             </div>
           </li>
-
           <li style={step}>
             <div style={bullet}>8</div>
             <div>
@@ -191,7 +185,7 @@ export default function OvernightPrepPage() {
   );
 }
 
-/* ——— styles (dark theme, consistent with the rest of your app) ——— */
+/* ——— styles ——— */
 
 const colors = {
   bg: '#0b0f0d',
