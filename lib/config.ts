@@ -4,7 +4,7 @@ const env = (k: string, d = '') =>
 
 export const SITE = {
   name: 'McAfee Custom Deer Processing',
-  address: env('NEXT_PUBLIC_ADDRESS', '1234 County Rd, Louisville, KY'),
+  address: env('NEXT_PUBLIC_ADDRESS', '10977 Buffalo Trace Rd NW, Palmyra, IN 47164'),
   mapsUrl: env('NEXT_PUBLIC_MAPS_URL', ''),
   lat: Number(env('NEXT_PUBLIC_LAT', '')),
   lng: Number(env('NEXT_PUBLIC_LNG', '')),
