@@ -2,20 +2,26 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
-// After prep, send users here (your intake form route).
-// Override with ?to=/path or NEXT_PUBLIC_DROP_START_PATH if needed.
+// ---- Config ----
+// Where to send folks when they click Start Intake (can override with ?to=/path)
 const DEFAULT_TARGET =
   (process.env.NEXT_PUBLIC_DROP_START_PATH ?? '/intake/overnight') as string;
 
-// Webbs price sheet URL (put file at /public/webbs-price.pdf or set this env var)
+// Webbs price sheet (put a PDF at /public/webbs-price.pdf or point the env var at a URL)
 const WEBBS_PRICE_URL =
   (process.env.NEXT_PUBLIC_WEBBS_PRICE_URL ?? '/webbs-price.pdf') as string;
 
+// Optional crest image in /public or remote URL allowed by next.config
+const CREST_SRC =
+  (process.env.NEXT_PUBLIC_CREST_SRC ?? '/crest.png') as string;
+
+// LocalStorage “you already acknowledged the steps” flag
 const TTL_HOURS = 12;
 const LS_KEY = 'dropPrepOK'; // JSON: { ok: true, at: epoch_ms }
 
@@ -39,7 +45,9 @@ function isPrepFlagFresh(): boolean {
 export default function OvernightPrepPage() {
   const router = useRouter();
   const sp = useSearchParams();
-  const fast = sp.get('fast') === '1'; // staff bypass for testing
+
+  // staff/test bypass: /overnight?fast=1
+  const fast = sp.get('fast') === '1';
   const target = sp.get('to') || DEFAULT_TARGET;
 
   const [ack, setAck] = useState(false);
@@ -52,25 +60,37 @@ export default function OvernightPrepPage() {
 
   const goStart = () => {
     setPrepFlag();
-    router.push(target);
+    router.push(String(target));
   };
 
   return (
     <main style={shell}>
-      {/* Header */}
+      {/* Header with crest + nav */}
       <header style={header}>
         <div style={logoWrap}>
-          <span aria-hidden style={logo} />
+          {/* If crest image exists, show it. Otherwise show a brand square. */}
+          {CREST_SRC ? (
+            <Image
+              src={CREST_SRC}
+              alt="McAfee crest"
+              width={36}
+              height={36}
+              style={{ borderRadius: 8, objectFit: 'cover' }}
+              priority
+            />
+          ) : (
+            <span aria-hidden style={logoFallback} />
+          )}
           <span style={brand}>McAfee Custom Deer Processing</span>
         </div>
         <nav aria-label="Primary" style={nav}>
+          <Link href="/" style={navLink}>Home</Link>
           <Link href="/status" style={navLink}>Check Status</Link>
           <Link href="/faq-public" style={navLink}>FAQ</Link>
-          <Link href="/" style={navLink}>Home</Link>
         </nav>
       </header>
 
-      {/* Card */}
+      {/* Instructions card */}
       <section style={card}>
         <div style={eyebrow}>Overnight Drop</div>
         <h1 style={title}>Before you start</h1>
@@ -146,7 +166,8 @@ export default function OvernightPrepPage() {
             <div>
               <div style={stepTitle}>Fill out the intake form</div>
               <div style={stepText}>
-                Tap <b>Start Intake</b> below. After submitting you’ll see a confirmation number.
+                Tap <b>Start Intake</b> below, complete the form, and tap <b>Save</b>. After submitting
+                you’ll see a confirmation number.
               </div>
             </div>
           </li>
@@ -166,7 +187,9 @@ export default function OvernightPrepPage() {
             <div style={bullet}>7</div>
             <div>
               <div style={stepTitle}>Place deer in the cooler</div>
-              <div style={stepText}>Take it to the <b>furthest point</b> in the cooler and close the door firmly.</div>
+              <div style={stepText}>
+                Take it to the <b>furthest point</b> in the cooler and close the door firmly.
+              </div>
             </div>
           </li>
 
@@ -175,7 +198,8 @@ export default function OvernightPrepPage() {
             <div>
               <div style={stepTitle}>Watch your email</div>
               <div style={stepText}>
-                We’ll email when staff have <b>attached the official tag</b>, and again when your order is <b>ready for pickup</b>.
+                We’ll email when staff have <b>attached the official tag</b>, and again when your order is
+                <b> ready for pickup</b>.
               </div>
             </div>
           </li>
@@ -209,7 +233,9 @@ export default function OvernightPrepPage() {
           <Link href="/faq-public" style={ghostBtn}>Read FAQ</Link>
         </div>
 
-        <div style={help}>No Service? Fill out the Tag in it's entirety and leave it with the deer. We will call you with any questions!</div>
+        <div style={help}>
+          No Service? Fill out the tag in its entirety and leave it with the deer. We’ll call you with any questions.
+        </div>
       </section>
     </main>
   );
@@ -236,10 +262,13 @@ const shell: React.CSSProperties = {
 };
 
 const header: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '16px 0',
 };
 const logoWrap: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10 };
-const logo: React.CSSProperties = { width: 36, height: 36, borderRadius: 8, background: colors.brand, display: 'inline-block' };
+const logoFallback: React.CSSProperties = { width: 36, height: 36, borderRadius: 8, background: colors.brand, display: 'inline-block' };
 const brand: React.CSSProperties = { fontWeight: 900, letterSpacing: '.02em', fontSize: 16, textTransform: 'uppercase', color: colors.accent };
 
 const nav: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'center' };
