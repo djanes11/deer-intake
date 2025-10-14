@@ -87,6 +87,10 @@ type Job = {
   paidProcessing?: boolean;  // regular processing paid
   paidSpecialty?: boolean;   // specialty paid
 
+  priceProcessing?: number | string;
+  priceSpecialty?: number | string;
+  price?: number | string;
+
   // overnight signal for backend
   requiresTag?: boolean;
 
@@ -307,6 +311,10 @@ function OvernightIntakePage() {
           : '',
 
       specialtyStatus: job.specialtyProducts ? (job.specialtyStatus || 'Dropped Off') : '',
+
+      priceProcessing: processingPrice,
+      priceSpecialty:  specialtyPrice,
+      price:           totalPrice,
 
       // keep Paid flags consistent
       Paid: fullPaid(job),
