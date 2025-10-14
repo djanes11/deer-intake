@@ -1,51 +1,88 @@
-import 'server-only';
+// app/components/CustomerHeader.tsx
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 
-type NavLink = { href: string; label: string };
+type NavItem = { href: string; label: string; exact?: boolean };
 
-const NAV: readonly NavLink[] = [
-  { href: '/', label: 'Home' },
+const NAV: NavItem[] = [
+  { href: '/', label: 'Home', exact: true },
   { href: '/status', label: 'Check Status' },
-  { href: '/drop-instructions', label: 'Overnight Drop' },
+  { href: '/intake/overnight', label: 'Overnight Drop' },
   { href: '/faq-public', label: 'FAQ' },
   { href: '/hours', label: 'Hours' },
   { href: '/contact', label: 'Contact' },
 ];
 
 export default function CustomerHeader() {
+  const pathname = usePathname();
+
+  const isActive = (item: NavItem) => {
+    if (item.exact) return pathname === item.href;
+    return pathname === item.href || pathname.startsWith(item.href + '/');
+  };
+
   return (
-    <header style={{
-      borderBottom: '1px solid #E5E7EB',
-      background: '#0b0f12',
-      color: '#E5E7EB'
-    }}>
-      <div style={{
-        maxWidth: 1100,
-        margin: '0 auto',
-        padding: '10px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16
-      }}>
-        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:44, height:44 }}>
-            <Image src="/mcafee-logo.png" alt="McAfee Crest" width={44} height={44} priority />
+    <header
+      style={{
+        borderBottom: '1px solid #1f2937',
+        background: '#0b0f12',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+        }}
+      >
+        <Link href="/" aria-label="McAfee Home" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+          {/* Crest image in the “green block” spot */}
+          <div
+            style={{
+              position: 'relative',
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              overflow: 'hidden',
+              background: '#153624',
+              border: '1px solid #2a5f47',
+            }}
+          >
+            {/* Update src to your actual crest asset in /public if different */}
+            <Image
+              src="/crest.png"
+              alt="McAfee Crest"
+              fill
+              sizes="44px"
+              priority
+              style={{ objectFit: 'cover' }}
+            />
           </div>
-          <span style={{ fontSize: 18, fontWeight: 800, color: '#E5E7EB' }}>McAfee Custom Deer Processing</span>
+          <div style={{ lineHeight: 1 }}>
+            <div style={{ fontWeight: 900, color: '#e6e7eb' }}>McAfee Custom Deer Processing</div>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>Fort Branch, IN</div>
+          </div>
         </Link>
 
-        <nav style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center', flexWrap:'wrap' }}>
-          {NAV.map(item => (
+        <nav style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               style={{
-                padding: '6px 10px',
-                borderRadius: 8,
-                border: '1px solid #334155',
-                color: '#E5E7EB',
-                textDecoration: 'none'
+                padding: '8px 10px',
+                borderRadius: 10,
+                fontWeight: 700,
+                textDecoration: 'none',
+                border: '1px solid #1f2937',
+                background: isActive(item) ? '#13202c' : 'transparent',
+                color: isActive(item) ? '#e6e7eb' : '#c7ced6',
               }}
             >
               {item.label}
