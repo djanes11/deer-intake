@@ -64,7 +64,7 @@ type Job = {
   front?: CutsBlock;
 
   backstrapPrep?: '' | 'Whole' | 'Sliced' | 'Butterflied';
-  backstrapThickness?: '' | '1/2"' | '3/4"' | 'Other';
+  backstrapThickness?: '' | '1/2\"' | '3/4\"' | 'Other';
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
@@ -78,8 +78,6 @@ type Job = {
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
-
-  price?: number | string; // optional override
 
   // legacy + new paid flags
   Paid?: boolean;
