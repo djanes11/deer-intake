@@ -4,38 +4,22 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
 
-/**
- * Public status lookup
- * - Search by Confirmation #, or Tag + Last Name
- * - Shows customer info, overall (meat) status, per-track statuses (Cape/Webbs/Specialty)
- * - Prices + paid flags
- * - Clear pickup panel with Google Maps + tap-to-call
- */
-
 type LookupResult = {
   ok?: boolean;
   notFound?: boolean;
   error?: string;
-
-  // identity
   tag?: string;
   confirmation?: string;
   customer?: string;
-
-  // statuses
   status?: string; // overall/meat
   tracks?: {
     webbsStatus?: string;
     capeStatus?: string;
     specialtyStatus?: string;
   };
-
-  // pricing
   priceProcessing?: number;
   priceSpecialty?: number;
   priceTotal?: number;
-
-  // paid flags
   paid?: boolean;
   paidProcessing?: boolean;
   paidSpecialty?: boolean;
@@ -75,12 +59,8 @@ export default function StatusPage() {
 
   const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done'];
   const textHas = (s?: string) => String(s || '').toLowerCase();
-
-  // normalize specialty so it shows whether it comes back at top-level or inside tracks
   const specialtyStatus =
-    (res?.tracks?.specialtyStatus ??
-      (res as any)?.specialtyStatus ??
-      undefined);
+    (res?.tracks?.specialtyStatus ?? (res as any)?.specialtyStatus ?? undefined);
 
   const isReady = (() => {
     if (!res) return false;
@@ -93,7 +73,7 @@ export default function StatusPage() {
     );
   })();
 
-  const mapsUrl = SITE.mapsUrl; // built centrally from env: explicit → lat/lng → address
+  const mapsUrl = SITE.mapsUrl;
 
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
@@ -181,14 +161,8 @@ export default function StatusPage() {
               gap: 10,
             }}
           >
-            <Info
-              label="Processing Price"
-              value={money(res.priceProcessing)}
-            />
-            <Info
-              label="Specialty Price"
-              value={money(res.priceSpecialty)}
-            />
+            <Info label="Processing Price" value={money(res.priceProcessing)} />
+            <Info label="Specialty Price" value={money(res.priceSpecialty)} />
             <Info label="Total" value={money(res.priceTotal)} />
             <div>
               <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>
@@ -208,25 +182,21 @@ export default function StatusPage() {
             </div>
           </div>
 
-          {/* Pickup panel (directions, hours, phone) */}
+          {/* Pickup panel */}
           <PickupPanel
             ready={isReady}
             addressText={SITE.address}
             mapsUrl={mapsUrl}
             phoneHref={phoneHref}
             phoneDisplay={SITE.phone}
-            hours={SITE.hours} // accepts ReadonlyArray
+            hours={SITE.hours}
           />
         </div>
       ) : null}
 
       <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
-        Tip: Don’t see your order? Try a different query (Confirmation # is
-        best), or{' '}
-        <Link
-          href="/faq-public"
-          style={{ color: '#a7e3ba', textDecoration: 'underline' }}
-        >
+        Tip: Don’t see your order? Try a different query (Confirmation # is best), or{' '}
+        <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
           check the FAQ
         </Link>
         .
@@ -234,8 +204,6 @@ export default function StatusPage() {
     </main>
   );
 }
-
-/* ---------- small presentational bits ---------- */
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
@@ -269,7 +237,6 @@ function PickupPanel({
   mapsUrl: string;
   phoneHref: string;
   phoneDisplay: string;
-  // Readonly so SITE.hours can be passed directly
   hours: ReadonlyArray<{ label: string; value: string }>;
 }) {
   return (
@@ -348,8 +315,6 @@ function PickupPanel({
   );
 }
 
-/* ---------- helpers ---------- */
-
 function money(n?: number) {
   if (n == null || isNaN(n)) return '—';
   try {
@@ -358,8 +323,6 @@ function money(n?: number) {
     return `$${Number(n).toFixed(2)}`;
   }
 }
-
-/* ---------- styles ---------- */
 
 const field: React.CSSProperties = {
   padding: '10px 12px',
