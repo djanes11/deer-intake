@@ -1,26 +1,12 @@
-// app/drop-instructions/page.tsx
+// app/overnight/page.tsx
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export const metadata = {
-  title: 'Overnight Drop-Off Instructions | McAfee Custom Deer Processing',
-  description:
-    'Step-by-step guide for using the 24/7 overnight drop at McAfee Custom Deer Processing.',
-};
 
 const GO_OUTDOORS_URL = 'https://www.gooutdoorsin.com/login';
-// Price sheet (optional); keep link inside step 4 only.
 const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
-// Where the overnight intake form lives:
 const OVERNIGHT_INTAKE_PATH = '/intake/overnight';
 
-// Optional contact details for quick actions (click-to-call/maps).
 const BUSINESS = {
   address: '10977 Buffalo Trace Rd NW, Palmyra, IN 47164',
   phoneDisplay: '(502) 643-3916',
@@ -29,7 +15,7 @@ const BUSINESS = {
     'https://www.google.com/maps/place/McAfee+Custom+Deer+Processing/@38.3589993,-86.1374638,17z/data=!3m1!4b1!4m6!3m5!1s0x88694f6a5bbc0d69:0x55f1bf1b2c069cd4!8m2!3d38.3589951!4d-86.1348889!16s%2Fg%2F11fn4yq71c?entry=ttu',
 };
 
-export default function DropInstructionsPage() {
+export default function OvernightInstructionsPage() {
   const [agree, setAgree] = useState(false);
 
   return (
@@ -93,7 +79,7 @@ export default function DropInstructionsPage() {
                 GoOutdoorsIN confirmation number
               </a>{' '}
               from your check-in or we will not process your deer.
-              {/* (No hyperlink to open the intake form in this step per your request) */}
+              {/* No hyperlink to open the intake form here */}
             </li>
 
             <li style={stepBox}>
@@ -177,7 +163,7 @@ export default function DropInstructionsPage() {
           </div>
         </section>
 
-        {/* Small contact card (kept, but no big photo) */}
+        {/* Small contact card */}
         <section
           style={{
             marginTop: 16,
