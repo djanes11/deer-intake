@@ -30,10 +30,12 @@ function toBool(v: unknown): boolean | undefined {
 }
 function coalesce(obj: Row, keys: string[]) {
   for (const k of keys) {
-    const v = obj?.[k];
-    if (v !== undefined && v !== null) {
-      const s = String(v).trim();
-      if (s) return s;
+    if (Object.prototype.hasOwnProperty.call(obj, k)) {
+      const v = obj[k];
+      if (v !== undefined && v !== null) {
+        const s = String(v).trim();
+        if (s) return s;
+      }
     }
   }
   return '';
@@ -71,18 +73,14 @@ function pickBest(rows: Row[], wantConf: string, wantTag: string, wantLN: string
   return rows.length === 1 ? rows[0] : undefined;
 }
 
-function shapeRow(row: Row) {
-  // normalize specialty status aggressively
-  let specialtyStatus = coalesce(row, [
+function shapeRow(row: Row, debug: boolean) {
+  // exact pass-through; no invented values
+  const specialtyStatus = coalesce(row, [
     'specialtyStatus',
     'Specialty Status',
     'Speciality Status',
     'Specialty Products Status',
   ]);
-
-  // if there's specialty product intent but no status text, surface something non-empty so UI renders
-  const specialtyProducts = !!toBool(row.specialtyProducts);
-  if (!specialtyStatus && specialtyProducts) specialtyStatus = 'Requested';
 
   const capeStatus  = coalesce(row, ['capingStatus','Cape Status','Caping Status']);
   const webbsStatus = coalesce(row, ['webbsStatus','Webbs Status','Webb Status']);
@@ -95,7 +93,7 @@ function shapeRow(row: Row) {
   const paidProcessing  = toBool(row.paidProcessing);
   const paidSpecialty   = toBool(row.paidSpecialty);
 
-  return {
+  const base = {
     ok: true,
     customer: String(row.customer || ''),
     tag: String(row.tag || ''),
@@ -109,9 +107,10 @@ function shapeRow(row: Row) {
     ...(paidSpecialty   !== undefined ? { paidSpecialty }   : {}),
     ...(paidOverall     !== undefined ? { paid: paidOverall } : {}),
   };
+  return debug ? { ...base, _raw: row } : base;
 }
 
-async function handle(confirmation: string, tag: string, lastName: string) {
+async function handle(confirmation: string, tag: string, lastName: string, debug = false) {
   const wantConf = toDigits(confirmation);
   const wantTag  = String(tag || '').trim();
   const wantLN   = lname(lastName);
@@ -130,13 +129,13 @@ async function handle(confirmation: string, tag: string, lastName: string) {
   }
 
   if (!best) return { ok: false, notFound: true, error: 'No match.' };
-  return shapeRow(best);
+  return shapeRow(best, debug);
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { confirmation = '', tag = '', lastName = '' } = await req.json();
-    const resp = await handle(confirmation, tag, lastName);
+    const { confirmation = '', tag = '', lastName = '', debug = false } = await req.json();
+    const resp = await handle(confirmation, tag, lastName, !!debug);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
@@ -149,7 +148,8 @@ export async function GET(req: NextRequest) {
     const confirmation = searchParams.get('confirmation') || '';
     const tag = searchParams.get('tag') || '';
     const lastName = searchParams.get('lastName') || '';
-    const resp = await handle(confirmation, tag, lastName);
+    const debug = searchParams.get('debug') === '1';
+    const resp = await handle(confirmation, tag, lastName, debug);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
