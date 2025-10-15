@@ -39,8 +39,8 @@ function env(name: string, fallback?: string) {
   return process.env[name] ?? process.env[`NEXT_PUBLIC_${name}`] ?? fallback;
 }
 
-const API_URL = env('DEER_API_URL', '');
-const API_TOKEN = env('DEER_API_TOKEN', '');
+const API_URL = env('GAS_BASE', '');
+const API_TOKEN = env('GAS_TOKEN', '');
 
 function digits(s?: string) {
   return String(s ?? '').replace(/\D+/g, '');
