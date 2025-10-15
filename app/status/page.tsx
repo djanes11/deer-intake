@@ -8,7 +8,8 @@ import { SITE, phoneHref } from '@/lib/config';
 /**
  * Public status lookup
  * - Search by Confirmation #, or Tag + Last Name
- * - Shows core status + Webbs / Specialty / Cape tracks (only if present)
+ * - Shows identity first (Customer, Confirmation, Tag)
+ * - Shows all four tracks (Meat, Cape, Webbs, Specialty) when present
  * - Payment preview (processing/specialty/total + paid flags) — if API returns them
  * - Clear pickup panel with Google Maps + tap-to-call
  */
@@ -19,10 +20,11 @@ type LookupResult = {
   error?: string;
 
   // identity
+  customer?: string;       // NEW: full name (optional but preferred)
   tag?: string;
   confirmation?: string;
 
-  // core status
+  // core status (meat)
   status?: string;
 
   // extra tracks
@@ -119,131 +121,134 @@ export default function StatusPage() {
   const paidOverall = toBool(res?.paid);
   const paidProc = toBool(res?.paidProcessing);
   const paidSpec = toBool(res?.paidSpecialty);
-  const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some((v) => v !== undefined && v !== null);
+  const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some(
+    (v) => v !== undefined && v !== null
+  );
 
   return (
-    <>
-      {/* Public customer header/nav */}
-      <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
-        <p style={{ opacity: 0.8, marginBottom: 16 }}>
-          Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>.
-        </p>
+    <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
+      <p style={{ opacity: 0.8, marginBottom: 16 }}>
+        Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>.
+      </p>
 
-        <form onSubmit={lookup} style={{ display: 'grid', gap: 12 }}>
+      <form onSubmit={lookup} style={{ display: 'grid', gap: 12 }}>
+        <input
+          value={confirmation}
+          onChange={(e) => setConfirmation(e.target.value)}
+          placeholder="Confirmation #"
+          inputMode="numeric"
+          style={field}
+          aria-label="Confirmation number"
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <input
-            value={confirmation}
-            onChange={(e) => setConfirmation(e.target.value)}
-            placeholder="Confirmation #"
-            inputMode="numeric"
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+            placeholder="Tag"
             style={field}
-            aria-label="Confirmation number"
+            aria-label="Tag number"
           />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <input
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              placeholder="Tag"
-              style={field}
-              aria-label="Tag number"
-            />
-            <input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Last Name"
-              style={field}
-              aria-label="Customer last name"
-            />
-          </div>
-          <button disabled={loading} style={btn} aria-busy={loading}>
-            {loading ? 'Checking…' : 'Check status'}
-          </button>
-        </form>
+          <input
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Last Name"
+            style={field}
+            aria-label="Customer last name"
+          />
+        </div>
+        <button disabled={loading} style={btn} aria-busy={loading}>
+          {loading ? 'Checking…' : 'Check status'}
+        </button>
+      </form>
 
-        {err ? (
-          <div role="alert" style={errBox}>
-            {err}
-          </div>
-        ) : null}
+      {err ? (
+        <div role="alert" style={errBox}>
+          {err}
+        </div>
+      ) : null}
 
-        {res ? (
-          <div style={card}>
-            {/* Summary */}
-            <div style={{ display: 'grid', gap: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: 0.2 }}>
-                Status: <span style={pill}>{res.status || '—'}</span>
-              </div>
+      {res ? (
+        <div style={card}>
+          {/* Identity first */}
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Info label="Customer" value={res.customer || '—'} />
+              <Info label="Confirmation" value={res.confirmation || '—'} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Info label="Tag" value={res.tag || '—'} />
+              <Info label="Overall Status (Meat)" value={res.status || '—'} />
+            </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <Info label="Tag" value={res.tag || '—'} />
-                <Info label="Confirmation" value={res.confirmation || '—'} />
-              </div>
-
-              {/* Extra tracks (only show when present) */}
-              <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
-                {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} /> : null}
-                {res.tracks?.specialtyStatus ? <Track label="Specialty" value={res.tracks.specialtyStatus} /> : null}
-                {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} /> : null}
-              </div>
-
-              {/* Payment (only if API provided anything) */}
-              {hasAnyPricing || hasAnyPaid ? (
-                <section
-                  aria-label="Payment"
-                  style={{
-                    marginTop: 8,
-                    border: '1px solid #1f2937',
-                    borderRadius: 10,
-                    background: '#0b0f12',
-                    padding: 10,
-                    display: 'grid',
-                    gap: 8,
-                  }}
-                >
-                  <div style={{ fontWeight: 900, color: '#d4e7db' }}>Payment</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                    <Info label="Processing" value={money(priceProcessing)} />
-                    <Info label="Specialty" value={money(priceSpecialty)} />
-                    <Info label="Total" value={money(priceTotal)} />
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {hasAnyPaid ? (
-                      <>
-                        <Badge ok={paidOverall} label={paidOverall ? 'Paid (overall)' : 'Unpaid (overall)'} />
-                        {'paidProcessing' in (res || {}) ? (
-                          <Badge ok={paidProc} label={paidProc ? 'Processing Paid' : 'Processing Unpaid'} />
-                        ) : null}
-                        {'paidSpecialty' in (res || {}) ? (
-                          <Badge ok={paidSpec} label={paidSpec ? 'Specialty Paid' : 'Specialty Unpaid'} />
-                        ) : null}
-                      </>
-                    ) : null}
-                  </div>
-                </section>
+            {/* All four tracks (when present) */}
+            <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
+              {/* Keep the order: Meat, Cape, Webbs, Specialty */}
+              {res.status ? <Track label="Meat" value={res.status} /> : null}
+              {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} /> : null}
+              {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} /> : null}
+              {res.tracks?.specialtyStatus ? (
+                <Track label="Specialty" value={res.tracks.specialtyStatus} />
               ) : null}
             </div>
 
-            {/* Pickup panel (directions, hours, phone) */}
-            <PickupPanel
-              ready={isReady}
-              addressText={SITE.address}
-              mapsUrl={mapsUrl}
-              phoneHref={phoneHref}
-              phoneDisplay={SITE.phone}
-              hours={SITE.hours as ReadonlyArray<{ label: string; value: string }>}
-            />
+            {/* Payment (only if API provided anything) */}
+            {hasAnyPricing || hasAnyPaid ? (
+              <section
+                aria-label="Payment"
+                style={{
+                  marginTop: 8,
+                  border: '1px solid #1f2937',
+                  borderRadius: 10,
+                  background: '#0b0f12',
+                  padding: 10,
+                  display: 'grid',
+                  gap: 8,
+                }}
+              >
+                <div style={{ fontWeight: 900, color: '#d4e7db' }}>Payment</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  <Info label="Processing" value={money(priceProcessing)} />
+                  <Info label="Specialty" value={money(priceSpecialty)} />
+                  <Info label="Total" value={money(priceTotal)} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {hasAnyPaid ? (
+                    <>
+                      <Badge ok={paidOverall} label={paidOverall ? 'Paid (overall)' : 'Unpaid (overall)'} />
+                      {'paidProcessing' in (res || {}) ? (
+                        <Badge ok={paidProc} label={paidProc ? 'Processing Paid' : 'Processing Unpaid'} />
+                      ) : null}
+                      {'paidSpecialty' in (res || {}) ? (
+                        <Badge ok={paidSpec} label={paidSpec ? 'Specialty Paid' : 'Specialty Unpaid'} />
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
           </div>
-        ) : null}
 
-        <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
-          Tip: Don’t see your order? Try a different query (Confirmation # is best), or{' '}
-          <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-            check the FAQ
-          </Link>
-          .
+          {/* Pickup panel (directions, hours, phone) */}
+          <PickupPanel
+            ready={isReady}
+            addressText={SITE.address}
+            mapsUrl={mapsUrl}
+            phoneHref={phoneHref}
+            phoneDisplay={SITE.phone}
+            hours={SITE.hours as ReadonlyArray<{ label: string; value: string }>}
+          />
         </div>
-      </main>
-    </>
+      ) : null}
+
+      <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
+        Tip: Don’t see your order? Try a different query (Confirmation # is best), or{' '}
+        <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+          check the FAQ
+        </Link>
+        .
+      </div>
+    </main>
   );
 }
 
@@ -338,7 +343,12 @@ function PickupPanel({
       <div>
         <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Pickup Location</div>
         <div style={{ opacity: 0.9 }}>
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#a7e3ba', textDecoration: 'underline' }}
+          >
             {addressText}
           </a>
         </div>
@@ -377,7 +387,7 @@ function PickupPanel({
 
 const field: React.CSSProperties = {
   padding: '10px 12px',
-  border: '1px solid #1f2937',
+  border: '1px solid '#1f2937',
   borderRadius: 10,
   background: '#0b0f12',
   color: '#e5e7eb',
