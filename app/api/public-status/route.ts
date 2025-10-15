@@ -1,170 +1,146 @@
-import { NextResponse } from 'next/server';
+// app/api/public-status/route.ts
+import { NextRequest, NextResponse } from 'next/server';
 
-/**
- * Env required:
- *  - GAS_BASE  (your Apps Script Web App "latest" URL ending in /exec)
- *  - GAS_TOKEN (Script Property "API_TOKEN" if you set one; else leave blank)
- *
- * Your GAS must be deployed with "Who has access: Anyone" (or "Anyone with the link").
- */
+const GAS_BASE = process.env.GAS_BASE!;   // e.g. https://script.google.com/macros/s/XYZ/exec
+const GAS_TOKEN = process.env.GAS_TOKEN || '';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+type AnyRec = Record<string, any>;
 
-type GasRow = {
-  tag?: string;
-  confirmation?: string;
-  customer?: string;
-
-  // statuses
-  status?: string;
-  capingStatus?: string;
-  webbsStatus?: string;
-  specialtyStatus?: string;
-
-  // pricing
-  priceProcessing?: number;
-  priceSpecialty?: number;
-  price?: number;
-
-  // paid
-  Paid?: boolean;
-  paidProcessing?: boolean;
-  paidSpecialty?: boolean;
-};
-
-function digits(s: string | undefined | null) {
-  return String(s ?? '').replace(/\D+/g, '');
+function get(obj: AnyRec, keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined && v !== null && v !== '') return String(v);
+  }
+  return undefined;
 }
 
-function pickBest(
-  rows: GasRow[],
-  q: { confirmation?: string; tag?: string; lastName?: string }
-): GasRow | null {
-  const wantConf = digits(q.confirmation);
-  const wantTag = digits(q.tag);
-  const wantLn = (q.lastName || '').trim().toLowerCase();
+function toBool(v: unknown): boolean | undefined {
+  if (v === true) return true;
+  if (v === false) return false;
+  const s = String(v ?? '').trim().toLowerCase();
+  if (!s) return undefined;
+  return ['1','true','yes','y','paid','✓','✔','x'].includes(s) ? true : false;
+}
 
+function toNum(v: unknown): number | undefined {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function lname(s?: string) {
+  const t = String(s || '').trim();
+  const parts = t.split(/\s+/);
+  return parts.length ? parts[parts.length - 1].toLowerCase() : '';
+}
+
+async function gasSearch(q: string) {
+  if (!GAS_BASE) throw new Error('Missing GAS_BASE env');
+  const url = new URL(GAS_BASE);
+  url.searchParams.set('endpoint', 'search');
+  url.searchParams.set('q', q);
+  if (GAS_TOKEN) url.searchParams.set('token', GAS_TOKEN);
+  const r = await fetch(url.toString(), { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Apps Script error: ${r.status}`);
+  return (await r.json()) as { ok?: boolean; rows?: AnyRec[]; error?: string };
+}
+
+function chooseBest(rows: AnyRec[], wantConf: string, wantTag: string, wantLN: string): AnyRec | undefined {
+  // 1) prefer exact Confirmation # digits match
   if (wantConf) {
-    const byConf = rows.find((r) => digits(r.confirmation) === wantConf);
-    if (byConf) return byConf;
+    const confKeys = ['Confirmation #','Confirmation','Confirmation Number','Public Confirmation'];
+    const best = rows.find((row) => {
+      const got = String(get(row, confKeys) || '').replace(/\D/g, '');
+      return got && got === wantConf;
+    });
+    if (best) return best;
   }
-  if (wantTag && wantLn) {
-    const byTagName = rows.find(
-      (r) =>
-        digits(r.tag) === wantTag &&
-        String(r.customer || '').toLowerCase().includes(wantLn)
-    );
-    if (byTagName) return byTagName;
+  // 2) else Tag + last name (lenient lname)
+  if (wantTag && wantLN) {
+    const best = rows.find((row) => {
+      const rowTag = get(row, ['Tag','Deer Tag','Tag #','Tag Number']);
+      const cust  = get(row, ['Customer','Customer Name','Name']);
+      return String(rowTag || '').trim() === wantTag && lname(cust) === wantLN;
+    });
+    if (best) return best;
   }
-  // fallbacks
-  if (wantTag) {
-    const byTag = rows.find((r) => digits(r.tag) === wantTag);
-    if (byTag) return byTag;
-  }
-  return rows[0] || null;
+  // 3) else single row fallback
+  if (rows.length === 1) return rows[0];
+  return undefined;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { confirmation = '', tag = '', lastName = '' } = await req.json();
-
-    const GAS_BASE = process.env.GAS_BASE || '';
-    const GAS_TOKEN = (process.env.GAS_TOKEN || '').trim();
-
-    if (!GAS_BASE) {
-      return NextResponse.json(
-        { ok: false, error: 'Missing GAS_BASE env var' },
-        { status: 500 }
-      );
-    }
-
-    // Build the query: prefer confirmation digits; otherwise use last name + tag
-    const qDigits = digits(confirmation);
-    const q =
-      qDigits || !lastName
-        ? qDigits
-        : `${String(lastName || '').trim()} ${digits(tag)}`;
-
-    // POST to GAS search
-    const r = await fetch(GAS_BASE, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // GAS getToken_ looks for token in body.token or URL param
-      body: JSON.stringify({ action: 'search', q, token: GAS_TOKEN }),
-      // Don't cache upstream at all
-      cache: 'no-store',
-    });
-
-    // 503s usually mean wrong deployment or access denied on the GAS side.
-    if (!r.ok) {
-      const text = await r.text().catch(() => '');
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            r.status === 403
-              ? 'Unauthorized to reach GAS (token or deployment access)'
-              : `Upstream error (${r.status})${text ? `: ${text}` : ''}`,
-        },
-        { status: 502 }
-      );
-    }
-
-    const data: { ok?: boolean; rows?: GasRow[] } = await r.json();
-
-    const rows = Array.isArray(data.rows) ? data.rows : [];
-    if (!rows.length) {
-      return NextResponse.json({ ok: false, notFound: true }, { status: 200 });
-    }
-
-    // Pick the best match
-    const best = pickBest(rows, { confirmation, tag, lastName });
-    if (!best) {
-      return NextResponse.json({ ok: false, notFound: true }, { status: 200 });
-    }
-
-    // Normalize specialty so the page can always find it
-    const tracks = {
-      capeStatus: best.capingStatus || '',
-      webbsStatus: best.webbsStatus || '',
-      specialtyStatus: best.specialtyStatus || '',
+    const { confirmation = '', tag = '', lastName = '' } = (await req.json()) as {
+      confirmation?: string; tag?: string; lastName?: string;
     };
 
-    // Normalize prices (prefer sheet values; GAS already computes fallbacks in search)
-    const priceProcessing = Number(best.priceProcessing || 0) || undefined;
-    const priceSpecialty = Number(best.priceSpecialty || 0) || undefined;
-    const priceTotal =
-      Number(best.price || 0) ||
-      (priceProcessing || 0) + (priceSpecialty || 0) ||
-      undefined;
+    const wantConf = String(confirmation || '').replace(/\D/g, '');
+    const wantTag  = String(tag || '').trim();
+    const wantLN   = lname(lastName);
 
-    return NextResponse.json(
-      {
-        ok: true,
-        tag: best.tag || '',
-        confirmation: best.confirmation || '',
-        customer: best.customer || '',
-        status: best.status || '',
-        tracks,
-        priceProcessing,
-        priceSpecialty,
-        priceTotal,
-        paid: !!best.Paid,
-        paidProcessing: !!best.paidProcessing,
-        paidSpecialty: !!best.paidSpecialty,
-      },
-      {
-        // ensure no caching at the edge either
-        headers: {
-          'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
-        },
+    const q = [confirmation, tag, lastName].filter(Boolean).join(' ').trim();
+    if (!q) {
+      return NextResponse.json({ ok: false, error: 'Provide Confirmation # or Tag + Last Name.' });
+    }
+
+    // First, normal search
+    const data1 = await gasSearch(q);
+    if (!data1?.ok || !Array.isArray(data1.rows)) {
+      return NextResponse.json({ ok: false, error: data1?.error || 'No results.' });
+    }
+
+    let best = chooseBest(data1.rows, wantConf, wantTag, wantLN);
+
+    // If not found and we have a confirmation number, do a SECOND search against untagged list (@needsTag)
+    if (!best && wantConf) {
+      const data2 = await gasSearch('@needsTag');
+      if (data2?.ok && Array.isArray(data2.rows)) {
+        best = chooseBest(data2.rows, wantConf, wantTag, wantLN);
       }
-    );
+    }
+
+    if (!best) {
+      return NextResponse.json({ ok: false, notFound: true, error: 'No match.' });
+    }
+
+    // Identity
+    const customer = get(best, ['Customer','Customer Name','Name']) || '';
+    const tagVal   = get(best, ['Tag','Deer Tag','Tag #','Tag Number']) || '';
+    const confVal  = get(best, ['Confirmation #','Confirmation','Confirmation Number','Public Confirmation']) || '';
+
+    // Statuses
+    const meatStatus = get(best, ['Status','Overall Status','Meat Status']) || '';
+    const capeStatus = get(best, ['Caping Status','Cape Status']);
+    const webbsStatus = get(best, ['Webbs Status','Webb Status']);
+    const specialtyStatus = get(best, ['Specialty Status','Speciality Status']);
+
+    // Optional pricing / paid
+    const priceProcessing = toNum(get(best, ['Processing Price','Processing Total','Price']));
+    const priceSpecialty  = toNum(get(best, ['Specialty Price','Specialty Total']));
+    const paidProcessing  = toBool(get(best, ['Paid Processing','Processing Paid']));
+    const paidSpecialty   = toBool(get(best, ['Paid Specialty','Specialty Paid']));
+    const paidOverall     = toBool(get(best, ['Paid','Paid Overall']));
+
+    const resp = {
+      ok: true,
+      customer,
+      tag: tagVal,
+      confirmation: confVal,
+      status: meatStatus,
+      tracks: {
+        capeStatus,
+        webbsStatus,
+        specialtyStatus,
+      },
+      ...(priceProcessing !== undefined ? { priceProcessing } : {}),
+      ...(priceSpecialty !== undefined ? { priceSpecialty } : {}),
+      ...(paidProcessing !== undefined ? { paidProcessing } : {}),
+      ...(paidSpecialty !== undefined ? { paidSpecialty } : {}),
+      ...(paidOverall !== undefined ? { paid: paidOverall } : {}),
+    };
+
+    return NextResponse.json(resp);
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: e?.message || 'Server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
   }
 }
