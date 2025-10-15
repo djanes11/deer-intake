@@ -385,9 +385,11 @@ function PickupPanel({
 
 /* ---------- styles ---------- */
 
+/* ---------- styles ---------- */
+
 const field: React.CSSProperties = {
   padding: '10px 12px',
-  border: '1px solid '#1f2937',
+  border: '1px solid #1f2937',
   borderRadius: 10,
   background: '#0b0f12',
   color: '#e5e7eb',
