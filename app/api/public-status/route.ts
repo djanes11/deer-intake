@@ -1,188 +1,169 @@
-// app/api/public-status/route.ts
-import { NextResponse } from 'next/server';
-
-// Force server-side and no caching for fresh status lookups
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
-type SearchRow = {
+type GasRow = {
   tag?: string;
   confirmation?: string;
   customer?: string;
-  phone?: string;
 
-  status?: string;           // Meat / overall
-  capingStatus?: string;     // Cape
-  webbsStatus?: string;      // Webbs
-  specialtyStatus?: string;  // Specialty
+  status?: string;
+  capingStatus?: string;
+  capeStatus?: string; // sometimes alias
+  webbsStatus?: string;
+  specialtyStatus?: string;
 
-  // pricing (may arrive as numbers or $-formatted strings)
-  priceProcessing?: number | string;
-  priceSpecialty?: number | string;
-  priceTotal?: number | string;
+  priceProcessing?: number;
+  priceSpecialty?: number;
+  priceTotal?: number;
 
-  // paid flags
-  Paid?: boolean | string;
-  paid?: boolean | string;
-  paidProcessing?: boolean | string;
-  paidSpecialty?: boolean | string;
-  specialtyProducts?: boolean | string;
+  Paid?: boolean;
+  paid?: boolean;
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
 };
 
-type LookupBody = {
+type SearchBody = {
   confirmation?: string;
   tag?: string;
   lastName?: string;
 };
 
-function env(name: string, fallback?: string) {
-  return process.env[name] ?? process.env[`NEXT_PUBLIC_${name}`] ?? fallback;
+function env(name: string, fallback = ''): string {
+  return process.env[name] || fallback;
 }
 
-const API_URL = env('GAS_BASE', '');
-const API_TOKEN = env('GAS_TOKEN', '');
-
-function digits(s?: string) {
-  return String(s ?? '').replace(/\D+/g, '');
-}
-function norm(s?: string) {
-  return String(s ?? '').trim().toLowerCase();
-}
-function toNum(v: unknown) {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
-  return Number.isFinite(n) ? n : undefined;
-}
-function truthy(v: unknown) {
-  if (v === true) return true;
-  const s = String(v ?? '').trim().toLowerCase();
-  return ['1','true','yes','y','paid','✓','✔','x','on'].includes(s);
-}
-
-function buildPublicResult(job: SearchRow) {
-  const customer = job?.customer ?? '';
-  const tag = job?.tag ?? '';
-  const confirmation = job?.confirmation ?? '';
-
-  const status = job?.status ?? '';
-  const capeStatus = job?.capingStatus ?? '';
-  const webbsStatus = job?.webbsStatus ?? '';
-  const specialtyStatus = job?.specialtyStatus ?? '';
-
-  const priceProcessing = toNum(job?.priceProcessing);
-  const priceSpecialty  = toNum(job?.priceSpecialty);
-  const priceTotal      = toNum(job?.priceTotal);
-
-  const paidProcessing = truthy(job?.paidProcessing);
-  const paidSpecialty  = truthy(job?.paidSpecialty);
-  // if Specialty not ordered, processing-paid alone implies paid-in-full
-  const paid =
-    truthy(job?.paid) ||
-    truthy(job?.Paid) ||
-    (paidProcessing && (!truthy(job?.specialtyProducts) || paidSpecialty));
-
-  return {
-    ok: true,
-    customer,
-    tag,
-    confirmation,
-    status,
-    tracks: {
-      capeStatus,
-      webbsStatus,
-      specialtyStatus,
-    },
-    priceProcessing,
-    priceSpecialty,
-    priceTotal,
-    paidProcessing,
-    paidSpecialty,
-    paid,
-  };
-}
-
-async function searchAPI(q: string) {
-  if (!API_URL) {
-    return { ok: false, error: 'Missing DEER_API_URL environment variable.' };
-  }
-  const url = new URL(API_URL);
-  url.searchParams.set('action', 'search');
-  url.searchParams.set('q', q);
-  if (API_TOKEN) url.searchParams.set('token', API_TOKEN);
-
-  const r = await fetch(url.toString(), {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    // Avoid edge/proxy caches along the path
-    cache: 'no-store',
-  });
-
-  if (!r.ok) {
-    return { ok: false, error: `Upstream ${r.status} ${r.statusText}` };
-  }
-  const j = await r.json().catch(() => null);
-  return j || { ok: false, error: 'Invalid JSON from upstream' };
-}
-
-function pickBestMatch(rows: SearchRow[], wanted: { conf?: string; tag?: string; last?: string }) {
-  const confD = digits(wanted.conf);
-  const tagS = norm(wanted.tag);
-  const last = norm(wanted.last);
-
-  // 1) exact Confirmation match (digits-only)
-  if (confD) {
-    const exact = rows.find(r => digits(r.confirmation) === confD);
-    if (exact) return exact;
-  }
-
-  // 2) tag + last name contains (last name only needs to appear within full name)
-  if (tagS && last) {
-    const hit = rows.find(r => norm(r.tag) === tagS && norm(r.customer).includes(last));
-    if (hit) return hit;
-  }
-
-  // 3) plain tag match
-  if (tagS) {
-    const byTag = rows.find(r => norm(r.tag) === tagS);
-    if (byTag) return byTag;
-  }
-
-  // 4) fallback: first row
-  return rows[0] ?? null;
-}
+const GAS_BASE = () => env('GAS_BASE');   // e.g. https://script.google.com/macros/s/AKfycb.../exec
+const GAS_TOKEN = () => env('GAS_TOKEN'); // your Script Property token (optional but supported)
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as LookupBody;
-    const confirmation = String(body.confirmation ?? '').trim();
-    const tag = String(body.tag ?? '').trim();
-    const lastName = String(body.lastName ?? '').trim();
+    const { confirmation, tag, lastName } = (await req.json()) as SearchBody;
 
-    if (!confirmation && !tag && !lastName) {
-      return NextResponse.json({ ok: false, error: 'Provide a Confirmation #, or Tag + Last Name.' }, { status: 400 });
+    if (!GAS_BASE()) {
+      return Response.json({
+        ok: false,
+        error:
+          'Missing GAS_BASE environment variable. Set this to your Apps Script web app URL.',
+      });
     }
 
-    // Build a simple search string; the Apps Script search scans across fields.
-    // If we have a confirmation, searching by that is the most precise.
-    const q = confirmation || [tag, lastName].filter(Boolean).join(' ');
-    const upstream = await searchAPI(q);
-
-    if (!upstream?.ok) {
-      return NextResponse.json({ ok: false, error: upstream?.error || 'Lookup failed.' }, { status: 502 });
+    // Build search query:
+    // - Prefer confirmation (most exact)
+    // - Else tag + lastName (space-separated, sheet search is bag-of-words)
+    let q = '';
+    if (confirmation && confirmation.trim()) {
+      q = confirmation.trim();
+    } else if (tag && lastName) {
+      q = `${String(tag).trim()} ${String(lastName).trim()}`;
+    } else if (tag) {
+      q = String(tag).trim();
     }
 
-    const rows = Array.isArray(upstream.rows) ? (upstream.rows as SearchRow[]) : [];
-    if (!rows.length) {
-      return NextResponse.json({ ok: false, notFound: true, error: 'No match.' }, { status: 404 });
+    const url = new URL(GAS_BASE());
+    url.searchParams.set('action', 'search');
+    if (GAS_TOKEN()) url.searchParams.set('token', GAS_TOKEN());
+    if (q) url.searchParams.set('q', q);
+
+    const gasRes = await fetch(url.toString(), {
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!gasRes.ok) {
+      return Response.json({
+        ok: false,
+        error: `Upstream error (${gasRes.status})`,
+      });
     }
 
-    const best = pickBestMatch(rows, { conf: confirmation, tag, last: lastName });
-    if (!best) {
-      return NextResponse.json({ ok: false, notFound: true, error: 'No match.' }, { status: 404 });
+    const data = (await gasRes.json()) as {
+      ok?: boolean;
+      rows?: GasRow[];
+      error?: string;
+    };
+
+    if (!data?.ok) {
+      return Response.json({
+        ok: false,
+        error: data?.error || 'Search failed',
+      });
     }
 
-    return NextResponse.json(buildPublicResult(best));
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+
+    // Pick best match:
+    //   - If confirmation supplied, exact match on confirmation if present
+    //   - Else if tag supplied, exact match on tag (case-insensitive)
+    //   - Else take the first row
+    let hit: GasRow | undefined;
+
+    if (confirmation) {
+      const c = confirmation.trim().toLowerCase();
+      hit = rows.find(
+        (r) => String(r.confirmation || '').trim().toLowerCase() === c
+      );
+    }
+    if (!hit && tag) {
+      const t = String(tag).trim().toLowerCase();
+      hit = rows.find((r) => String(r.tag || '').trim().toLowerCase() === t);
+    }
+    if (!hit) hit = rows[0];
+
+    if (!hit) {
+      return Response.json({ ok: false, notFound: true });
+    }
+
+    // Normalize statuses into a unified "tracks" block
+    const cape = hit.capeStatus ?? hit.capingStatus;
+    const webbs = hit.webbsStatus;
+    const specialty = hit.specialtyStatus;
+
+    const out = {
+      ok: true,
+      tag: hit.tag || '',
+      confirmation: hit.confirmation || '',
+      customer: hit.customer || '',
+
+      // overall/meat status
+      status: hit.status || '',
+
+      // always provide tracks, even if some are empty
+      tracks: {
+        capeStatus: cape || '',
+        webbsStatus: webbs || '',
+        specialtyStatus: specialty || '',
+      },
+
+      // pricing
+      priceProcessing:
+        isFiniteNumber(hit.priceProcessing) ? Number(hit.priceProcessing) : undefined,
+      priceSpecialty:
+        isFiniteNumber(hit.priceSpecialty) ? Number(hit.priceSpecialty) : undefined,
+      priceTotal:
+        isFiniteNumber(hit.priceTotal) ? Number(hit.priceTotal) : undefined,
+
+      // paid flags (normalize)
+      paid:
+        bool(hit.paid) || bool(hit.Paid) || (bool(hit.paidProcessing) && bool(hit.paidSpecialty)),
+      paidProcessing: bool(hit.paidProcessing),
+      paidSpecialty: bool(hit.paidSpecialty),
+    };
+
+    return Response.json(out);
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
+    return Response.json(
+      { ok: false, error: err?.message || 'Server error' },
+      { status: 500 }
+    );
   }
+}
+
+function isFiniteNumber(v: any): v is number {
+  const n = Number(v);
+  return typeof n === 'number' && isFinite(n);
+}
+
+function bool(v: any): boolean {
+  if (v === true) return true;
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['true', 'yes', 'y', '1', 'paid', 'x', '✓', '✔', 'on'].includes(s);
 }
