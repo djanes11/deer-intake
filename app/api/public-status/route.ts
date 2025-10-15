@@ -1,209 +1,188 @@
 // app/api/public-status/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
-export const runtime = 'nodejs';
+// Force server-side and no caching for fresh status lookups
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-type GasRow = {
+type SearchRow = {
   tag?: string;
   confirmation?: string;
   customer?: string;
-  status?: string;
-  capingStatus?: string;
-  webbsStatus?: string;
-  specialtyStatus?: string;
+  phone?: string;
 
-  // pricing from GAS
-  priceProcessing?: number;
-  priceSpecialty?: number;
-  priceTotal?: number;
+  status?: string;           // Meat / overall
+  capingStatus?: string;     // Cape
+  webbsStatus?: string;      // Webbs
+  specialtyStatus?: string;  // Specialty
 
-  // paid flags from GAS
-  Paid?: boolean; // sometimes capitalized
-  paid?: boolean; // alias
-  paidProcessing?: boolean;
-  paidSpecialty?: boolean;
+  // pricing (may arrive as numbers or $-formatted strings)
+  priceProcessing?: number | string;
+  priceSpecialty?: number | string;
+  priceTotal?: number | string;
+
+  // paid flags
+  Paid?: boolean | string;
+  paid?: boolean | string;
+  paidProcessing?: boolean | string;
+  paidSpecialty?: boolean | string;
+  specialtyProducts?: boolean | string;
 };
 
-type GasSearchResp = { ok?: boolean; rows?: GasRow[]; error?: string };
+type LookupBody = {
+  confirmation?: string;
+  tag?: string;
+  lastName?: string;
+};
 
-function envTrim(v?: string | null) {
-  return String(v ?? '').trim().replace(/^['"]|['"]$/g, '');
+function env(name: string, fallback?: string) {
+  return process.env[name] ?? process.env[`NEXT_PUBLIC_${name}`] ?? fallback;
 }
 
-function getGasBase(): string {
-  const raw =
-    envTrim(process.env.GAS_BASE) ||
-    envTrim(process.env.NEXT_PUBLIC_GAS_BASE) ||
-    '';
-  if (!raw) throw new Error('GAS_BASE (or NEXT_PUBLIC_GAS_BASE) is not set.');
-  // will throw if invalid
-  new URL(raw);
-  return raw;
-}
-
-function getGasToken(): string {
-  return (
-    envTrim(process.env.GAS_TOKEN) ||
-    envTrim(process.env.API_TOKEN) ||
-    envTrim(process.env.EMAIL_SIGNING_SECRET) ||
-    ''
-  );
-}
+const API_URL = env('DEER_API_URL', '');
+const API_TOKEN = env('DEER_API_TOKEN', '');
 
 function digits(s?: string) {
-  return String(s || '').replace(/\D+/g, '');
+  return String(s ?? '').replace(/\D+/g, '');
 }
-
-function lastNameOnly(s?: string) {
-  const t = String(s || '').trim();
-  if (!t) return '';
-  const parts = t.split(/\s+/);
-  return parts[parts.length - 1].toLowerCase();
+function norm(s?: string) {
+  return String(s ?? '').trim().toLowerCase();
 }
-
-function normalizeBool(v: any): boolean {
+function toNum(v: unknown) {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : undefined;
+}
+function truthy(v: unknown) {
   if (v === true) return true;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true', '1', 'yes', 'y', 'paid', 'x', '✓', '✔', 'on'].includes(s);
+  return ['1','true','yes','y','paid','✓','✔','x','on'].includes(s);
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({} as any));
-    const confirmation = String(body?.confirmation ?? '').trim();
-    const tag = String(body?.tag ?? '').trim();
-    const lastName = String(body?.lastName ?? '').trim();
+function buildPublicResult(job: SearchRow) {
+  const customer = job?.customer ?? '';
+  const tag = job?.tag ?? '';
+  const confirmation = job?.confirmation ?? '';
 
-    // Build the search query for GAS
-    let query = '';
-    let mode: 'confirmation' | 'tag+name' | '' = '';
-    if (confirmation) {
-      query = confirmation;
-      mode = 'confirmation';
-    } else if (tag && lastName) {
-      query = `${tag} ${lastName}`;
-      mode = 'tag+name';
-    } else {
-      return NextResponse.json(
-        { ok: false, error: 'Provide Confirmation # OR Tag + Last Name.' },
-        { status: 400 }
-      );
-    }
+  const status = job?.status ?? '';
+  const capeStatus = job?.capingStatus ?? '';
+  const webbsStatus = job?.webbsStatus ?? '';
+  const specialtyStatus = job?.specialtyStatus ?? '';
 
-    // Call GAS search
-    const base = getGasBase();
-    const url = new URL(base);
-    url.searchParams.set('action', 'search');
-    url.searchParams.set('q', query);
-    const tok = getGasToken();
-    if (tok) url.searchParams.set('token', tok);
+  const priceProcessing = toNum(job?.priceProcessing);
+  const priceSpecialty  = toNum(job?.priceSpecialty);
+  const priceTotal      = toNum(job?.priceTotal);
 
-    const r = await fetch(url.toString(), { cache: 'no-store' });
-    if (!r.ok) {
-      return NextResponse.json(
-        { ok: false, error: `GAS search failed: HTTP ${r.status}` },
-        { status: 502 }
-      );
-    }
-    const data = (await r.json()) as GasSearchResp;
-    if (!data?.ok) {
-      return NextResponse.json(
-        { ok: false, error: data?.error || 'GAS returned an error' },
-        { status: 502 }
-      );
-    }
+  const paidProcessing = truthy(job?.paidProcessing);
+  const paidSpecialty  = truthy(job?.paidSpecialty);
+  // if Specialty not ordered, processing-paid alone implies paid-in-full
+  const paid =
+    truthy(job?.paid) ||
+    truthy(job?.Paid) ||
+    (paidProcessing && (!truthy(job?.specialtyProducts) || paidSpecialty));
 
-    const rows = data.rows || [];
-    if (!rows.length) {
-      return NextResponse.json({ ok: false, notFound: true });
-    }
+  return {
+    ok: true,
+    customer,
+    tag,
+    confirmation,
+    status,
+    tracks: {
+      capeStatus,
+      webbsStatus,
+      specialtyStatus,
+    },
+    priceProcessing,
+    priceSpecialty,
+    priceTotal,
+    paidProcessing,
+    paidSpecialty,
+    paid,
+  };
+}
 
-    // Pick the best match
-    const pick = (() => {
-      if (mode === 'confirmation') {
-        const want = digits(confirmation);
-        // Strongest match: confirmation digits exact (fallback to first row)
-        const exact = rows.find((row) => digits(row.confirmation) === want);
-        return exact || rows[0];
-      } else {
-        const wantTag = tag.toLowerCase();
-        const wantLast = lastName.toLowerCase();
-        // Prefer exact tag & last name match
-        const exact = rows.find((row) => {
-          const t = String(row.tag || '').toLowerCase();
-          const ln = lastNameOnly(row.customer);
-          return t === wantTag && ln === wantLast;
-        });
-        if (exact) return exact;
-        // Fallback: tag only
-        const tagOnly = rows.find(
-          (row) => String(row.tag || '').toLowerCase() === wantTag
-        );
-        return tagOnly || rows[0];
-      }
-    })();
-
-    if (!pick) {
-      return NextResponse.json({ ok: false, notFound: true });
-    }
-
-    // Map fields the Status page expects
-    const paidAll = normalizeBool(pick.Paid ?? pick.paid);
-    const paidProcessing = normalizeBool(pick.paidProcessing);
-    const paidSpecialty = normalizeBool(pick.paidSpecialty);
-
-    const priceProcessing =
-      typeof pick.priceProcessing === 'number'
-        ? pick.priceProcessing
-        : undefined;
-    const priceSpecialty =
-      typeof pick.priceSpecialty === 'number' ? pick.priceSpecialty : undefined;
-    const priceTotal =
-      typeof pick.priceTotal === 'number' ? pick.priceTotal : undefined;
-
-    return NextResponse.json({
-      ok: true,
-      tag: pick.tag || '',
-      confirmation: pick.confirmation || '',
-      status: pick.status || '',
-      tracks: {
-        webbsStatus: pick.webbsStatus || '',
-        specialtyStatus: pick.specialtyStatus || '',
-        capeStatus: pick.capingStatus || '',
-      },
-
-      // Pricing
-      priceProcessing,
-      priceSpecialty,
-      priceTotal,
-
-      // Paid flags
-      paid: paidAll,
-      paidProcessing,
-      paidSpecialty,
-    });
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: String(err?.message || err) },
-      { status: 500 }
-    );
+async function searchAPI(q: string) {
+  if (!API_URL) {
+    return { ok: false, error: 'Missing DEER_API_URL environment variable.' };
   }
+  const url = new URL(API_URL);
+  url.searchParams.set('action', 'search');
+  url.searchParams.set('q', q);
+  if (API_TOKEN) url.searchParams.set('token', API_TOKEN);
+
+  const r = await fetch(url.toString(), {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    // Avoid edge/proxy caches along the path
+    cache: 'no-store',
+  });
+
+  if (!r.ok) {
+    return { ok: false, error: `Upstream ${r.status} ${r.statusText}` };
+  }
+  const j = await r.json().catch(() => null);
+  return j || { ok: false, error: 'Invalid JSON from upstream' };
 }
 
-// Optional: allow simple GET forwarding (useful for quick tests)
-export async function GET(req: NextRequest) {
-  // Encourage POST, but support GET ?confirmation=... or ?tag=...&lastName=...
-  const u = new URL(req.url);
-  const confirmation = u.searchParams.get('confirmation') || '';
-  const tag = u.searchParams.get('tag') || '';
-  const lastName = u.searchParams.get('lastName') || '';
-  return POST(
-    new NextRequest(req.url, {
-      method: 'POST',
-      body: JSON.stringify({ confirmation, tag, lastName }),
-      headers: { 'Content-Type': 'application/json' },
-    })
-  );
+function pickBestMatch(rows: SearchRow[], wanted: { conf?: string; tag?: string; last?: string }) {
+  const confD = digits(wanted.conf);
+  const tagS = norm(wanted.tag);
+  const last = norm(wanted.last);
+
+  // 1) exact Confirmation match (digits-only)
+  if (confD) {
+    const exact = rows.find(r => digits(r.confirmation) === confD);
+    if (exact) return exact;
+  }
+
+  // 2) tag + last name contains (last name only needs to appear within full name)
+  if (tagS && last) {
+    const hit = rows.find(r => norm(r.tag) === tagS && norm(r.customer).includes(last));
+    if (hit) return hit;
+  }
+
+  // 3) plain tag match
+  if (tagS) {
+    const byTag = rows.find(r => norm(r.tag) === tagS);
+    if (byTag) return byTag;
+  }
+
+  // 4) fallback: first row
+  return rows[0] ?? null;
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = (await req.json().catch(() => ({}))) as LookupBody;
+    const confirmation = String(body.confirmation ?? '').trim();
+    const tag = String(body.tag ?? '').trim();
+    const lastName = String(body.lastName ?? '').trim();
+
+    if (!confirmation && !tag && !lastName) {
+      return NextResponse.json({ ok: false, error: 'Provide a Confirmation #, or Tag + Last Name.' }, { status: 400 });
+    }
+
+    // Build a simple search string; the Apps Script search scans across fields.
+    // If we have a confirmation, searching by that is the most precise.
+    const q = confirmation || [tag, lastName].filter(Boolean).join(' ');
+    const upstream = await searchAPI(q);
+
+    if (!upstream?.ok) {
+      return NextResponse.json({ ok: false, error: upstream?.error || 'Lookup failed.' }, { status: 502 });
+    }
+
+    const rows = Array.isArray(upstream.rows) ? (upstream.rows as SearchRow[]) : [];
+    if (!rows.length) {
+      return NextResponse.json({ ok: false, notFound: true, error: 'No match.' }, { status: 404 });
+    }
+
+    const best = pickBestMatch(rows, { conf: confirmation, tag, last: lastName });
+    if (!best) {
+      return NextResponse.json({ ok: false, notFound: true, error: 'No match.' }, { status: 404 });
+    }
+
+    return NextResponse.json(buildPublicResult(best));
+  } catch (err: any) {
+    return NextResponse.json({ ok: false, error: err?.message || 'Server error' }, { status: 500 });
+  }
 }
