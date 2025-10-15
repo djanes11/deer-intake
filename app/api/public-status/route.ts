@@ -6,40 +6,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const GAS_BASE = process.env.GAS_BASE!;   // https://script.google.com/macros/s/XXXX/exec
+const GAS_BASE = process.env.GAS_BASE!;
 const GAS_TOKEN = process.env.GAS_TOKEN || '';
 
-type Row = {
-  // Keys as returned by GAS searchJobs_ (api.txt)
-  row?: number;
-  tag?: string;
-  requiresTag?: boolean;
-  confirmation?: string;
-  customer?: string;
-  phone?: string;
-  dropoff?: string;
-  status?: string;
-  capingStatus?: string;       // NOTE: API uses "capingStatus" (with 'ing')
-  webbsStatus?: string;
-  specialtyStatus?: string;
-
-  priceProcessing?: number | string;
-  priceSpecialty?: number | string;
-  price?: number | string;
-
-  Paid?: boolean | string;
-  paidProcessing?: boolean | string;
-  paidSpecialty?: boolean | string;
-};
-
+type Row = Record<string, any>;
 type SearchResp = { ok?: boolean; rows?: Row[]; error?: string };
 
-function toDigits(s: unknown) {
-  return String(s ?? '').replace(/\D+/g, '');
-}
+function toDigits(s: unknown) { return String(s ?? '').replace(/\D+/g, ''); }
 function lname(s?: string) {
-  const t = String(s || '').trim();
-  const parts = t.split(/\s+/);
+  const t = String(s || '').trim(); const parts = t.split(/\s+/);
   return parts.length ? parts[parts.length - 1].toLowerCase() : '';
 }
 function toNum(v: unknown): number | undefined {
@@ -52,6 +27,16 @@ function toBool(v: unknown): boolean | undefined {
   const s = String(v ?? '').trim().toLowerCase();
   if (!s) return undefined;
   return ['1','true','yes','y','paid','✓','✔','x','on'].includes(s);
+}
+function coalesce(obj: Row, keys: string[]) {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (v !== undefined && v !== null) {
+      const s = String(v).trim();
+      if (s) return s;
+    }
+  }
+  return '';
 }
 
 async function gasGET(action: string, q?: string): Promise<SearchResp> {
@@ -75,41 +60,48 @@ async function gasPOST(body: Record<string, unknown>): Promise<SearchResp> {
 }
 
 function pickBest(rows: Row[], wantConf: string, wantTag: string, wantLN: string): Row | undefined {
-  // 1) Exact confirmation match on digits
   if (wantConf) {
     const hit = rows.find((row) => toDigits(row.confirmation) === wantConf);
     if (hit) return hit;
   }
-  // 2) Tag + last name
   if (wantTag && wantLN) {
     const hit = rows.find((row) => String(row.tag || '').trim() === wantTag && lname(row.customer) === wantLN);
     if (hit) return hit;
   }
-  // 3) Single row fallback
-  if (rows.length === 1) return rows[0];
-  return undefined;
+  return rows.length === 1 ? rows[0] : undefined;
 }
 
 function shapeRow(row: Row) {
+  // normalize specialty status aggressively
+  let specialtyStatus = coalesce(row, [
+    'specialtyStatus',
+    'Specialty Status',
+    'Speciality Status',
+    'Specialty Products Status',
+  ]);
+
+  // if there's specialty product intent but no status text, surface something non-empty so UI renders
+  const specialtyProducts = !!toBool(row.specialtyProducts);
+  if (!specialtyStatus && specialtyProducts) specialtyStatus = 'Requested';
+
+  const capeStatus  = coalesce(row, ['capingStatus','Cape Status','Caping Status']);
+  const webbsStatus = coalesce(row, ['webbsStatus','Webbs Status','Webb Status']);
+
   const priceProcessing = toNum(row.priceProcessing);
   const priceSpecialty  = toNum(row.priceSpecialty);
   const priceTotal      = toNum(row.price);
 
-  const paidOverall     = toBool(row.Paid);
+  const paidOverall     = toBool(row.Paid ?? row.paid);
   const paidProcessing  = toBool(row.paidProcessing);
   const paidSpecialty   = toBool(row.paidSpecialty);
 
   return {
     ok: true,
-    customer: row.customer || '',
-    tag: row.tag || '',
-    confirmation: row.confirmation || '',
-    status: row.status || '',
-    tracks: {
-      capeStatus: row.capingStatus || '',    // normalize name for UI
-      webbsStatus: row.webbsStatus || '',
-      specialtyStatus: row.specialtyStatus || '',
-    },
+    customer: String(row.customer || ''),
+    tag: String(row.tag || ''),
+    confirmation: String(row.confirmation || ''),
+    status: String(row.status || ''),
+    tracks: { capeStatus, webbsStatus, specialtyStatus },
     ...(priceProcessing !== undefined ? { priceProcessing } : {}),
     ...(priceSpecialty  !== undefined ? { priceSpecialty }  : {}),
     ...(priceTotal      !== undefined ? { priceTotal }      : {}),
@@ -126,17 +118,15 @@ async function handle(confirmation: string, tag: string, lastName: string) {
   const q = [confirmation, tag, lastName].filter(Boolean).join(' ').trim();
   if (!q) return { ok: false, error: 'Provide Confirmation # or Tag + Last Name.' };
 
-  // 1) Try normal search
+  // 1) normal search
   const s1 = await gasGET('search', q);
   if (!s1?.ok || !Array.isArray(s1.rows)) return { ok: false, error: s1?.error || 'No results.' };
   let best = pickBest(s1.rows, wantConf, wantTag, wantLN);
 
-  // 2) Fallback to untagged pool when searching by confirmation #
+  // 2) fallback for untagged via needsTag
   if (!best && wantConf) {
     const s2 = await gasPOST({ action: 'needsTag' });
-    if (s2?.ok && Array.isArray(s2.rows)) {
-      best = pickBest(s2.rows, wantConf, wantTag, wantLN);
-    }
+    if (s2?.ok && Array.isArray(s2.rows)) best = pickBest(s2.rows, wantConf, wantTag, wantLN);
   }
 
   if (!best) return { ok: false, notFound: true, error: 'No match.' };
@@ -153,7 +143,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// optional GET for debug: /api/public-status?confirmation=...&tag=...&lastName=...
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
