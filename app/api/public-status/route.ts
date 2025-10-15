@@ -6,23 +6,41 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const GAS_BASE = process.env.GAS_BASE!;   // e.g., https://script.google.com/macros/s/XXXXX/exec
+const GAS_BASE = process.env.GAS_BASE!;   // https://script.google.com/macros/s/XXXX/exec
 const GAS_TOKEN = process.env.GAS_TOKEN || '';
 
-type AnyRec = Record<string, any>;
+type Row = {
+  // Keys as returned by GAS searchJobs_ (api.txt)
+  row?: number;
+  tag?: string;
+  requiresTag?: boolean;
+  confirmation?: string;
+  customer?: string;
+  phone?: string;
+  dropoff?: string;
+  status?: string;
+  capingStatus?: string;       // NOTE: API uses "capingStatus" (with 'ing')
+  webbsStatus?: string;
+  specialtyStatus?: string;
 
-function get(obj: AnyRec, keys: string[]): string | undefined {
-  for (const k of keys) {
-    const v = obj?.[k];
-    if (v !== undefined && v !== null && v !== '') return String(v);
-  }
-  return undefined;
+  priceProcessing?: number | string;
+  priceSpecialty?: number | string;
+  price?: number | string;
+
+  Paid?: boolean | string;
+  paidProcessing?: boolean | string;
+  paidSpecialty?: boolean | string;
+};
+
+type SearchResp = { ok?: boolean; rows?: Row[]; error?: string };
+
+function toDigits(s: unknown) {
+  return String(s ?? '').replace(/\D+/g, '');
 }
 function lname(s?: string) {
   const t = String(s || '').trim();
-  if (!t) return '';
   const parts = t.split(/\s+/);
-  return parts[parts.length - 1].toLowerCase();
+  return parts.length ? parts[parts.length - 1].toLowerCase() : '';
 }
 function toNum(v: unknown): number | undefined {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
@@ -36,17 +54,16 @@ function toBool(v: unknown): boolean | undefined {
   return ['1','true','yes','y','paid','✓','✔','x','on'].includes(s);
 }
 
-async function gasGET(action: string, q?: string) {
-  if (!GAS_BASE) throw new Error('Missing GAS_BASE env');
+async function gasGET(action: string, q?: string): Promise<SearchResp> {
   const url = new URL(GAS_BASE);
   url.searchParams.set('action', action);
   if (q) url.searchParams.set('q', q);
   if (GAS_TOKEN) url.searchParams.set('token', GAS_TOKEN);
   const r = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
   if (!r.ok) throw new Error(`Apps Script ${action} failed: ${r.status}`);
-  return (await r.json()) as { ok?: boolean; rows?: AnyRec[]; error?: string };
+  return (await r.json()) as SearchResp;
 }
-async function gasPOST(body: AnyRec) {
+async function gasPOST(body: Record<string, unknown>): Promise<SearchResp> {
   const r = await fetch(GAS_BASE, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -54,23 +71,18 @@ async function gasPOST(body: AnyRec) {
     body: JSON.stringify(GAS_TOKEN ? { ...body, token: GAS_TOKEN } : body),
   });
   if (!r.ok) throw new Error(`Apps Script POST failed: ${r.status}`);
-  return (await r.json()) as { ok?: boolean; rows?: AnyRec[]; error?: string };
+  return (await r.json()) as SearchResp;
 }
 
-function pickBest(rows: AnyRec[], wantConf: string, wantTag: string, wantLN: string) {
-  // 1) Exact confirmation # digits match
+function pickBest(rows: Row[], wantConf: string, wantTag: string, wantLN: string): Row | undefined {
+  // 1) Exact confirmation match on digits
   if (wantConf) {
-    const confKeys = ['Confirmation #','Confirmation','Confirmation Number','Public Confirmation'];
-    const hit = rows.find(row => String(get(row, confKeys) || '').replace(/\D/g,'') === wantConf);
+    const hit = rows.find((row) => toDigits(row.confirmation) === wantConf);
     if (hit) return hit;
   }
   // 2) Tag + last name
   if (wantTag && wantLN) {
-    const hit = rows.find(row => {
-      const rowTag = get(row, ['Tag','Deer Tag','Tag #','Tag Number']);
-      const cust = get(row, ['Customer Name','Customer','Name']);
-      return String(rowTag || '').trim() === wantTag && lname(cust) === wantLN;
-    });
+    const hit = rows.find((row) => String(row.tag || '').trim() === wantTag && lname(row.customer) === wantLN);
     if (hit) return hit;
   }
   // 3) Single row fallback
@@ -78,31 +90,26 @@ function pickBest(rows: AnyRec[], wantConf: string, wantTag: string, wantLN: str
   return undefined;
 }
 
-function shape(best: AnyRec) {
-  const customer = get(best, ['Customer Name','Customer','Name']) || '';
-  const tagVal   = get(best, ['Tag','Deer Tag','Tag #','Tag Number']) || '';
-  const confVal  = get(best, ['Confirmation #','Confirmation','Confirmation Number','Public Confirmation']) || '';
-  const meat     = get(best, ['Status','Meat Status','Meat']) || '';
+function shapeRow(row: Row) {
+  const priceProcessing = toNum(row.priceProcessing);
+  const priceSpecialty  = toNum(row.priceSpecialty);
+  const priceTotal      = toNum(row.price);
 
-  const capeStatus       = get(best, ['Caping Status','Cape Status']);
-  const webbsStatus      = get(best, ['Webbs Status','Webb Status']);
-  const specialtyStatus  = get(best, ['Specialty Status','Speciality Status','Specialty Products Status']);
-
-  const priceProcessing  = toNum(get(best, ['Processing Price','Processing Total']));
-  const priceSpecialty   = toNum(get(best, ['Specialty Price','Specialty Total']));
-  const priceTotal       = toNum(get(best, ['Price','Total']));
-
-  const paidProcessing   = toBool(get(best, ['Paid Processing','Processing Paid']));
-  const paidSpecialty    = toBool(get(best, ['Paid Specialty','Specialty Paid']));
-  const paidOverall      = toBool(get(best, ['Paid','Paid Overall']));
+  const paidOverall     = toBool(row.Paid);
+  const paidProcessing  = toBool(row.paidProcessing);
+  const paidSpecialty   = toBool(row.paidSpecialty);
 
   return {
     ok: true,
-    customer,
-    tag: tagVal,
-    confirmation: confVal,
-    status: meat,
-    tracks: { capeStatus, webbsStatus, specialtyStatus },
+    customer: row.customer || '',
+    tag: row.tag || '',
+    confirmation: row.confirmation || '',
+    status: row.status || '',
+    tracks: {
+      capeStatus: row.capingStatus || '',    // normalize name for UI
+      webbsStatus: row.webbsStatus || '',
+      specialtyStatus: row.specialtyStatus || '',
+    },
     ...(priceProcessing !== undefined ? { priceProcessing } : {}),
     ...(priceSpecialty  !== undefined ? { priceSpecialty }  : {}),
     ...(priceTotal      !== undefined ? { priceTotal }      : {}),
@@ -112,22 +119,19 @@ function shape(best: AnyRec) {
   };
 }
 
-async function handleQuery(confirmation: string, tag: string, lastName: string) {
-  const wantConf = String(confirmation || '').replace(/\D/g, '');
+async function handle(confirmation: string, tag: string, lastName: string) {
+  const wantConf = toDigits(confirmation);
   const wantTag  = String(tag || '').trim();
   const wantLN   = lname(lastName);
-
   const q = [confirmation, tag, lastName].filter(Boolean).join(' ').trim();
   if (!q) return { ok: false, error: 'Provide Confirmation # or Tag + Last Name.' };
 
-  // 1) try normal search (GET action=search&q=...)
+  // 1) Try normal search
   const s1 = await gasGET('search', q);
-  if (!s1?.ok || !Array.isArray(s1.rows)) {
-    return { ok: false, error: s1?.error || 'No results.' };
-  }
+  if (!s1?.ok || !Array.isArray(s1.rows)) return { ok: false, error: s1?.error || 'No results.' };
   let best = pickBest(s1.rows, wantConf, wantTag, wantLN);
 
-  // 2) fallback: include untagged pool via POST action=needsTag
+  // 2) Fallback to untagged pool when searching by confirmation #
   if (!best && wantConf) {
     const s2 = await gasPOST({ action: 'needsTag' });
     if (s2?.ok && Array.isArray(s2.rows)) {
@@ -136,27 +140,27 @@ async function handleQuery(confirmation: string, tag: string, lastName: string) 
   }
 
   if (!best) return { ok: false, notFound: true, error: 'No match.' };
-  return shape(best);
+  return shapeRow(best);
 }
 
 export async function POST(req: NextRequest) {
   try {
     const { confirmation = '', tag = '', lastName = '' } = await req.json();
-    const resp = await handleQuery(confirmation, tag, lastName);
+    const resp = await handle(confirmation, tag, lastName);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
   }
 }
 
-// Optional GET for easy debugging: /api/public-status?confirmation=...&tag=...&lastName=...
+// optional GET for debug: /api/public-status?confirmation=...&tag=...&lastName=...
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const confirmation = searchParams.get('confirmation') || '';
     const tag = searchParams.get('tag') || '';
     const lastName = searchParams.get('lastName') || '';
-    const resp = await handleQuery(confirmation, tag, lastName);
+    const resp = await handle(confirmation, tag, lastName);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
