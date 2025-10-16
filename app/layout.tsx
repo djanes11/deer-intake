@@ -42,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Respect users’ prefers-reduced-motion setting */}
         <meta name="color-scheme" content="dark light" />
       </head>
-      <body className="watermark">
+	<body className={`${IS_PUBLIC ? 'public' : ''} watermark`}>
         {/* Staff navigation (hidden on public) */}
         {!IS_PUBLIC ? (
           <NavGate>
