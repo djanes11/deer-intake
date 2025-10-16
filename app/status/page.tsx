@@ -1,7 +1,7 @@
 // app/status/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
 
@@ -37,54 +37,38 @@ type LookupResult = {
 };
 
 export default function StatusPage() {
+  // Smart single-input
+  const [q, setQ] = useState('');
+  // Advanced (original fields)
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [confirmation, setConfirmation] = useState('');
   const [tag, setTag] = useState('');
   const [lastName, setLastName] = useState('');
+
+  // Result + UX
   const [res, setRes] = useState<LookupResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
 
-  async function lookup(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setErr(null);
-    setRes(null);
-    try {
-      const r = await fetch('/api/public-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation, tag, lastName }),
-      });
-      const j = (await r.json()) as LookupResult;
-      if (!j?.ok) {
-        setErr(j?.error || (j?.notFound ? 'No match.' : 'Not found.'));
-      } else {
-        setRes(j);
-      }
-    } catch (e: any) {
-      setErr(e?.message || 'Lookup failed');
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Polling
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollUntil = useRef<number | null>(null);
 
-  const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done'];
-  const textHas = (s?: string) => String(s || '').toLowerCase();
+  const READY_WORDS = useMemo(() => ['ready', 'finished', 'complete', 'completed', 'done'], []);
+  const text = (s?: string) => String(s || '').toLowerCase();
 
-  const isReady = (() => {
+  const isReady = useMemo(() => {
     if (!res) return false;
     const t = res.tracks || {};
     return (
-      READY_WORDS.some((w) => textHas(res.status).includes(w)) ||
-      READY_WORDS.some((w) => textHas(t.capeStatus).includes(w)) ||
-      READY_WORDS.some((w) => textHas(t.webbsStatus).includes(w)) ||
-      READY_WORDS.some((w) => textHas(t.specialtyStatus).includes(w))
+      READY_WORDS.some((w) => text(res.status).includes(w)) ||
+      READY_WORDS.some((w) => text(t.capeStatus).includes(w)) ||
+      READY_WORDS.some((w) => text(t.webbsStatus).includes(w)) ||
+      READY_WORDS.some((w) => text(t.specialtyStatus).includes(w))
     );
-  })();
+  }, [res, READY_WORDS]);
 
-  const mapsUrl = SITE.mapsUrl;
-
-  // payment helpers
   const toNum = (v: unknown) => {
     const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
     return Number.isFinite(n) ? n : undefined;
@@ -116,44 +100,195 @@ export default function StatusPage() {
     (v) => v !== undefined && v !== null
   );
 
-  const field: React.CSSProperties = { background: '#0f1416', color: '#e6e7eb', border: '1px solid #1f2937', borderRadius: 10, padding: '10px 12px' };
-  const btn: React.CSSProperties = { background: '#2f6f3f', color: '#fff', border: '1px solid transparent', borderRadius: 10, padding: '10px 14px', fontWeight: 800, cursor: 'pointer' };
+  // -------- Styles (inline to avoid CSS changes) --------
+  const field: React.CSSProperties = { background: '#0f1416', color: '#e6e7eb', border: '1px solid #1f2937', borderRadius: 10, padding: '12px 14px' };
+  const btn: React.CSSProperties = { background: '#2f6f3f', color: '#fff', border: '1px solid transparent', borderRadius: 10, padding: '12px 16px', fontWeight: 800, cursor: 'pointer' };
   const errBox: React.CSSProperties = { marginTop: 12, border: '1px solid #7f1d1d', background: 'rgba(127,29,29,.15)', color: '#fecaca', borderRadius: 10, padding: 10 };
   const card: React.CSSProperties = { marginTop: 14, border: '1px solid #1f2937', borderRadius: 12, background: '#0b0f12', padding: 12, color: '#e6e7eb' };
   const valueBox: React.CSSProperties = { background: '#0f1416', border: '1px solid #1f2937', borderRadius: 10, padding: '8px 10px' };
   const pill: React.CSSProperties = { display: 'inline-block', border: '1px solid #2a5f47', background: '#193b2e', color: '#a7e3ba', borderRadius: 999, padding: '4px 10px', fontWeight: 800 };
 
+  const mapsUrl = SITE.mapsUrl;
+
+  // -------- Query parsing (keeps your API contract) --------
+  function parseQuery(input: string): { confirmation?: string; tag?: string; lastName?: string } {
+    const s = input.trim();
+    if (!s) return {};
+    // If looks like "123456" => confirmation
+    if (/^\d+$/.test(s)) return { confirmation: s };
+    // If looks like "54321 Janes" => tag + last
+    const m = s.match(/^(\d+)\s+([a-zA-Z'-]+)$/);
+    if (m) return { tag: m[1], lastName: m[2] };
+    // If looks like "Janes" => last name only (advanced API may still match)
+    if (/^[a-zA-Z'-]+$/.test(s)) return { lastName: s };
+    // Fallback: try as confirmation first
+    return { confirmation: s.replace(/\D/g, '') || undefined };
+  }
+
+  // -------- Lookup --------
+  const doLookup = useCallback(
+    async (payload: { confirmation?: string; tag?: string; lastName?: string }) => {
+      setLoading(true);
+      setErr(null);
+      try {
+        const r = await fetch('/api/public-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const j = (await r.json()) as LookupResult;
+        if (!j?.ok) {
+          setRes(null);
+          setErr(j?.error || (j?.notFound ? 'No match found.' : 'Not found.'));
+        } else {
+          setRes(j);
+          setLastUpdatedAt(Date.now());
+        }
+      } catch (e: any) {
+        setRes(null);
+        setErr(e?.message || 'Lookup failed.');
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const base = parseQuery(q);
+    const payload = showAdvanced
+      ? {
+          confirmation: confirmation || base.confirmation,
+          tag: tag || base.tag,
+          lastName: lastName || base.lastName,
+        }
+      : base;
+    if (!payload.confirmation && !payload.tag && !payload.lastName) {
+      setErr('Enter a Confirmation # or Tag + Last Name.');
+      return;
+    }
+    doLookup(payload);
+
+    // Start auto-refresh for 5 minutes
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollUntil.current = Date.now() + 5 * 60 * 1000;
+    pollRef.current = setInterval(() => {
+      if (!pollUntil.current || Date.now() > pollUntil.current) {
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        return;
+      }
+      doLookup(payload);
+    }, 10_000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  // -------- Optional barcode/QR scan (progressive enhancement) --------
+  async function handleScan() {
+    try {
+      // Only show if supported
+      // @ts-ignore
+      if (!('BarcodeDetector' in window)) return;
+      // @ts-ignore
+      const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'qr_code'] });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      await video.play();
+      // Simple single-frame attempt (keep it lightweight)
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const bitmap = await createImageBitmap(canvas);
+      const codes = await detector.detect(bitmap);
+      stream.getTracks().forEach((t) => t.stop());
+      if (codes?.[0]?.rawValue) {
+        const raw = String(codes[0].rawValue).trim();
+        // Prefer "TAG LASTNAME" parse if possible
+        setQ(/^\d+$/.test(raw) ? raw : raw.replace(/\s+/g, ' '));
+      }
+    } catch {
+      // Silent fail; the UI stays as-is
+    }
+  }
+
+  const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window && 'mediaDevices' in navigator;
+
+  // -------- UI --------
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
-      <p style={{ opacity: 0.8, marginBottom: 16 }}>
-        Use your <b>Confirmation #</b>, or <b>Tag + Last Name</b>.
+      <p style={{ opacity: 0.8, marginBottom: 12 }}>
+        Search by <b>Confirmation #</b> or <b>Tag + Last Name</b>.
       </p>
 
-      <form onSubmit={lookup} style={{ display: 'grid', gap: 12 }}>
-        <input
-          value={confirmation}
-          onChange={(e) => setConfirmation(e.target.value)}
-          placeholder="Confirmation #"
-          inputMode="numeric"
-          style={field}
-          aria-label="Confirmation number"
-        />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag" style={field} aria-label="Tag number" />
-          <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last Name" style={field} aria-label="Customer last name" />
+      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="e.g., 123456  •  or  54321 Janes"
+            inputMode="text"
+            enterKeyHint="search"
+            autoCapitalize="none"
+            autoCorrect="off"
+            style={{ ...field, flex: 1 }}
+            aria-label="Search by Confirmation # or Tag and Last Name"
+          />
+          {canScan ? (
+            <button type="button" onClick={handleScan} title="Scan code" style={{ ...btn, whiteSpace: 'nowrap' }}>
+              Scan
+            </button>
+          ) : null}
         </div>
+
+        <details style={{ marginTop: 2 }}>
+          <summary style={{ cursor: 'pointer' }} onClick={() => setShowAdvanced((v) => !v)}>
+            Advanced (enter fields separately)
+          </summary>
+          <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
+            <input
+              value={confirmation}
+              onChange={(e) => setConfirmation(e.target.value)}
+              placeholder="Confirmation #"
+              inputMode="numeric"
+              aria-label="Confirmation number"
+              style={field}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag" aria-label="Tag number" style={field} />
+              <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last Name" aria-label="Customer last name" style={field} />
+            </div>
+          </div>
+        </details>
+
         <button disabled={loading} style={btn} aria-busy={loading}>
           {loading ? 'Checking…' : 'Check status'}
         </button>
+
+        <div style={{ fontSize: 12, opacity: 0.8 }}>
+          Tip: Confirmation # is fastest. For Tag search, type it like <code>54321 Janes</code>.
+        </div>
       </form>
 
-      {err ? <div role="alert" style={errBox}>{err}</div> : null}
+      {err ? (
+        <div role="alert" aria-live="polite" style={errBox}>
+          {err}
+        </div>
+      ) : null}
 
       {res ? (
         <div style={card}>
-          {/* Identity */}
           <div style={{ display: 'grid', gap: 10 }}>
+            {/* Identity */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <Info label="Customer" value={res.customer || '—'} valueBox={valueBox} />
               <Info label="Confirmation" value={res.confirmation || '—'} valueBox={valueBox} />
@@ -204,12 +339,13 @@ export default function StatusPage() {
             phoneHref={phoneHref}
             phoneDisplay={SITE.phone}
             hours={SITE.hours as ReadonlyArray<{ label: string; value: string }>}
+            lastUpdatedAt={lastUpdatedAt}
           />
         </div>
       ) : null}
 
       <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
-        Tip: Don’t see your order? Try a different query (Confirmation # is best), or{' '}
+        Don’t see your order? Try a different query (Confirmation # is best), or{' '}
         <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
           check the FAQ
         </Link>
@@ -251,6 +387,7 @@ function PickupPanel({
   phoneHref,
   phoneDisplay,
   hours,
+  lastUpdatedAt,
 }: {
   ready: boolean;
   addressText: string;
@@ -258,6 +395,7 @@ function PickupPanel({
   phoneHref: string;
   phoneDisplay: string;
   hours: ReadonlyArray<{ label: string; value: string }>;
+  lastUpdatedAt: number | null;
 }) {
   return (
     <section
@@ -278,6 +416,10 @@ function PickupPanel({
           Ready for pickup
         </div>
       )}
+
+      {lastUpdatedAt ? (
+        <div style={{ fontSize: 12, opacity: 0.8 }}>Last updated: {new Date(lastUpdatedAt).toLocaleTimeString()}</div>
+      ) : null}
 
       <div>
         <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Pickup Location</div>
