@@ -990,36 +990,61 @@ function OvernightIntakePage() {
 
 
         
-        /* Packaging layout */
+        
+        /* Packaging layout (grid areas for robustness) */
         .pkgGrid {
+          display: grid;
+          gap: 16px;
+        }
+        /* Desktop and large tablets */
+        @media (min-width: 960px) {
+          .pkgGrid {
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-areas:
+              "steak steakOther steaksPer"
+              "burger beef beef";
+            align-items: end;
+          }
+        }
+        /* Phones / small tablets */
+        @media (max-width: 959.98px) {
+          .pkgGrid {
+            grid-template-columns: 1fr 1fr;
+            grid-template-areas:
+              "steak steakOther"
+              "steaksPer steaksPer"
+              "burger burger"
+              "beef beef";
+            align-items: end;
+          }
+        }
+
+        .pkgGrid .pkg { min-width: 0; }
+        .pkgGrid .steak      { grid-area: steak; }
+        .pkgGrid .steakOther { grid-area: steakOther; }
+        .pkgGrid .steaksPer  { grid-area: steaksPer; }
+        .pkgGrid .burgerSize { grid-area: burger; }
+        .pkgGrid .beefFat    { grid-area: beef; display: flex; align-items: center; }
+        .pkgGrid .beefFat .chk { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+
+        /* Make controls fluid */
+        .pkgGrid select, .pkgGrid input { width: 100%; min-width: 0; }
+
+        /* Specialty layout (unchanged from last patch) */
+        .specGrid {
           display: grid;
           grid-template-columns: repeat(12, 1fr);
           gap: 12px;
           align-items: end;
         }
-        .pkgGrid .pkg { min-width: 0; }
+        .specGrid .spec { min-width: 0; }
+        .specGrid .full { grid-column: 1 / -1; }
+        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
 
-        /* Desktop layout */
-        @media (min-width: 1024px) {
-          .pkgGrid .steak      { grid-column: span 4; }
-          .pkgGrid .steakOther { grid-column: span 4; }
-          .pkgGrid .steaksPer  { grid-column: span 4; }
-          .pkgGrid .burgerSize { grid-column: span 4; }
-          .pkgGrid .beefFat    { grid-column: span 8; display: flex; align-items: center; }
+        @media (max-width: 900px) {
+          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
         }
-
-        /* Tablet & down */
-        @media (max-width: 1023.98px) {
-          .pkgGrid { grid-template-columns: 1fr 1fr; }
-          .pkgGrid .steak, .pkgGrid .steakOther { grid-column: auto; }
-          .pkgGrid .steaksPer, .pkgGrid .burgerSize { grid-column: 1 / -1; }
-          .pkgGrid .beefFat { grid-column: 1 / -1; display: flex; align-items: center; }
-        }
-
-        /* Make sure controls have sensible width */
-        .pkgGrid select, .pkgGrid input { min-width: 180px; }
-
-        /* Specialty layout */
+    
         .specGrid {
           display: grid;
           grid-template-columns: repeat(12, 1fr);
