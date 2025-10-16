@@ -812,6 +812,57 @@ function OvernightIntakePage() {
           </div>
         </section>
 
+        {/* Notes */}
+        <section>
+          <h3>Notes</h3>
+          <p className="muted small">Anything else we should know.</p>
+          <textarea
+            rows={3}
+            value={job.notes || ''}
+            onChange={(e) => setVal('notes', e.target.value)}
+            disabled={locked}
+          />
+        </section>
+
+        {/* Webbs */}
+        <section>
+          <h3>Webbs (optional)</h3>
+          <p className="muted small">Only fill this out if you’re sending meat to Webbs.</p>
+          <div className="grid">
+            <div className="c3 rowInline">
+              <label className="chk tight">
+                <input
+                  type="checkbox"
+                  checked={!!job.webbsOrder}
+                  onChange={(e) => setVal('webbsOrder', e.target.checked)}
+                  disabled={locked}
+                />
+                <span><strong>Webbs Order</strong></span>
+                <span className="muted"> (+$20 fee)</span>
+              </label>
+            </div>
+            <div className="c4">
+              <label>Webbs Order Form Number</label>
+              <input
+                value={job.webbsFormNumber || ''}
+                onChange={(e) => setVal('webbsFormNumber', e.target.value)}
+                disabled={locked}
+                placeholder="From your Webbs sheet"
+              />
+            </div>
+            <div className="c3">
+              <label>Webbs Pounds (lb)</label>
+              <input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={job.webbsPounds || ''}
+                onChange={(e) => setVal('webbsPounds', e.target.value)}
+                disabled={locked}
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Communication & Consent */}
         <section>
           <h3>Communication Preference & Consent</h3>
@@ -871,57 +922,6 @@ function OvernightIntakePage() {
                   <span>I consent to receive automated phone calls</span>
                 </label>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Notes */}
-        <section>
-          <h3>Notes</h3>
-          <p className="muted small">Anything else we should know.</p>
-          <textarea
-            rows={3}
-            value={job.notes || ''}
-            onChange={(e) => setVal('notes', e.target.value)}
-            disabled={locked}
-          />
-        </section>
-
-        {/* Webbs */}
-        <section>
-          <h3>Webbs (optional)</h3>
-          <p className="muted small">Only fill this out if you’re sending meat to Webbs.</p>
-          <div className="grid">
-            <div className="c3 rowInline">
-              <label className="chk tight">
-                <input
-                  type="checkbox"
-                  checked={!!job.webbsOrder}
-                  onChange={(e) => setVal('webbsOrder', e.target.checked)}
-                  disabled={locked}
-                />
-                <span><strong>Webbs Order</strong></span>
-                <span className="muted"> (+$20 fee)</span>
-              </label>
-            </div>
-            <div className="c4">
-              <label>Webbs Order Form Number</label>
-              <input
-                value={job.webbsFormNumber || ''}
-                onChange={(e) => setVal('webbsFormNumber', e.target.value)}
-                disabled={locked}
-                placeholder="From your Webbs sheet"
-              />
-            </div>
-            <div className="c3">
-              <label>Webbs Pounds (lb)</label>
-              <input
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={job.webbsPounds || ''}
-                onChange={(e) => setVal('webbsPounds', e.target.value)}
-                disabled={locked}
-              />
             </div>
           </div>
         </section>
