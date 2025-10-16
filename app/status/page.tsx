@@ -51,7 +51,7 @@ export default function StatusPage() {
   const [loading, setLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
 
-  // Polling (replace interval with backoff timeouts)
+  // Polling (backoff timeouts)
   const pollUntilRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -111,39 +111,91 @@ export default function StatusPage() {
   const mapsUrl = SITE.mapsUrl;
 
   // -------- Query parsing (keeps your API contract) --------
-  function parseQuery(input: string): { confirmation?: string; tag?: string; lastName?: string } {
-    const s = input.trim();
-    if (!s) return {};
-    // If looks like "123456" => confirmation
-    if (/^\d+$/.test(s)) return { confirmation: s };
-    // If looks like "54321 Janes" => tag + last
-    const m = s.match(/^(\d+)\s+([a-zA-Z'-]+)$/);
-    if (m) return { tag: m[1], lastName: m[2] };
-    // If looks like "Janes" => last name only (advanced API may still match)
-    if (/^[a-zA-Z'-]+$/.test(s)) return { lastName: s };
-    // Fallback: try as confirmation first
-    return { confirmation: s.replace(/\D/g, '') || undefined };
+  function normalizeName(n?: string) {
+    return (n || '').trim().replace(/[^a-zA-Z'-]/g, '');
   }
 
-  // -------- Lookup --------
-  const doLookup = useCallback(
+  function parseQuery(input: string): { confirmation?: string; tag?: string; lastName?: string } {
+    let s = input.trim();
+    if (!s) return {};
+
+    // Allow comma/extra whitespace
+    s = s.replace(/[,]+/g, ' ').replace(/\s+/g, ' ');
+
+    // "123456" => confirmation (pure digits and length >= 4)
+    if (/^\d{4,}$/.test(s)) return { confirmation: s };
+
+    // "54321 Janes" => tag + last
+    let m = s.match(/^(\d{2,})\s+([a-zA-Z'-]{2,})$/);
+    if (m) return { tag: m[1], lastName: normalizeName(m[2]) };
+
+    // "Janes 54321" => last + tag
+    m = s.match(/^([a-zA-Z'-]{2,})\s+(\d{2,})$/);
+    if (m) return { tag: m[2], lastName: normalizeName(m[1]) };
+
+    // "Janes" => last only
+    if (/^[a-zA-Z'-]{2,}$/.test(s)) return { lastName: normalizeName(s) };
+
+    // Fallback: strip non-digits as confirmation
+    const digits = s.replace(/\D/g, '');
+    if (digits.length >= 4) return { confirmation: digits };
+    return {};
+  }
+
+  // -------- Lookup helpers --------
+  async function postStatus(payload: { confirmation?: string; tag?: string; lastName?: string }) {
+    const r = await fetch('/api/public-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = (await r.json()) as LookupResult;
+    return j;
+  }
+
+  const doLookupChain = useCallback(
     async (payload: { confirmation?: string; tag?: string; lastName?: string }) => {
       setLoading(true);
       setErr(null);
       try {
-        const r = await fetch('/api/public-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        const j = (await r.json()) as LookupResult;
-        if (!j?.ok) {
-          setRes(null);
-          setErr(j?.error || (j?.notFound ? 'No match found.' : 'Not found.'));
+        const attempts: Array<{ confirmation?: string; tag?: string; lastName?: string }> = [];
+
+        if (payload.confirmation) {
+          attempts.push({ confirmation: payload.confirmation });
+        } else if (payload.tag && payload.lastName) {
+          attempts.push({ tag: payload.tag, lastName: payload.lastName });
+          attempts.push({ tag: payload.tag });
+          attempts.push({ lastName: payload.lastName });
+        } else if (payload.tag) {
+          attempts.push({ tag: payload.tag });
+        } else if (payload.lastName) {
+          attempts.push({ lastName: payload.lastName });
         } else {
-          setRes(j);
-          setLastUpdatedAt(Date.now());
+          setRes(null);
+          setErr('Enter a Confirmation # or Tag + Last Name.');
+          setLoading(false);
+          return;
         }
+
+        let lastErr: string | null = null;
+        for (const p of attempts) {
+          const resp = await postStatus(p);
+          if (resp?.ok) {
+            setRes(resp);
+            setLastUpdatedAt(Date.now());
+            setLoading(false);
+            return;
+          }
+          if (resp?.error && !resp?.notFound) {
+            // real error, bail
+            lastErr = resp.error;
+            break;
+          }
+          // else try next attempt
+        }
+
+        setRes(null);
+        setErr(lastErr || 'No match found.');
       } catch (e: any) {
         setRes(null);
         setErr(e?.message || 'Lookup failed.');
@@ -152,6 +204,14 @@ export default function StatusPage() {
       }
     },
     []
+  );
+
+  // Keep original doLookup signature for reuse
+  const doLookup = useCallback(
+    async (payload: { confirmation?: string; tag?: string; lastName?: string }) => {
+      return doLookupChain(payload);
+    },
+    [doLookupChain]
   );
 
   function clearPolling() {
@@ -261,7 +321,7 @@ export default function StatusPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g., 123456  •  or  54321 Janes"
+            placeholder="e.g., 123456  •  54321 Janes  •  Janes 54321"
             inputMode="text"
             enterKeyHint="search"
             autoCapitalize="none"
@@ -301,7 +361,7 @@ export default function StatusPage() {
         </button>
 
         <div style={{ fontSize: 12, opacity: 0.8 }}>
-          Tip: Confirmation # is fastest. For Tag search, type it like <code>54321 Janes</code>.
+          Tip: Confirmation # is fastest. For Tag search, you can type <code>54321 Janes</code> or <code>Janes 54321</code>.
         </div>
       </form>
 
