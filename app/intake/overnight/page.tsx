@@ -480,7 +480,7 @@ function OvernightIntakePage() {
                 disabled={locked}
               />
             </div>
-            <div className="c3">
+            <div className="c4">
               <label>Drop-off Date</label>
               <input
                 type="date"
@@ -489,7 +489,7 @@ function OvernightIntakePage() {
                 disabled={locked}
               />
             </div>
-            <div className="c2">
+            <div className="c4">
               <label>Deer Sex</label>
               <select
                 value={job.sex || ''}
@@ -791,6 +791,53 @@ function OvernightIntakePage() {
           </div>
         </section>
 
+        {/* Notes */}
+        <section>
+          <h3>Notes</h3>
+          <textarea
+            rows={3}
+            value={job.notes || ''}
+            onChange={(e) => setVal('notes', e.target.value)}
+            disabled={locked}
+          />
+        </section>
+
+        {/* Webbs */}
+        <section>
+          <h3>Webbs</h3>
+          <div className="grid">
+            <div className="c3 rowInline">
+              <label className="chk tight pkg-beef">
+                <input
+                  type="checkbox"
+                  checked={!!job.webbsOrder}
+                  onChange={(e) => setVal('webbsOrder', e.target.checked)}
+                  disabled={locked}
+                />
+                <span><strong>Webbs Order</strong></span>
+                <span className="muted"> (+$20 fee)</span>
+              </label>
+            </div>
+            <div className="c4">
+              <label>Webbs Order Form Number</label>
+              <input
+                value={job.webbsFormNumber || ''}
+                onChange={(e) => setVal('webbsFormNumber', e.target.value)}
+                disabled={locked}
+              />
+            </div>
+            <div className="c3">
+              <label>Webbs Pounds (lb)</label>
+              <input
+                inputMode="numeric"
+                value={job.webbsPounds || ''}
+                onChange={(e) => setVal('webbsPounds', e.target.value)}
+                disabled={locked}
+              />
+            </div>
+          </div>
+        </section>
+
         {/* Communication & Consent */}
         <section>
           <h3>Communication Preference & Consent</h3>
@@ -853,54 +900,9 @@ function OvernightIntakePage() {
           </div>
         </section>
 
-        {/* Notes */}
-        <section>
-          <h3>Notes</h3>
-          <textarea
-            rows={3}
-            value={job.notes || ''}
-            onChange={(e) => setVal('notes', e.target.value)}
-            disabled={locked}
-          />
-        </section>
+        
 
-        {/* Webbs */}
-        <section>
-          <h3>Webbs</h3>
-          <div className="grid">
-            <div className="c3 rowInline">
-              <label className="chk tight pkg-beef">
-                <input
-                  type="checkbox"
-                  checked={!!job.webbsOrder}
-                  onChange={(e) => setVal('webbsOrder', e.target.checked)}
-                  disabled={locked}
-                />
-                <span><strong>Webbs Order</strong></span>
-                <span className="muted"> (+$20 fee)</span>
-              </label>
-            </div>
-            <div className="c4">
-              <label>Webbs Order Form Number</label>
-              <input
-                value={job.webbsFormNumber || ''}
-                onChange={(e) => setVal('webbsFormNumber', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-            <div className="c3">
-              <label>Webbs Pounds (lb)</label>
-              <input
-                inputMode="numeric"
-                value={job.webbsPounds || ''}
-                onChange={(e) => setVal('webbsPounds', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Actions */}
+{/* Actions */}
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
           {/* Overnight = no print button */}
