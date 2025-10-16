@@ -688,7 +688,7 @@ function OvernightIntakePage() {
             </div>
 
             <div className="pkg beefFat">
-              <label className="chk tight">
+              <label className="chk tight pkg-beef">
                 <input
                   type="checkbox"
                   checked={!!job.beefFat}
@@ -753,7 +753,7 @@ function OvernightIntakePage() {
           <h3>McAfee Specialty Products</h3>
           <div className="grid">
             <div className="c3 rowInline">
-              <label className="chk tight">
+              <label className="chk tight pkg-beef">
                 <input
                   type="checkbox"
                   checked={!!job.specialtyProducts}
@@ -871,7 +871,7 @@ function OvernightIntakePage() {
           <h3>Webbs</h3>
           <div className="grid">
             <div className="c3 rowInline">
-              <label className="chk tight">
+              <label className="chk tight pkg-beef">
                 <input
                   type="checkbox"
                   checked={!!job.webbsOrder}
@@ -1029,6 +1029,12 @@ function OvernightIntakePage() {
 
         /* Make controls fluid */
         .pkgGrid select, .pkgGrid input { width: 100%; min-width: 0; }
+
+        
+        /* Scoped label fix so Beef fat text never stacks vertically */
+        .pkgGrid .pkg-beef { white-space: nowrap; }
+        .pkgGrid .pkg-beef span { white-space: nowrap; }
+        .pkgGrid .beefFat { justify-content: flex-start; }
 
         /* Specialty layout (unchanged from last patch) */
         .specGrid {

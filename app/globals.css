@@ -1285,3 +1285,8 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 }
 
 
+
+/* Scoped fix: packaging labels */
+.form-card .pkgGrid label { display: block; white-space: normal; }
+.form-card .pkgGrid .pkg-beef { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.form-card .pkgGrid .pkg-beef > input[type="checkbox"] { flex: 0 0 auto; width: 18px; height: 18px; margin: 0; }
