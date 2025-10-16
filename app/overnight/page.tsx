@@ -19,8 +19,18 @@ export default function OvernightInstructionsPage() {
   // Agreement + gating
   const [agree, setAgree] = useState(false);
   const [canAgree, setCanAgree] = useState(false); // becomes true only after user reaches the bottom
-  const [showSticky, setShowSticky] = useState(false); // shows near-bottom sticky footer
+  const [showSticky, setShowSticky] = useState(false); // shows near-bottom sticky footer (mobile only)
+  const [isMobile, setIsMobile] = useState(false);
   const scrolledRef = useRef(false);
+
+  // Detect mobile via matchMedia
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767.98px)');
+    const set = () => setIsMobile(mq.matches);
+    set();
+    mq.addEventListener?.('change', set);
+    return () => mq.removeEventListener?.('change', set);
+  }, []);
 
   // Restore "agree" from localStorage, but DO NOT skip the scroll gate
   useEffect(() => {
@@ -42,7 +52,7 @@ export default function OvernightInstructionsPage() {
       const doc = document.documentElement;
       const atBottom = window.innerHeight + window.scrollY >= doc.scrollHeight - 24; // within 24px of bottom
       const nearBottom = window.innerHeight + window.scrollY >= doc.scrollHeight * 0.8; // 80% for sticky reveal
-      if (nearBottom) setShowSticky(true);
+      if (isMobile && nearBottom) setShowSticky(true);
       if (atBottom && !scrolledRef.current) {
         scrolledRef.current = true;
         setCanAgree(true);
@@ -52,7 +62,7 @@ export default function OvernightInstructionsPage() {
     // run once in case content is short on desktop
     onScroll();
     return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  }, [isMobile]);
 
   // Prevent accidental "Enter" triggering navigation
   useEffect(() => {
@@ -99,7 +109,7 @@ export default function OvernightInstructionsPage() {
           We <b>cannot process your deer</b> without a valid{' '}
           <a href={GO_OUTDOORS_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#facc15', textDecoration: 'underline' }}>
             GoOutdoorsIN confirmation #
-          </a> from your check‑in.
+          </a> from your check-in.
         </div>
       </div>
     ),
@@ -152,7 +162,7 @@ export default function OvernightInstructionsPage() {
         >
           <h2 style={{ margin: '0 0 10px', fontSize: 18, fontWeight: 900, color: '#f3f4f6' }}>What you’ll need</h2>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            <li>Your <b>GoOutdoorsIN confirmation #</b> from check‑in</li>
+            <li>Your <b>GoOutdoorsIN confirmation #</b> from check-in</li>
             <li>Your phone and contact info</li>
             <li>A <b>Deer Tag</b>, and optionally a <b>Webbs form</b> (for specialty products)</li>
           </ul>
@@ -190,7 +200,7 @@ export default function OvernightInstructionsPage() {
               <a href={GO_OUTDOORS_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#93c5fd' }}>
                 GoOutdoorsIN confirmation number
               </a>{' '}
-              from your check‑in.
+              from your check-in.
               {WarningCallout}
             </li>
 
@@ -213,7 +223,7 @@ export default function OvernightInstructionsPage() {
             </li>
 
             <li style={stepBox}>
-              <b>5) Save the intake form.</b> After you tap <b>Save</b>, we’ll record your drop‑off.
+              <b>5) Save the intake form.</b> After you tap <b>Save</b>, we’ll record your drop-off.
             </li>
 
             <li style={stepBox}>
@@ -230,65 +240,67 @@ export default function OvernightInstructionsPage() {
             </li>
           </ol>
 
-          {/* Agreement + Start button */}
-          <div
-            style={{
-              marginTop: 16,
-              paddingTop: 12,
-              borderTop: '1px dashed #334155',
-              display: 'grid',
-              gap: 12,
-            }}
-          >
-            <label style={{ display: 'flex', alignItems: 'start', gap: 10, lineHeight: 1.5, fontSize: 16 }}>
-              <input
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-                disabled={!canAgree}
-                style={{ marginTop: 4, width: 22, height: 22 }}
-                aria-describedby="agree-help"
-              />
-              <span id="agree-help">
-                I agree to follow these overnight drop rules and understand a valid{' '}
-                <b>GoOutdoorsIN confirmation number</b> is required.
-                {!canAgree ? (
-                  <em style={{ display: 'block', color: '#9ca3af', fontSize: 12 }}>
-                    Scroll to the bottom to enable the checkbox.
-                  </em>
-                ) : null}
-              </span>
-            </label>
-
-            <button
-              id="overnight-start"
-              disabled={!startEnabled}
-              onClick={handleStart}
+          {/* Agreement + Start button (DESKTOP/TABLET ONLY) */}
+          {!isMobile && (
+            <div
               style={{
-                display: 'inline-block',
-                padding: '14px 16px',
-                borderRadius: 12,
-                fontWeight: 900,
-                fontSize: 16,
-                border: '1px solid ' + (startEnabled ? '#064e3b' : '#374151'),
-                background: startEnabled ? '#10b981' : '#111827',
-                color: startEnabled ? '#06291f' : '#9ca3af',
-                cursor: startEnabled ? 'pointer' : 'not-allowed',
-                minWidth: 220,
+                marginTop: 16,
+                paddingTop: 12,
+                borderTop: '1px dashed #334155',
+                display: 'grid',
+                gap: 12,
               }}
-              aria-disabled={!startEnabled}
-              aria-controls="overnight-start"
             >
-              Start Overnight Intake
-            </button>
-          </div>
+              <label style={{ display: 'flex', alignItems: 'start', gap: 10, lineHeight: 1.5, fontSize: 16 }}>
+                <input
+                  type="checkbox"
+                  checked={agree}
+                  onChange={(e) => setAgree(e.target.checked)}
+                  disabled={!canAgree}
+                  style={{ marginTop: 4, width: 22, height: 22 }}
+                  aria-describedby="agree-help"
+                />
+                <span id="agree-help">
+                  I agree to follow these overnight drop rules and understand a valid{' '}
+                  <b>GoOutdoorsIN confirmation number</b> is required.
+                  {!canAgree ? (
+                    <em style={{ display: 'block', color: '#9ca3af', fontSize: 12 }}>
+                      Scroll to the bottom to enable the checkbox.
+                    </em>
+                  ) : null}
+                </span>
+              </label>
+
+              <button
+                id="overnight-start"
+                disabled={!startEnabled}
+                onClick={handleStart}
+                style={{
+                  display: 'inline-block',
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  fontWeight: 900,
+                  fontSize: 16,
+                  border: '1px solid ' + (startEnabled ? '#064e3b' : '#374151'),
+                  background: startEnabled ? '#10b981' : '#111827',
+                  color: startEnabled ? '#06291f' : '#9ca3af',
+                  cursor: startEnabled ? 'pointer' : 'not-allowed',
+                  minWidth: 220,
+                }}
+                aria-disabled={!startEnabled}
+                aria-controls="overnight-start"
+              >
+                Start Overnight Intake
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Small contact card */}
         <section
           style={{
             marginTop: 16,
-            border: '1px solid #1f2937',
+            border: '1px solid '#1f2937',
             borderRadius: 14,
             padding: 14,
             background: '#0b0f12',
@@ -342,55 +354,55 @@ export default function OvernightInstructionsPage() {
         </section>
       </div>
 
-      {/* Sticky footer: appears near-bottom on mobile to cut scroll back */}
-      <div
-        style={{
-          position: 'fixed',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          transform: showSticky ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform .25s ease',
-          background: '#0b0f12',
-          borderTop: '1px solid #1f2937',
-          padding: '10px 14px',
-          display: 'grid',
-          gridTemplateColumns: '1fr auto',
-          gap: 12,
-          alignItems: 'center',
-        }}
-        aria-hidden={!showSticky}
-      >
-        <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <input
-            type="checkbox"
-            checked={agree}
-            onChange={(e) => setAgree(e.target.checked)}
-            disabled={!canAgree}
-            style={{ width: 20, height: 20 }}
-            aria-label="I agree to the overnight drop rules"
-          />
-          <span style={{ fontSize: 14 }}>
-            I agree to the overnight rules
-          </span>
-        </label>
-        <button
-          onClick={handleStart}
-          disabled={!startEnabled}
+      {/* Sticky footer: MOBILE ONLY */}
+      {isMobile && (
+        <div
           style={{
-            padding: '12px 14px',
-            borderRadius: 12,
-            fontWeight: 900,
-            border: '1px solid ' + (startEnabled ? '#064e3b' : '#374151'),
-            background: startEnabled ? '#10b981' : '#111827',
-            color: startEnabled ? '#06291f' : '#9ca3af',
-            cursor: startEnabled ? 'pointer' : 'not-allowed',
-            minWidth: 160,
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: showSticky ? 'translateY(0)' : 'translateY(100%)',
+            transition: 'transform .25s ease',
+            background: '#0b0f12',
+            borderTop: '1px solid #1f2937',
+            padding: '10px 14px',
+            display: 'grid',
+            gridTemplateColumns: '1fr auto',
+            gap: 12,
+            alignItems: 'center',
           }}
+          aria-hidden={!showSticky}
         >
-          Start Intake
-        </button>
-      </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+              disabled={!canAgree}
+              style={{ width: 20, height: 20 }}
+              aria-label="I agree to the overnight drop rules"
+            />
+            <span style={{ fontSize: 14 }}>I agree to the overnight rules</span>
+          </label>
+          <button
+            onClick={handleStart}
+            disabled={!startEnabled}
+            style={{
+              padding: '12px 14px',
+              borderRadius: 12,
+              fontWeight: 900,
+              border: '1px solid ' + (startEnabled ? '#064e3b' : '#374151'),
+              background: startEnabled ? '#10b981' : '#111827',
+              color: startEnabled ? '#06291f' : '#9ca3af',
+              cursor: startEnabled ? 'pointer' : 'not-allowed',
+              minWidth: 160,
+            }}
+          >
+            Start Intake
+          </button>
+        </div>
+      )}
     </main>
   );
 }
