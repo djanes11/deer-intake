@@ -406,7 +406,7 @@ function OvernightIntakePage() {
                 disabled={locked}
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder="9 digits from GoOutdoorsIN"
+                placeholder= "From GoOutdoorsIN"
               />
             </div>
             <div className="c6">
@@ -504,7 +504,7 @@ function OvernightIntakePage() {
               />
             </div>
             <div className="c2">
-              <label>Deer Sex <span className="muted">(buck = male, doe = female)</span></label>
+              <label>Deer Sex</label>
               <select
                 value={job.sex || ''}
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
@@ -516,7 +516,7 @@ function OvernightIntakePage() {
               </select>
             </div>
             <div className="c3">
-              <label>Process Type <span className="muted">(choose “Caped” if you kept the hide)</span></label>
+              <label>Process Type</label>
               <select
                 value={job.processType || ''}
                 onChange={(e) =>
@@ -720,7 +720,7 @@ function OvernightIntakePage() {
         {/* Backstrap */}
         <section>
           <h3>Backstrap</h3>
-          <p className="muted small">Optional: how you’d like your backstrap prepared.</p>
+          <p className="muted small">How you’d like your backstrap prepared.</p>
           <div className="grid">
             <div className="c4">
               <label>Prep</label>
