@@ -655,19 +655,31 @@ function OvernightIntakePage() {
           <h3>Packaging & Add-ons</h3>
           <p className="muted small">Choose steak cut, burger pack size, and if you want beef fat added.</p>
           <div className="grid">
-            <div className="c3">
-              <label>Steak Size</label>
-              <select
-                value={job.steak || ''}
-                onChange={(e) => setVal('steak', e.target.value)}
-                disabled={locked}
-              >
-                <option value="">—</option>
-                <option>1/2"</option>
-                <option>3/4"</option>
-                <option>Other</option>
-              </select>
+            <div className="steakRow">
+              <div className="c6 steak">
+                <label>Steak Size</label>
+                <select
+                  value={job.steak || ''}
+                  onChange={(e) => setVal('steak', e.target.value)}
+                  disabled={locked}
+                >
+                  <option value="">—</option>
+                  <option>1/2"</option>
+                  <option>3/4"</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div className="c6 steakOther">
+                <label>Steak Size (Other)</label>
+                <input
+                  value={job.steak === 'Other' ? (job.steakOther || '') : ''}
+                  onChange={(e) => setVal('steakOther', e.target.value)}
+                  disabled={job.steak !== 'Other' || locked}
+                  placeholder='e.g., 5/8"'
+                />
+              </div>
             </div>
+
             <div className="c3">
               <label>Steaks per Package</label>
               <select
@@ -704,16 +716,6 @@ function OvernightIntakePage() {
                 <span>Beef fat</span>
                 <span className="muted"> (+$5)</span>
               </label>
-            </div>
-
-            <div className="c3">
-              <label>Steak Size (Other)</label>
-              <input
-                value={job.steak === 'Other' ? (job.steakOther || '') : ''}
-                onChange={(e) => setVal('steakOther', e.target.value)}
-                disabled={job.steak !== 'Other' || locked}
-                placeholder='e.g., 5/8"'
-              />
             </div>
           </div>
         </section>
@@ -1019,7 +1021,18 @@ function OvernightIntakePage() {
           .summary .checks { gap: 8px; }
         }
 
-        /* Modal */
+
+        /* Keep Steak Size + Other together even on mobile */
+        .steakRow { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; width: 100%; }
+        .steakRow .steak { grid-column: span 6; }
+        .steakRow .steakOther { grid-column: span 6; }
+
+        @media (max-width: 720px) {
+          .steakRow { grid-template-columns: 1fr 1fr; gap: 10px; }
+          .steakRow .steak, .steakRow .steakOther { grid-column: auto; }
+        }
+
+                /* Modal */
         .modal {
           position: fixed; inset: 0; background: rgba(11, 15, 18, 0.6);
           display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 9999;
