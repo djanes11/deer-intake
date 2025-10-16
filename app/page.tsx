@@ -11,7 +11,7 @@ export default function Home() {
 
 /* ──────────────────────────────────────────────────────────────────────────
    PUBLIC LANDING (shown when PUBLIC_MODE=1)
-   Header/Nav is handled in layout; this is page content only.
+   — Header/Nav removed here to avoid duplicate with layout header
    ────────────────────────────────────────────────────────────────────────── */
 function PublicLanding() {
   const colors = {
@@ -109,8 +109,8 @@ function PublicLanding() {
           We’ll notify you when it’s ready.
         </p>
         <div style={ctas}>
-          <Link href="/overnight" style={cta(true)} aria-label="Start 24/7 Overnight Drop intake" title="Start 24/7 Overnight Drop intake">Start Overnight Drop</Link>
-          <Link href="/status" style={cta(false)} aria-label="Check your order status" title="Check your order status">Check Your Status</Link>
+          <Link href="/overnight" style={cta(true)}>Start Overnight Drop</Link>
+          <Link href="/status" style={cta(false)}>Check Your Status</Link>
         </div>
       </section>
 
@@ -125,9 +125,7 @@ function PublicLanding() {
             <li>Pick up quickly when notified. Cold, clean, organized.</li>
           </ol>
           <div style={{ height: 12 }} />
-          <Link href="/faq-public" style={{ display: 'inline-block', padding: '8px 12px', borderRadius: 10, border: `1px solid ${colors.panelBorder}`, background: colors.tileBg, fontWeight: 900, textDecoration: 'none', color: colors.text }}>
-            Read the FAQ
-          </Link>
+          <Link href="/faq-public" style={cta(false)}>Read the FAQ</Link>
         </div>
 
         <aside style={panel} aria-label="Hours & Location">
@@ -139,7 +137,6 @@ function PublicLanding() {
             <div style={row}><div style={dot('rgba(167,115,18,.9)')} /><div>After Hours: Overnight Drop Available</div></div>
           </div>
           <div style={{ height: 10 }} />
-          <div style={{ fontSize: 12, opacity: 0.8 }}>State &amp; local regulations followed.</div>
         </aside>
       </section>
 
@@ -150,6 +147,7 @@ function PublicLanding() {
           <Link href="/faq-public">FAQ</Link>
           <Link href="/hours">Hours &amp; Location</Link>
           <Link href="/contact">Contact</Link>
+          <span style={{ opacity: 0.6 }}>State &amp; local regulations followed.</span>
         </div>
       </footer>
     </main>
@@ -157,7 +155,7 @@ function PublicLanding() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   STAFF HOME (untouched logic; presentational only)
+   STAFF HOME (unchanged)
    ────────────────────────────────────────────────────────────────────────── */
 function StaffHome() {
   const shell: React.CSSProperties = {
@@ -285,22 +283,55 @@ function StaffHome() {
         </Link>
       </div>
 
-      {/* Reports & Help — unchanged links */}
+      {/* Reports & Help */}
       <div style={trio}>
+        {/* Reports (static links; no data calls) */}
         <div style={{ ...card, gridColumn: 'span 2' }}>
-          <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>Reports</div>
+          <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>
+            Reports
+          </div>
+
           <div style={list}>
-            <div style={row}><div style={dot('#6ee7b7')} />Processing Queue</div>
-            <div style={row}><div style={dot('#60a5fa')} />Pickup Today</div>
-            <div style={row}><div style={dot('#fbbf24')} />Aging</div>
+            <Link href="/reports/calls" style={linkStyle}>
+              <div style={row}>
+                <div style={dot('rgba(51,117,71,.9)')} />
+                <div style={{ fontWeight: 800 }}>Call Report — Ready to Call</div>
+              </div>
+            </Link>
+
+            <Link href="/overnight/review" style={linkStyle}>
+              <div style={row}>
+                <div style={dot('rgba(167,115,18,.9)')} />
+                <div style={{ fontWeight: 800 }}>Overnight — Missing Tag</div>
+              </div>
+            </Link>
+
+            <Link href="/reports/called" style={linkStyle}>
+              <div style={row}>
+                <div style={dot('rgba(115,75,170,.95)')} />
+                <div style={{ fontWeight: 800 }}>Called — Pickup Queue</div>
+              </div>
+            </Link>
           </div>
         </div>
 
+        {/* Help */}
         <div style={card}>
-          <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>Help</div>
-          <div style={list}>
-            <div style={row}><div style={dot('#cbd5e1')} />FAQ</div>
-            <div style={row}><div style={dot('#cbd5e1')} />Contact</div>
+          <div style={mini}>Help</div>
+          <Link href="/tips" style={linkStyle}>
+            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
+              Tip Sheet
+            </div>
+          </Link>
+          <div style={{ opacity: 0.8, marginTop: 4 }}>Short reminders for staff</div>
+          <div style={{ height: 10 }} />
+          <Link href="/faq" style={linkStyle}>
+            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
+              FAQ
+            </div>
+          </Link>
+          <div style={{ opacity: 0.8, marginTop: 4 }}>
+            Customer questions &amp; answers
           </div>
         </div>
       </div>
