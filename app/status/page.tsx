@@ -104,7 +104,7 @@ export default function StatusPage() {
   const field: React.CSSProperties = { background: '#0f1416', color: '#e6e7eb', border: '1px solid #1f2937', borderRadius: 10, padding: '12px 14px' };
   const btn: React.CSSProperties = { background: '#2f6f3f', color: '#fff', border: '1px solid transparent', borderRadius: 10, padding: '12px 16px', fontWeight: 800, cursor: 'pointer' };
   const errBox: React.CSSProperties = { marginTop: 12, border: '1px solid #7f1d1d', background: 'rgba(127,29,29,.15)', color: '#fecaca', borderRadius: 10, padding: 10 };
-  const card: React.CSSProperties = { marginTop: 14, border: '1px solid '#1f2937', borderRadius: 12, background: '#0b0f12', padding: 12, color: '#e6e7eb' };
+  const card: React.CSSProperties = { marginTop: 14, border: '1px solid #1f2937', borderRadius: 12, background: '#0b0f12', padding: 12, color: '#e6e7eb' };
   const valueBox: React.CSSProperties = { background: '#0f1416', border: '1px solid #1f2937', borderRadius: 10, padding: '8px 10px' };
   const pill: React.CSSProperties = { display: 'inline-block', border: '1px solid #2a5f47', background: '#193b2e', color: '#a7e3ba', borderRadius: 999, padding: '4px 10px', fontWeight: 800 };
 
