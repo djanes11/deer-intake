@@ -259,171 +259,48 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--ring);
 }
 
-/* --- Checkbox sizing: compact, touch-friendly --- */
+/* --- Checkbox sizing + layout helpers (mobile-safe) --- */
 input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  min-height: 0;              /* override generic input min-height */
+  width: 18px;
+  height: 18px;
+  min-height: 0;
   margin: 0 6px 0 0;
   vertical-align: -2px;
-  accent-color: #2f6f3f;      /* hunter green */
-}
-@media (max-width: 640px) {
-  input[type="checkbox"] { width: 18px; height: 18px; }
-  .checkbox-row, .form-row { gap: 8px; }
-  label.checkbox, .checkbox label { font-size: 15px; }
-}
-/* If any checkbox lives inside a "pill" style, neutralize the pill chrome */
-.checkbox-pill, .pill.checkbox, label.pill input[type="checkbox"] {
-  padding: 0; border: none; background: transparent;
+  accent-color: #2f6f3f;
 }
 
-/* Home “cards” grid helper */
-.home-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-.home-grid .card h4 { margin: 0; }
-.home-grid .card p { margin: 6px 0 0; color: var(--text-dim); }
-
-/* Print stays clean and light */
-@media print {
-  body { background: #fff !important; color: #000 !important; }
-  body::before, .site-header { display: none !important; }
-  a { color: #000 !important; text-decoration: none; }
-}
-
-/* ===== Light form card on dark site ===== */
-.form-card{
-  background: #ffffff;                 /* white container */
-  color: #0b0f12;                      /* black text inside */
-  border: 1px solid #e6e9ec;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.25);
-  padding: 14px;
-}
-
-/* Make all the usual form elements readable in the light card */
-.form-card h1,.form-card h2,.form-card h3,
-.form-card p,.form-card span,.form-card div,
-.form-card th,.form-card td { color: #0b0f12; }
-
-.form-card .muted { color: #374151; }  /* darker grey for helper text */
-
-/* Inputs/selects/textarea go back to light theme when inside the form card */
-.form-card input,
-.form-card select,
-.form-card textarea{
-  background: #ffffff;
-  color: #0b0f12;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-}
-
-.form-card input::placeholder,
-.form-card textarea::placeholder{ color: #64748b; }
-
-.form-card input:focus,
-.form-card select:focus,
-.form-card textarea:focus{
-  outline: none;
-  border-color: #94a3b8;
-  box-shadow: 0 0 0 3px rgba(47,111,63,.25);  /* hunter green focus ring */
-}
-
-/* The intake “summary” bar looks nicer slightly off-white in the card */
-.form-card .summary{
-  background: #f8fafc;
-  border-color: #e6e9ec;
-}
-
-/* Buttons read well against the light card */
-.form-card .btn { background: var(--brand); color:#fff; }
-.form-card .btn:hover { background: var(--brand-strong); }
-
-/* ===== Force black-on-white for report & simple pages ===== */
+/* Read-only Intake “light” skin blocks on dark site */
 .light-page { color: #0b0f12; }
 .light-page * { color: #0b0f12 !important; }
 .light-page .muted { color: #374151 !important; }
-
-.light-page table th,
-.light-page table td { color: #0b0f12 !important; }
-
-.light-page input,
-.light-page select,
-.light-page textarea{
-  background:#fff;
-  color:#0b0f12;
-  border:1px solid #cbd5e1;
+.light-page table th, .light-page table td { color: #0b0f12 !important; }
+.light-page input, .light-page select, .light-page textarea{
+  background:#fff; color:#0b0f12; border:1px solid #cbd5e1;
 }
-
 .light-page a { color: var(--brand-strong) !important; }
 .light-page a:hover { color: var(--brand) !important; }
 
-/* ===== Scan page: dark page, white headings,
-         BUT light status bar with BLACK text ===== */
-.scan-page,
-.scan-page .scan-title,
-.scan-page .scan-subtitle {
-  color: #ffffff !important;
-}
+/* Status “chip” readability on tiny screens */
+.chip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
-/* Light bar pieces should be black text */
-.scan-page .status,
-.scan-page .notice,
-.scan-page .bar {
-  background: #e5e7eb !important;   /* light gray */
-  color: #0b0f12 !important;         /* black text */
-  border-radius: 10px;
-}
-
-/* If the bar contains spans/strong/etc, enforce black */
-.scan-page .status *, 
-.scan-page .notice *, 
-.scan-page .bar * {
-  color: #0b0f12 !important;
-}
-
-/* Inputs (if any) on scan page */
-.scan-page input,
-.scan-page select,
-.scan-page textarea {
-  background: #0f172a !important;
-  color: #ffffff !important;
-  border: 1px solid #334155 !important;
-}
-.scan-page input::placeholder,
-.scan-page textarea::placeholder { color:#cbd5e1 !important; }
-
-/* Buttons/links */
-.scan-page .btn { color:#ffffff !important; }
-.scan-page a { color:#ffffff !important; text-decoration: underline; }
-
-/* =========================
-   WATERMARK (logo on every page)
-   ========================= */
+/* ===== Watermark (logo behind content) ===== */
 .watermark { position: relative; }
-/* Fixed, subtle logo behind content */
 .watermark::after {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 0;                 /* behind everything (header already has higher z) */
+  z-index: 0;
   background:
     radial-gradient(transparent, rgba(0,0,0,.45) 70%) center/100% 100% no-repeat,
-    url('/mcafee-logo.png') center 60% / 420px auto no-repeat; /* tweak size/position as you like */
-  opacity: 0.8;              /* overall strength of the watermark */
-  mix-blend-mode: soft-light; /* keeps it tasteful on dark */
+    url('/mcafee-logo.png') center 60% / 420px auto no-repeat;
+  opacity: 0.8;
+  mix-blend-mode: soft-light;
   filter: grayscale(100%);
 }
-/* Ensure main content sits above watermark */
 main { position: relative; z-index: 1; }
 
-/* =========================
-   HOME (hero + tiles)
-   ========================= */
+/* ===== Home hero + tiles ===== */
 .card-ghost { background: transparent; border: none; box-shadow: none; padding: 0; margin-bottom: 10px; }
 .hero { margin-top: 8px; margin-bottom: 8px; }
 .hero-kicker { color: var(--brand-2); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 12px; margin-bottom: 6px; }
@@ -461,279 +338,36 @@ main { position: relative; z-index: 1; }
 .tile-title { font-weight: 900; color: #fff; font-size: 18px; }
 .tile-sub { color: var(--text-dim); font-size: 14px; }
 
-/* Accent variant */
-.tile-alt {
-  background: linear-gradient(0deg, rgba(47,111,63,.12), rgba(47,111,63,.12)), var(--bg-elev);
-  border-color: rgba(47,111,63,.35);
+/* Accessibility & affordance polish */
+:root { --focus: 0 0 0 3px rgba(137,192,150,.45); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none; box-shadow: var(--focus); border-color: rgba(137,192,150,.55);
 }
 
-/* Optional: slightly narrower max width so hero + tiles feel balanced */
-main { max-width: 1040px; }
-
-/* Ensure light tables never turn dark on hover */
-.light-page .table tr:hover td {
-  background: #f2f5f7 !important;
-  color: #0b0f12 !important;
+/* .form-card — white card used for public read-only pages */
+.form-card{
+  background: #ffffff;
+  color: #0b0f12;
+  border: 1px solid #e6e9ec;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  padding: 14px;
+}
+.form-card .muted { color: #374151; }
+.form-card input, .form-card select, .form-card textarea{
+  background: #ffffff; color: #0b0f12; border: 1px solid #cbd5e1; border-radius: 10px;
+}
+.form-card input:focus, .form-card select:focus, .form-card textarea:focus{
+  outline: none; border-color: #94a3b8; box-shadow: 0 0 0 3px rgba(47,111,63,.25);
 }
 
-/* Make checkbox + text sit on one row, text to the right */
-label.checkbox,
-.checkbox label,
-label[for][data-checkbox],
-.label-checkbox {
-  display: inline-flex;         /* text becomes a flex item, not a text flow */
-  align-items: flex-start;      /* keep tops aligned */
-  gap: 8px;                     /* space between box and words */
-  max-width: 100%;              /* allow wrapping to next line as a whole unit */
-  vertical-align: top;
-}
-
-/* Ensure the checkbox itself doesn’t stretch the row */
-label.checkbox > input[type="checkbox"],
-.checkbox label > input[type="checkbox"],
-label[for][data-checkbox] > input[type="checkbox"] {
-  flex: 0 0 auto;               /* fixed-size control */
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  margin-top: 2px;              /* optical tweak so box and first line align */
-}
-
-/* Long labels can wrap to the next line, still to the RIGHT of the box */
-label.checkbox > span,
-.checkbox label > span,
-label[for][data-checkbox] > span {
-  display: inline-block;
-  line-height: 1.25;
-  white-space: normal;          /* wrap normally */
-  word-break: break-word;       /* don’t overflow on long words */
-}
-
-/* If you’re mapping a row of checkboxes, let items wrap gracefully */
-.checkbox-row, .form-row.checkboxes, .checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-}
-
-/* Nuke “pill” chrome around checkbox labels so it doesn’t mess layout */
-.checkbox-pill, .pill.checkbox, label.pill {
-  padding: 0; border: 0; background: transparent;
-}
-label.pill > input[type="checkbox"] { margin: 0; }
-
-/* ========= MOBILE ALIGNMENT FIXES ========= */
-
-/* 1) Paid pill: keep text inside, centered, no overflow */
-button.pill,
-.pill {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px;
-  padding: 8px 12px;
-  min-height: 34px;
-  line-height: 1.1;
-  white-space: nowrap;
-  overflow: visible; /* don't clip text on small screens */
-}
-.statusbox .row button.pill { min-width: 84px; }
-@media (max-width: 480px) {
-  .statusbox .row button.pill { min-width: 74px; padding: 7px 10px; }
-}
-
-/* 2) Generic “checkbox + text” pattern:
-      text always to the RIGHT of the box; wraps beneath but not under it */
-label.checkbox,
-.checkbox label,
-label.pill,                         /* if you styled checkboxes as pills */
-label[for][data-checkbox] {
-  display: inline-flex;
-  align-items: flex-start;          /* align tops, looks cleaner with multi-line text */
-  gap: 8px;
-  max-width: 100%;
-  vertical-align: top;
-}
-label.checkbox > input[type="checkbox"],
-.checkbox label > input[type="checkbox"],
-label.pill > input[type="checkbox"],
-label[for][data-checkbox] > input[type="checkbox"] {
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  margin-top: 2px;                  /* optically align with first line */
-}
-label.checkbox > span,
-.checkbox label > span,
-label.pill > span,
-label[for][data-checkbox] > span,
-label.checkbox > em,
-.checkbox label > em,
-label.pill > em {
-  display: inline-block;
-  line-height: 1.25;
-  white-space: normal;              /* wrap naturally */
-  word-break: break-word;           /* prevent overflow */
-}
-
-/* 3) Intake checkbox groups (hind/front cuts) should wrap into columns nicely */
-.checkbox-row,
-.form-row.checkboxes,
-.checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;                    /* row/column gaps */
-}
-.checkbox-row > label,
-.form-row.checkboxes > label,
-.checkbox-group > label {
-  flex: 1 1 48%;                    /* two columns by default */
-  max-width: 100%;
-}
-@media (max-width: 520px) {
-  .checkbox-row > label,
-  .form-row.checkboxes > label,
-  .checkbox-group > label {
-    flex-basis: 100%;               /* single column on very small screens */
-  }
-}
-
-/* 4) Normalize any “pill” chrome around checkbox labels so it doesn’t break layout */
-.checkbox-pill, .pill.checkbox, label.pill {
-  padding: 0; border: none; background: transparent;
-}
-label.pill > input[type="checkbox"] { margin: 0; }
-
-/* 5) Tighten generic checkbox sizing (don’t inherit big input heights) */
-input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  min-height: 0;
-  margin: 0 6px 0 0;
-  vertical-align: -2px;
-  accent-color: #2f6f3f;
-}
-
-/* 6) Safety net: ANY label that directly contains a checkbox becomes a neat row
-   (works even if you don't have .checkbox classes) */
-label:has(> input[type="checkbox"]) {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 8px;
-  max-width: 100%;
-}
-label:has(> input[type="checkbox"]) > :not(input) {
-  white-space: normal;
-  word-break: break-word;
-}
-
-/* ===== Checkbox layout hard reset ===== */
-
-/* 0) Kill stray padding/margins on checkbox labels */
-label.checkbox,
-.checkbox label,
-label[for][data-checkbox],
-label.pill {
-  padding: 0 !important;
-  margin: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-}
-
-/* 1) Make the label a small horizontal row (text sits right of the box) */
-label.checkbox,
-.checkbox label,
-label[for][data-checkbox],
-label:has(> input[type="checkbox"]) {
-  display: inline-flex !important;
-  flex-direction: row !important;
-  align-items: center !important;      /* center the box with the first text line */
-  gap: 6px !important;                 /* small space between box and text */
-  max-width: 100% !important;
-  vertical-align: top;
-}
-
-/* 2) The checkbox itself: fixed size, no extra margin pushing text away */
-label.checkbox > input[type="checkbox"],
-.checkbox label > input[type="checkbox"],
-label[for][data-checkbox] > input[type="checkbox"],
-label:has(> input[type="checkbox"]) > input[type="checkbox"] {
-  flex: 0 0 auto !important;
-  width: 18px !important;
-  height: 18px !important;
-  margin: 0 !important;                /* remove margin that shoves text to the right */
-}
-
-/* 3) The text node: let it wrap naturally right next to the box */
-label.checkbox > span,
-.checkbox label > span,
-label[for][data-checkbox] > span,
-label:has(> input[type="checkbox"]) > span,
-label.checkbox > em,
-.checkbox label > em,
-label[for][data-checkbox] > em,
-label:has(> input[type="checkbox"]) > em {
-  display: inline !important;          /* inline prevents vertical stacking in a column */
-  line-height: 1.25;
-  white-space: normal !important;      /* wrap normally */
-  word-break: break-word;
-}
-
-/* 4) Groups: stop forcing half-width columns on small screens */
-.checkbox-row,
-.form-row.checkboxes,
-.checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 8px 12px;
-}
-
-/* let each label size to content instead of 48% columns */
-.checkbox-row > label,
-.form-row.checkboxes > label,
-.checkbox-group > label {
-  flex: 0 0 auto !important;
-}
-
-/* 5) Checkbox control sizing (keeps them compact) */
-input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  min-height: 0;
-  margin: 0;
-  accent-color: #2f6f3f;
-}
-
-/* 6) If any of those checkboxes were styled as "pills", neutralize that */
-.checkbox-pill,
-.pill.checkbox,
-label.pill {
-  padding: 0 !important;
-  border: none !important;
-  background: transparent !important;
-}
-
-/* =========================
-   FINAL — Paid pill fix in summary block
-   ========================= */
-
-/* Ensure each summary row (inside the Paid/Status box) is a clean flex row */
+/* ===== Summary / Paid “pill” hardening (mobile-safe) ===== */
 .statusbox .row {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
   flex-wrap: nowrap !important;
 }
-
-/* The label area in the row shouldn’t push/overlap anything */
-.statusbox .row .label {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-
-/* The pill itself behaves as a proper chip and keeps text inside/centered */
 .statusbox .row .pill,
 .statusbox .row button.pill {
   display: inline-flex !important;
@@ -742,16 +376,12 @@ label.pill {
   gap: 6px !important;
   padding: 6px 12px !important;
   min-height: 32px !important;
-  line-height: 1.1 !important;
   border-radius: 9999px !important;
   font-weight: 800 !important;
   white-space: nowrap !important;
   max-width: 100% !important;
   flex: 0 0 auto !important;
-  margin: 0 !important;
 }
-
-/* State colors (keep if you already theme these) */
 .statusbox .row .pill.on,
 .statusbox .row button.pill.on {
   background: var(--brand) !important;
@@ -764,525 +394,22 @@ label.pill {
   color: #0b0f12 !important;
   border: 1px solid #d1d5db !important;
 }
-
-/* Slightly tighter on narrow phones */
 @media (max-width: 480px) {
   .statusbox .row .pill,
   .statusbox .row button.pill {
     font-size: 13px !important;
     padding: 6px 10px !important;
-    min-width: 78px !important; /* keeps PAID/UNPAID fully visible */
+    min-width: 78px !important;
   }
 }
 
-/* ==== SUMMARY "PAID" PILLS — lock checkbox + text inside the chip ==== */
-
-/* Treat each Paid control as a real chip row */
-.statusbox .row label.pill,
-.statusbox .row .pill {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-  padding: 6px 12px !important;
-  border-radius: 9999px !important;
-  line-height: 1.15 !important;
-  font-weight: 800 !important;
-  white-space: nowrap !important;     /* keep “PAID/UNPAID” on one line */
-  max-width: 100% !important;
-  flex: 0 0 auto !important;
-  overflow: visible !important;
-}
-
-/* The checkbox inside the pill must NOT be positioned off-screen */
-.statusbox .row label.pill > input[type="checkbox"],
-.statusbox .row .pill > input[type="checkbox"] {
-  position: static !important;
-  inset: auto !important;
-  transform: none !important;
-
-  width: 18px !important;
-  height: 18px !important;
-  margin: 0 !important;
-  flex: 0 0 auto !important;
-  appearance: auto !important;        /* undo any custom hiding style */
-}
-
-/* The text inside the pill sits right of the box and stays centered */
-.statusbox .row label.pill > span,
-.statusbox .row .pill > span,
-.statusbox .row label.pill > em,
-.statusbox .row .pill > em {
-  display: inline-block !important;
-  white-space: nowrap !important;
-  line-height: 1.15 !important;
-}
-
-/* Keep the summary rows tidy so label + pill don't collide */
-.statusbox .row {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  flex-wrap: nowrap !important;
-}
-
-/* The left label in the summary row shouldn't steal space */
-.statusbox .row .label {
-  flex: 0 0 auto !important;
-  margin: 0 !important;
-}
-
-/* Visual states (leave if you already theme these elsewhere) */
-.statusbox .row .pill.on,
-.statusbox .row label.pill.on {
-  background: var(--brand) !important;
-  color: #fff !important;
-  border: 1px solid transparent !important;
-}
-.statusbox .row .pill:not(.on),
-.statusbox .row label.pill:not(.on) {
-  background: #e5e7eb !important;
-  color: #0b0f12 !important;
-  border: 1px solid #d1d5db !important;
-}
-
-/* Phone tweaks */
-@media (max-width: 480px) {
-  .statusbox .row label.pill,
-  .statusbox .row .pill {
-    padding: 6px 10px !important;
-    font-size: 13px !important;
-    min-width: 92px !important;  /* room for checkbox + "PAID" text */
-  }
-}
-
-/* Intake summary Paid pills — global safety net (optional) */
-.form-card .summary .pill {
+/* Checkbox + text alignment resets to avoid layout shifts */
+label:has(> input[type="checkbox"]) {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 6px 10px;
-  border-radius: 9999px;
-  white-space: nowrap;
   max-width: 100%;
-  overflow: visible;
 }
-.form-card .summary .pill > input[type="checkbox"] {
-  position: static;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  flex: 0 0 auto;
-  appearance: auto;
+label:has(> input[type="checkbox"]) > :not(input) {
+  white-space: normal; word-break: break-word;
 }
-
-/* (appended) read-only helpers for the public intake view */
-.light-page .form-card { background:#ffffff; color:#0b0f12; }
-.light-page label { color:#0b0f12; }
-.light-page .muted { color:#374151; }
-.light-page input[type="checkbox"] { accent-color:#2f6f3f; }
-
-/* Readable containers for public read-only intake page */
-.light-page .form-card { background:#fff; color:#0b0f12; }
-.light-page .form-card .grid { display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:8px; }
-.light-page .form-card .grid > * { min-width:0; }            /* lets content shrink instead of overflow */
-.light-page .form-card .value {
-  background:#fff;
-  border:1px solid #cbd5e1;
-  border-radius:10px;
-  padding:6px 8px;
-  word-break: break-word;          /* long words/links */
-  overflow-wrap: anywhere;         /* very long strings */
-  white-space: pre-wrap;           /* keep user newlines but still wrap */
-}
-.light-page .form-card label {
-  font-size:12px; font-weight:700; color:#0b0f12; display:block; margin-bottom:4px;
-}
-
-/* Checkbox text should wrap instead of pushing layout off */
-.light-page .form-card .checks { gap:10px; }
-.light-page .form-card .checks > div { min-width:0; max-width:100%; }
-.light-page .form-card .checks span {
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-/* Tighten on small screens */
-@media (max-width: 640px) {
-  .light-page .form-card { padding:10px; }
-  .light-page .form-card .summary .row { grid-template-columns: 1fr; }
-}
-
-/* Public read-only intake page: black bg + your watermark */
-html.light-page.watermark,
-body.light-page.watermark {
-  background-color: #000 !important;           /* black base */
-  /* if your watermark is defined on .watermark, this keeps it; 
-     otherwise, uncomment and point at your asset: */
-  /* background-image: url('/watermark.svg');  */
-  background-repeat: repeat !important;
-  background-size: auto !important;            /* or 32px 32px if it's a small tile */
-}
-
-/* Keep the content readable on black bg */
-.light-page .form-card {
-  background: #fff !important;
-  color: #0b0f12;
-  border-radius: 12px;
-  border: 1px solid #e6e9ec;
-}
-
-/* Defensive: value cells wrap nicely */
-.light-page .value {
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 6px 8px;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-
-
-
-
-/* ===== Read-only intake — mobile polish (non-breaking) =====
-   Apply these only when the read-only container has class "ro".
-   Safe: everything is prefixed with .ro and wrapped in a small-screen media query.
----------------------------------------------------------------- */
-@media (max-width: 760px) {
-  .ro {
-    --ro-pad: 12px;
-    --ro-gap: 10px;
-  }
-
-  /* Headline spacing */
-  .ro h1, .ro h2, .ro h3 {
-    line-height: 1.2;
-    margin: 8px 0 10px;
-  }
-
-  /* Cards/sections become roomy blocks */
-  .ro .card, .ro .section, .ro .panel {
-    border-radius: 14px;
-    padding: var(--ro-pad);
-    box-shadow: var(--shadow, 0 2px 10px rgba(0,0,0,.06));
-    margin-bottom: 12px;
-  }
-
-  /* Kill multi-column grids inside read-only for narrow screens */
-  .ro .grid, .ro .row, .ro .cols,
-  .ro [class*="grid-"], .ro [class*="col-"] {
-    display: block !important;
-  }
-
-  /* Field layout: label on top, value below, full width */
-  .ro .field, .ro .form-field, .ro .input-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: var(--ro-gap);
-  }
-
-  .ro .field label, .ro label {
-    font-weight: 700;
-    font-size: 13px;
-    color: var(--muted, #6b7280);
-  }
-
-  /* Make disabled/readonly inputs look like clean value chips */
-  .ro input[disabled], .ro input[readonly],
-  .ro select[disabled], .ro textarea[readonly],
-  .ro .ro-value {
-    width: 100%;
-    appearance: none;
-    -webkit-appearance: none;
-    border: 1px solid var(--border, #d8e3f5);
-    background: var(--field, #fbfdff);
-    padding: 12px 14px;
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: 16px;
-    line-height: 1.2;
-    color: var(--text, #0f172a);
-    pointer-events: none; /* stay read-only */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Allow addresses/notes to wrap normally */
-  .ro textarea[readonly] {
-    white-space: normal;
-    overflow: auto;
-  }
-
-  /* Pills/checkbox rows wrap neatly */
-  .ro .pills, .ro .choices, .ro .option-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .ro .pill, .ro .chip {
-    padding: 8px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--border, #d8e3f5);
-    background: var(--accent, #f5f8ff);
-    font-weight: 600;
-  }
-
-  /* Disabled checkboxes/radios are larger for readability */
-  .ro input[type="checkbox"][disabled],
-  .ro input[type="radio"][disabled] {
-    transform: scale(1.25);
-  }
-
-  /* Price summary tiles breathe and stack */
-  .ro .price-summary, .ro .totals, .ro .mini-cards {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-  .ro .price-card, .ro .mini-card {
-    border-radius: 12px;
-    padding: 10px 12px;
-    background: var(--accent, #f5f8ff);
-  }
-}
-
-/* Denser, more readable chips on dark */
-.chip {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 9999px;
-  font-weight: 800;
-  font-size: 13px;
-  background: rgba(47,111,63,.32);           /* less transparent */
-  border: 1px solid rgba(47,111,63,.55);
-  color: var(--text);
-}
-.chip.live { background: var(--brand); color: #fff; border-color: transparent; }
-
-/* Bring cards/tiles forward a bit */
-.tile, .tile-alt {
-  background: rgba(10,17,15,.88);            /* denser than before */
-  border: 1px solid rgba(255,255,255,.06);
-}
-
-/* Stats stay crisp */
-.stat {
-  background: rgba(12,20,18,.88);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 14px;
-  min-width: 140px;
-  box-shadow: var(--shadow);
-}
-.stat .label { font-size: 12px; color: var(--text-dim); }
-.stat .value { font-weight: 900; font-size: 22px; color: var(--text); }
-
-
-
-/* ===== Read-only mobile fix v2 (stack + overflow) ===== */
-@media (max-width: 760px) {
-  /* Force all grid rows to stack, even if inline styles try to keep grids */
-  .ro .summary .row,
-  .ro .grid {
-    display: block !important;
-  }
-  /* Children should stop spanning fixed columns and take full width */
-  .ro .summary .row > .col,
-  .ro .grid > * {
-    width: 100% !important;
-    grid-column: auto !important;
-  }
-  /* Prevent text spilling outside of boxes */
-  .ro .money,
-  .ro .value,
-  .ro .summary .col > div {
-    min-width: 0 !important;
-    white-space: normal !important;
-    overflow-wrap: anywhere !important;
-    word-break: break-word !important;
-  }
-  /* Status chips/boxes get consistent padding and can wrap */
-  .ro .summary .col > div {
-    display: block;
-    padding: 10px 12px;
-    border-radius: 10px;
-  }
-  /* Small labels keep tight spacing */
-  .ro .summary label,
-  .ro label {
-    display: block;
-    margin-bottom: 6px;
-    line-height: 1.25;
-  }
-}
-
-/* KPI cards – denser, readable on dark */
-.kpi-card {
-  background: rgba(14, 22, 20, 0.94);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
-  padding: 14px 16px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.25);
-}
-.kpi-card .kpi-label { font-size: 13px; color: var(--text-dim); font-weight: 700; }
-.kpi-card .kpi-value { font-size: 28px; font-weight: 900; color: var(--text); }
-
-/* Tiles slightly denser as well */
-.tile, .tile-alt {
-  background: rgba(12, 20, 18, 0.92);
-  border: 1px solid rgba(255,255,255,0.08);
-  color: var(--text);
-}
-
-/* Report rows inside the Reports tile */
-.row-link { text-decoration: none; color: inherit; }
-.row-line {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 0; border-top: 1px solid rgba(255,255,255,.06);
-}
-
-/* Chips with good contrast */
-.chip {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 9999px;
-  font-weight: 800;
-  font-size: 13px;
-  background: rgba(47,111,63,.38);
-  border: 1px solid rgba(47,111,63,.6);
-  color: var(--text);
-}
-.chip.live { background: var(--brand); color: #fff; border-color: transparent; }
-
-/* --- keep your existing file, then apply these tweaks near the bottom --- */
-
-/* Chips: higher contrast on dark */
-.chip {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 9999px;
-  font-weight: 800;
-  font-size: 13px;
-  background: rgba(47,111,63,.38);
-  border: 1px solid rgba(47,111,63,.6);
-  color: var(--text);
-}
-.chip.live { background: var(--brand); color: #fff; border-color: transparent; }
-
-/* KPI cards – compact */
-.kpi-card {
-  background: rgba(14,22,20,.94);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 12px;
-  padding: 12px 14px;
-  box-shadow: 0 6px 18px rgba(0,0,0,.22);
-}
-.kpi-card .kpi-label { font-size: 12px; color: var(--text-dim); font-weight: 800; }
-.kpi-card .kpi-value { font-size: 24px; font-weight: 900; color: var(--text); }
-
-/* Tiles: slightly denser & less transparent so they pop over watermark */
-.tile, .tile-alt {
-  background: rgba(12,20,18,.92);
-  border: 1px solid rgba(255,255,255,.08);
-  color: var(--text);
-  padding: 14px;                 /* a touch tighter */
-}
-.tile:hover { transform: translateY(-1px); border-color: rgba(137,192,150,.35); }
-.tile-emoji { font-size: 26px; }
-
-/* Simple rows inside the Reports tile */
-.row-link { text-decoration: none; color: inherit; }
-.row-line {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 0; border-top: 1px solid rgba(255,255,255,.06);
-}
-
-/* Ensure watermark always sits behind content */
-.watermark::after { z-index: 0; opacity: .8; }
-
-
-
-/* Read-only intake: make the summary sticky on mobile so totals/status stay visible */
-@media (max-width: 640px) {
-  .light-page .form-card .summary {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    border-radius: 0 0 12px 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.08);
-  }
-}
-
-
-
-/* Money cells: tabular and right aligned */
-.light-page .money {
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-
-
-/* Links inside value blocks wrap nicely */
-.light-page .value a {
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  text-decoration: none;
-}
-
-
-
-/* Prevent grid children from overflowing; allow text to wrap */
-.light-page .grid > * { min-width: 0; }
-
-/* Ensure values wrap inside their containers */
-.light-page .value { word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; }
-
-/* On small screens, stack grid items to stop labels running into each other */
-@media (max-width: 640px) {
-  .light-page .grid { grid-template-columns: 1fr !important; }
-}
-
-
-
-/* Force stacked items on mobile even if children have inline grid-column spans */
-@media (max-width: 640px) {
-  .light-page [data-stack] { grid-column: auto !important; }
-}
-
-
-
-/* Neutralize iOS data detector links so numbers aren't clickable/green */
-a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] {
-  color: inherit !important;
-  text-decoration: none !important;
-  pointer-events: none !important;
-  cursor: default !important;
-}
-
-
-
-/* Break long tokens (confirmation numbers, zip+4, etc.) */
-.light-page .value { word-break: break-word; overflow-wrap: anywhere; }
-
-/* --- Print fixes: prevent blank trailing page --- */
-@media print {
-  /* Hide fixed watermark so it can't force an extra page */
-  .watermark::after { display: none !important; }
-
-  /* Collapse any stray margins/padding around the print pages */
-  #pages { margin: 0 !important; padding: 0 !important; }
-  .page  { margin: 0 !important; page-break-after: auto !important; break-after: auto !important; }
-  .page:last-child { page-break-after: avoid !important; break-after: auto !important; }
-  .page > .wrap.sheet { margin: 0 !important; padding-bottom: 0 !important; }
-  .page > .wrap.sheet > *:last-child { margin-bottom: 0 !important; }
-}
-
-
-
