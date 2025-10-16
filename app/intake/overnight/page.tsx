@@ -407,7 +407,7 @@ function OvernightIntakePage() {
                 disabled={locked}
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder="9 digits from GoOutdoorsIN"
+                placeholder="From GoOutdoorsIN"
               />
             </div>
             <div className="c6">
@@ -505,7 +505,7 @@ function OvernightIntakePage() {
               />
             </div>
             <div className="c2">
-              <label>Deer Sex <span className="muted">(buck = male, doe = female)</span></label>
+              <label>Deer Sex</label>
               <select
                 value={job.sex || ''}
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
@@ -517,7 +517,7 @@ function OvernightIntakePage() {
               </select>
             </div>
             <div className="c3">
-              <label>Process Type <span className="muted">(choose “Caped” if you kept the hide)</span></label>
+              <label>Process Type</label>
               <select
                 value={job.processType || ''}
                 onChange={(e) =>
@@ -721,7 +721,7 @@ function OvernightIntakePage() {
         {/* Backstrap */}
         <section>
           <h3>Backstrap</h3>
-          <p className="muted small">Optional: how you’d like your backstrap prepared.</p>
+          <p className="muted small">How you’d like your backstrap prepared.</p>
           <div className="grid">
             <div className="c4">
               <label>Prep</label>
@@ -977,13 +977,14 @@ function OvernightIntakePage() {
 
         label { font-size: 12px; font-weight: 700; color: #0b0f12; display: block; margin-bottom: 4px; }
         input, select, textarea {
-          width: 100%; padding: 6px 8px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box;
+          width: 100%; padding: 8px 10px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box; min-height: 40px;
         }
         textarea { resize: vertical; }
 
         input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
 
-        .grid { display: grid; gap: 8px; grid-template-columns: repeat(12, 1fr); }
+        .grid { display: grid; gap: 10px; grid-template-columns: repeat(12, 1fr); }
+        .grid > * { min-width: 0; }
         .c3{grid-column: span 3} .c4{grid-column: span 4} .c6{grid-column: span 6} .c8{grid-column: span 8}
 
         .rowInline { display: flex; align-items: center; padding-top: 22px; gap: 8px; }
@@ -1012,7 +1013,8 @@ function OvernightIntakePage() {
           .summary .row.small { grid-template-columns: 1fr; }
         }
         @media (max-width: 720px) {
-          .grid { grid-template-columns: 1fr; }
+          .grid { grid-template-columns: 1fr; row-gap: 12px; }
+          .grid .c3, .grid .c4, .grid .c6, .grid .c8, .grid .c2 { grid-column: 1 / -1; }
           .rowInline { padding-top: 0; }
           .summary .checks { gap: 8px; }
         }
