@@ -5,26 +5,17 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
 
-/**
- * Public status lookup
- * - Search by Confirmation #, or Tag + Last Name
- * - Shows identity first (Customer, Confirmation, Tag)
- * - Shows all four tracks (Meat, Cape, Webbs, Specialty) when present
- * - Payment preview (processing/specialty/total + paid flags) — if API returns them
- * - Clear pickup panel with Google Maps + tap-to-call
- */
-
 type LookupResult = {
   ok?: boolean;
   notFound?: boolean;
   error?: string;
 
   // identity
-  customer?: string;       // NEW: full name (optional but preferred)
+  customer?: string;
   tag?: string;
   confirmation?: string;
 
-  // core status (meat)
+  // core (meat)
   status?: string;
 
   // extra tracks
@@ -34,12 +25,12 @@ type LookupResult = {
     capeStatus?: string;
   };
 
-  // pricing (optional — shown only if provided)
+  // pricing (optional)
   priceProcessing?: number | string;
   priceSpecialty?: number | string;
   priceTotal?: number | string;
 
-  // paid flags (optional — shown only if provided)
+  // paid flags (optional)
   paidProcessing?: boolean | string;
   paidSpecialty?: boolean | string;
   paid?: boolean | string;
@@ -91,7 +82,7 @@ export default function StatusPage() {
     );
   })();
 
-  const mapsUrl = SITE.mapsUrl; // from central config
+  const mapsUrl = SITE.mapsUrl;
 
   // payment helpers
   const toNum = (v: unknown) => {
@@ -125,6 +116,13 @@ export default function StatusPage() {
     (v) => v !== undefined && v !== null
   );
 
+  const field: React.CSSProperties = { background: '#0f1416', color: '#e6e7eb', border: '1px solid #1f2937', borderRadius: 10, padding: '10px 12px' };
+  const btn: React.CSSProperties = { background: '#2f6f3f', color: '#fff', border: '1px solid transparent', borderRadius: 10, padding: '10px 14px', fontWeight: 800, cursor: 'pointer' };
+  const errBox: React.CSSProperties = { marginTop: 12, border: '1px solid #7f1d1d', background: 'rgba(127,29,29,.15)', color: '#fecaca', borderRadius: 10, padding: 10 };
+  const card: React.CSSProperties = { marginTop: 14, border: '1px solid #1f2937', borderRadius: 12, background: '#0b0f12', padding: 12, color: '#e6e7eb' };
+  const valueBox: React.CSSProperties = { background: '#0f1416', border: '1px solid #1f2937', borderRadius: 10, padding: '8px 10px' };
+  const pill: React.CSSProperties = { display: 'inline-block', border: '1px solid #2a5f47', background: '#193b2e', color: '#a7e3ba', borderRadius: 999, padding: '4px 10px', fontWeight: 800 };
+
   return (
     <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
@@ -142,77 +140,47 @@ export default function StatusPage() {
           aria-label="Confirmation number"
         />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <input
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-            placeholder="Tag"
-            style={field}
-            aria-label="Tag number"
-          />
-          <input
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder="Last Name"
-            style={field}
-            aria-label="Customer last name"
-          />
+          <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag" style={field} aria-label="Tag number" />
+          <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last Name" style={field} aria-label="Customer last name" />
         </div>
         <button disabled={loading} style={btn} aria-busy={loading}>
           {loading ? 'Checking…' : 'Check status'}
         </button>
       </form>
 
-      {err ? (
-        <div role="alert" style={errBox}>
-          {err}
-        </div>
-      ) : null}
+      {err ? <div role="alert" style={errBox}>{err}</div> : null}
 
       {res ? (
         <div style={card}>
-          {/* Identity first */}
+          {/* Identity */}
           <div style={{ display: 'grid', gap: 10 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Info label="Customer" value={res.customer || '—'} />
-              <Info label="Confirmation" value={res.confirmation || '—'} />
+              <Info label="Customer" value={res.customer || '—'} valueBox={valueBox} />
+              <Info label="Confirmation" value={res.confirmation || '—'} valueBox={valueBox} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Info label="Tag" value={res.tag || '—'} />
-              <Info label="Overall Status (Meat)" value={res.status || '—'} />
+              <Info label="Tag" value={res.tag || '—'} valueBox={valueBox} />
+              <Info label="Overall Status (Meat)" value={res.status || '—'} valueBox={valueBox} />
             </div>
 
-            {/* All four tracks (when present) */}
+            {/* Tracks */}
             <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
-              {/* Keep the order: Meat, Cape, Webbs, Specialty */}
-              {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} /> : null}
-              {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} /> : null}
-              {res.tracks?.specialtyStatus ? (
-                <Track label="Specialty" value={res.tracks.specialtyStatus} />
-              ) : null}
+              {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} pill={pill} /> : null}
+              {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} pill={pill} /> : null}
+              {res.tracks?.specialtyStatus ? <Track label="Specialty" value={res.tracks.specialtyStatus} pill={pill} /> : null}
             </div>
 
-            {/* Payment (only if API provided anything) */}
-            {hasAnyPricing || hasAnyPaid ? (
-              <section
-                aria-label="Payment"
-                style={{
-                  marginTop: 8,
-                  border: '1px solid #1f2937',
-                  borderRadius: 10,
-                  background: '#0b0f12',
-                  padding: 10,
-                  display: 'grid',
-                  gap: 8,
-                }}
-              >
+            {/* Payment */}
+            {(hasAnyPricing || hasAnyPaid) && (
+              <section aria-label="Payment" style={{ marginTop: 8, border: '1px solid #1f2937', borderRadius: 10, background: '#0b0f12', padding: 10, display: 'grid', gap: 8 }}>
                 <div style={{ fontWeight: 900, color: '#d4e7db' }}>Payment</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  <Info label="Processing" value={money(priceProcessing)} />
-                  <Info label="Specialty" value={money(priceSpecialty)} />
-                  <Info label="Total" value={money(priceTotal)} />
+                  <Info label="Processing" value={money(priceProcessing)} valueBox={valueBox} />
+                  <Info label="Specialty" value={money(priceSpecialty)} valueBox={valueBox} />
+                  <Info label="Total" value={money(priceTotal)} valueBox={valueBox} />
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {hasAnyPaid ? (
+                  {hasAnyPaid && (
                     <>
                       <Badge ok={paidOverall} label={paidOverall ? 'Paid (overall)' : 'Unpaid (overall)'} />
                       {'paidProcessing' in (res || {}) ? (
@@ -222,13 +190,13 @@ export default function StatusPage() {
                         <Badge ok={paidSpec} label={paidSpec ? 'Specialty Paid' : 'Specialty Unpaid'} />
                       ) : null}
                     </>
-                  ) : null}
+                  )}
                 </div>
               </section>
-            ) : null}
+            )}
           </div>
 
-          {/* Pickup panel (directions, hours, phone) */}
+          {/* Pickup panel */}
           <PickupPanel
             ready={isReady}
             addressText={SITE.address}
@@ -251,9 +219,7 @@ export default function StatusPage() {
   );
 }
 
-/* ---------- small presentational bits ---------- */
-
-function Info({ label, value }: { label: string; value: string }) {
+function Info({ label, value, valueBox }: { label: string; value: string; valueBox: React.CSSProperties }) {
   return (
     <div>
       <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>{label}</div>
@@ -262,7 +228,7 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Track({ label, value }: { label: string; value?: string }) {
+function Track({ label, value, pill }: { label: string; value?: string; pill: React.CSSProperties }) {
   if (!value) return null;
   return (
     <div>
@@ -273,24 +239,8 @@ function Track({ label, value }: { label: string; value?: string }) {
 
 function Badge({ ok, label }: { ok?: boolean; label: string }) {
   const style: React.CSSProperties = ok
-    ? {
-        display: 'inline-block',
-        border: '1px solid #2a5f47',
-        background: '#193b2e',
-        color: '#a7e3ba',
-        borderRadius: 999,
-        padding: '4px 10px',
-        fontWeight: 800,
-      }
-    : {
-        display: 'inline-block',
-        border: '1px solid #7f1d1d',
-        background: 'rgba(127,29,29,.15)',
-        color: '#fecaca',
-        borderRadius: 999,
-        padding: '4px 10px',
-        fontWeight: 800,
-      };
+    ? { display: 'inline-block', border: '1px solid #2a5f47', background: '#193b2e', color: '#a7e3ba', borderRadius: 999, padding: '4px 10px', fontWeight: 800 }
+    : { display: 'inline-block', border: '1px solid #7f1d1d', background: 'rgba(127,29,29,.15)', color: '#fecaca', borderRadius: 999, padding: '4px 10px', fontWeight: 800 };
   return <span style={style}>{label}</span>;
 }
 
@@ -307,7 +257,6 @@ function PickupPanel({
   mapsUrl: string;
   phoneHref: string;
   phoneDisplay: string;
-  // Readonly so SITE.hours can be passed directly
   hours: ReadonlyArray<{ label: string; value: string }>;
 }) {
   return (
@@ -325,16 +274,7 @@ function PickupPanel({
       }}
     >
       {ready && (
-        <div
-          style={{
-            background: '#193b2e',
-            border: '1px solid #2a5f47',
-            color: '#a7e3ba',
-            borderRadius: 10,
-            padding: '8px 10px',
-            fontWeight: 800,
-          }}
-        >
+        <div style={{ background: '#193b2e', border: '1px solid #2a5f47', color: '#a7e3ba', borderRadius: 10, padding: '8px 10px', fontWeight: 800 }}>
           Ready for pickup
         </div>
       )}
@@ -342,12 +282,7 @@ function PickupPanel({
       <div>
         <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Pickup Location</div>
         <div style={{ opacity: 0.9 }}>
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#a7e3ba', textDecoration: 'underline' }}
-          >
+          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
             {addressText}
           </a>
         </div>
@@ -359,89 +294,19 @@ function PickupPanel({
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, opacity: 0.9 }}>
             {hours.map((h, i) => (
               <li key={i}>
-                {h.label} {h.value}
+                {h.label}: {h.value}
               </li>
             ))}
           </ul>
         </div>
       ) : null}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={btn}>
-          Open in Google Maps
+      <div>
+        <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Call Us</div>
+        <a href={phoneHref} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+          {phoneDisplay}
         </a>
-        <a href={phoneHref} style={btnGhost}>
-          Call {phoneDisplay}
-        </a>
-      </div>
-
-      <div style={{ fontSize: 12, color: 'rgba(230,235,232,.75)' }}>
-        Need after-hours pickup? Call and we’ll work with you.
       </div>
     </section>
   );
 }
-
-/* ---------- styles ---------- */
-
-/* ---------- styles ---------- */
-
-const field: React.CSSProperties = {
-  padding: '10px 12px',
-  border: '1px solid #1f2937',
-  borderRadius: 10,
-  background: '#0b0f12',
-  color: '#e5e7eb',
-};
-
-const valueBox: React.CSSProperties = {
-  padding: '8px 10px',
-  border: '1px solid #1f2937',
-  borderRadius: 10,
-  background: '#0b0f12',
-  color: '#e5e7eb',
-  fontWeight: 800,
-};
-
-const btn: React.CSSProperties = {
-  display: 'inline-block',
-  padding: '10px 12px',
-  border: '1px solid #1f2937',
-  borderRadius: 10,
-  background: '#121821',
-  color: '#e5e7eb',
-  fontWeight: 800,
-  textDecoration: 'none',
-};
-
-const btnGhost: React.CSSProperties = {
-  ...btn,
-  background: 'transparent',
-};
-
-const card: React.CSSProperties = {
-  marginTop: 16,
-  padding: 16,
-  border: '1px solid #1f2937',
-  borderRadius: 12,
-  background: '#0b0f12',
-  color: '#e5e7eb',
-};
-
-const errBox: React.CSSProperties = {
-  marginTop: 12,
-  padding: 12,
-  border: '1px solid #7f1d1d',
-  borderRadius: 10,
-  background: 'rgba(127,29,29,.15)',
-  color: '#fecaca',
-};
-
-const pill: React.CSSProperties = {
-  display: 'inline-block',
-  border: '1px solid #1f2937',
-  borderRadius: 999,
-  padding: '4px 10px',
-  background: '#0b0f12',
-  fontWeight: 900,
-};

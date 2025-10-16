@@ -18,6 +18,13 @@ const BUSINESS = {
 export default function OvernightInstructionsPage() {
   const [agree, setAgree] = useState(false);
 
+  const stepBox: React.CSSProperties = {
+    border: '1px solid #374151',
+    background: '#0b0f12',
+    borderRadius: 10,
+    padding: '10px 12px',
+  };
+
   return (
     <main style={{ background: '#0b0f12', minHeight: '100vh', color: '#e5e7eb' }}>
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: '20px 14px 40px' }}>
@@ -75,11 +82,10 @@ export default function OvernightInstructionsPage() {
 
             <li style={stepBox}>
               <b>3) Fill out the Overnight Intake Form.</b> You <u>must</u> have a{' '}
-              <a href={GO_OUTDOORS_URL} target="_blank" rel="noreferrer" style={{ color: '#93c5fd' }}>
+              <a href={GO_OUTDOORS_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#93c5fd' }}>
                 GoOutdoorsIN confirmation number
               </a>{' '}
               from your check-in or we will not process your deer.
-              {/* No hyperlink to open the intake form here */}
             </li>
 
             <li style={stepBox}>
@@ -92,7 +98,7 @@ export default function OvernightInstructionsPage() {
                 <a
                   href={WEBBS_PRICE_SHEET_URL}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   style={{ color: '#fcd34d', textDecoration: 'underline' }}
                 >
                   View Webbs price sheet (PDF)
@@ -136,8 +142,7 @@ export default function OvernightInstructionsPage() {
                 style={{ marginTop: 3 }}
               />
               <span>
-                I agree to follow these overnight drop rules and understand a valid{' '}
-                <b>GoOutdoorsIN confirmation number</b> is required.
+                I agree to follow these overnight drop rules and understand a valid <b>GoOutdoorsIN confirmation number</b> is required.
               </span>
             </label>
 
@@ -157,6 +162,7 @@ export default function OvernightInstructionsPage() {
                 cursor: agree ? 'pointer' : 'not-allowed',
               }}
               aria-disabled={!agree}
+              aria-controls="overnight-start"
             >
               Start Overnight Intake
             </button>
@@ -184,7 +190,7 @@ export default function OvernightInstructionsPage() {
               <a
                 href={BUSINESS.mapsUrl}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 style={{
                   display: 'inline-block',
                   marginTop: 4,
@@ -223,10 +229,3 @@ export default function OvernightInstructionsPage() {
     </main>
   );
 }
-
-const stepBox: React.CSSProperties = {
-  background: '#0b1220',
-  border: '1px solid #1f2937',
-  borderRadius: 12,
-  padding: '10px 12px',
-};
