@@ -300,7 +300,7 @@ export default function OvernightInstructionsPage() {
         <section
           style={{
             marginTop: 16,
-            border: '1px solid '#1f2937',
+            border: '1px solid #1f2937',
             borderRadius: 14,
             padding: 14,
             background: '#0b0f12',
