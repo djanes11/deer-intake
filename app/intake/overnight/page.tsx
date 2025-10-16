@@ -705,7 +705,7 @@ function OvernightIntakePage() {
                 <option>2 lb</option>
               </select>
             </div>
-            <div className="c3 rowInline">
+            <div className="c4 rowInline">
               <label className="chk tight">
                 <input
                   type="checkbox"
@@ -771,7 +771,7 @@ function OvernightIntakePage() {
           <h3>McAfee Specialty Products</h3>
           <p className="muted small">Optional sausage and jerky add-ons.</p>
           <div className="grid">
-            <div className="c3 rowInline">
+            <div className="c4 rowInline">
               <label className="chk tight">
                 <input
                   type="checkbox"
@@ -832,7 +832,7 @@ function OvernightIntakePage() {
           <h3>Webbs (optional)</h3>
           <p className="muted small">Only fill this out if you’re sending meat to Webbs.</p>
           <div className="grid">
-            <div className="c3 rowInline">
+            <div className="c4 rowInline">
               <label className="chk tight">
                 <input
                   type="checkbox"
@@ -985,7 +985,7 @@ function OvernightIntakePage() {
 
         input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
 
-        .grid { display: grid; gap: 10px; grid-template-columns: repeat(12, 1fr); }
+        .grid { display: grid; gap: 12px; grid-template-columns: repeat(12, 1fr); }
         .grid > * { min-width: 0; }
         .c3{grid-column: span 3} .c4{grid-column: span 4} .c6{grid-column: span 6} .c8{grid-column: span 8}
 
@@ -1023,7 +1023,7 @@ function OvernightIntakePage() {
 
 
         /* Keep Steak Size + Other together even on mobile */
-        .steakRow { display: grid; grid-template-columns: repeat(12, 1fr); gap: 8px; width: 100%; }
+        .steakRow { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; width: 100%; margin-bottom: 8px; }
         .steakRow .steak { grid-column: span 6; }
         .steakRow .steakOther { grid-column: span 6; }
 
