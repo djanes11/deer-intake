@@ -261,6 +261,7 @@ function OvernightIntakePage() {
   };
 
   const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
+  const confirmationFull = (job.confirmation || '').replace(/\D/g, '');
 
   const onSave = async () => {
     if (locked) return;
@@ -406,7 +407,7 @@ function OvernightIntakePage() {
                 disabled={locked}
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder= "From GoOutdoorsIN"
+                placeholder="9 digits from GoOutdoorsIN"
               />
             </div>
             <div className="c6">
@@ -504,7 +505,7 @@ function OvernightIntakePage() {
               />
             </div>
             <div className="c2">
-              <label>Deer Sex</label>
+              <label>Deer Sex <span className="muted">(buck = male, doe = female)</span></label>
               <select
                 value={job.sex || ''}
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
@@ -516,7 +517,7 @@ function OvernightIntakePage() {
               </select>
             </div>
             <div className="c3">
-              <label>Process Type</label>
+              <label>Process Type <span className="muted">(choose “Caped” if you kept the hide)</span></label>
               <select
                 value={job.processType || ''}
                 onChange={(e) =>
@@ -720,7 +721,7 @@ function OvernightIntakePage() {
         {/* Backstrap */}
         <section>
           <h3>Backstrap</h3>
-          <p className="muted small">How you’d like your backstrap prepared.</p>
+          <p className="muted small">Optional: how you’d like your backstrap prepared.</p>
           <div className="grid">
             <div className="c4">
               <label>Prep</label>
@@ -945,9 +946,13 @@ function OvernightIntakePage() {
           <div className="modal-card">
             <h3>Thank you!</h3>
             <p style={{marginTop:8}}>
-              Please leave a note with the <b>last 5 digits</b> of your confirmation number
-              {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
-              {' '}with your deer.
+              On the <b>Paper Tag</b>, write your <b>Full Name</b>, <b>Phone Number</b>, and your
+              <b> full GoOutdoorsIN confirmation number</b>
+              {confirmationFull ? <> (<code>{confirmationFull}</code>)</> : null}.
+              Attach the tag securely to the deer.
+            </p>
+            <p className="muted" style={{marginTop:8}}>
+              Then place your deer <b>as far back in the cooler as possible</b>. Thank you!
             </p>
             <p className="muted" style={{marginTop:8}}>
               Your form has been submitted and locked. Our front desk will assign your tag.
