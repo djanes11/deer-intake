@@ -1416,4 +1416,23 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   .public .hero-sub { margin-top: 4px; }
 }
 
+/* Ensure decorative overlays never block clicks anywhere */
+.watermark::before,
+.watermark::after {
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* Make sure actual UI sits above any background layers */
+main, header, nav, .site-header, .site-header .wrap {
+  position: relative;
+  z-index: 2;
+}
+
+/* Details dropdowns/menus shouldn’t create giant invisible layers */
+.menu .dd .dropdown-menu {
+  pointer-events: auto;        /* only the menu itself receives clicks */
+  z-index: 30;                 /* above header, below content modals if any */
+}
+
 
