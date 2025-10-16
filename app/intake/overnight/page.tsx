@@ -635,7 +635,6 @@ function OvernightIntakePage() {
         {/* Packaging & Add-ons */}
         <section>
           <h3>Packaging & Add-ons</h3>
-          <div className="grid">
           <div className="pkgGrid">
             <div className="pkg steak">
               <label>Steak Size</label>
@@ -700,7 +699,6 @@ function OvernightIntakePage() {
               </label>
             </div>
           </div>
-</div>
         </section>
 
         {/* Backstrap */}
