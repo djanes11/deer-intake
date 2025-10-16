@@ -51,9 +51,9 @@ export default function StatusPage() {
   const [loading, setLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
 
-  // Polling
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const pollUntil = useRef<number | null>(null);
+  // Polling (replace interval with backoff timeouts)
+  const pollUntilRef = useRef<number | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const READY_WORDS = useMemo(() => ['ready', 'finished', 'complete', 'completed', 'done'], []);
   const text = (s?: string) => String(s || '').toLowerCase();
@@ -104,7 +104,7 @@ export default function StatusPage() {
   const field: React.CSSProperties = { background: '#0f1416', color: '#e6e7eb', border: '1px solid #1f2937', borderRadius: 10, padding: '12px 14px' };
   const btn: React.CSSProperties = { background: '#2f6f3f', color: '#fff', border: '1px solid transparent', borderRadius: 10, padding: '12px 16px', fontWeight: 800, cursor: 'pointer' };
   const errBox: React.CSSProperties = { marginTop: 12, border: '1px solid #7f1d1d', background: 'rgba(127,29,29,.15)', color: '#fecaca', borderRadius: 10, padding: 10 };
-  const card: React.CSSProperties = { marginTop: 14, border: '1px solid #1f2937', borderRadius: 12, background: '#0b0f12', padding: 12, color: '#e6e7eb' };
+  const card: React.CSSProperties = { marginTop: 14, border: '1px solid '#1f2937', borderRadius: 12, background: '#0b0f12', padding: 12, color: '#e6e7eb' };
   const valueBox: React.CSSProperties = { background: '#0f1416', border: '1px solid #1f2937', borderRadius: 10, padding: '8px 10px' };
   const pill: React.CSSProperties = { display: 'inline-block', border: '1px solid #2a5f47', background: '#193b2e', color: '#a7e3ba', borderRadius: 999, padding: '4px 10px', fontWeight: 800 };
 
@@ -154,8 +154,16 @@ export default function StatusPage() {
     []
   );
 
+  function clearPolling() {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+
     const base = parseQuery(q);
     const payload = showAdvanced
       ? {
@@ -164,28 +172,46 @@ export default function StatusPage() {
           lastName: lastName || base.lastName,
         }
       : base;
+
     if (!payload.confirmation && !payload.tag && !payload.lastName) {
       setErr('Enter a Confirmation # or Tag + Last Name.');
       return;
     }
+
+    // Do an immediate lookup
     doLookup(payload);
 
-    // Start auto-refresh for 5 minutes
-    if (pollRef.current) clearInterval(pollRef.current);
-    pollUntil.current = Date.now() + 5 * 60 * 1000;
-    pollRef.current = setInterval(() => {
-      if (!pollUntil.current || Date.now() > pollUntil.current) {
-        clearInterval(pollRef.current!);
-        pollRef.current = null;
+    // Start a backoff polling cycle: 30s → 60s → 120s, stop after 5 min or when ready
+    clearPolling();
+    pollUntilRef.current = Date.now() + 5 * 60 * 1000; // 5 minutes
+    const DELAYS = [30_000, 60_000, 120_000];
+    let i = 0;
+
+    const tick = async () => {
+      // stop conditions
+      if (!pollUntilRef.current || Date.now() > pollUntilRef.current) return;
+      if (document.hidden) {
+        // If tab hidden, chill a bit and try again
+        timeoutRef.current = setTimeout(tick, 15_000);
         return;
       }
-      doLookup(payload);
-    }, 10_000);
+
+      await doLookup(payload);
+
+      // If the order is ready, stop polling
+      if (isReady) return;
+
+      const nextDelay = DELAYS[Math.min(i++, DELAYS.length - 1)];
+      timeoutRef.current = setTimeout(tick, nextDelay);
+    };
+
+    timeoutRef.current = setTimeout(tick, DELAYS[0]);
   }
 
   useEffect(() => {
+    // Cleanup on unmount
     return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
+      clearPolling();
     };
   }, []);
 
@@ -208,15 +234,15 @@ export default function StatusPage() {
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const bitmap = await createImageBitmap(canvas);
+      // @ts-ignore
       const codes = await detector.detect(bitmap);
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
       if (codes?.[0]?.rawValue) {
         const raw = String(codes[0].rawValue).trim();
-        // Prefer "TAG LASTNAME" parse if possible
         setQ(/^\d+$/.test(raw) ? raw : raw.replace(/\s+/g, ' '));
       }
     } catch {
-      // Silent fail; the UI stays as-is
+      // Silent fail
     }
   }
 
