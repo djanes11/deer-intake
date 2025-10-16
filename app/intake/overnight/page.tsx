@@ -688,7 +688,7 @@ function OvernightIntakePage() {
             </div>
 
             <div className="pkg beefFat">
-              <label className="chk tight" style={{ marginTop: 22 }}>
+              <label className="chk tight">
                 <input
                   type="checkbox"
                   checked={!!job.beefFat}
@@ -989,6 +989,7 @@ function OvernightIntakePage() {
         }
 
 
+        
         /* Packaging layout */
         .pkgGrid {
           display: grid;
@@ -997,17 +998,43 @@ function OvernightIntakePage() {
           align-items: end;
         }
         .pkgGrid .pkg { min-width: 0; }
-        .pkgGrid .steak { grid-column: span 3; }
-        .pkgGrid .steakOther { grid-column: span 3; }
-        .pkgGrid .steaksPer { grid-column: span 3; }
-        .pkgGrid .burgerSize { grid-column: span 3; }
-        .pkgGrid .beefFat { grid-column: span 12; display: flex; align-items: center; }
 
-        @media (min-width: 900px) {
-          .pkgGrid .beefFat { grid-column: span 3; justify-content: flex-start; }
+        /* Desktop layout */
+        @media (min-width: 1024px) {
+          .pkgGrid .steak      { grid-column: span 4; }
+          .pkgGrid .steakOther { grid-column: span 4; }
+          .pkgGrid .steaksPer  { grid-column: span 4; }
+          .pkgGrid .burgerSize { grid-column: span 4; }
+          .pkgGrid .beefFat    { grid-column: span 8; display: flex; align-items: center; }
         }
 
+        /* Tablet & down */
+        @media (max-width: 1023.98px) {
+          .pkgGrid { grid-template-columns: 1fr 1fr; }
+          .pkgGrid .steak, .pkgGrid .steakOther { grid-column: auto; }
+          .pkgGrid .steaksPer, .pkgGrid .burgerSize { grid-column: 1 / -1; }
+          .pkgGrid .beefFat { grid-column: 1 / -1; display: flex; align-items: center; }
+        }
+
+        /* Make sure controls have sensible width */
+        .pkgGrid select, .pkgGrid input { min-width: 180px; }
+
         /* Specialty layout */
+        .specGrid {
+          display: grid;
+          grid-template-columns: repeat(12, 1fr);
+          gap: 12px;
+          align-items: end;
+        }
+        .specGrid .spec { min-width: 0; }
+        .specGrid .full { grid-column: 1 / -1; }
+        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
+
+        @media (max-width: 900px) {
+          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
+        }
+
+    
         .specGrid {
           display: grid;
           grid-template-columns: repeat(12, 1fr);
