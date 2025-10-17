@@ -160,7 +160,7 @@ export default async function IntakeView({
       !!job?.specialtyProducts || specialtyStatus.length > 0;
 
     return (
-      <main style={{maxWidth:1040, margin:'18px auto', padding:'0 14px 40px'}}>
+      <main className="ro" style={{maxWidth:1040, margin:'18px auto', padding:'0 14px 40px'}}>
         <div className="form-card" style={{maxWidth:980, margin:'16px auto', padding:14}}>
           <h2 style={{margin:'6px 0 10px'}}>Deer Intake (Read-only)</h2>
 

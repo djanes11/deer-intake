@@ -1297,3 +1297,15 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   .form-card [style*="position: sticky"][style*="bottom"] { position: static !important; inset: auto !important; }
   .form-card .sticky-actions { position: static !important; bottom: auto !important; }
 }
+
+
+/* === Read-only Intake: Mobile Comfort Patch (scoped to .ro) === */
+@media (max-width: 760px) {
+  .ro .grid,
+  .ro .summary .row { display: block !important; grid-template-columns: none !important; }
+  .ro .grid > *, .ro .summary .row > * { width: 100% !important; grid-column: auto !important; min-width: 0 !important; }
+  .ro .value, .ro .money, .ro .summary .col > div {
+    min-width: 0 !important; white-space: normal !important; overflow-wrap: anywhere !important; word-break: break-word !important;
+  }
+  .ro .form-card { padding: 12px !important; }
+}
