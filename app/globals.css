@@ -1335,3 +1335,56 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   vertical-align: middle;
 }
 
+/* === Read-only Intake: Checkbox Rendering Fix (scoped to .ro) === */
+/* Problem: a global rule styles *all* inputs like text fields, so checkboxes
+   become pill-shaped on iOS. Fix by resetting checkbox appearance and size,
+   and excluding checkboxes from the text-input styling on this page only. */
+
+.ro .form-card input[type="checkbox"] {
+  /* Force native checkbox rendering */
+  -webkit-appearance: checkbox !important;
+  appearance: checkbox !important;
+  /* Make it clearly visible and consistently sized */
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  margin: 0 8px 0 0 !important;
+  border-radius: 4px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #fff !important;
+  vertical-align: middle !important;
+  accent-color: #155acb; /* iOS/modern browsers */
+}
+
+/* If your globals style all inputs together (e.g., .form-card input, select, textarea {...}),
+   re-assert the text-field styles for non-checkbox inputs only, so checkboxes don't inherit them. */
+.ro .form-card input:not([type="checkbox"]), 
+.ro .form-card select, 
+.ro .form-card textarea {
+  /* No visual change intended — keep your existing text input styles;
+     these lines simply ensure specificity beats the old blanket rule. */
+  border-radius: inherit;
+  padding: inherit;
+  border: inherit;
+  background: inherit;
+}
+
+/* Layout for checkbox groups */
+.ro .checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ro .checks .chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  white-space: normal; /* allow label text to wrap sensibly */
+  line-height: 1.2;
+}
+
+/* Optional: keep "Add (+$5)" on one line */
+.ro .pkg-beef { white-space: nowrap; }
+
+
