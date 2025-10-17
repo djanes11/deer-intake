@@ -1309,3 +1309,29 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   }
   .ro .form-card { padding: 12px !important; }
 }
+
+/* === Read-only Intake: Checkbox Fix (scoped to .ro) === */
+.ro .checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ro .checks .chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* allow the label text to wrap naturally instead of squeezing or disappearing */
+  white-space: normal;
+  min-width: 0;
+}
+
+.ro .checks .chk input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  /* keep checkbox aligned on multi-line labels */
+  vertical-align: middle;
+}
+
