@@ -1,147 +1,183 @@
 // app/api/stateform/render/route.ts
-// Renders the Indiana DNR State Form 19433 PDF filled from your GAS payload.
-import { NextRequest, NextResponse } from 'next/server';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
+import { NextResponse } from "next/server";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import fs from "fs";
+import path from "path";
 
-export const runtime = 'nodejs';
+const ROWS_PER_PAGE = 22;
+const ROW_H = 24;
+const FONT_SIZE = 9;
 
-const GAS = process.env.NEXT_PUBLIC_API_BASE!;
-const TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || process.env.NEXT_PUBLIC_API_KEY || '';
+// your tuned offset
+const TOP_MARGIN_FIRST = 245;
+const TOP_MARGIN_NEXT = 170;
 
-// Try to load from /public/forms/19433.pdf by default.
-async function loadTemplateBytes() {
-  const fp = path.join(process.cwd(), 'public', 'forms', '19433.pdf');
-  return fs.readFile(fp);
+// Column positions you verified
+const COLS = {
+  dateIn: 35,
+  dateOut: 112,
+  name: 120,
+  address: 230,
+  phone: 493,
+  sex: 590,
+  whereKilled: 690,
+  howKilled: 820,
+  donated: 880,
+  confirmation: 923,
+};
+
+// absolute header coordinates (on visible page)
+const HEADER_XY = {
+  year: { x: 66, y: 756 },
+  page: { x: 300, y: 756 },
+  name: { x: 58, y: 724 },
+  loc: { x: 58, y: 696 },
+  county: { x: 325, y: 696 },
+  street: { x: 58, y: 668 },
+  city: { x: 52, y: 640 },
+  zip: { x: 175, y: 640 },
+  phone: { x: 275, y: 640 },
+};
+
+// GAS references
+const GAS =
+  process.env.API_BASE ||
+  process.env.GAS_BASE ||
+  process.env.NEXT_PUBLIC_API_BASE;
+const TOKEN =
+  process.env.API_TOKEN ||
+  process.env.GAS_TOKEN ||
+  process.env.NEXT_PUBLIC_API_TOKEN;
+
+function assertValidBase(url?: string) {
+  if (!url) throw new Error("Missing GAS_BASE or NEXT_PUBLIC_API_BASE env var");
 }
 
 async function fetchPayload(dry: boolean) {
-  const url = `${GAS}?action=stateform_payload&dry=${dry ? '1' : '0'}${TOKEN ? `&token=${encodeURIComponent(TOKEN)}` : ''}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error('GAS stateform_payload failed');
+  assertValidBase(GAS);
+  const url = `${GAS}?action=stateform_payload&dry=${dry ? "1" : "0"}${
+    TOKEN ? `&token=${encodeURIComponent(TOKEN)}` : ""
+  }`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok)
+    throw new Error(
+      `GAS stateform_payload failed: ${res.status} ${await res.text()}`
+    );
   return res.json();
 }
 
-type Entry = {
-  dateIn?: string; dateOut?: string; name?: string; address?: string; phone?: string;
-  sex?: string; whereKilled?: string; howKilled?: string; donated?: string; confirmation?: string;
-};
-
-// Coordinates are based on US Letter (612x792). Adjust if your template differs.
-// We fill two pages if > 18 entries.
-function headerCoords() {
+function getSamplePayload() {
   return {
-    year:         { x: 545, y: 742, size: 11 },
-    pageNumber:   { x: 595, y: 742, size: 11 },
-    processorName:{ x: 60,  y: 720, size: 10 },
-    processorLoc: { x: 298, y: 720, size: 10 },
-    processorCounty:{x: 465, y: 720, size: 10 },
-    street:       { x: 60,  y: 704, size: 10 },
-    city:         { x: 360, y: 704, size: 10 },
-    zip:          { x: 520, y: 704, size: 10 },
-    phone:        { x: 60,  y: 688, size: 10 },
+    ok: true,
+    pageYear: "2025",
+    pageNumber: 1,
+    processorName: "Mcafee Custom Deer Processing",
+    processorLocation: "Indiana",
+    processorCounty: "Harrison",
+    processorStreet: "10977 Buffalo Trace Rd NW",
+    processorCity: "Palmyra",
+    processorZip: "47164",
+    processorPhone: "(502)6433916",
+    entries: [
+      {
+        dateIn: "10/20/25",
+        dateOut: "",
+        name: "John Doe",
+        address: "123 Main St, Palmyra, IN 47164",
+        phone: "(555) 555-1212",
+        sex: "BUCK",
+        whereKilled: "Harrison, IN",
+        howKilled: "Archery",
+        donated: "N",
+        confirmation: "1234567890123",
+      },
+    ],
   };
 }
 
-function rowLayout(pageIndex: number) {
-  // Page 0 has rows 1..18; Page 1 has rows 19..44 (26 rows).
-  const topY = pageIndex === 0 ? 660 : 700;
-  const rowH = pageIndex === 0 ? 18 : 15; // the second sheet is slightly tighter
-  // Column x positions
-  return {
-    startY: topY,
-    rowH,
-    cols: {
-      dateIn:       60,
-      dateOut:      110,
-      name:         160,
-      address:      290,
-      phone:        440,
-      sex:          505,
-      whereKilled:  525,
-      howKilled:    585,
-      donated:      625,
-      confirmation: 660
-    }
-  };
+function drawText(page, text, x, y, font, size = FONT_SIZE) {
+  if (!text) return;
+  page.drawText(String(text), { x, y, size, font, color: rgb(0, 0, 0) });
 }
 
-export async function GET(req: NextRequest) {
-  const dry = (req.nextUrl.searchParams.get('dry') ?? '1') === '1';
-  const payload = await fetchPayload(dry);
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const dry = searchParams.get("dry") === "1";
+  const debug = searchParams.get("debug");
+  const sample = searchParams.get("sample");
 
-  const templateBytes = await loadTemplateBytes();
-  const pdf = await PDFDocument.load(templateBytes);
-  const helv = await pdf.embedFont(StandardFonts.Helvetica);
-  const draw = (page: any, text: string, x: number, y: number, size = 10) =>
-    page.drawText(String(text ?? ''), { x, y, size, font: helv });
+  try {
+    const payload = sample ? getSamplePayload() : await fetchPayload(dry);
+    const formPath = path.join(process.cwd(), "public/forms/19433.pdf");
+    const formBytes = fs.readFileSync(formPath);
+    const pdfDoc = await PDFDocument.load(formBytes);
+    const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const helvBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const page = pdfDoc.getPage(0);
+    const { height: h } = page.getSize();
 
-  const ensurePage = (idx: number) => {
-    while (pdf.getPageCount() <= idx) {
-      pdf.addPage([612, 792]);
+    // ---- Draw Header ----
+    for (const [key, pos] of Object.entries(HEADER_XY)) {
+      const value =
+        key === "year"
+          ? payload.pageYear
+          : key === "page"
+          ? String(payload.pageNumber)
+          : key === "name"
+          ? payload.processorName
+          : key === "loc"
+          ? payload.processorLocation
+          : key === "county"
+          ? payload.processorCounty
+          : key === "street"
+          ? payload.processorStreet
+          : key === "city"
+          ? payload.processorCity
+          : key === "zip"
+          ? payload.processorZip
+          : key === "phone"
+          ? payload.processorPhone
+          : "";
+
+      if (value) drawText(page, value, pos.x, pos.y, helvBold, 10);
+
+      if (debug === "header") {
+        page.drawCircle({ x: pos.x, y: pos.y, size: 3, color: rgb(1, 0, 0) });
+        page.drawText(key, {
+          x: pos.x + 5,
+          y: pos.y + 3,
+          size: 8,
+          font: helv,
+          color: rgb(1, 0, 0),
+        });
+      }
     }
-    return pdf.getPage(idx);
-  };
 
-  // Page 1 header
-  const p0 = ensurePage(0);
-  const H = headerCoords();
-  draw(p0, payload.pageYear,           H.year.x,           H.year.y,           H.year.size);
-  draw(p0, String(payload.pageNumber), H.pageNumber.x,     H.pageNumber.y,     H.pageNumber.size);
-  draw(p0, payload.processorName,      H.processorName.x,  H.processorName.y,  H.processorName.size);
-  draw(p0, payload.processorLocation,  H.processorLoc.x,   H.processorLoc.y,   H.processorLoc.size);
-  draw(p0, payload.processorCounty,    H.processorCounty.x,H.processorCounty.y,H.processorCounty.size);
-  draw(p0, payload.processorStreet,    H.street.x,         H.street.y,         H.street.size);
-  draw(p0, payload.processorCity,      H.city.x,           H.city.y,           H.city.size);
-  draw(p0, payload.processorZip,       H.zip.x,            H.zip.y,            H.zip.size);
-  draw(p0, payload.processorPhone,     H.phone.x,          H.phone.y,          H.phone.size);
+    // ---- Draw Rows ----
+    const startY = h - TOP_MARGIN_FIRST;
+    payload.entries.forEach((e, i) => {
+      const y = startY - i * ROW_H;
+      drawText(page, e.dateIn, COLS.dateIn, y, helv);
+      drawText(page, e.dateOut, COLS.dateOut, y, helv);
+      drawText(page, e.name, COLS.name, y, helv);
+      drawText(page, e.address, COLS.address, y, helv);
+      drawText(page, e.phone, COLS.phone, y, helv);
+      drawText(page, e.sex, COLS.sex, y, helv);
+      drawText(page, e.whereKilled, COLS.whereKilled, y, helv);
+      drawText(page, e.howKilled, COLS.howKilled, y, helv);
+      drawText(page, e.donated, COLS.donated, y, helv);
+      drawText(page, e.confirmation, COLS.confirmation, y, helv);
+    });
 
-  // Rows
-  const entries: Entry[] = Array.isArray(payload.entries) ? payload.entries : [];
-  const firstPageCount = Math.min(entries.length, 18);
-  const L0 = rowLayout(0);
-  for (let i = 0; i < firstPageCount; i++) {
-    const y = L0.startY - i * L0.rowH;
-    const e = entries[i] || {};
-    draw(p0, e.dateIn || '',       L0.cols.dateIn,       y);
-    draw(p0, e.dateOut || '',      L0.cols.dateOut,      y);
-    draw(p0, e.name || '',         L0.cols.name,         y);
-    draw(p0, e.address || '',      L0.cols.address,      y);
-    draw(p0, e.phone || '',        L0.cols.phone,        y);
-    draw(p0, e.sex || '',          L0.cols.sex,          y);
-    draw(p0, e.whereKilled || '',  L0.cols.whereKilled,  y);
-    draw(p0, e.howKilled || '',    L0.cols.howKilled,    y);
-    draw(p0, e.donated || '',      L0.cols.donated,      y);
-    draw(p0, e.confirmation || '', L0.cols.confirmation, y);
+    const pdfBytes = await pdfDoc.save();
+    return new NextResponse(pdfBytes, {
+      status: 200,
+      headers: { "Content-Type": "application/pdf" },
+    });
+  } catch (err: any) {
+    return new NextResponse(
+      `Stateform render error: ${err?.message || err}`,
+      { status: 500, headers: { "Content-Type": "text/plain" } }
+    );
   }
-
-  // Second page if needed
-  if (entries.length > 18) {
-    const p1 = ensurePage(1);
-    const L1 = rowLayout(1);
-    for (let j = 18; j < entries.length; j++) {
-      const rowIdx = j - 18;
-      const y = L1.startY - rowIdx * L1.rowH;
-      const e = entries[j] || {};
-      draw(p1, e.dateIn || '',       L1.cols.dateIn,       y);
-      draw(p1, e.dateOut || '',      L1.cols.dateOut,      y);
-      draw(p1, e.name || '',         L1.cols.name,         y);
-      draw(p1, e.address || '',      L1.cols.address,      y);
-      draw(p1, e.phone || '',        L1.cols.phone,        y);
-      draw(p1, e.sex || '',          L1.cols.sex,          y);
-      draw(p1, e.whereKilled || '',  L1.cols.whereKilled,  y);
-      draw(p1, e.howKilled || '',    L1.cols.howKilled,    y);
-      draw(p1, e.donated || '',      L1.cols.donated,      y);
-      draw(p1, e.confirmation || '', L1.cols.confirmation, y);
-    }
-  }
-
-  const bytes = await pdf.save();
-  return new NextResponse(Buffer.from(bytes), {
-    headers: {
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': dry ? 'inline; filename="stateform-preview.pdf"' : 'attachment; filename="stateform.pdf"'
-    }
-  });
 }
