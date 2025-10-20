@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import PdfPreview from "../../components/PdfPreview";
 import {
   listDraft,
   upsertLine,
@@ -27,7 +28,7 @@ type Line = {
   _empty?: boolean;
 };
 
-function Cell({
+function TextCell({
   value,
   onChange,
   placeholder,
@@ -40,7 +41,12 @@ function Cell({
 }) {
   return (
     <input
-      className={`w-full px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-sm text-white ${className || ""}`}
+      className={[
+        "w-full px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-sm text-white",
+        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+        "placeholder:text-neutral-500",
+        className || "",
+      ].join(" ")}
       value={value ?? ""}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
@@ -48,48 +54,95 @@ function Cell({
   );
 }
 
+function SelectCell({
+  value,
+  onChange,
+  options,
+  className,
+}: {
+  value?: string;
+  onChange: (v: string) => void;
+  options: { label: string; value: string }[];
+  className?: string;
+}) {
+  return (
+    <select
+      className={[
+        "w-full px-2 py-1 rounded bg-neutral-800 border border-neutral-700 text-sm text-white",
+        "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+        className || "",
+      ].join(" ")}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export default function StateFormEditorPage() {
   const [rows, setRows] = useState<Line[]>([]);
-  const [status, setStatus] = useState<{
-    pageDraft: number;
-    count: number;
-    capacity: number;
-  } | null>(null);
+  const [status, setStatus] = useState<{ pageDraft: number; count: number; capacity: number } | null>(null);
   const [tag, setTag] = useState("");
+  const [previewSrc, setPreviewSrc] = useState("/api/stateform/render?dry=1");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const saveTimer = useRef<number | null>(null);
 
-  async function refresh() {
+  const sexOptions = [
+    { label: "—", value: "" },
+    { label: "BUCK", value: "BUCK" },
+    { label: "DOE", value: "DOE" },
+    { label: "ANTLERLESS", value: "ANTLERLESS" },
+  ];
+  const donatedOptions = [
+    { label: "—", value: "" },
+    { label: "Y", value: "Y" },
+    { label: "N", value: "N" },
+  ];
+
+  function bumpPreview() {
+    setPreviewSrc(`/api/stateform/render?dry=1&_=${Date.now()}`);
+  }
+
+  async function refreshAll() {
+    setBusy(true);
+    setError(null);
     try {
       const [ls, st] = await Promise.all([
-        listDraft().catch(() => null),
-        currentStateformStatus().catch(() => null),
+        listDraft().catch((e) => {
+          throw new Error("Failed to load draft rows");
+        }),
+        currentStateformStatus().catch((e) => {
+          throw new Error("Failed to load status");
+        }),
       ]);
 
       const safeRows: Line[] = Array.isArray(ls?.rows) ? (ls!.rows as Line[]) : [];
       setRows(safeRows);
 
       if (st) {
-        const p =
-          (st as any).pageDraft ??
-          (st as any).pageNumber ??
-          1;
+        const p = (st as any).pageDraft ?? (st as any).pageNumber ?? 1;
         setStatus({
           pageDraft: p,
           count: (st as any).count ?? 0,
           capacity: (st as any).capacity ?? 44,
         });
       }
-
-      // Force iframe refresh with cache-buster
-      const iframe = document.getElementById("preview") as HTMLIFrameElement | null;
-      if (iframe) iframe.src = `/api/stateform/render?dry=1&_=${Date.now()}`;
-    } catch {
-      // leave current state on total failure
+      bumpPreview();
+    } catch (e: any) {
+      setError(e?.message || "Something went wrong loading data");
+    } finally {
+      setBusy(false);
     }
   }
 
   useEffect(() => {
-    refresh();
+    refreshAll();
   }, []);
 
   const save = (lineNo: number, patch: Partial<Line>) => {
@@ -105,124 +158,121 @@ export default function StateFormEditorPage() {
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       upsertLine(lineNo, payload)
-        .then(refresh)
-        .catch(() => {});
-    }, 300) as unknown as number;
+        .then(() => bumpPreview())
+        .catch(() => setError("Failed to save change"));
+    }, 220) as unknown as number;
   };
 
   const onAdd = async () => {
     if (!tag.trim()) return;
-    await appendFromTag(tag.trim()).catch(() => {});
-    setTag("");
-    refresh();
+    setBusy(true);
+    setError(null);
+    try {
+      await appendFromTag(tag.trim());
+      setTag("");
+      await refreshAll();
+    } catch {
+      setError("Could not add by tag");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onDelete = async (lineNo: number) => {
-    await deleteLine(lineNo).catch(() => {});
-    refresh();
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteLine(lineNo);
+      await refreshAll();
+    } catch {
+      setError("Delete failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onClear = async () => {
-    if (!confirm("Clear all 44 rows in the draft page?")) return;
-    await clearDraft().catch(() => {});
-    refresh();
+    if (!confirm("Clear all 44 rows on the current draft page?")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await clearDraft();
+      await refreshAll();
+    } catch {
+      setError("Clear failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const onManualPrint = async () => {
-    // opens new tab with the flushed PDF
     window.open(`/api/stateform/render?dry=0&_=${Date.now()}`, "_blank");
-    setTimeout(refresh, 1200);
+    setTimeout(refreshAll, 1200);
   };
 
   return (
     <div className="w-full p-4 md:p-6 space-y-6">
-      <h1 className="text-2xl md:text-3xl font-extrabold text-white">
-        Indiana State Form 19433 — Draft Editor
-      </h1>
+      <h1 className="text-2xl md:text-3xl font-extrabold text-white">Indiana State Form 19433 — Draft Editor</h1>
 
-      {/* Top: stats + preview */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left: controls / stats */}
-        <div className="lg:col-span-1">
-          <div className="rounded-2xl shadow p-4 bg-neutral-900 text-white">
-            <div className="text-sm opacity-80">Current Draft Page</div>
-            <div className="text-3xl font-semibold">
-              {status?.pageDraft ?? "…"}
-            </div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={onManualPrint}
+          className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+          disabled={busy}
+        >
+          Print (flush)
+        </button>
+        <button
+          onClick={onClear}
+          className="px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white disabled:opacity-50"
+          disabled={busy}
+        >
+          Clear Page
+        </button>
 
-            <div className="mt-4 text-sm opacity-80">Staged rows</div>
-            <div className="text-2xl">
-              {status?.count ?? 0} / {status?.capacity ?? 44}
-            </div>
+        <input
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+          placeholder="Scan or enter Tag to add"
+          className="px-3 py-2 rounded bg-neutral-800 border border-neutral-700 text-white flex-1 min-w-[240px]
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        />
+        <button
+          onClick={onAdd}
+          className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50"
+          disabled={busy}
+        >
+          Add
+        </button>
 
-            <div className="mt-4 flex gap-2">
-              <input
-                value={tag}
-                onChange={(e) => setTag(e.target.value)}
-                placeholder="Scan/enter Tag to add"
-                className="px-3 py-2 rounded bg-neutral-800 border border-neutral-700 w-full text-white"
-              />
-              <button
-                onClick={onAdd}
-                className="px-3 py-2 rounded bg-blue-600 hover:bg-blue-500"
-              >
-                Add
-              </button>
-            </div>
-
-            <div className="mt-2 flex gap-2">
-              <button
-                onClick={onManualPrint}
-                className="flex-1 px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500"
-              >
-                Print (flush)
-              </button>
-              <button
-                onClick={onClear}
-                className="flex-1 px-3 py-2 rounded bg-red-600 hover:bg-red-500"
-              >
-                Clear
-              </button>
-            </div>
-
-            <p className="mt-2 text-xs opacity-70">
-              Print will lock, write history, bump page, and clear rows.
-            </p>
-
-            <div className="mt-4">
-              <a
-                href="/api/stateform/render?dry=1"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-block text-sm px-3 py-2 rounded bg-neutral-800 border border-neutral-700 hover:bg-neutral-700"
-              >
-                Open Large Preview
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: big preview */}
-        <div className="lg:col-span-2 min-w-0">
-          <div className="rounded-2xl overflow-hidden shadow border border-neutral-700 bg-black min-h-[85vh]">
-            <iframe
-              id="preview"
-              title="State Form Preview"
-              className="w-full h-[85vh] block"
-              style={{ width: "100%", height: "85vh", display: "block" }}
-            />
-          </div>
+        <div className="text-sm text-neutral-300 ml-auto">
+          Page {status?.pageDraft ?? "…"} — {status?.count ?? 0}/{status?.capacity ?? 44} staged
         </div>
       </div>
 
-      {/* Bottom: grid editor */}
-      <div className="rounded-2xl shadow p-4 bg-neutral-900 text-white overflow-auto">
-        <div className="mb-2 text-sm opacity-80">
-          Edit any cell; changes auto-save. Date format: <code>mm/dd/yy</code>.
+      {/* Error banner */}
+      {error && (
+        <div className="rounded bg-red-900/50 border border-red-700 text-red-200 px-3 py-2 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Preview */}
+      <div className="rounded-2xl overflow-hidden shadow border border-neutral-700 bg-black w-full min-h-[80vh]">
+        <PdfPreview src={previewSrc} />
+      </div>
+
+      {/* Grid editor */}
+      <div className="rounded-2xl shadow bg-neutral-900 text-white overflow-auto">
+        <div className="sticky top-0 z-10 p-3 bg-neutral-900 border-b border-neutral-800">
+          <div className="text-sm opacity-80">
+            Edit any cell; changes auto-save. Date format: <code>mm/dd/yy</code>.
+          </div>
         </div>
 
         {/* Header row */}
-        <div className="grid grid-cols-12 gap-2 text-[11px] md:text-xs font-semibold opacity-80 mb-2">
+        <div className="grid grid-cols-12 gap-2 px-4 pt-3 text-[11px] md:text-xs font-semibold opacity-80">
           <div>#</div>
           <div>Tag</div>
           <div>Date In</div>
@@ -237,70 +287,71 @@ export default function StateFormEditorPage() {
           <div>Confirm #</div>
         </div>
 
-        {(rows ?? []).map((r) => (
-          <div
-            key={r.lineNo}
-            className="grid grid-cols-12 gap-2 mb-2 items-center"
-          >
-            <div className="text-center text-xs md:text-sm">{r.lineNo}</div>
-            <Cell value={r.tag} onChange={(v) => save(r.lineNo, { tag: v })} />
-            <Cell
-              value={r.dateIn}
-              onChange={(v) => save(r.lineNo, { dateIn: v })}
-              placeholder="mm/dd/yy"
-            />
-            <Cell
-              value={r.dateOut}
-              onChange={(v) => save(r.lineNo, { dateOut: v })}
-              placeholder="mm/dd/yy"
-            />
-            <Cell
-              value={r.name}
-              onChange={(v) => save(r.lineNo, { name: v })}
-            />
-            <Cell
-              value={r.address}
-              onChange={(v) => save(r.lineNo, { address: v })}
-            />
-            <Cell
-              value={r.phone}
-              onChange={(v) => save(r.lineNo, { phone: v })}
-            />
-            <Cell
-              value={r.sex}
-              onChange={(v) => save(r.lineNo, { sex: v })}
-              placeholder="BUCK/DOE/ANTLERLESS"
-            />
-            <Cell
-              value={r.whereKilled}
-              onChange={(v) => save(r.lineNo, { whereKilled: v })}
-              placeholder="County, IN"
-            />
-            <Cell
-              value={r.howKilled}
-              onChange={(v) => save(r.lineNo, { howKilled: v })}
-              placeholder="gun/arch/veh"
-            />
-            <Cell
-              value={r.donated}
-              onChange={(v) => save(r.lineNo, { donated: v })}
-              placeholder="Y/N"
-            />
-            <div className="flex items-center gap-2">
-              <Cell
-                value={r.confirmation}
-                onChange={(v) => save(r.lineNo, { confirmation: v })}
+        <div className="px-4 pb-4">
+          {(rows ?? []).map((r) => (
+            <div
+              key={r.lineNo}
+              className="grid grid-cols-12 gap-2 py-2 items-center border-b border-neutral-800/60 hover:bg-neutral-800/40"
+            >
+              <div className="text-center text-xs md:text-sm">{r.lineNo}</div>
+
+              <TextCell value={r.tag} onChange={(v) => save(r.lineNo, { tag: v })} />
+
+              <TextCell
+                value={r.dateIn}
+                onChange={(v) => save(r.lineNo, { dateIn: v })}
+                placeholder="mm/dd/yy"
               />
-              <button
-                onClick={() => onDelete(r.lineNo)}
-                className="px-2 py-1 rounded bg-red-700 hover:bg-red-600 text-xs"
-                title="Delete line"
-              >
-                Del
-              </button>
+              <TextCell
+                value={r.dateOut}
+                onChange={(v) => save(r.lineNo, { dateOut: v })}
+                placeholder="mm/dd/yy"
+              />
+
+              <TextCell value={r.name} onChange={(v) => save(r.lineNo, { name: v })} />
+              <TextCell value={r.address} onChange={(v) => save(r.lineNo, { address: v })} />
+              <TextCell value={r.phone} onChange={(v) => save(r.lineNo, { phone: v })} />
+
+              <SelectCell
+                value={r.sex}
+                onChange={(v) => save(r.lineNo, { sex: v })}
+                options={sexOptions}
+              />
+
+              <TextCell
+                value={r.whereKilled}
+                onChange={(v) => save(r.lineNo, { whereKilled: v })}
+                placeholder="County, IN"
+              />
+              <TextCell
+                value={r.howKilled}
+                onChange={(v) => save(r.lineNo, { howKilled: v })}
+                placeholder="gun/arch/veh"
+              />
+
+              <SelectCell
+                value={r.donated}
+                onChange={(v) => save(r.lineNo, { donated: v })}
+                options={donatedOptions}
+              />
+
+              <div className="flex items-center gap-2">
+                <TextCell
+                  value={r.confirmation}
+                  onChange={(v) => save(r.lineNo, { confirmation: v })}
+                />
+                <button
+                  onClick={() => onDelete(r.lineNo)}
+                  className="px-2 py-1 rounded bg-red-700 hover:bg-red-600 text-xs"
+                  title="Delete line"
+                  disabled={busy}
+                >
+                  Del
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

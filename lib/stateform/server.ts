@@ -18,7 +18,7 @@ export async function gasPostServer(
   req: NextRequest,
   body: Record<string, any>
 ) {
-  const url = new URL("/api/stateform/gas", req.url); // absolute
+  const url = new URL("/api/stateform/gas", req.url);
   const r = await fetch(url.toString(), {
     method: "POST",
     headers: { "content-type": "application/json" },

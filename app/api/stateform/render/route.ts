@@ -17,30 +17,32 @@ function setField(form: any, name: string, value: string | number | undefined) {
     tf?.setText(text);
     return;
   } catch {}
-  // Some PDFs may expose fields differently; ignore if not found.
 }
 
 /** Handle sex field (some PDFs have one text field; others 3 checkboxes). */
 function setSex(form: any, fieldName: string, sex: string | undefined) {
   const v = String(sex || "").toUpperCase();
-  // Try text field first.
   try {
     const tf = form.getTextField(fieldName);
     tf?.setText(v);
     return;
   } catch {}
-  // Fallback: try checkboxes named like "<field> BUCK/DOE/ANTLERLESS"
   try { if (v === "BUCK") form.getCheckBox(`${fieldName} BUCK`).check(); } catch {}
   try { if (v === "DOE") form.getCheckBox(`${fieldName} DOE`).check(); } catch {}
   try { if (v === "ANTLERLESS") form.getCheckBox(`${fieldName} ANTLERLESS`).check(); } catch {}
 }
 
-/** Render the filled PDF. */
 async function renderPdf(payload: any): Promise<Uint8Array> {
   const pdfPath = path.join(process.cwd(), "public", "stateform", "19433.pdf");
   const bytes = await readFile(pdfPath);
   const pdfDoc = await PDFDocument.load(bytes);
   const form = pdfDoc.getForm();
+
+  // OPTIONAL: dev-only dump of field names to help mapping header fields
+  if (process.env.NODE_ENV !== "production" && payload?.debugFields === true) {
+    const names = form.getFields().map((f: any) => f.getName());
+    throw new Error("PDF_FIELDS::" + JSON.stringify(names));
+  }
 
   // Header fields
   setField(form, headerFields.year, payload.pageYear);
@@ -51,6 +53,7 @@ async function renderPdf(payload: any): Promise<Uint8Array> {
   setField(form, headerFields.processorStreet, payload.processorStreet);
   setField(form, headerFields.processorCity, payload.processorCity);
   setField(form, headerFields.processorZip, payload.processorZip);
+  setField(form, headerFields.processorPhone, payload.processorPhone);
 
   // Line items (1..44)
   const entries: any[] = Array.isArray(payload.entries) ? payload.entries : [];
@@ -73,17 +76,18 @@ async function renderPdf(payload: any): Promise<Uint8Array> {
   return pdfDoc.save();
 }
 
-/** GET → preview if dry=1, otherwise flush-render if dry=0 */
+/** GET → preview (dry=1) or flush (dry=0) */
 export async function GET(req: NextRequest) {
-  const dry = new URL(req.url).searchParams.get("dry") ?? "1";
+  const url = new URL(req.url);
+  const dry = url.searchParams.get("dry") ?? "1";
+  const debug = url.searchParams.get("debug") === "1";
 
-  // Pull JSON payload from GAS through our server proxy (absolute URL via req.url)
   const payload = await gasGetServer(req, { action: "stateform_payload", dry });
   if (!payload?.ok) {
     return NextResponse.json(payload ?? { ok: false, error: "payload error" }, { status: 500 });
   }
 
-  const pdfBytes = await renderPdf(payload);
+  const pdfBytes = await renderPdf({ ...payload, debugFields: debug });
   return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "content-type": "application/pdf",
@@ -112,4 +116,3 @@ export async function POST(req: NextRequest) {
     },
   });
 }
-
