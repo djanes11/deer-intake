@@ -1,7 +1,7 @@
-// app/reports/state-form/page.tsx (editor-first)
+// app/reports/state-form/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listDraft, upsertLine, deleteLine, clearDraft, appendFromTag, currentStateformStatus } from "@/lib/stateform/client";
 
 type Line = {
@@ -35,53 +35,61 @@ export default function StateFormEditorPage(){
   const [rows, setRows] = useState<Line[]>([]);
   const [status, setStatus] = useState<{pageDraft:number; count:number; capacity:number} | null>(null);
   const [tag, setTag] = useState("");
+  const saveTimer = useRef<number | null>(null);
 
   async function refresh(){
-    const [ls, st] = await Promise.all([listDraft(), currentStateformStatus()]);
-    setRows(ls.rows as Line[]);
-    setStatus(st);
-    const iframe = document.getElementById("preview") as HTMLIFrameElement | null;
-    if (iframe) iframe.src = `/api/stateform/render?dry=1&_=${Date.now()}`;
+    try {
+      const [ls, st] = await Promise.all([
+        listDraft().catch(() => null),
+        currentStateformStatus().catch(() => null),
+      ]);
+      const safeRows: Line[] = Array.isArray(ls?.rows) ? ls!.rows : [];
+      setRows(safeRows);
+      if (st && typeof st.pageDraft !== "undefined") setStatus(st);
+      const iframe = document.getElementById("preview") as HTMLIFrameElement | null;
+      if (iframe) iframe.src = `/api/stateform/render?dry=1&_=${Date.now()}`;
+    } catch {
+      // leave rows as-is on total failure
+    }
   }
 
   useEffect(()=>{ refresh(); }, []);
 
-  // Debounced saver
-  let saveTimer: any = null;
   const save = (lineNo:number, patch:Partial<Line>) => {
-    const newRows = rows.map(r => r.lineNo === lineNo ? {...r, ...patch} : r);
-    setRows(newRows);
+    const next = (rows ?? []).map(r => r.lineNo === lineNo ? { ...r, ...patch } : r);
+    setRows(next);
     const payload:any = {};
     for (const [k,v] of Object.entries(patch)) {
       if (k === "lineNo" || k === "_empty") continue;
       payload[k] = v;
     }
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(()=> upsertLine(lineNo, payload).then(()=>refresh()), 300);
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      upsertLine(lineNo, payload).then(refresh).catch(() => {});
+    }, 300) as unknown as number;
   };
 
   const onAdd = async () => {
     if (!tag.trim()) return;
-    await appendFromTag(tag.trim());
+    await appendFromTag(tag.trim()).catch(()=>{});
     setTag("");
     refresh();
   };
 
   const onDelete = async (lineNo:number) => {
-    await deleteLine(lineNo);
+    await deleteLine(lineNo).catch(()=>{});
     refresh();
   };
 
   const onClear = async () => {
     if (!confirm("Clear all 44 rows in the draft page?")) return;
-    await clearDraft();
+    await clearDraft().catch(()=>{});
     refresh();
   };
 
   const onManualPrint = async () => {
-    const url = `/api/stateform/render?dry=0&_=${Date.now()}`;
-    window.open(url, "_blank");
-    setTimeout(refresh, 1500);
+    window.open(`/api/stateform/render?dry=0&_=${Date.now()}`, "_blank");
+    setTimeout(refresh, 1200);
   };
 
   return (
@@ -126,7 +134,7 @@ export default function StateFormEditorPage(){
         <div className="grid grid-cols-12 gap-2 text-xs font-semibold opacity-80 mb-2">
           <div>#</div><div>Tag</div><div>Date In</div><div>Date Out</div><div>Name</div><div>Address</div><div>Phone</div><div>Sex</div><div>Where Killed</div><div>How</div><div>Donated</div><div>Confirm #</div>
         </div>
-        {rows.map((r)=> (
+        {(rows ?? []).map((r)=> (
           <div key={r.lineNo} className="grid grid-cols-12 gap-2 mb-2 items-center">
             <div className="text-center">{r.lineNo}</div>
             <Cell value={r.tag} onChange={(v)=>save(r.lineNo,{tag:v})} />
