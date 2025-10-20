@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchStateformPayload,
   setStateformPageNumber,
@@ -8,25 +8,16 @@ import {
 
 const CAPACITY = 43;
 
-type SizeKey = 'lg' | 'xl' | 'full';
-const SIZE_TO_CLASS: Record<SizeKey, string> = {
-  lg:   'h-[900px]  max-w-[1100px]',
-  xl:   'h-[1100px] max-w-[1300px]',
-  full: 'h-[1400px] max-w-[1600px]',
-};
-
 export default function StateFormReportPage() {
   const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const [size, setSize] = useState<SizeKey>('xl');
   const [auto, setAuto] = useState(true);
   const timer = useRef<NodeJS.Timeout | null>(null);
 
   const [refreshKey, setRefreshKey] = useState(0);
-
-  // IMPORTANT: stable initial value for SSR, then update on client
+  // Stable initial value for SSR, cache-bust after mount
   const [previewUrl, setPreviewUrl] = useState('/api/stateform/render?dry=1');
   useEffect(() => {
     setPreviewUrl(`/api/stateform/render?dry=1&_=${Date.now()}-${refreshKey}`);
@@ -39,7 +30,7 @@ export default function StateFormReportPage() {
     setLoading(true);
     setErr(null);
     try {
-      const p = await fetchStateformPayload(true); // dry=1 preview
+      const p = await fetchStateformPayload(true); // dry preview
       setPayload(p);
     } catch (e: any) {
       setErr(e?.message || String(e));
@@ -163,19 +154,6 @@ export default function StateFormReportPage() {
           />
           Auto-refresh (20s)
         </label>
-
-        <label className="flex items-center gap-2 text-sm text-zinc-400 ml-auto">
-          Preview size:
-          <select
-            value={size}
-            onChange={(e) => setSize(e.target.value as SizeKey)}
-            className="bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1"
-          >
-            <option value="lg">Large</option>
-            <option value="xl">XL</option>
-            <option value="full">Full</option>
-          </select>
-        </label>
       </div>
 
       {/* Status strip */}
@@ -189,10 +167,10 @@ export default function StateFormReportPage() {
         {err && <span className="mx-3 text-red-400">Error: {err}</span>}
       </div>
 
-      {/* Big centered preview */}
+      {/* Big preview (fills most of the viewport) */}
       <div className="flex justify-center">
-        <div className="w-full flex flex-col items-center">
-          <div className="mb-2 text-sm text-zinc-400 self-start">
+        <div className="w-full">
+          <div className="mb-2 text-sm text-zinc-400">
             Preview •{' '}
             <a href={previewUrl} target="_blank" rel="noreferrer" className="underline hover:no-underline">
               open full size
@@ -202,7 +180,7 @@ export default function StateFormReportPage() {
             key={refreshKey}
             data={previewUrl}
             type="application/pdf"
-            className={`w-full ${SIZE_TO_CLASS[size]} rounded-lg border border-zinc-700 shadow`}
+            className="w-full h-[85vh] rounded-lg border border-zinc-700 shadow"
           >
             <div className="p-4 text-sm">
               PDF preview not supported.{' '}
