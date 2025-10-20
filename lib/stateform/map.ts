@@ -1,8 +1,8 @@
 // lib/stateform/map.ts
-// Mapping for Indiana DNR State Form 19433 (R7) + helpers to derive entries
-// from your current sheet headers.
+// Complete mapping + helpers for Indiana DNR State Form 19433 (R7)
+// using YOUR sheet headers. Safe to paste as a full replacement.
 
-/** Your current sheet headers (for reference / typing) */
+/** Your current sheet headers (typing aid) */
 export type JobRow = {
   "Tag"?: string;
   "Confirmation #"?: string;
@@ -14,9 +14,9 @@ export type JobRow = {
   "State"?: string;
   "Zip"?: string;
   "County Killed"?: string;
-  "Sex"?: string; // "Buck", "Doe", "Antlerless", etc.
+  "Sex"?: string;
   "Process Type"?: string;
-  "Drop-off Date"?: string; // prefer yyyy-mm-dd
+  "Drop-off Date"?: string;
   "Status"?: string;
   "Caping Status"?: string;
   "Webbs Status"?: string;
@@ -85,15 +85,15 @@ export type JobRow = {
 };
 
 export type StateFormEntry = {
-  dateIn?: string;        // mm/dd/yy or yyyy-mm-dd (we normalize below)
-  dateOut?: string;       // optional
+  dateIn?: string;        // mm/dd/yy (we normalize)
+  dateOut?: string;       // unused for now
   name?: string;
   address?: string;       // "street, city, state, zip"
   phone?: string;         // (xxx) xxx-xxxx
   sex?: string;           // BUCK | DOE | ANTLERLESS
   whereKilled?: string;   // "county, state"
-  howKilled?: string;     // optional free text (gun/arch/veh/etc.)
-  donated?: string;       // Y | N
+  howKilled?: string;     // blank until you add it to your form
+  donated?: string;       // Y | N (from Process Type)
   confirmation?: string;
 };
 
@@ -106,18 +106,25 @@ export type StateFormPayload = {
   processorStreet: string;      // 10977 Buffalo Trace Rd NW
   processorCity: string;        // Palmyra
   processorZip: string;         // 47164
-  processorPhone: string;       // (502)6433916
+  processorPhone: string;       // (502)643-3916
   entries: StateFormEntry[];
 };
 
-/** Convert a 1-based row index to the PDF field name prefix */
-function rowPrefix(i: number): string {
-  return String(i); // e.g., NAME1, NAME2, ..., CONFIRMATION NUMBER1, etc.
-}
+/** Defaults for header population (edit if needed) */
+export const headerDefaults = {
+  pageYear: "2025",
+  processorName: "Mcafee Custom Deer Processing",
+  processorLocation: "Indiana",
+  processorCounty: "Harrison",
+  processorStreet: "10977 Buffalo Trace Rd NW",
+  processorCity: "Palmyra",
+  processorZip: "47164",
+  processorPhone: "(502)643-3916",
+};
 
-/** PDF field names in the 19433 (R7) template */
+/** Map 1-based row index -> PDF field names in 19433 (R7) */
 export function pdfFieldMap(i: number) {
-  const n = rowPrefix(i);
+  const n = String(i);
   return {
     dateIn: `DATE IN mmddyy${n}`,
     dateOut: `DATE OUT mmddyy${n}`,
@@ -132,7 +139,7 @@ export function pdfFieldMap(i: number) {
   };
 }
 
-/** Header fields in the PDF */
+/** Header field names in the PDF */
 export const headerFields = {
   year: "Year:",
   pageNumber: "Page Number:",
@@ -148,7 +155,6 @@ export const headerFields = {
 
 function toMMDDYYFromISO(s?: string): string {
   if (!s) return "";
-  // Accept "yyyy-mm-dd" or already "mm/dd/yy"
   if (/^\d{2}\/\d{2}\/\d{2}$/.test(s)) return s;
   const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return "";
@@ -159,12 +165,8 @@ function toMMDDYYFromISO(s?: string): string {
 function normalizePhone(s?: string): string {
   const d = String(s || "").replace(/\D+/g, "");
   if (!d) return "";
-  if (d.length === 11 && d.startsWith("1")) {
-    return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
-  }
-  if (d.length === 10) {
-    return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
-  }
+  if (d.length === 11 && d.startsWith("1")) return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
   return String(s || "");
 }
 
@@ -176,39 +178,34 @@ function mapSexToCode(sex?: string): string {
   return "ANTLERLESS";
 }
 
-/** Build a single-line mailing address from your columns */
 function buildAddress(row: JobRow): string {
-  const parts = [
-    (row["Address"] || "").trim(),
-    [row["City"], row["State"], row["Zip"]].filter(Boolean).join(", "),
-  ].filter(Boolean);
-  return parts.join(", ");
+  const left = (row["Address"] || "").trim();
+  const right = [row["City"], row["State"], row["Zip"]].filter(Boolean).join(", ");
+  return [left, right].filter(Boolean).join(", ");
 }
 
-/** Build "county, state" from your columns for WHERE KILLED */
 function buildWhereKilled(row: JobRow): string {
   const county = (row["County Killed"] || "").trim();
   const st = (row["State"] || "").trim() || "IN";
   return [county, st].filter(Boolean).join(", ");
 }
 
-// Add this helper:
 function isDonatedByProcessType(pt?: string): boolean {
   const x = String(pt || "").trim().toLowerCase();
   return (
     x === "donate" ||
-    x === "donte" ||                 // tolerate the common typo you mentioned
+    x === "donte" ||        // tolerate typo
     x === "cape and donate" ||
     x === "cape & donate"
   );
 }
 
-/** Convert your sheet row -> StateFormEntry (one line on the PDF) */
-// Replace your entryFromJobRow with this version:
+/* -------------------------- Row Converters -------------------------- */
+
 export function entryFromJobRow(row: JobRow): StateFormEntry {
   return {
     dateIn: toMMDDYYFromISO(row["Drop-off Date"]),
-    dateOut: "", // fill when you add an 'Out' date
+    dateOut: "",
     name: row["Customer"] || "",
     address: buildAddress(row),
     phone: normalizePhone(row["Phone"]),
@@ -220,7 +217,7 @@ export function entryFromJobRow(row: JobRow): StateFormEntry {
   };
 }
 
-/** Convenience: map many rows */
 export function entriesFromSheetRows(rows: JobRow[]): StateFormEntry[] {
   return rows.map(entryFromJobRow);
 }
+
