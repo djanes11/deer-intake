@@ -1,35 +1,87 @@
 // lib/stateform/client.ts
-type AnyRec = Record<string, any>;
+// Client-side helpers for talking to our GAS proxy at /api/stateform/gas
 
-async function proxyGet(q: Record<string, string|number|boolean|undefined>) {
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(q)) {
-    if (v !== undefined && v !== null) params.set(k, String(v));
+type Json = Record<string, any>;
+
+function qs(params: Record<string, string | number | boolean | undefined | null>) {
+  const u = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) u.set(k, String(v));
   }
-  const res = await fetch(`/api/stateform/gas?${params.toString()}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Proxy GET ${res.status}`);
-  return res.json();
+  return u.toString();
 }
 
-async function proxyPost(action: string, body: AnyRec) {
-  const res = await fetch(`/api/stateform/gas`, {
+async function proxyGet(params: Record<string, any>): Promise<Json> {
+  const url = `/api/stateform/gas?${qs(params)}`;
+  const res = await fetch(url, { cache: "no-store" });
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    // noop
+  }
+  if (!res.ok || (json && json.ok === false)) {
+    const msg = (json && (json.error || json.message)) || `GET ${url} failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return json ?? {};
+}
+
+async function proxyPost(body: Json): Promise<Json> {
+  const res = await fetch("/api/stateform/gas", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action, ...(body || {}) }),
-    cache: "no-store",
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Proxy POST ${res.status}`);
-  return res.json();
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    // noop
+  }
+  if (!res.ok || (json && json.ok === false)) {
+    const msg = (json && (json.error || json.message)) || `POST ${body?.action || ""} failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return json ?? {};
 }
 
-// Existing endpoints
-export const getPreviewPayload       = () => proxyGet({ action: "stateform_payload", dry: 1 });
-export const getFlushPayload         = () => proxyGet({ action: "stateform_payload", dry: 0 });
-export const appendFromTag           = (tag: string) => proxyPost("stateform_append_from_tag", { tag });
-export const currentStateformStatus  = () => proxyGet({ action: "stateform_status" });
+/** Status: page number, count in buffer, capacity (44) */
+export async function currentStateformStatus() {
+  return proxyGet({ action: "stateform_status" });
+}
 
-// Buffer CRUD
-export const listDraft  = () => proxyGet({ action: "stateform_list" });
-export const upsertLine = (lineNo: number, fields: AnyRec) => proxyPost("stateform_upsert", { lineNo, fields });
-export const deleteLine = (lineNo: number) => proxyPost("stateform_delete", { lineNo });
-export const clearDraft = () => proxyPost("stateform_clear", {});
+/** List current staged rows (the 44-line buffer). */
+export async function listDraft() {
+  return proxyGet({ action: "stateform_list" });
+}
+
+/** Insert/update a single line in the 44-line buffer. `patch` is partial row fields. */
+export async function upsertLine(lineNo: number, patch: Json) {
+  return proxyPost({ action: "stateform_upsert_line", lineNo, patch });
+}
+
+/** Delete one line from the buffer. */
+export async function deleteLine(lineNo: number) {
+  return proxyPost({ action: "stateform_delete_line", lineNo });
+}
+
+/** Clear the entire current page (all 44 rows). */
+export async function clearDraft() {
+  return proxyPost({ action: "stateform_clear" });
+}
+
+/**
+ * Add by Tag:
+ * - If tag already staged, the server should return { ok:true, already:true, lineNo }
+ * - If not, it fills the first empty slot and returns { ok:true, lineNo }
+ * We *return* the server JSON so the page can scroll to that line.
+ */
+export async function appendFromTag(tag: string) {
+  return proxyPost({ action: "stateform_append_from_tag", tag });
+}
+
+/** (Optional) Fetch the render payload (dry run) for debugging. */
+export async function getPreviewPayload(dry = true) {
+  return proxyGet({ action: "stateform_payload", dry: dry ? 1 : 0 });
+}
