@@ -1,161 +1,147 @@
 // app/api/stateform/render/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import { readFile } from "fs/promises";
-import { PDFDocument } from "pdf-lib";
-import { gasGetServer } from "@/lib/stateform/server";
-import { headerFields, pdfFieldMap } from "@/lib/stateform/map";
+// Renders the Indiana DNR State Form 19433 PDF filled from your GAS payload.
+import { NextRequest, NextResponse } from 'next/server';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+export const runtime = 'nodejs';
 
-/** Safe text write to a form field (no-throw if field not present). */
-function setField(form: any, name: string | undefined, value: string | number | undefined) {
-  if (!name) return;
-  const text = value == null ? "" : String(value);
-  try {
-    const tf = form.getTextField(name);
-    if (tf) tf.setText(text);
-  } catch {
-    // ignore missing field
-  }
+const GAS = process.env.NEXT_PUBLIC_API_BASE!;
+const TOKEN = process.env.NEXT_PUBLIC_API_TOKEN || process.env.NEXT_PUBLIC_API_KEY || '';
+
+// Try to load from /public/forms/19433.pdf by default.
+async function loadTemplateBytes() {
+  const fp = path.join(process.cwd(), 'public', 'forms', '19433.pdf');
+  return fs.readFile(fp);
 }
 
-/** Sex field can be a single text field or multiple checkboxes depending on the PDF. */
-function setSex(form: any, baseName: string | undefined, sex: string | undefined) {
-  if (!baseName) return;
-  const v = String(sex || "").toUpperCase();
-  // Try a single text field first
-  try {
-    const tf = form.getTextField(baseName);
-    if (tf) {
-      tf.setText(v);
-      return;
+async function fetchPayload(dry: boolean) {
+  const url = `${GAS}?action=stateform_payload&dry=${dry ? '1' : '0'}${TOKEN ? `&token=${encodeURIComponent(TOKEN)}` : ''}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error('GAS stateform_payload failed');
+  return res.json();
+}
+
+type Entry = {
+  dateIn?: string; dateOut?: string; name?: string; address?: string; phone?: string;
+  sex?: string; whereKilled?: string; howKilled?: string; donated?: string; confirmation?: string;
+};
+
+// Coordinates are based on US Letter (612x792). Adjust if your template differs.
+// We fill two pages if > 18 entries.
+function headerCoords() {
+  return {
+    year:         { x: 545, y: 742, size: 11 },
+    pageNumber:   { x: 595, y: 742, size: 11 },
+    processorName:{ x: 60,  y: 720, size: 10 },
+    processorLoc: { x: 298, y: 720, size: 10 },
+    processorCounty:{x: 465, y: 720, size: 10 },
+    street:       { x: 60,  y: 704, size: 10 },
+    city:         { x: 360, y: 704, size: 10 },
+    zip:          { x: 520, y: 704, size: 10 },
+    phone:        { x: 60,  y: 688, size: 10 },
+  };
+}
+
+function rowLayout(pageIndex: number) {
+  // Page 0 has rows 1..18; Page 1 has rows 19..44 (26 rows).
+  const topY = pageIndex === 0 ? 660 : 700;
+  const rowH = pageIndex === 0 ? 18 : 15; // the second sheet is slightly tighter
+  // Column x positions
+  return {
+    startY: topY,
+    rowH,
+    cols: {
+      dateIn:       60,
+      dateOut:      110,
+      name:         160,
+      address:      290,
+      phone:        440,
+      sex:          505,
+      whereKilled:  525,
+      howKilled:    585,
+      donated:      625,
+      confirmation: 660
     }
-  } catch {
-    /* fall through */
-  }
-  // Otherwise try checkbox variants
-  try {
-    if (v === "BUCK") form.getCheckBox(`${baseName} BUCK`).check();
-  } catch {}
-  try {
-    if (v === "DOE") form.getCheckBox(`${baseName} DOE`).check();
-  } catch {}
-  try {
-    if (v === "ANTLERLESS") form.getCheckBox(`${baseName} ANTLERLESS`).check();
-  } catch {}
+  };
 }
 
-async function loadTemplate() {
-  // Adjust this path if you keep the form elsewhere
-  const pdfPath = path.join(process.cwd(), "public", "stateform", "19433.pdf");
-  const bytes = await readFile(pdfPath);
-  return PDFDocument.load(bytes);
-}
-
-/** Fill the PDF and return raw bytes. */
-async function renderPdf(payload: any): Promise<Uint8Array> {
-  const pdfDoc = await loadTemplate();
-  const form = pdfDoc.getForm();
-
-  // ---- Header fields ----
-  setField(form, headerFields.year, payload.pageYear);
-  setField(form, headerFields.pageNumber, payload.pageNumber);
-  setField(form, headerFields.processorName, payload.processorName);
-  setField(form, headerFields.processorLocation, payload.processorLocation);
-  setField(form, headerFields.processorCounty, payload.processorCounty);
-  setField(form, headerFields.processorStreet, payload.processorStreet);
-  setField(form, headerFields.processorCity, payload.processorCity);
-  setField(form, headerFields.processorZip, payload.processorZip);
-
-  // Split phone into Area Code + Phone Number if your PDF uses two fields
-  {
-    const raw = (payload.processorPhone ?? "") as string;
-    const s = raw.replace(/\s+/g, "");
-    // Pull 3-digit area + the rest (accepts (502)643-3916, 502-643-3916, 5026433916, etc.)
-    const m = s.match(/\(?(\d{3})\)?[-.\s]*(\d{3}[-.\s]?\d{4}|\d+)/);
-    const area = m?.[1] || "";
-    const rest = m?.[2] || "";
-    setField(form, headerFields.processorAreaCode, area);
-    setField(form, headerFields.processorPhoneNumber, rest);
-  }
-
-  // ---- Line items (1..44) ----
-  const entries: any[] = Array.isArray(payload.entries) ? payload.entries : [];
-  for (let i = 1; i <= 44; i++) {
-    const m = pdfFieldMap(i);
-    const e = entries[i - 1] || {};
-    setField(form, m.dateIn, e.dateIn || "");
-    setField(form, m.dateOut, e.dateOut || "");
-    setField(form, m.name, e.name || "");
-    setField(form, m.address, e.address || "");
-    setField(form, m.phone, e.phone || "");
-    setSex(form, m.sex, e.sex || "");
-    setField(form, m.whereKilled, e.whereKilled || "");
-    setField(form, m.howKilled, e.howKilled || "");
-    // default donated to "N" if blank
-    setField(form, m.donated, e.donated || "N");
-    setField(form, m.confirmation, e.confirmation || "");
-  }
-
-  // Flatten so fields become plain text for printing
-  try {
-    form.flatten();
-  } catch {
-    // ignore if flatten not supported for some field types
-  }
-
-  return pdfDoc.save();
-}
-
-/** GET → preview (dry=1) or download (dry=0). Also supports debug=1 to list field names. */
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const dry = url.searchParams.get("dry") ?? "1";
-  const debug = url.searchParams.get("debug") === "1";
+  const dry = (req.nextUrl.searchParams.get('dry') ?? '1') === '1';
+  const payload = await fetchPayload(dry);
 
-  if (debug) {
-    const pdfDoc = await loadTemplate();
-    const form = pdfDoc.getForm();
-    const fields = form.getFields().map((f: any) => f.getName());
-    return NextResponse.json({ ok: true, fields }, { status: 200 });
+  const templateBytes = await loadTemplateBytes();
+  const pdf = await PDFDocument.load(templateBytes);
+  const helv = await pdf.embedFont(StandardFonts.Helvetica);
+  const draw = (page: any, text: string, x: number, y: number, size = 10) =>
+    page.drawText(String(text ?? ''), { x, y, size, font: helv });
+
+  const ensurePage = (idx: number) => {
+    while (pdf.getPageCount() <= idx) {
+      pdf.addPage([612, 792]);
+    }
+    return pdf.getPage(idx);
+  };
+
+  // Page 1 header
+  const p0 = ensurePage(0);
+  const H = headerCoords();
+  draw(p0, payload.pageYear,           H.year.x,           H.year.y,           H.year.size);
+  draw(p0, String(payload.pageNumber), H.pageNumber.x,     H.pageNumber.y,     H.pageNumber.size);
+  draw(p0, payload.processorName,      H.processorName.x,  H.processorName.y,  H.processorName.size);
+  draw(p0, payload.processorLocation,  H.processorLoc.x,   H.processorLoc.y,   H.processorLoc.size);
+  draw(p0, payload.processorCounty,    H.processorCounty.x,H.processorCounty.y,H.processorCounty.size);
+  draw(p0, payload.processorStreet,    H.street.x,         H.street.y,         H.street.size);
+  draw(p0, payload.processorCity,      H.city.x,           H.city.y,           H.city.size);
+  draw(p0, payload.processorZip,       H.zip.x,            H.zip.y,            H.zip.size);
+  draw(p0, payload.processorPhone,     H.phone.x,          H.phone.y,          H.phone.size);
+
+  // Rows
+  const entries: Entry[] = Array.isArray(payload.entries) ? payload.entries : [];
+  const firstPageCount = Math.min(entries.length, 18);
+  const L0 = rowLayout(0);
+  for (let i = 0; i < firstPageCount; i++) {
+    const y = L0.startY - i * L0.rowH;
+    const e = entries[i] || {};
+    draw(p0, e.dateIn || '',       L0.cols.dateIn,       y);
+    draw(p0, e.dateOut || '',      L0.cols.dateOut,      y);
+    draw(p0, e.name || '',         L0.cols.name,         y);
+    draw(p0, e.address || '',      L0.cols.address,      y);
+    draw(p0, e.phone || '',        L0.cols.phone,        y);
+    draw(p0, e.sex || '',          L0.cols.sex,          y);
+    draw(p0, e.whereKilled || '',  L0.cols.whereKilled,  y);
+    draw(p0, e.howKilled || '',    L0.cols.howKilled,    y);
+    draw(p0, e.donated || '',      L0.cols.donated,      y);
+    draw(p0, e.confirmation || '', L0.cols.confirmation, y);
   }
 
-  // Pull the JSON payload from GAS via our server-side proxy
-  const payload = await gasGetServer(req, { action: "stateform_payload", dry });
-  if (!payload?.ok) {
-    return NextResponse.json(payload ?? { ok: false, error: "payload error" }, { status: 500 });
+  // Second page if needed
+  if (entries.length > 18) {
+    const p1 = ensurePage(1);
+    const L1 = rowLayout(1);
+    for (let j = 18; j < entries.length; j++) {
+      const rowIdx = j - 18;
+      const y = L1.startY - rowIdx * L1.rowH;
+      const e = entries[j] || {};
+      draw(p1, e.dateIn || '',       L1.cols.dateIn,       y);
+      draw(p1, e.dateOut || '',      L1.cols.dateOut,      y);
+      draw(p1, e.name || '',         L1.cols.name,         y);
+      draw(p1, e.address || '',      L1.cols.address,      y);
+      draw(p1, e.phone || '',        L1.cols.phone,        y);
+      draw(p1, e.sex || '',          L1.cols.sex,          y);
+      draw(p1, e.whereKilled || '',  L1.cols.whereKilled,  y);
+      draw(p1, e.howKilled || '',    L1.cols.howKilled,    y);
+      draw(p1, e.donated || '',      L1.cols.donated,      y);
+      draw(p1, e.confirmation || '', L1.cols.confirmation, y);
+    }
   }
 
-  const pdfBytes = await renderPdf(payload);
-
-  return new NextResponse(Buffer.from(pdfBytes), {
+  const bytes = await pdf.save();
+  return new NextResponse(Buffer.from(bytes), {
     headers: {
-      "content-type": "application/pdf",
-      "content-disposition":
-        dry === "1"
-          ? "inline; filename=stateform-preview.pdf"
-          : `attachment; filename=stateform-${payload.pageNumber}.pdf`,
-      "cache-control": "no-store",
-    },
-  });
-}
-
-/** POST → always flush-render (dry=0) and download. */
-export async function POST(req: NextRequest) {
-  const payload = await gasGetServer(req, { action: "stateform_payload", dry: 0 });
-  if (!payload?.ok) {
-    return NextResponse.json(payload ?? { ok: false, error: "payload error" }, { status: 500 });
-  }
-
-  const pdfBytes = await renderPdf(payload);
-
-  return new NextResponse(Buffer.from(pdfBytes), {
-    headers: {
-      "content-type": "application/pdf",
-      "content-disposition": `attachment; filename=stateform-${payload.pageNumber}.pdf`,
-      "cache-control": "no-store",
-    },
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': dry ? 'inline; filename="stateform-preview.pdf"' : 'attachment; filename="stateform.pdf"'
+    }
   });
 }
