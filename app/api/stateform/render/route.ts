@@ -7,38 +7,42 @@ import { gasGetServer } from "@/lib/stateform/server";
 import { headerFields, pdfFieldMap } from "@/lib/stateform/map";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// draw a string into a text field if it exists
+/** Write text into a form field if present (no-throw). */
 function setField(form: any, name: string, value: string | number | undefined) {
-  if (value == null) value = "";
-  const f = form.getFieldMaybe ? form.getFieldMaybe(name) : (() => {
-    try { return form.getTextField(name); } catch { return null; }
-  })();
-  if (f && f.setText) f.setText(String(value));
+  const text = value == null ? "" : String(value);
+  try {
+    const tf = form.getTextField(name);
+    tf?.setText(text);
+    return;
+  } catch {}
+  // Some PDFs may expose fields differently; ignore if not found.
 }
 
-// Checkbox helpers (for BUCK/DOE/ANTLERLESS group)
+/** Handle sex field (some PDFs have one text field; others 3 checkboxes). */
 function setSex(form: any, fieldName: string, sex: string | undefined) {
   const v = String(sex || "").toUpperCase();
+  // Try text field first.
   try {
-    // Some forms have a single text field; if so, just write text
     const tf = form.getTextField(fieldName);
-    if (tf) { tf.setText(v); return; }
-  } catch {} // fallthrough
-
-  // Otherwise assume 3 checkboxes named fieldName + options (rare)
-  try { if (v === "BUCK") form.getCheckBox(fieldName + " BUCK").check(); } catch {}
-  try { if (v === "DOE") form.getCheckBox(fieldName + " DOE").check(); } catch {}
-  try { if (v === "ANTLERLESS") form.getCheckBox(fieldName + " ANTLERLESS").check(); } catch {}
+    tf?.setText(v);
+    return;
+  } catch {}
+  // Fallback: try checkboxes named like "<field> BUCK/DOE/ANTLERLESS"
+  try { if (v === "BUCK") form.getCheckBox(`${fieldName} BUCK`).check(); } catch {}
+  try { if (v === "DOE") form.getCheckBox(`${fieldName} DOE`).check(); } catch {}
+  try { if (v === "ANTLERLESS") form.getCheckBox(`${fieldName} ANTLERLESS`).check(); } catch {}
 }
 
+/** Render the filled PDF. */
 async function renderPdf(payload: any): Promise<Uint8Array> {
   const pdfPath = path.join(process.cwd(), "public", "stateform", "19433.pdf");
   const bytes = await readFile(pdfPath);
   const pdfDoc = await PDFDocument.load(bytes);
   const form = pdfDoc.getForm();
 
-  // Headers
+  // Header fields
   setField(form, headerFields.year, payload.pageYear);
   setField(form, headerFields.pageNumber, payload.pageNumber);
   setField(form, headerFields.processorName, payload.processorName);
@@ -48,7 +52,7 @@ async function renderPdf(payload: any): Promise<Uint8Array> {
   setField(form, headerFields.processorCity, payload.processorCity);
   setField(form, headerFields.processorZip, payload.processorZip);
 
-  // Lines 1..44
+  // Line items (1..44)
   const entries: any[] = Array.isArray(payload.entries) ? payload.entries : [];
   for (let i = 1; i <= 44; i++) {
     const m = pdfFieldMap(i);
@@ -58,7 +62,6 @@ async function renderPdf(payload: any): Promise<Uint8Array> {
     setField(form, m.name, e.name || "");
     setField(form, m.address, e.address || "");
     setField(form, m.phone, e.phone || "");
-    // sex is special: either a text field or 3 checkboxes in some PDFs
     setSex(form, m.sex, e.sex || "");
     setField(form, m.whereKilled, e.whereKilled || "");
     setField(form, m.howKilled, e.howKilled || "");
@@ -67,36 +70,41 @@ async function renderPdf(payload: any): Promise<Uint8Array> {
   }
 
   try { form.flatten(); } catch {}
-  return await pdfDoc.save();
+  return pdfDoc.save();
 }
 
-// GET → preview (dry=1) OR flush (dry=0) based on query
+/** GET → preview if dry=1, otherwise flush-render if dry=0 */
 export async function GET(req: NextRequest) {
-  const dry = (new URL(req.url)).searchParams.get("dry") ?? "1";
-  // fetch JSON payload from GAS via our proxy (absolute URL)
+  const dry = new URL(req.url).searchParams.get("dry") ?? "1";
+
+  // Pull JSON payload from GAS through our server proxy (absolute URL via req.url)
   const payload = await gasGetServer(req, { action: "stateform_payload", dry });
   if (!payload?.ok) {
     return NextResponse.json(payload ?? { ok: false, error: "payload error" }, { status: 500 });
   }
-  const pdf = await renderPdf(payload);
-  return new NextResponse(pdf, {
+
+  const pdfBytes = await renderPdf(payload);
+  return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": dry === "1" ? "inline; filename=stateform-preview.pdf"
-                                         : `attachment; filename=stateform-${payload.pageNumber}.pdf`,
+      "content-disposition":
+        dry === "1"
+          ? "inline; filename=stateform-preview.pdf"
+          : `attachment; filename=stateform-${payload.pageNumber}.pdf`,
       "cache-control": "no-store",
     },
   });
 }
 
-// POST → always flush (dry=0)
+/** POST → always flush-render (dry=0) */
 export async function POST(req: NextRequest) {
   const payload = await gasGetServer(req, { action: "stateform_payload", dry: 0 });
   if (!payload?.ok) {
     return NextResponse.json(payload ?? { ok: false, error: "payload error" }, { status: 500 });
   }
-  const pdf = await renderPdf(payload);
-  return new NextResponse(pdf, {
+
+  const pdfBytes = await renderPdf(payload);
+  return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       "content-type": "application/pdf",
       "content-disposition": `attachment; filename=stateform-${payload.pageNumber}.pdf`,
