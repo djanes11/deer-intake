@@ -1435,3 +1435,5 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
 }
+
+@media print { .printsheet > .page{ page-break-after:auto !important; } .printsheet > .page:last-child{ page-break-after:auto !important; } }

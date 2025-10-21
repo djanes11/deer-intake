@@ -128,8 +128,8 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const totalPrice = processingPrice + specialtyPrice;
 
   const copies = useMemo(
-    () => (truthy('Specialty Products','specialtyProducts') ? 2 : 1),
-    [job?.['Specialty Products'], job?.specialtyProducts]
+    () => (hasSpecialty(job) ? 2 : 1),
+    [job?.['Summer Sausage (lb)'], job?.['Summer Sausage + Cheese (lb)'], job?.['Sliced Jerky (lb)'], job?.['Specialty Products'], job?.summerSausageLbs, job?.summerSausageCheeseLbs, job?.slicedJerkyLbs, job?.specialtyProducts]
   );
 
 // add these right before the hind/front derived flags
@@ -155,16 +155,16 @@ const frontRoastCnt = useMemo(
   [job?.['Front Roast Count'], job?.frontRoastCount, (frontObj as any).roastCount]
 );
 
-// NOW derive flags from (sheet boolean) OR (nested boolean) OR (count>0 for roast)
-const hindSteak = truthy('Hind - Steak', 'hindSteak', (hindObj as any)['Hind - Steak'], (hindObj as any).steak);
-const hindRoast = truthy('Hind - Roast', 'hindRoast', (hindObj as any)['Hind - Roast'], (hindObj as any).roast);
-const hindGrind = truthy('Hind - Grind', 'hindGrind', (hindObj as any)['Hind - Grind'], (hindObj as any).grind);
-const hindNone  = truthy('Hind - None',  'hindNone',  (hindObj as any)['Hind - None'],  (hindObj as any).none);
+// NOW derive flags strictly from booleans; support nested exact keys and aliases. No count-based inference.
+const hindSteak = truthy('Hind - Steak','hindSteak', (hindObj as any)['Hind - Steak'], (hindObj as any).steak);
+const hindRoast = truthy('Hind - Roast','hindRoast', (hindObj as any)['Hind - Roast'], (hindObj as any).roast);
+const hindGrind = truthy('Hind - Grind','hindGrind', (hindObj as any)['Hind - Grind'], (hindObj as any).grind);
+const hindNone  = truthy('Hind - None','hindNone',   (hindObj as any)['Hind - None'],  (hindObj as any).none);
 
-const frontSteak = truthy('Front - Steak', 'frontSteak', (frontObj as any)['Front - Steak'], (frontObj as any).steak);
-const frontRoast = truthy('Front - Roast', 'frontRoast', (frontObj as any)['Front - Roast'], (frontObj as any).roast);
-const frontGrind = truthy('Front - Grind', 'frontGrind', (frontObj as any)['Front - Grind'], (frontObj as any).grind);
-const frontNone  = truthy('Front - None',  'frontNone',  (frontObj as any)['Front - None'],  (frontObj as any).none);
+const frontSteak = truthy('Front - Steak','frontSteak', (frontObj as any)['Front - Steak'], (frontObj as any).steak);
+const frontRoast = truthy('Front - Roast','frontRoast', (frontObj as any)['Front - Roast'], (frontObj as any).roast);
+const frontGrind = truthy('Front - Grind','frontGrind', (frontObj as any)['Front - Grind'], (frontObj as any).grind);
+const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front - None'],  (frontObj as any).none);
 
   /* -------- barcode on every copy -------- */
   useEffect(() => {
@@ -435,7 +435,9 @@ const frontNone  = truthy('Front - None',  'frontNone',  (frontObj as any)['Fron
           <div className="val signatureLine"></div>
         </div>
       </div>
-</div>
+
+      <footer className="ftr">localhost:3000/intake?tag={tagKey}</footer>
+    </div>
   );
 
   return (
@@ -484,28 +486,21 @@ const frontNone  = truthy('Front - None',  'frontNone',  (frontObj as any)['Fron
         .printsheet .signatureLine{ height:26px; }
 
         @media print{
-          html{ zoom:0.92 !important; }
+
+          /* Hide any non-page direct child so nothing triggers a blank sheet */
+          .printsheet > :not(.page){ display: none !important; }
+          .printsheet{ margin: 0 !important; padding: 0 !important; }
+          html{ zoom:0.95 !important; }
           body{ margin:0 !important; padding:0 !important; }
 
-          /* Targeted compaction for bottom rows */
-          .printsheet .row.consents .box,
-          .printsheet .row.paid-signature .box { padding: 1px !important; }
-          .printsheet .row.consents .val,
-          .printsheet .row.paid-signature .val { padding: 0 3px !important; line-height: 1.02 !important; min-height: auto !important; }
-          .printsheet .row.paid-signature .signatureLine { height: 16px !important; }
+          .printsheet > .page + .page { break-before: page; page-break-before: always; }
 
-          .printsheet > .page { box-shadow: none !important; 
-  
-  transform-origin: top left !important;
-  
+          /* Ensure single-copy prints do NOT add a blank trailing page */
+          .printsheet > .page{  }
+          .printsheet > .page:last-child{ page-break-after: auto !important; }
+          .printsheet > style{ display:none !important; }
 
-  page-break-after: always !important;
-  break-inside: avoid-page;
-}
-          
-          body{ margin:0 !important; padding:0 !important; }
-          
-          @page{ size: letter portrait; margin: 10mm; }
+          @page{ size: letter portrait; margin: 5mm; }
           :root[data-tight='t1']{
             --ps-fs-base:12.3px; --ps-fs-h:15.6px; --ps-fs-label:9.8px;
             --ps-pad-box:3px; --ps-pad-val:2px 4px;
@@ -521,4 +516,5 @@ const frontNone  = truthy('Front - None',  'frontNone',  (frontObj as any)['Fron
     </div>
   );
 }
+
 
