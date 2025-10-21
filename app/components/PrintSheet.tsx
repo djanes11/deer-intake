@@ -2,46 +2,135 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 
 type AnyRec = Record<string, any>;
-export interface PrintSheetProps { tag?: string; job?: AnyRec | null; hideHeader?: boolean }
 
-/* ---------------- Helpers ---------------- */
-function jget(job: AnyRec | null | undefined, keys: string[]): string {
-  if (!job) return '';
-  for (const k of keys) {
-    const v = job[k];
-    if (v !== undefined && v !== null && v !== '') return String(v);
-  }
-  return '';
+export interface PrintSheetProps {
+  tag?: string;
+  job?: AnyRec | null;
+  hideHeader?: boolean;
 }
-function jpick(job: AnyRec | null | undefined, keys: string[]) {
-  if (!job) return undefined;
-  for (const k of keys) {
-    if (job[k] !== undefined && job[k] !== null) return job[k];
-  }
+
+const CHK = '☑';
+const BOX = '☐';
+
+/* ---------------- helpers ---------------- */
+// --- robust key/alias helpers for reading sheet data reliably ---
+function allAliases(h: string): string[] {
+  const s = String(h || '');
+  const en = s.replace(/-/g, '–');            // en dash variant
+  const hy = s.replace(/–/g, '-');            // hyphen variant
+  const noSpaces = hy.replace(/\s+/g, '');
+  const snake = hy.replace(/\s*-\s*/g, ' ').replace(/\s+/g, '_');
+  const spaced = hy.replace(/\s*-\s*/g, ' ').replace(/\s+/g, ' ');
+  const camel = spaced.toLowerCase().split(' ').map((w,i)=> i? (w[0]||'').toUpperCase()+w.slice(1): w).join('');
+  return Array.from(new Set([s, en, hy, spaced, snake, noSpaces, camel, camel.toLowerCase()]));
+}
+function peek(obj: any, key: string): any {
+  if (!obj) return undefined;
+  if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
+  // try case-insensitive direct
+  const k = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
+  if (k) return obj[k];
   return undefined;
 }
-function asBool(v: any): boolean {
-  if (v === true) return true;
-  if (v === false) return false;
-  const s = String(v ?? '').trim().toLowerCase();
-  if (!s) return false;
-  return ['1','true','yes','y','on','checked','✓','✔','x'].includes(s);
+function truthyFromJob(job: AnyRec | null | undefined, ...keysOrVals: any[]): boolean {
+  for (const c of keysOrVals) {
+    if (typeof c !== 'string') {
+      if (c === true) return true;
+      if (typeof c === 'number' && c > 0) return true;
+      if (typeof c === 'boolean') return c;
+      const s = String(c).trim().toLowerCase();
+      if (['true','1','yes','y','x','t','on','✓','☑'].includes(s)) return true;
+      continue;
+    }
+    // string key: check job, job._raw, and alias variants
+    const keys = allAliases(c);
+    for (const k of keys) {
+      const v = peek(job as any, k);
+      if (v !== undefined) {
+        const s = String(v).trim().toLowerCase();
+        if (s === '') continue;
+        if (typeof v === 'boolean') return v;
+        if (['true','1','yes','y','x','t','on','✓','☑'].includes(s)) return true;
+        if (!Number.isNaN(Number(s)) && Number(s) > 0) return true;
+        if (s === 'false' || s === '0' || s === 'off' || s === 'no') return false;
+      }
+      const raw = (job as any)?._raw;
+      const vr = peek(raw, k);
+      if (vr !== undefined) {
+        const s2 = String(vr).trim().toLowerCase();
+        if (s2 === '') continue;
+        if (typeof vr === 'boolean') return vr;
+        if (['true','1','yes','y','x','t','on','✓','☑'].includes(s2)) return true;
+        if (!Number.isNaN(Number(s2)) && Number(s2) > 0) return true;
+        if (s2 === 'false' || s2 === '0' || s2 === 'off' || s2 === 'no') return false;
+      }
+    }
+  }
+  return false;
 }
-function asPounds(x: any): string {
+
+function jpick<T = any>(obj: AnyRec | null | undefined, keys: string[]): T | undefined {
+  if (!obj) return undefined as any;
+  for (const k of keys) {
+    const v = (obj as AnyRec)[k];
+    if (v !== undefined && v !== null && v !== '') return v as T;
+  }
+  return undefined as any;
+}
+function jget(job: AnyRec | null | undefined, keys: string[]): string {
+  const v = jpick(job, keys);
+  return v === undefined ? '' : String(v);
+}
+function asNum(x: any): number {
   const n = Number(x);
-  return Number.isFinite(n) && n > 0 ? String(n) : '';
+  return Number.isFinite(n) ? n : 0;
 }
-function normProc(s: any): string {
-  const v = String(s || '').toLowerCase();
-  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
-  if (v.includes('donate')) return 'Donate';
-  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
-  if (v.includes('skull')) return 'Skull-Cap';
-  if (v.includes('euro')) return 'European';
-  if (v.includes('standard')) return 'Standard Processing';
+function asPounds(x: any): number {
+  const n = Number(x);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+function money(n: number): string {
+  return '$' + (Number.isFinite(n) ? n.toFixed(2) : '0.00');
+}
+
+/* ALWAYS treat strings as KEYS when reading */
+function truthyFactory(job: AnyRec | null | undefined) {
+  return function truthy(...cands: any[]): boolean {
+    for (const c of cands) {
+      const v = (typeof c === 'string') ? (job as any)?.[c] : c;
+      if (v === undefined || v === null || v === '') continue;
+      if (typeof v === 'boolean') return v;
+      const s = String(v).trim().toLowerCase();
+      if (['true','1','yes','y','x','t','on','✓','☑'].includes(s)) return true;
+      if (!Number.isNaN(Number(s)) && Number(s) > 0) return true;
+      return false;
+    }
+    return false;
+  };
+}
+function textValFactory(job: AnyRec | null | undefined) {
+  return function textVal(...cands: any[]): string {
+    for (const c of cands) {
+      const v = (typeof c === 'string') ? (job as any)?.[c] : c;
+      if (v !== undefined && v !== null && String(v) !== '') return String(v);
+    }
+    return '';
+  };
+}
+
+/* ---------------- price helpers ---------------- */
+function normProc(v: any): string {
+  const s = String(v || '').toLowerCase();
+  if (!s) return '';
+  if (s.includes('cape') && s.includes('donate')) return 'Cape & Donate';
+  if (s.includes('cape')) return 'Caped';
+  if (s.includes('skull')) return 'Skull-Cap';
+  if (s.includes('euro')) return 'European';
+  if (s.includes('standard')) return 'Standard Processing';
+  if (s.includes('donate')) return 'Donate';
   return '';
 }
-function suggestedProcessingPrice(proc: any, beef: boolean, webbs: boolean): number {
+function suggestedProcessingPrice(proc: any, beef: any, webbs: any): number {
   const p = normProc(proc);
   const base =
     p === 'Caped' ? 150 :
@@ -49,434 +138,433 @@ function suggestedProcessingPrice(proc: any, beef: boolean, webbs: boolean): num
     ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
     p === 'Donate' ? 0 : 0;
   if (!base) return 0;
-  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
+  const beefAdd  = (typeof beef  === 'boolean' ? beef  : String(beef ).toLowerCase() === 'true') ? 5  : 0;
+  const webbsAdd = (typeof webbs === 'boolean' ? webbs : String(webbs).toLowerCase() === 'true') ? 20 : 0;
+  return base + beefAdd + webbsAdd;
 }
 function hasSpecialty(job: AnyRec | null | undefined): boolean {
   if (!job) return false;
-  const rawFlag = jpick(job, [
-    'specialtyProducts',
-    'Specialty Products',
-    'Would like specialty products',
-  ]);
-  const ss  = asPounds(jget(job, ['summerSausageLbs', 'Summer Sausage (lb)', 'summer_sausage_lbs']));
-  const ssc = asPounds(jget(job, ['summerSausageCheeseLbs', 'Summer Sausage + Cheese (lb)', 'summer_sausage_cheese_lbs']));
-  const jer = asPounds(jget(job, ['slicedJerkyLbs', 'Sliced Jerky (lb)', 'sliced_jerky_lbs']));
-  return asBool(rawFlag) || !!(ss || ssc || jer);
+  const truthy = truthyFactory(job);
+  const checkbox = truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products');
+  const ss  = asPounds(jget(job, ['Summer Sausage (lb)','summerSausageLbs','summer_sausage_lbs']));
+  const ssc = asPounds(jget(job, ['Summer Sausage + Cheese (lb)','summerSausageCheeseLbs','summer_sausage_cheese_lbs']));
+  const jer = asPounds(jget(job, ['Sliced Jerky (lb)','slicedJerkyLbs','sliced_jerky_lbs']));
+  return checkbox || (ss + ssc + jer) > 0;
 }
-function money(n: number): string { return '$' + (Number.isFinite(n) ? n.toFixed(2) : '0.00'); }
 
-/* ---------------- Component ---------------- */
+/* ---------------- component ---------------- */
 export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
-  const pageCount = useMemo(() => (hasSpecialty(job) ? 2 : 1), [job]);
-  const rootRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const truthy = truthyFactory(job);
+  const textVal = textValFactory(job);
 
-  // Barcode rendering + readiness signal
-  useEffect(() => {
-    const code = (job && (job as any).tag) ? (job as any).tag : (tag || '');
-    const root = rootRef.current;
-    if (!root) return;
-
-    const signalReady = () => {
-      root.querySelectorAll<HTMLElement>('[data-barcode-wrap]').forEach(w => {
-        w.setAttribute('data-barcode-ready', '1');
-        w.style.display = '';
-      });
-      try { document.dispatchEvent(new CustomEvent('barcode:ready')); } catch {}
-    };
-
-    const hideWrappers = () => {
-      root.querySelectorAll<HTMLElement>('[data-barcode-wrap]').forEach(w => {
-        w.removeAttribute('data-barcode-ready');
-        w.style.display = 'none';
-      });
-    };
-
-    const draw = () => {
-      try {
-        if (!code) { hideWrappers(); return; }
-        // @ts-ignore
-        const JsBarcode = (window as any).JsBarcode;
-        if (!JsBarcode) return;
-
-        root.querySelectorAll<SVGSVGElement>('svg[data-tag-barcode]').forEach(svg => {
-          JsBarcode(svg, code, {
-            format: 'CODE128',
-            lineColor: '#111',
-            width: 1.25,
-            height: 18,
-            displayValue: true,
-            font: 'monospace',
-            fontSize: 10,
-            textMargin: 2,
-            margin: 0,
-          });
-        });
-        signalReady();
-      } catch { hideWrappers(); }
-    };
-
-    // load JsBarcode once if missing
-    // @ts-ignore
-    if ((window as any).JsBarcode) {
-      draw();
-    } else {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-      s.onload = draw;
-      s.onerror = hideWrappers;
-      document.head.appendChild(s);
-    }
-
-    // Re-render around print events
-    const before = () => draw();
-    const after = () => draw();
-    window.addEventListener('beforeprint', before);
-    window.addEventListener('afterprint', after);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) draw(); });
-
-    return () => {
-      window.removeEventListener('beforeprint', before);
-      window.removeEventListener('afterprint', after);
-    };
-  }, [job?.tag, tag]);
-
-  // === NEW: Fit-to-page guard (prevents blank second page) ===
-  useEffect(() => {
-    const adjust = () => {
-      const root = rootRef.current;
-      if (!root) return;
-      const pages = root.querySelectorAll<HTMLElement>('.page');
-      pages.forEach(p => {
-        p.classList.remove('t1', 't2');
-        // ~ Letter page @ 96dpi with 6mm top/bottom margins => ~1010px usable
-        // We allow some buffer for printer differences.
-        const h = p.scrollHeight;
-        if (h > 1060) {
-          p.classList.add('t2'); // tighter
-        } else if (h > 1000) {
-          p.classList.add('t1'); // slightly tight
-        }
-      });
-    };
-
-    // Run now and around print/resize
-    adjust();
-    const onBeforePrint = () => adjust();
-    const onResize = () => adjust();
-    window.addEventListener('beforeprint', onBeforePrint);
-    window.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('beforeprint', onBeforePrint);
-      window.removeEventListener('resize', onResize);
-    };
-  }, [job, tag, pageCount]);
-
-  // ---- Derived fields ----
-  const steakOtherShown =
-    String(job?.steak || '').toLowerCase() === 'other' &&
-    String(job?.steakOther || '').trim() !== '';
-  const specialtyShown = hasSpecialty(job);
-  const spec_ss  = asPounds(jget(job, ['summerSausageLbs', 'Summer Sausage (lb)', 'summer_sausage_lbs']));
-  const spec_ssc = asPounds(jget(job, ['summerSausageCheeseLbs', 'Summer Sausage + Cheese (lb)', 'summer_sausage_cheese_lbs']));
-  const spec_jer = asPounds(jget(job, ['slicedJerkyLbs', 'Sliced Jerky (lb)', 'sliced_jerky_lbs']));
-
-  const ssN  = Number(spec_ss)  || 0;
-  const sscN = Number(spec_ssc) || 0;
-  const jerN = Number(spec_jer) || 0;
-
-  const processingPrice = useMemo(
-    () => suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder),
-    [job?.processType, job?.beefFat, job?.webbsOrder]
+  const tagKey = useMemo(
+    () => String((job && (job['Tag'] ?? job.tag ?? job?.tag_id ?? job?.tagId)) ?? tag ?? ''),
+    [job?.['Tag'], job?.tag, job?.tag_id, job?.tagId, tag]
   );
-  const specialtyPrice = useMemo(() => {
-    return ssN * 4.25 + sscN * 4.60 + jerN * 15.0;
-  }, [ssN, sscN, jerN]);
+
+  // Prices (robust reads)
+  const proc = useMemo(() => suggestedProcessingPrice(
+    jpick(job, ['Process Type','processType','process_type']),
+    jpick(job, ['Beef Fat','beefFat','beef_fat']),
+    jpick(job, ['Webbs Order','webbsOrder','webbs_order'])
+  ), [job?.['Process Type'], job?.processType, job?.process_type, job?.['Beef Fat'], job?.beefFat, job?.beef_fat, job?.['Webbs Order'], job?.webbsOrder, job?.webbs_order]);
+
+  const ssN  = useMemo(() => asPounds(jget(job, ['Summer Sausage (lb)','summerSausageLbs','summer_sausage_lbs'])), [job?.['Summer Sausage (lb)'], job?.summerSausageLbs, job?.summer_sausage_lbs]);
+  const sscN = useMemo(() => asPounds(jget(job, ['Summer Sausage + Cheese (lb)','summerSausageCheeseLbs','summer_sausage_cheese_lbs'])), [job?.['Summer Sausage + Cheese (lb)'], job?.summerSausageCheeseLbs, job?.summer_sausage_cheese_lbs]);
+  const jerN = useMemo(() => asPounds(jget(job, ['Sliced Jerky (lb)','slicedJerkyLbs','sliced_jerky_lbs'])), [job?.['Sliced Jerky (lb)'], job?.slicedJerkyLbs, job?.sliced_jerky_lbs]);
+  const specialtyLbs = ssN + sscN + jerN;
+
+  const processingPrice = useMemo(() => {
+    const v = asNum(jpick(job, ['Processing Price','priceProcessing','processing_price']));
+    return v > 0 ? v : proc;
+  }, [proc, job?.['Processing Price'], job?.priceProcessing, job?.processing_price]);
+
+  const specialtyPrice = useMemo(() => ssN * 4.25 + sscN * 4.60 + jerN * 15.0, [ssN, sscN, jerN]);
   const totalPrice = processingPrice + specialtyPrice;
 
-  const prefEmail = asBool(jpick(job, ['prefEmail', 'Pref Email']));
-  const prefSMS   = asBool(jpick(job, ['prefSMS', 'Pref SMS']));
-  const prefCall  = asBool(jpick(job, ['prefCall', 'Pref Call']));
-  const smsConsent = asBool(jpick(job, ['smsConsent', 'SMS Consent']));
-  const autoCallConsent = asBool(jpick(job, ['autoCallConsent', 'Auto Call Consent']));
+  const copies = useMemo(
+    () => (hasSpecialty(job) ? 2 : 1),
+    [job?.['Summer Sausage (lb)'], job?.['Summer Sausage + Cheese (lb)'], job?.['Sliced Jerky (lb)'], job?.['Specialty Products'], job?.summerSausageLbs, job?.summerSausageCheeseLbs, job?.slicedJerkyLbs, job?.specialtyProducts]
+  );
 
-  const CHK = '✓';
-  const BOX = '☐';
+// add these right before the hind/front derived flags
+const hindObj  = (job && (job as any).hind)  || {};
+const frontObj = (job && (job as any).front) || {};
 
-  return (
-    <div ref={rootRef}>
-      <style jsx global>{`
-        :root{
-          --fs-base:12px; --fs-h:16px; --fs-label:10px; --fs-badge:11px;
-          --pad-box:6px; --pad-val:3px 5px; --gap-row:4px; --gap-col:8px;
-          --radius:6px; --border:#cfd9ee; --val-border:#e5ecf8;
-        }
-        *{ box-sizing:border-box; }
-        body{ font-family:Arial, sans-serif; color:#111; margin:8px; font-size:var(--fs-base); line-height:1.25; }
-        .wrap{ max-width:800px; margin:0 auto; }
-        h2{ margin:0 0 6px; font-size:var(--fs-h); }
-        .grid{ display:grid; grid-template-columns:repeat(12,1fr); gap:var(--gap-row) var(--gap-col); }
-        .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-6{grid-column:span 6}.col-12{grid-column:1/-1}
-        .box{ border:1px solid var(--border); border-radius:var(--radius); padding:var(--pad-box); break-inside:avoid; page-break-inside:avoid; }
-        .row{ display:flex; gap:6px; align-items:center; }
-        .label{ font-size:var(--fs-label); color:#334155; font-weight:bold; margin-bottom:2px; }
-        .val{ padding:var(--pad-val); border:1px solid var(--val-border); border-radius:calc(var(--radius) - 1px); }
-        .check{ font-family: monospace; font-weight: 700; }
+// include nested roastCount fallbacks
+const hindRoastCnt = useMemo(
+  () => {
+    const fromSheet = asPounds(jget(job, ['Hind Roast Count','hindRoastCount']));
+    const fromObj   = asPounds((hindObj as any).roastCount);
+    return fromSheet || fromObj || 0;
+  },
+  [job?.['Hind Roast Count'], job?.hindRoastCount, (hindObj as any).roastCount]
+);
 
-        .money{ font-weight:800; }
-        .moneyTotal{ font-weight:900; }
-        .splitPriceRow{ display:flex; align-items:center; gap:6px; }
-        .splitPriceRow .lhs{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .splitSep{ border-top:1px dashed #ccd7ee; margin:3px 0; }
+const frontRoastCnt = useMemo(
+  () => {
+    const fromSheet = asPounds(jget(job, ['Front Roast Count','frontRoastCount']));
+    const fromObj   = asPounds((frontObj as any).roastCount);
+    return fromSheet || fromObj || 0;
+  },
+  [job?.['Front Roast Count'], job?.frontRoastCount, (frontObj as any).roastCount]
+);
 
-        [data-barcode-wrap] { margin-top:4px; }
-        svg[data-tag-barcode]{ width:100%; max-width:180px; height:auto; display:block; }
+// NOW derive flags from (sheet boolean) OR (nested boolean) OR (count>0 for roast)
+// NOW derive flags ONLY from sheet booleans (fallback to nested object booleans if they exist).
+// Do NOT auto-set Roast based on counts.
+// NOW derive flags ONLY from declared fields (sheet or API), checking aliases and job._raw fallbacks.
+// Absolutely NO inference from counts.
+// NOW derive flags with robust reads from:
+// - job['<exact header>']
+// - job.hind['<exact header>'] / job.front['<exact header>']
+// - alias keys (hindSteak, etc.), and job._raw
+const hindSteak = truthyFromJob(job, 'Hind - Steak', (hindObj as any)['Hind - Steak'], 'hindSteak', (hindObj as any).steak);
+const hindRoast = truthyFromJob(job, 'Hind - Roast', (hindObj as any)['Hind - Roast'], 'hindRoast', (hindObj as any).roast);
+const hindGrind = truthyFromJob(job, 'Hind - Grind', (hindObj as any)['Hind - Grind'], 'hindGrind', (hindObj as any).grind);
+const hindNone  = truthyFromJob(job, 'Hind - None',  (hindObj as any)['Hind - None'],  'hindNone',  (hindObj as any).none);
 
-        .noprint{ display:block; }
-        .page{ position:relative; margin:0 auto; }
-        .sheet{ margin:0; }
+const frontSteak = truthyFromJob(job, 'Front - Steak', (frontObj as any)['Front - Steak'], 'frontSteak', (frontObj as any).steak);
+const frontRoast = truthyFromJob(job, 'Front - Roast', (frontObj as any)['Front - Roast'], 'frontRoast', (frontObj as any).roast);
+const frontGrind = truthyFromJob(job, 'Front - Grind', (frontObj as any)['Front - Grind'], 'frontGrind', (frontObj as any).grind);
+const frontNone  = truthyFromJob(job, 'Front - None',  (frontObj as any)['Front - None'],  'frontNone',  (frontObj as any).none);
 
-        /* ------ PRINT RULES ------ */
-        @media print{
-          @page { size: Letter; margin: 6mm; }
-          html, body { margin: 0 !important; padding: 0 !important; }
+  /* -------- barcode on every copy -------- */
+  useEffect(() => {
+    const container = rootRef.current;
+    if (!container || !tagKey) return;
+    const nodes = Array.from(container.querySelectorAll('svg[data-barcode]')) as SVGSVGElement[];
+    if (!nodes.length) return;
 
-          .noprint{ display:none !important; }
+    const drawAll = () => {
+      try {
+        // @ts-ignore
+        const JB = (typeof window !== 'undefined' ? (window as any).JsBarcode : null);
+        if (!JB) return;
+        nodes.forEach((el) => {
+          try {
+            while (el.firstChild) el.removeChild(el.firstChild);
+            // @ts-ignore
+            JB(el, tagKey, { format: 'CODE128', displayValue: false, height: 30, margin: 0 });
+          } catch {}
+        });
+      } catch {}
+    };
 
-          /* Only break if there are multiple .page elements */
-          .page { page-break-after: auto; break-after: auto; }
-          .page:not(:last-child) { page-break-after: always !important; break-after: page !important; }
+    const ensureLib = () => {
+      // @ts-ignore
+      if (typeof window !== 'undefined' && (window as any).JsBarcode) { drawAll(); return; }
+      if (typeof document !== 'undefined') {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+        s.onload = drawAll;
+        document.head.appendChild(s);
+      }
+    };
 
-          /* Base print scale (keeps your look) */
-          :root{
-            --fs-base:18px;
-            --fs-h:20px;
-            --fs-label:11.5px;
-            --pad-box:1px;
-            --pad-val:0 3px;
-            --gap-row:5px;
-            --gap-col:5px;
-          }
-          h2{ margin:0 0 4px !important; }
-          .row{ gap:4px !important; }
-          .val{ line-height:1.10 !important; }
-          [data-barcode-wrap]{ margin-top:2mm; }
-          svg[data-tag-barcode]{ max-width:56mm; }
+    ensureLib();
+    const t1 = setTimeout(drawAll, 50);
+    const t2 = setTimeout(drawAll, 200);
+    const t3 = setTimeout(drawAll, 500);
 
-          /* === Fit-to-page guard (kicks in only when needed) === */
-          .page.t1 :root, .page.t1{
-            --fs-base:17px;
-            --fs-h:19px;
-            --fs-label:11px;
-            --gap-row:4px;
-            --gap-col:4px;
-          }
-          .page.t1 .val{ padding: 0 2px; }
+    const onBeforePrint = () => setTimeout(drawAll, 0);
+    const onVis = () => { if (document.visibilityState === 'visible') setTimeout(drawAll, 0); };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeprint', onBeforePrint);
+      document.addEventListener('visibilitychange', onVis);
+    }
+    return () => {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeprint', onBeforePrint);
+        document.removeEventListener('visibilitychange', onVis);
+      }
+    };
+  }, [tagKey, copies]);
 
-          .page.t2 :root, .page.t2{
-            --fs-base:16px;
-            --fs-h:18px;
-            --fs-label:10.5px;
-            --gap-row:3px;
-            --gap-col:3px;
-          }
-          .page.t2 .val{ padding: 0 2px; }
-        }
-      `}</style>
+  // one-page fit, no phantom last page
+  useEffect(() => {
+    const adjust = () => {
+      const pages = rootRef.current?.querySelectorAll<HTMLElement>('.printsheet .page');
+      if (!pages || !pages.length) return;
 
-      <div id="pages">
-        {Array.from({ length: pageCount }, (_, i) => i).map((i) => (
-          <div className="page" key={i}>
-            <div className="wrap sheet">
-              {!hideHeader && (
-                <div className="row" style={{ justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <h2>Deer Intake</h2>
-                  <div className="noprint"><button onClick={() => window.print()}>Print</button></div>
-                </div>
-              )}
+      const first = pages[0];
+      if (first) {
+        const h0 = first.scrollHeight;
+        let mode: 't0' | 't1' | 't2' = 't0';
+        if (h0 > 980) mode = 't2';
+        else if (h0 > 940) mode = 't1';
+        (document.documentElement as any).dataset.tight = mode;
+      }
+      const MM_PER_IN = 25.4, DPI = 96, MARGIN_MM = 5;
+      const printable = Math.round(11 * DPI - 2 * MARGIN_MM * (DPI / MM_PER_IN));
+      pages.forEach(p => {
+        const h = p.scrollHeight;
+        let sc = 1;
+        if (h > printable) sc = Math.max(0.93, (printable - 3) / h);
+        (p as HTMLElement).style.setProperty('--print-scale', String(sc));
+      });
+    };
+    adjust();
+    const onBeforePrint = () => setTimeout(adjust, 0);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeprint', onBeforePrint);
+      return () => window.removeEventListener('beforeprint', onBeforePrint);
+    }
+  }, [copies, tagKey]);
 
-              <div className="grid">
-                <div className="col-3 box">
-                  <div className="label">Tag #</div>
-                  <div className="val" id="p_tag">{job?.tag || tag || ''}</div>
-                  <div data-barcode-wrap>
-                    <svg data-tag-barcode role="img" aria-label="Tag barcode" />
-                  </div>
-                </div>
+  const renderCopy = (i: number) => (
+    <div key={i} className="page">
+      {!hideHeader && <header className="hdr">McAfee Custom Deer Processing — Palmyra, IN</header>}
 
-                <div className="col-3 box">
-                  <div className="label">Confirmation #</div>
-                  <div className="val" id="p_conf">{job?.confirmation || ''}</div>
-                </div>
+      {/* Row A */}
+      <div className="row grid12 rowA">
+        <div className="col-3 box">
+          <div className="label">Tag #</div>
+          <div className="val">
+            <div data-barcode-wrap><svg data-barcode /></div>
+            <div className="tagText">{tagKey}</div>
+          </div>
+        </div>
+        <div className="col-3 box">
+          <div className="label">Confirmation #</div>
+          <div className="val" id="p_conf">
+            {textVal('Confirmation #','Confirmation','Confirmation Number','confirmation','confirmationNumber')}
+          </div>
+        </div>
+        <div className="col-3 box">
+          <div className="label">Drop-off Date</div>
+          <div className="val" id="p_drop">
+            {textVal('Drop-off Date','Drop Off Date','Drop off Date','Date Dropped','Drop Date','dropoff','drop_off_date')}
+          </div>
+        </div>
+        <div className="col-3 box">
+          <div className="label">Price</div>
+          <div className="val">
+            <div className="splitPriceRow"><div className="lhs">Processing</div><div className="money">{money(processingPrice)}</div></div>
+            <div className="splitPriceRow"><div className="lhs">Specialty</div><div className="money">{money(specialtyPrice)}</div></div>
+            <div className="splitSep" />
+            <div className="splitPriceRow"><div className="lhs">Total</div><div className="moneyTotal">{money(totalPrice)}</div></div>
+          </div>
+        </div>
+      </div>
 
-                <div className="col-3 box">
-                  <div className="label">Drop-off Date</div>
-                  <div className="val" id="p_drop">{job?.dropoff || ''}</div>
-                </div>
+      {/* Row B */}
+      <div className="row grid12">
+        <div className="col-6 box">
+          <div className="label">Customer</div>
+          <div className="val">
+            <div>{textVal('Customer','Customer Name','customer','name')}</div>
+            <div>{textVal('Phone','Phone Number','phone','phoneNumber')}</div>
+            <div>{textVal('Email','email')}</div>
+          </div>
+        </div>
+        <div className="col-6 box">
+          <div className="label">Address</div>
+          <div className="val">
+            <div>{textVal('Address','address','street','street1')}</div>
+            <div>{[
+              textVal('City','city'),
+              textVal('State','state'),
+              textVal('Zip','Zip Code','zip','postal')
+            ].filter(Boolean).join(', ')}</div>
+          </div>
+        </div>
+      </div>
 
-                <div className="col-3 box">
-                  <div className="label">Price</div>
-                  <div className="val" id="p_price_box">
-                    <div className="splitPriceRow">
-                      <span className="lhs">Proc</span>
-                      <span className="money" id="p_price_proc">{money(processingPrice)}</span>
-                    </div>
-                    <div className="splitPriceRow">
-                      <span className="lhs">Spec</span>
-                      <span className="money" id="p_price_spec">{money(specialtyPrice)}</span>
-                    </div>
-                    <div className="splitSep" />
-                    <div className="splitPriceRow">
-                      <span className="lhs">Total</span>
-                      <span className="moneyTotal" id="p_price_total">{money(totalPrice)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      {/* Row C */}
+      <div className="row grid12">
+        <div className="col-4 box"><div className="label">County Killed</div><div className="val">{textVal('County Killed','County','county')}</div></div>
+        <div className="col-4 box"><div className="label">Sex</div><div className="val">{textVal('Sex','Deer Sex','sex')}</div></div>
+        <div className="col-4 box"><div className="label">Process Type</div><div className="val">{textVal('Process Type','processType','process_type')}</div></div>
+      </div>
 
-              <div className="grid" style={{ marginTop: '6px' }}>
-                <div className="col-6 box">
-                  <div className="label">Customer</div>
-                  <div className="val" id="p_name">{job?.customer || ''}</div>
-                  <div className="val" id="p_phone">{job?.phone || ''}</div>
-                  <div className="val" id="p_email">{job?.email || ''}</div>
-                </div>
-                <div className="col-6 box">
-                  <div className="label">Address</div>
-                  <div className="val" id="p_addr1">{job?.address || ''}</div>
-                  <div className="val" id="p_addr2">{[job?.city, job?.state, job?.zip].filter(Boolean).join(', ')}</div>
-                </div>
-              </div>
+      {/* Row D: Hind | Front (with None, roast derives from count) */}
+      <div className="row grid12">
+        <div className="col-6 box">
+          <div className="label">Hind Quarter</div>
+          <div className="val"><strong className="check">{hindSteak ? CHK : BOX}</strong> Steak</div>
+          <div className="val">
+            <strong className="check">{hindRoast ? CHK : BOX}</strong> Roast
+            &nbsp; Count: <span id="ph_rc">{hindRoastCnt || ''}</span>
+          </div>
+          <div className="val"><strong className="check">{hindGrind ? CHK : BOX}</strong> Grind</div>
+          <div className="val"><strong className="check">{hindNone  ? CHK : BOX}</strong> None</div>
+        </div>
+        <div className="col-6 box">
+          <div className="label">Front Shoulder</div>
+          <div className="val"><strong className="check">{frontSteak ? CHK : BOX}</strong> Steak</div>
+          <div className="val">
+            <strong className="check">{frontRoast ? CHK : BOX}</strong> Roast
+            &nbsp; Count: <span id="pf_rc">{frontRoastCnt || ''}</span>
+          </div>
+          <div className="val"><strong className="check">{frontGrind ? CHK : BOX}</strong> Grind</div>
+          <div className="val"><strong className="check">{frontNone  ? CHK : BOX}</strong> None</div>
+        </div>
+      </div>
 
-              <div className="grid" style={{ marginTop: '4px' }}>
-                <div className="col-4 box"><div className="label">County Killed</div><div className="val" id="p_county">{job?.county || ''}</div></div>
-                <div className="col-4 box"><div className="label">Sex</div><div className="val" id="p_sex">{job?.sex || ''}</div></div>
-                <div className="col-4 box"><div className="label">Process Type</div><div className="val" id="p_proc">{job?.processType || ''}</div></div>
-              </div>
+      {/* Row E */}
+      <div className="row grid12">
+        <div className="col-3 box">
+          <div className="label">Steak Size</div>
+          <div className="val">{textVal('Steak','steak','steakSize','Steak Size')}</div>
+        </div>
+        <div className="col-3 box">
+          <div className="label">Steak Size (Other)</div>
+          <div className="val">{textVal('Steak Size (Other)','Steak Size Other','steakSizeOther','steakOther','steak_size_other','Steak size other','SteakSizeOther')}</div>
+        </div>
+        <div className="col-3 box">
+          <div className="label">Burger Size</div>
+          <div className="val">{textVal('Burger Size','burgerSize','burger_size')}</div>
+        </div>
+        <div className="col-3 box">
+          <div className="label">Beef Fat</div>
+          <div className="val"><strong className="check">{truthy('Beef Fat','beefFat','beef_fat') ? CHK : BOX}</strong> Adds $5</div>
+        </div>
+      </div>
 
-              <div className="grid" style={{ marginTop: '4px' }}>
-                <div className="col-6 box">
-                  <div className="label">Hind Quarter</div>
-                  <div className="val"><strong className="check" id="ph_s">{job?.hind && job.hind['Hind - Steak'] ? CHK : BOX}</strong> {' '}Steak</div>
-                  <div className="val">
-                    <strong className="check" id="ph_r">{job?.hind && job.hind['Hind - Roast'] ? CHK : BOX}</strong> {' '}
-                    Roast &nbsp; Count: <span id="ph_rc">{(job?.hindRoastCount === '' ? '' : (job?.hindRoastCount ?? ''))}</span>
-                  </div>
-                  <div className="val"><strong className="check" id="ph_g">{job?.hind && job.hind['Hind - Grind'] ? CHK : BOX}</strong> {' '}Grind</div>
-                  <div className="val"><strong className="check" id="ph_n">{job?.hind && job.hind['Hind - None'] ? CHK : BOX}</strong> {' '}None</div>
-                </div>
-                <div className="col-6 box">
-                  <div className="label">Front Shoulder</div>
-                  <div className="val"><strong className="check" id="pf_s">{job?.front && job.front['Front - Steak'] ? CHK : BOX}</strong> {' '}Steak</div>
-                  <div className="val">
-                    <strong className="check" id="pf_r">{job?.front && job.front['Front - Roast'] ? CHK : BOX}</strong> {' '}
-                    Roast &nbsp; Count: <span id="pf_rc">{(job?.frontRoastCount === '' ? '' : (job?.frontRoastCount ?? ''))}</span>
-                  </div>
-                  <div className="val"><strong className="check" id="pf_g">{job?.front && job.front['Front - Grind'] ? CHK : BOX}</strong> {' '}Grind</div>
-                  <div className="val"><strong className="check" id="pf_n">{job?.front && job.front['Front - None'] ? CHK : BOX}</strong> {' '}None</div>
-                </div>
-              </div>
-
-              <div className="grid" style={{ marginTop: '4px' }}>
-                <div className="col-3 box"><div className="label">Steak Size</div><div className="val" id="p_steak">{job?.steak || ''}</div></div>
-                <div className="col-3 box"><div className="label">Steaks / Pkg</div><div className="val" id="p_pkg">{job?.steaksPerPackage || ''}</div></div>
-                <div className="col-3 box"><div className="label">Burger Size</div><div className="val" id="p_burger">{job?.burgerSize || ''}</div></div>
-                <div className="col-3 box"><div className="label">Beef Fat</div><div className="val"><strong className="check" id="p_beef">{job?.beefFat ? CHK : BOX}</strong> {' '}Add (+$5)</div></div>
-              </div>
-
-              {steakOtherShown && (
-                <div className="grid" id="steakOtherRow" style={{ marginTop: '4px' }}>
-                  <div className="col-3 box"><div className="label">Steak Size (Other)</div><div className="val" id="p_steakOther">{job?.steakOther || ''}</div></div>
-                </div>
-              )}
-
-              <div className="grid" style={{ marginTop: '4px' }}>
-                <div className="col-4 box"><div className="label">Backstrap Prep</div><div className="val" id="p_bs_prep">{job?.backstrapPrep || ''}</div></div>
-                <div className="col-4 box"><div className="label">Backstrap Thickness</div><div className="val" id="p_bs_thick">{job?.backstrapThickness || ''}</div></div>
-                <div className="col-4 box"><div className="label">Thickness (Other)</div><div className="val" id="p_bs_other">{job?.backstrapThicknessOther || ''}</div></div>
-              </div>
-
-              {specialtyShown && (
-                <div className="grid" id="specialtyWrap" style={{ marginTop: '4px' }}>
-                  <div className="col-12 box">
-                    <div className="label">Specialty Products</div>
-                    {(() => {
-                      const rawFlag = jpick(job, [
-                        'specialtyProducts',
-                        'Specialty Products',
-                        'Would like specialty products',
-                      ]);
-                      const checked = asBool(rawFlag);
-                      return (
-                        <div className="val">
-                          <strong className="check" id="p_spec_chk">{checked ? CHK : BOX}</strong>{' '}
-                          Would like specialty products
-                          </div>
-                      );
-                    })()}
-                    <div className="val">Summer Sausage (lb): <span id="p_spec_ss">{spec_ss}</span></div>
-                    <div className="val">Summer Sausage + Cheese (lb): <span id="p_spec_ssc">{spec_ssc}</span></div>
-                    <div className="val">Sliced Jerky (lb): <span id="p_spec_jerky">{spec_jer}</span></div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid" style={{ marginTop: '4px' }}>
-                <div className="col-6 box">
-                  <div className="label">Specialty Pounds (lb)</div>
-                  <div className="val" id="p_spec_lbs">
-                    {ssN + sscN + jerN > 0
-                      ? String(ssN + sscN + jerN)
-                      : (job?.specialtyPounds === '' ? '' : (job?.specialtyPounds ?? ''))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="box" style={{ marginTop: '4px' }}>
-                <div className="label">Notes</div>
-                <div className="val" id="p_notes" style={{ whiteSpace: 'pre-wrap' }}>{job?.notes || ''}</div>
-              </div>
-
-              {(job?.webbsOrder) && (
-                <div className="grid" style={{ marginTop: '4px' }}>
-                  <div className="col-12 box" id="webbsDetails">
-                    <div className="label">Webbs Details</div>
-                    <div className="val"><strong className="check" id="p_webbs_chk">{CHK}</strong> {' '}Webbs Order (+$20)</div>
-                    <div className="val">Form #: <span id="p_webbs_form">{job?.webbsFormNumber || ''}</span></div>
-                    <div className="val">Pounds: <span id="p_webbs_lbs">{(job?.webbsPounds === '' ? '' : (job?.webbsPounds ?? ''))}</span></div>
-                  </div>
-                </div>
-              )}
-
-              <div className="row" style={{ marginTop: '6px' }}>
-                <div style={{ flex: 1 }}>
-                  <div className="label">Paid</div>
-                  <div className="val"><strong className="check" id="p_paid">{(job?.paid || job?.Paid) ? CHK : BOX}</strong> {' '}Paid in full</div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div className="label">Signature (on pickup)</div>
-                  <div style={{ height: '26px' }} />
-                </div>
-              </div>
-
-              {/* Communication Preference & Consent */}
-              <div className="grid" style={{ marginTop: '6px' }}>
-                <div className="col-6 box">
-                  <div className="label">Communication Preference</div>
-                  <div className="val"><strong className="check">{prefEmail ? CHK : BOX}</strong>{' '}Email</div>
-                  <div className="val"><strong className="check">{prefSMS ? CHK : BOX}</strong>{' '}Text (SMS)</div>
-                  <div className="val"><strong className="check">{prefCall ? CHK : BOX}</strong>{' '}Phone Call</div>
-                </div>
-                <div className="col-6 box">
-                  <div className="label">Consent</div>
-                  <div className="val"><strong className="check">{smsConsent ? CHK : BOX}</strong>{' '}I consent to receive informational/automated SMS</div>
-                  <div className="val"><strong className="check">{autoCallConsent ? CHK : BOX}</strong>{' '}I consent to receive automated phone calls</div>
-                </div>
-              </div>
-
+      {/* Row F */}
+      <div className="row grid12">
+        <div className="col-3 box">
+          <div className="label">Specialty Products</div>
+          <div className="val">
+            <strong className="check">{truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') ? CHK : BOX}</strong> Would like specialty products
+          </div>
+        </div>
+        <div className="col-9 box">
+          <div className="label">Specialty Detail (lb)</div>
+          <div className="val">
+            <div className="specialtyRow">
+              <div><b>Summer Sausage:</b> {ssN || ''}</div>
+              <div><b>+ Cheese:</b> {sscN || ''}</div>
+              <div><b>Sliced Jerky:</b> {jerN || ''}</div>
+              <div className="totSpec"><b>Total lbs:</b> {specialtyLbs || ''}</div>
             </div>
           </div>
-        ))}
+        </div>
       </div>
+
+      {/* Row G */}
+      <div className="row grid12">
+        <div className="col-12 box"><div className="label">Notes</div><div className="val">{textVal('Notes','notes')}</div></div>
+      </div>
+
+      {/* Row H */}
+      <div className="row grid12">
+        <div className="col-3 box">
+          <div className="label">Webbs Order</div>
+          <div className="val"><strong className="check">{truthy('Webbs Order','webbsOrder','webbs_order') ? CHK : BOX}</strong> Webbs order</div>
+        </div>
+        <div className="col-9 box">
+          <div className="label">Webbs Details</div>
+          <div className="val">
+            <div className="webbsRow">
+              <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
+              <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row I */}
+      <div className="row grid12">
+        <div className="col-12 box">
+          <div className="label">Contact Preference</div>
+          <div className="val">
+            <span className="check">{truthy('Pref Email','prefEmail') ? CHK : BOX}</span> Email &nbsp;&nbsp;
+            <span className="check">{truthy('Pref SMS','prefSMS') ? CHK : BOX}</span> Text (SMS) &nbsp;&nbsp;
+            <span className="check">{truthy('Pref Call','prefCall') ? CHK : BOX}</span> Phone Call
+          </div>
+        </div>
+      </div>
+      <div className="row grid12">
+        <div className="col-12 box">
+          <div className="label">Consent</div>
+          <div className="val">
+            <div><span className="check">{truthy('SMS Consent','smsConsent','consentSMS') ? CHK : BOX}</span> I consent to receive informational/automated SMS</div>
+            <div><span className="check">{truthy('Auto Call Consent','autoCallConsent','consentCall','consentAutoCall') ? CHK : BOX}</span> I consent to receive automated phone calls</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row J */}
+      <div className="row grid12">
+        <div className="col-3 box">
+          <div className="label">Paid</div>
+          <div className="val"><strong className="check">{truthy('Paid','paid','Paid in Full','Paid In Full') ? CHK : BOX}</strong> Paid in full</div>
+        </div>
+        <div className="col-9 box">
+          <div className="label">Signature (on pickup)</div>
+          <div className="val signatureLine"></div>
+        </div>
+      </div>
+
+      <footer className="ftr">localhost:3000/intake?tag={tagKey}</footer>
+    </div>
+  );
+
+  return (
+    <div ref={rootRef} className="printsheet">
+      {Array.from({ length: copies }).map((_, i) => renderCopy(i))}
+
+      <style jsx global>{`
+        .printsheet{
+          --ps-bg:#fff; --ps-text:#0d1117;
+          --ps-border:#cdd9ee; --ps-val-border:#dfe7f7;
+          --ps-radius:12px; --ps-pad-box:4px; --ps-pad-val:4px;
+          --ps-fs-h:18px; --ps-fs-base:13.3px; --ps-fs-label:10.4px;
+          --ps-gap-row:3px; --ps-gap-col:6px;
+          --print-scale:1;
+          max-width:800px; margin:0 auto; padding:8px;
+          color:var(--ps-text);
+        }
+        .printsheet .hdr, .printsheet .ftr{ font-size:11px; color:#555; text-align:center; margin:6px 0; }
+        .printsheet .page{
+          background:var(--ps-bg);
+          border-radius:var(--ps-radius);
+          padding:10px;
+          break-inside: avoid;
+          transform-origin: top left;
+          transform: scale(var(--print-scale, 1));
+        }
+        .printsheet .row{ margin-top: var(--ps-gap-row); }
+        .printsheet .grid12{ display:grid; grid-template-columns: repeat(12, 1fr); gap: var(--ps-gap-col); }
+        .printsheet .col-3{ grid-column: span 3; } .printsheet .col-4{ grid-column: span 4; }
+        .printsheet .col-6{ grid-column: span 6; } .printsheet .col-9{ grid-column: span 9; } .printsheet .col-12{ grid-column: 1 / -1; }
+
+        .printsheet .box{ padding:var(--ps-pad-box); border:1px solid var(--ps-border); border-radius:var(--ps-radius); background: #fff; }
+        .printsheet .label{ font-size:var(--ps-fs-label); color:#334155; font-weight:700; margin-bottom:2px; }
+        .printsheet .val{ padding:var(--ps-pad-val); border:1px solid var(--ps-val-border); border-radius:calc(var(--ps-radius) - 1px); font-size:var(--ps-fs-base); min-height:22px; }
+        .printsheet .rowA .box .val{ padding: calc(var(--ps-pad-val) - 1px) calc(var(--ps-pad-val) - 1px); min-height:18px; }
+        .printsheet .check{ font-family: monospace; font-weight: 700; }
+        .printsheet .money{ font-weight:800; } .printsheet .moneyTotal{ font-weight:900; }
+        .printsheet .splitPriceRow{ display:flex; align-items:center; gap:6px; }
+        .printsheet .splitPriceRow .lhs{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .printsheet .splitSep{ border-top:1px dashed #ccd7ee; margin:3px 0; }
+        .printsheet [data-barcode-wrap]{ margin-top:2px; overflow:hidden; }
+        .printsheet svg[data-barcode]{ width:100%; height:32px; display:block; max-width:100%; }
+        .printsheet .tagText{ font-weight:900; letter-spacing:1.1px; margin-top:2px; }
+        .printsheet .specialtyRow, .printsheet .webbsRow { display:flex; gap:8px; flex-wrap:wrap; }
+        .printsheet .totSpec { margin-left:auto; }
+        .printsheet .signatureLine{ height:26px; }
+
+        @media print{
+          @page{ size: letter portrait; margin: 5mm; }
+          :root[data-tight='t1']{
+            --ps-fs-base:12.3px; --ps-fs-h:15.6px; --ps-fs-label:9.8px;
+            --ps-pad-box:3px; --ps-pad-val:2px 4px;
+            --ps-gap-row:3px; --ps-gap-col:6px;
+          }
+          :root[data-tight='t2']{
+            --ps-fs-base:11.9px; --ps-fs-h:15px; --ps-fs-label:9.4px;
+            --ps-pad-box:2px; --ps-pad-val:2px 4px;
+            --ps-gap-row:2px; --ps-gap-col:6px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
+
+
