@@ -513,19 +513,21 @@ function OvernightIntakePage() {
 
     {/* Row 2 */}
 {/* How Killed */}
-<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-  <label className="form-label">How Killed</label>
+<div className="flex flex-col gap-1 col-span-12 sm:col-span-3">
+  <label className="text-sm font-medium text-zinc-300">How Killed</label>
   <select
-    className="form-input sm:col-span-2"
-    value={job.howKilled || ''}
-    onChange={(e) => setJob(j => ({ ...j, howKilled: e.target.value as any }))}
+    name="howKilled"
+    value={form.howKilled || ''}
+    onChange={(e) => setForm((f) => ({ ...f, howKilled: e.target.value }))}
+    className="w-full min-w-[180px] h-11 rounded-md bg-zinc-950 border border-zinc-700 px-3 text-zinc-100 focus:outline-none focus:border-zinc-500"
   >
-    <option value="">Select</option>
+    <option value="">—</option>
     <option value="Gun">Gun</option>
     <option value="Archery">Archery</option>
     <option value="Vehicle">Vehicle</option>
   </select>
 </div>
+
 
 
     <div className="c4">
