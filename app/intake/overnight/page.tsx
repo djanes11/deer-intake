@@ -35,6 +35,7 @@ type Job = {
   county?: string;
   dropoff?: string; // yyyy-mm-dd
   sex?: '' | 'Buck' | 'Doe'| 'Antlerless';
+  howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';  // NEW
   processType?:
     | ''
     | 'Standard Processing'
@@ -172,6 +173,8 @@ function OvernightIntakePage() {
     capingStatus: '',
     webbsStatus: '',
     specialtyStatus: '',
+    howKilled: '',   // NEW
+
 
     hind: {
       'Hind - Steak': false,
@@ -270,6 +273,7 @@ function OvernightIntakePage() {
     if (!job.county) missing.push('County Killed');
     if (!job.dropoff) missing.push('Drop-off Date');
     if (!job.sex) missing.push('Deer Sex');
+    if (!job.howKilled) missing.push('How Killed');   // NEW
     if (!job.processType) missing.push('Process Type');
     return missing;
   };
@@ -309,6 +313,9 @@ function OvernightIntakePage() {
           : '',
 
       specialtyStatus: job.specialtyProducts ? (job.specialtyStatus || 'Dropped Off') : '',
+
+      howKilled: job.howKilled || '',   // NEW
+
 
       priceProcessing: processingPrice,
       priceSpecialty:  specialtyPrice,
@@ -468,60 +475,76 @@ function OvernightIntakePage() {
           </div>
         </section>
 
-        {/* Hunt Details */}
         <section>
-          <h3>Hunt Details</h3>
-          <div className="grid">
-            <div className="c4">
-              <label>County Killed</label>
-              <input
-                value={job.county || ''}
-                onChange={(e) => setVal('county', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-            <div className="c4">
-              <label>Drop-off Date</label>
-              <input
-                type="date"
-                value={job.dropoff || ''}
-                onChange={(e) => setVal('dropoff', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-            <div className="c4">
-              <label>Deer Sex</label>
-              <select
-                value={job.sex || ''}
-                onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
-                disabled={locked}
-              >
-                <option value="">—</option>
-                <option value="Buck">Buck</option>
-                <option value="Doe">Doe</option>
-                <option value="Antlerless">Antlerless</option>
-              </select>
-            </div>
-            <div className="c3">
-              <label>Process Type</label>
-              <select
-                value={job.processType || ''}
-                onChange={(e) =>
-                  setVal('processType', e.target.value as Job['processType'])
-                }
-                disabled={locked}
-              >
-                <option value="">—</option>
-                <option>Standard Processing</option>
-                <option>Caped</option>
-                <option>Skull-Cap</option>
-                <option>European</option>
-                <option>Cape & Donate</option>
-                <option>Donate</option>
-              </select>
-            </div>
-          </div>
-        </section>
+  <h3>Hunt Details</h3>
+  <div className="grid">
+    <div className="c4">
+      <label>County Killed</label>
+      <input
+        value={job.county || ''}
+        onChange={(e) => setVal('county', e.target.value)}
+        disabled={locked}
+      />
+    </div>
+
+    <div className="c4">
+      <label>Drop-off Date</label>
+      <input
+        type="date"
+        value={job.dropoff || ''}
+        onChange={(e) => setVal('dropoff', e.target.value)}
+        disabled={locked}
+      />
+    </div>
+
+    <div className="c4">
+      <label>Deer Sex</label>
+      <select
+        value={job.sex || ''}
+        onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
+        disabled={locked}
+      >
+        <option value="">—</option>
+        <option value="Buck">Buck</option>
+        <option value="Doe">Doe</option>
+        <option value="Antlerless">Antlerless</option>
+      </select>
+    </div>
+
+    {/* Row 2 */}
+    <div className="c4">
+      <label>How Killed</label>
+      <select
+        value={job.howKilled || ''}
+        onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
+        disabled={locked}
+      >
+        <option value="">—</option>
+        <option value="Gun">Gun</option>
+        <option value="Archery">Archery</option>
+        <option value="Vehicle">Vehicle</option>
+      </select>
+    </div>
+
+    <div className="c4">
+      <label>Process Type</label>
+      <select
+        value={job.processType || ''}
+        onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
+        disabled={locked}
+      >
+        <option value="">—</option>
+        <option>Standard Processing</option>
+        <option>Caped</option>
+        <option>Skull-Cap</option>
+        <option>European</option>
+        <option>Cape & Donate</option>
+        <option>Donate</option>
+      </select>
+    </div>
+  </div>
+</section>
+
 
         {/* Cuts */}
         <section>

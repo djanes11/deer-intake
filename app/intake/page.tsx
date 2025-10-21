@@ -74,6 +74,9 @@ type Job = {
 
   notes?: string;
 
+  howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';
+
+
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
@@ -200,6 +203,9 @@ function IntakePage() {
 
     specialtyProducts: false,
 
+    howKilled: '',            // <-- NEW
+
+
     // NEW: defaults for comms/consent
     prefEmail: true,
     prefSMS: false,
@@ -273,6 +279,8 @@ function IntakePage() {
               paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
               paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
               specialtyProducts: asBool(j.specialtyProducts),
+
+  		howKilled: j.howKilled || j['How Killed'] || '',  // NEW
 
               // NEW: load prefs + consents
               prefEmail:  asBool(j.prefEmail),
@@ -416,6 +424,7 @@ function IntakePage() {
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
+  howKilled: job.howKilled || '', // NEW
 
       summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
@@ -687,56 +696,76 @@ function IntakePage() {
           </div>
         </section>
 
-        {/* Hunt Details */}
-        <section>
-          <h3>Hunt Details</h3>
-          <div className="grid">
-            <div className="c4">
-              <label>County Killed</label>
-              <input
-                value={job.county || ''}
-                onChange={(e) => setVal('county', e.target.value)}
-              />
-            </div>
-            <div className="c3">
-              <label>Drop-off Date</label>
-              <input
-                type="date"
-                value={job.dropoff || ''}
-                onChange={(e) => setVal('dropoff', e.target.value)}
-              />
-            </div>
-            <div className="c2">
-              <label>Deer Sex</label>
-              <select
-                value={job.sex || ''}
-                onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
-              >
-                <option value="">—</option>
-                <option value="Buck">Buck</option>
-                <option value="Doe">Doe</option>
-		<option value="Antlerless">Antlerless</option>
-              </select>
-            </div>
-            <div className="c3">
-              <label>Process Type</label>
-              <select
-                value={job.processType || ''}
-                onChange={(e) =>
-                  setVal('processType', e.target.value as Job['processType'])
-                }
-              >
-                <option value="">—</option>
-                <option>Standard Processing</option>
-                <option>Caped</option>
-                <option>Skull-Cap</option>
-                <option>European</option>
-                <option>Cape & Donate</option>
-                <option>Donate</option>
-              </select>
-            </div>
-          </div>
-        </section>
+<section>
+  <h3>Hunt Details</h3>
+  <div className="grid">
+    <div className="c3">
+      <label className="text-sm font-medium whitespace-nowrap mb-1">County Killed</label>
+      <input
+        value={job.county || ''}
+        onChange={(e) => setVal('county', e.target.value)}
+        className="w-full"
+      />
+    </div>
+
+    <div className="c3">
+      <label className="text-sm font-medium whitespace-nowrap mb-1">Drop-off Date</label>
+      <input
+        type="date"
+        value={job.dropoff || ''}
+        onChange={(e) => setVal('dropoff', e.target.value)}
+        className="w-full"
+      />
+    </div>
+
+    <div className="c2">
+      <label className="text-sm font-medium whitespace-nowrap mb-1">Deer Sex</label>
+      <select
+        value={job.sex || ''}
+        onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
+        className="w-full min-w-[10rem]"
+      >
+        <option value="">—</option>
+        <option value="Buck">Buck</option>
+        <option value="Doe">Doe</option>
+        <option value="Antlerless">Antlerless</option>
+      </select>
+    </div>
+
+    <div className="c2">
+      <label className="text-sm font-medium whitespace-nowrap mb-1">How Killed</label>
+      <select
+        value={job.howKilled || ''}
+        onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
+        className="w-full min-w-[10rem]"
+      >
+        <option value="">—</option>
+        <option value="Gun">Gun</option>
+        <option value="Archery">Archery</option>
+        <option value="Vehicle">Vehicle</option>
+      </select>
+    </div>
+
+    <div className="c2">
+      <label className="text-sm font-medium whitespace-nowrap mb-1">Process Type</label>
+      <select
+        value={job.processType || ''}
+        onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
+        className="w-full min-w-[10rem]"
+      >
+        <option value="">—</option>
+        <option>Standard Processing</option>
+        <option>Caped</option>
+        <option>Skull-Cap</option>
+        <option>European</option>
+        <option>Cape & Donate</option>
+        <option>Donate</option>
+      </select>
+    </div>
+  </div>
+</section>
+
+
 
         {/* Cuts */}
         <section>

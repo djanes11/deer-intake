@@ -1387,4 +1387,46 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 /* Optional: keep "Add (+$5)" on one line */
 .ro .pkg-beef { white-space: nowrap; }
 
+/* ===== 12-column grid helpers for forms ===== */
+.form-card .grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* Column span utilities */
+.form-card .c1  { grid-column: span 1 / span 1; }
+.form-card .c2  { grid-column: span 2 / span 2; }
+.form-card .c3  { grid-column: span 3 / span 3; }
+.form-card .c4  { grid-column: span 4 / span 4; }
+.form-card .c5  { grid-column: span 5 / span 5; }
+.form-card .c6  { grid-column: span 6 / span 6; }
+.form-card .c7  { grid-column: span 7 / span 7; }
+.form-card .c8  { grid-column: span 8 / span 8; }
+.form-card .c9  { grid-column: span 9 / span 9; }
+.form-card .c10 { grid-column: span 10 / span 10; }
+.form-card .c11 { grid-column: span 11 / span 11; }
+.form-card .c12 { grid-column: span 12 / span 12; }
+
+/* Make labels consistent and stop wrapping weirdly */
+.form-card label {
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+/* Inputs/selects expand to the cell */
+.form-card input,
+.form-card select {
+  width: 100%;
+  min-height: 38px;
+}
+
+/* Phone/narrow: stack fields full-width */
+@media (max-width: 820px) {
+  .form-card .grid > * { grid-column: span 12 / span 12; }
+}
+
 
