@@ -155,7 +155,7 @@ function PublicLanding() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   STAFF HOME (unchanged)
+   STAFF HOME (unchanged except for adding State Form link under Reports)
    ────────────────────────────────────────────────────────────────────────── */
 function StaffHome() {
   const shell: React.CSSProperties = {
@@ -310,6 +310,14 @@ function StaffHome() {
               <div style={row}>
                 <div style={dot('rgba(115,75,170,.95)')} />
                 <div style={{ fontWeight: 800 }}>Called — Pickup Queue</div>
+              </div>
+            </Link>
+
+            {/* NEW: State Form report link */}
+            <Link href="/reports/state-form" style={linkStyle}>
+              <div style={row}>
+                <div style={dot('rgba(25,130,200,.9)')} />
+                <div style={{ fontWeight: 800 }}>State Form — Page Builder</div>
               </div>
             </Link>
           </div>
