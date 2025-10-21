@@ -512,19 +512,21 @@ function OvernightIntakePage() {
     </div>
 
     {/* Row 2 */}
-    <div className="c4">
-      <label>How Killed</label>
-      <select
-        value={job.howKilled || ''}
-        onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
-        disabled={locked}
-      >
-        <option value="">—</option>
-        <option value="Gun">Gun</option>
-        <option value="Archery">Archery</option>
-        <option value="Vehicle">Vehicle</option>
-      </select>
-    </div>
+{/* How Killed */}
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  <label className="form-label">How Killed</label>
+  <select
+    className="form-input sm:col-span-2"
+    value={job.howKilled || ''}
+    onChange={(e) => setJob(j => ({ ...j, howKilled: e.target.value as any }))}
+  >
+    <option value="">Select</option>
+    <option value="Gun">Gun</option>
+    <option value="Archery">Archery</option>
+    <option value="Vehicle">Vehicle</option>
+  </select>
+</div>
+
 
     <div className="c4">
       <label>Process Type</label>
