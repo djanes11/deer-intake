@@ -1429,4 +1429,9 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   .form-card .grid > * { grid-column: span 12 / span 12; }
 }
 
-
+/* Full-bleed helper: lets content inside a narrow container span the viewport */
+.fullbleed {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
