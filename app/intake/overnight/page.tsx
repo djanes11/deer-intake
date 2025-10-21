@@ -34,7 +34,7 @@ type Job = {
 
   county?: string;
   dropoff?: string; // yyyy-mm-dd
-  sex?: '' | 'Buck' | 'Doe';
+  sex?: '' | 'Buck' | 'Doe'| 'Antlerless';
   processType?:
     | ''
     | 'Standard Processing'
