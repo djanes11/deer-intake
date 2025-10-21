@@ -13,62 +13,6 @@ const CHK = '☑';
 const BOX = '☐';
 
 /* ---------------- helpers ---------------- */
-// --- robust key/alias helpers for reading sheet data reliably ---
-function allAliases(h: string): string[] {
-  const s = String(h || '');
-  const en = s.replace(/-/g, '–');            // en dash variant
-  const hy = s.replace(/–/g, '-');            // hyphen variant
-  const noSpaces = hy.replace(/\s+/g, '');
-  const snake = hy.replace(/\s*-\s*/g, ' ').replace(/\s+/g, '_');
-  const spaced = hy.replace(/\s*-\s*/g, ' ').replace(/\s+/g, ' ');
-  const camel = spaced.toLowerCase().split(' ').map((w,i)=> i? (w[0]||'').toUpperCase()+w.slice(1): w).join('');
-  return Array.from(new Set([s, en, hy, spaced, snake, noSpaces, camel, camel.toLowerCase()]));
-}
-function peek(obj: any, key: string): any {
-  if (!obj) return undefined;
-  if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];
-  // try case-insensitive direct
-  const k = Object.keys(obj).find(k => k.toLowerCase() === key.toLowerCase());
-  if (k) return obj[k];
-  return undefined;
-}
-function truthyFromJob(job: AnyRec | null | undefined, ...keysOrVals: any[]): boolean {
-  for (const c of keysOrVals) {
-    if (typeof c !== 'string') {
-      if (c === true) return true;
-      if (typeof c === 'number' && c > 0) return true;
-      if (typeof c === 'boolean') return c;
-      const s = String(c).trim().toLowerCase();
-      if (['true','1','yes','y','x','t','on','✓','☑'].includes(s)) return true;
-      continue;
-    }
-    // string key: check job, job._raw, and alias variants
-    const keys = allAliases(c);
-    for (const k of keys) {
-      const v = peek(job as any, k);
-      if (v !== undefined) {
-        const s = String(v).trim().toLowerCase();
-        if (s === '') continue;
-        if (typeof v === 'boolean') return v;
-        if (['true','1','yes','y','x','t','on','✓','☑'].includes(s)) return true;
-        if (!Number.isNaN(Number(s)) && Number(s) > 0) return true;
-        if (s === 'false' || s === '0' || s === 'off' || s === 'no') return false;
-      }
-      const raw = (job as any)?._raw;
-      const vr = peek(raw, k);
-      if (vr !== undefined) {
-        const s2 = String(vr).trim().toLowerCase();
-        if (s2 === '') continue;
-        if (typeof vr === 'boolean') return vr;
-        if (['true','1','yes','y','x','t','on','✓','☑'].includes(s2)) return true;
-        if (!Number.isNaN(Number(s2)) && Number(s2) > 0) return true;
-        if (s2 === 'false' || s2 === '0' || s2 === 'off' || s2 === 'no') return false;
-      }
-    }
-  }
-  return false;
-}
-
 function jpick<T = any>(obj: AnyRec | null | undefined, keys: string[]): T | undefined {
   if (!obj) return undefined as any;
   for (const k of keys) {
@@ -212,23 +156,15 @@ const frontRoastCnt = useMemo(
 );
 
 // NOW derive flags from (sheet boolean) OR (nested boolean) OR (count>0 for roast)
-// NOW derive flags ONLY from sheet booleans (fallback to nested object booleans if they exist).
-// Do NOT auto-set Roast based on counts.
-// NOW derive flags ONLY from declared fields (sheet or API), checking aliases and job._raw fallbacks.
-// Absolutely NO inference from counts.
-// NOW derive flags with robust reads from:
-// - job['<exact header>']
-// - job.hind['<exact header>'] / job.front['<exact header>']
-// - alias keys (hindSteak, etc.), and job._raw
-const hindSteak = truthyFromJob(job, 'Hind - Steak', (hindObj as any)['Hind - Steak'], 'hindSteak', (hindObj as any).steak);
-const hindRoast = truthyFromJob(job, 'Hind - Roast', (hindObj as any)['Hind - Roast'], 'hindRoast', (hindObj as any).roast);
-const hindGrind = truthyFromJob(job, 'Hind - Grind', (hindObj as any)['Hind - Grind'], 'hindGrind', (hindObj as any).grind);
-const hindNone  = truthyFromJob(job, 'Hind - None',  (hindObj as any)['Hind - None'],  'hindNone',  (hindObj as any).none);
+const hindSteak = truthy('Hind - Steak','hindSteak', (hindObj as any).steak);
+const hindRoast = truthy('Hind - Roast','hindRoast', (hindObj as any).roast) || hindRoastCnt > 0;
+const hindGrind = truthy('Hind - Grind','hindGrind', (hindObj as any).grind);
+const hindNone  = truthy('Hind - None','hindNone', (hindObj as any).none);
 
-const frontSteak = truthyFromJob(job, 'Front - Steak', (frontObj as any)['Front - Steak'], 'frontSteak', (frontObj as any).steak);
-const frontRoast = truthyFromJob(job, 'Front - Roast', (frontObj as any)['Front - Roast'], 'frontRoast', (frontObj as any).roast);
-const frontGrind = truthyFromJob(job, 'Front - Grind', (frontObj as any)['Front - Grind'], 'frontGrind', (frontObj as any).grind);
-const frontNone  = truthyFromJob(job, 'Front - None',  (frontObj as any)['Front - None'],  'frontNone',  (frontObj as any).none);
+const frontSteak = truthy('Front - Steak','frontSteak', (frontObj as any).steak);
+const frontRoast = truthy('Front - Roast','frontRoast', (frontObj as any).roast) || frontRoastCnt > 0;
+const frontGrind = truthy('Front - Grind','frontGrind', (frontObj as any).grind);
+const frontNone  = truthy('Front - None','frontNone', (frontObj as any).none);
 
   /* -------- barcode on every copy -------- */
   useEffect(() => {
@@ -550,6 +486,7 @@ const frontNone  = truthyFromJob(job, 'Front - None',  (frontObj as any)['Front 
         .printsheet .signatureLine{ height:26px; }
 
         @media print{
+          .printsheet > .page + .page { break-before: page; page-break-before: always; }
           @page{ size: letter portrait; margin: 5mm; }
           :root[data-tight='t1']{
             --ps-fs-base:12.3px; --ps-fs-h:15.6px; --ps-fs-label:9.8px;
@@ -566,5 +503,6 @@ const frontNone  = truthyFromJob(job, 'Front - None',  (frontObj as any)['Front 
     </div>
   );
 }
+
 
 
