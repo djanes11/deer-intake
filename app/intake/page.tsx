@@ -715,6 +715,7 @@ function IntakePage() {
                 <option value="">—</option>
                 <option value="Buck">Buck</option>
                 <option value="Doe">Doe</option>
+		<option value="Antlerless">Antlerless</option>
               </select>
             </div>
             <div className="c3">
