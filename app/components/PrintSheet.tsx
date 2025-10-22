@@ -182,7 +182,7 @@ const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front
           try {
             while (el.firstChild) el.removeChild(el.firstChild);
             // @ts-ignore
-            JB(el, tagKey, { format: 'CODE128', displayValue: false, height: 30, margin: 0 });
+            JB(el, tagKey, { format: 'CODE128', displayValue: false, height: 22, margin: 0 });
           } catch {}
         });
       } catch {}
@@ -210,7 +210,7 @@ const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front
       window.addEventListener('beforeprint', onBeforePrint);
       document.addEventListener('visibilitychange', onVis);
     }
-    return () => {
+return () => {
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
       if (typeof window !== 'undefined') {
         window.removeEventListener('beforeprint', onBeforePrint);
@@ -251,7 +251,7 @@ const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front
   }, [copies, tagKey]);
 
   const renderCopy = (i: number) => (
-    <div key={i} className="page">
+    <div key={i} className={`page ${copies === 1 && i === 0 ? "onepage" : ""}`}>
       {!hideHeader && <header className="hdr">McAfee Custom Deer Processing — Palmyra, IN</header>}
 
       {/* Row A */}
@@ -360,28 +360,35 @@ const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front
         </div>
       </div>
 
-      {/* Row F */}
-      <div className="row grid12">
-        <div className="col-3 box">
-          <div className="label">Specialty Products</div>
-          <div className="val">
-            <strong className="check">{truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') ? CHK : BOX}</strong> Would like specialty products
-          </div>
-        </div>
-        <div className="col-9 box">
-          <div className="label">Specialty Detail (lb)</div>
-          <div className="val">
-            <div className="specialtyRow">
-              <div><b>Summer Sausage:</b> {ssN || ''}</div>
-              <div><b>+ Cheese:</b> {sscN || ''}</div>
-              <div><b>Sliced Jerky:</b> {jerN || ''}</div>
-              <div className="totSpec"><b>Total lbs:</b> {specialtyLbs || ''}</div>
-            </div>
-          </div>
-        </div>
-      </div>
+      
+{/* Row F */}
+<div className="row grid12">
+  <div className="col-3 box">
+    <div className="label">Specialty Products</div>
+    <div className="val">
+      <strong className="check">
+        {truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') ? CHK : BOX}
+      </strong>{' '}Would like specialty products
+    </div>
+  </div>
 
-      {/* Row G */}
+  <div className="col-9 box">
+    <div className="label">Specialty Detail (lb)</div>
+    <div className="val">
+      <div className="specRow">
+        <div className="specLine">
+          <span><b>SS:</b> {ssN || ''}</span>
+          <span> | <b>+Ch:</b> {sscN || ''}</span>
+          <span> | <b>Jerky:</b> {jerN || ''}</span>
+        </div>
+        <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* Row G */}
+
       <div className="row grid12">
         <div className="col-12 box"><div className="label">Notes</div><div className="val">{textVal('Notes','notes')}</div></div>
       </div>
@@ -443,78 +450,6 @@ const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front
   return (
     <div ref={rootRef} className="printsheet">
       {Array.from({ length: copies }).map((_, i) => renderCopy(i))}
-
-      <style jsx global>{`
-        .printsheet{
-          --ps-bg:#fff; --ps-text:#0d1117;
-          --ps-border:#cdd9ee; --ps-val-border:#dfe7f7;
-          --ps-radius:12px; --ps-pad-box:4px; --ps-pad-val:4px;
-          --ps-fs-h:18px; --ps-fs-base:13.3px; --ps-fs-label:10.4px;
-          --ps-gap-row:3px; --ps-gap-col:6px;
-          --print-scale:1;
-          max-width:800px; margin:0 auto; padding:8px;
-          color:var(--ps-text);
-        }
-        .printsheet .hdr, .printsheet .ftr{ font-size:11px; color:#555; text-align:center; margin:6px 0; }
-        .printsheet .page{
-          background:var(--ps-bg);
-          border-radius:var(--ps-radius);
-          padding:10px;
-          break-inside: avoid;
-          transform-origin: top left;
-          transform: scale(var(--print-scale, 1));
-        }
-        .printsheet .row{ margin-top: var(--ps-gap-row); }
-        .printsheet .grid12{ display:grid; grid-template-columns: repeat(12, 1fr); gap: var(--ps-gap-col); }
-        .printsheet .col-3{ grid-column: span 3; } .printsheet .col-4{ grid-column: span 4; }
-        .printsheet .col-6{ grid-column: span 6; } .printsheet .col-9{ grid-column: span 9; } .printsheet .col-12{ grid-column: 1 / -1; }
-
-        .printsheet .box{ padding:var(--ps-pad-box); border:1px solid var(--ps-border); border-radius:var(--ps-radius); background: #fff; }
-        .printsheet .label{ font-size:var(--ps-fs-label); color:#334155; font-weight:700; margin-bottom:2px; }
-        .printsheet .val{ padding:var(--ps-pad-val); border:1px solid var(--ps-val-border); border-radius:calc(var(--ps-radius) - 1px); font-size:var(--ps-fs-base); min-height:22px; }
-        .printsheet .rowA .box .val{ padding: calc(var(--ps-pad-val) - 1px) calc(var(--ps-pad-val) - 1px); min-height:18px; }
-        .printsheet .check{ font-family: monospace; font-weight: 700; }
-        .printsheet .money{ font-weight:800; } .printsheet .moneyTotal{ font-weight:900; }
-        .printsheet .splitPriceRow{ display:flex; align-items:center; gap:6px; }
-        .printsheet .splitPriceRow .lhs{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .printsheet .splitSep{ border-top:1px dashed #ccd7ee; margin:3px 0; }
-        .printsheet [data-barcode-wrap]{ margin-top:2px; overflow:hidden; }
-        .printsheet svg[data-barcode]{ width:100%; height:32px; display:block; max-width:100%; }
-        .printsheet .tagText{ font-weight:900; letter-spacing:1.1px; margin-top:2px; }
-        .printsheet .specialtyRow, .printsheet .webbsRow { display:flex; gap:8px; flex-wrap:wrap; }
-        .printsheet .totSpec { margin-left:auto; }
-        .printsheet .signatureLine{ height:26px; }
-
-        @media print{
-
-          /* Hide any non-page direct child so nothing triggers a blank sheet */
-          .printsheet > :not(.page){ display: none !important; }
-          .printsheet{ margin: 0 !important; padding: 0 !important; }
-          html{ zoom:0.95 !important; }
-          body{ margin:0 !important; padding:0 !important; }
-
-          .printsheet > .page + .page { break-before: page; page-break-before: always; }
-
-          /* Ensure single-copy prints do NOT add a blank trailing page */
-          .printsheet > .page{  }
-          .printsheet > .page:last-child{ page-break-after: auto !important; }
-          .printsheet > style{ display:none !important; }
-
-          @page{ size: letter portrait; margin: 5mm; }
-          :root[data-tight='t1']{
-            --ps-fs-base:12.3px; --ps-fs-h:15.6px; --ps-fs-label:9.8px;
-            --ps-pad-box:3px; --ps-pad-val:2px 4px;
-            --ps-gap-row:3px; --ps-gap-col:6px;
-          }
-          :root[data-tight='t2']{
-            --ps-fs-base:11.9px; --ps-fs-h:15px; --ps-fs-label:9.4px;
-            --ps-pad-box:2px; --ps-pad-val:2px 4px;
-            --ps-gap-row:2px; --ps-gap-col:6px;
-          }
-        }
-      `}</style>
-    </div>
+</div>
   );
 }
-
-

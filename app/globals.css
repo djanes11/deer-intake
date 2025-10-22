@@ -910,7 +910,7 @@ label.pill {
 
 /* Tighten on small screens */
 @media (max-width: 640px) {
-  .light-page .form-card { padding:10px; }
+  .light-page .form-card { padding:8px; }
   .light-page .form-card .summary .row { grid-template-columns: 1fr; }
 }
 
@@ -1437,3 +1437,195 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 }
 
 @media print { .printsheet > .page{ page-break-after:auto !important; } .printsheet > .page:last-child{ page-break-after:auto !important; } }
+
+
+/* === PRINT PATCH: stop phantom blank page on 1-page prints === */
+@media print {
+  @page { margin: 8mm; }
+  .watermark::after { display: none !important; }
+  .printsheet { margin: 0 !important; padding: 0 !important; }
+  .printsheet .page.onepage { transform: none !important; }
+  .printsheet .page + .page { break-before: page !important; page-break-before: always !important; }
+  .printsheet .page { break-inside: avoid-page !important; page-break-inside: avoid !important; }
+}
+
+
+/* ===== PRINTSHEET LAYOUT (namespaced, safe to override) ===== */
+.printsheet{
+  --ps-bg:#fff; --ps-text:#0d1117;
+  --ps-border:#cfd8e3; --ps-val-border:#e6edf7;
+  --ps-radius:12px; --ps-pad-box:5px; --ps-pad-val:5px;
+  --ps-fs-h:18px; --ps-fs-base:11.9px; --ps-fs-label:9.9px;
+  --ps-gap-row:5px; --ps-gap-col:6px;
+  color:var(--ps-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+.printsheet .page{
+  background:var(--ps-bg);
+  border-radius:var(--ps-radius);
+  border:1px solid var(--ps-border);
+  padding:8px;
+  break-inside: avoid;
+}
+.printsheet .hdr, .printsheet .ftr{ font-size:11px; color:#4b5563; text-align:center; margin:6px 0; }
+
+/* Grid */
+.printsheet .row{ display:grid; gap: var(--ps-gap-row); margin-bottom: var(--ps-gap-row); }
+.printsheet .grid12{ grid-template-columns: repeat(12, minmax(0,1fr)); column-gap: var(--ps-gap-col); }
+.printsheet .col-12{ grid-column: span 12; }
+.printsheet .col-9{ grid-column: span 9; }
+.printsheet .col-8{ grid-column: span 8; }
+.printsheet .col-6{ grid-column: span 6; }
+.printsheet .col-4{ grid-column: span 4; }
+.printsheet .col-3{ grid-column: span 3; }
+
+/* Boxes */
+.printsheet .box{
+  border:1px solid var(--ps-border);
+  border-radius: 8px;
+  padding: var(--ps-pad-box);
+  background:#fff;
+}
+.printsheet .label{
+  font-size: var(--ps-fs-label);
+  letter-spacing:.03em;
+  text-transform: uppercase;
+  color:#6b7280;
+}
+.printsheet .val{
+  margin-top: 4px;
+  border:1px solid var(--ps-val-border);
+  border-radius: 8px;
+  padding: var(--ps-pad-val);
+  font-size: var(--ps-fs-base);
+  background:#fafcff;
+}
+.printsheet .splitPriceRow{ display:flex; align-items:center; justify-content:space-between; line-height:1.25; }
+.printsheet .splitSep{ height:6px; }
+.printsheet .money{ font-weight:700; }
+.printsheet .moneyTotal{ font-weight:900; }
+.printsheet .check{ display:inline-block; width:14px; text-align:center; margin-right:4px; }
+
+/* Print behavior (kept tight) */
+@media print {
+  @page { margin: 8mm; }
+  .watermark::after { display:none !important; }
+  .printsheet { margin: 0 !important; padding: 0 !important; }
+  .printsheet .page.onepage { transform: none !important; } /* stop phantom last page */
+  .printsheet .page + .page { break-before: page !important; page-break-before: always !important; }
+  .printsheet .page { break-inside: avoid-page !important; page-break-inside: avoid !important; }
+}
+
+
+/* condensed specialty line */
+.printsheet .specRow { display: grid; gap: 3px; }
+.printsheet .specLine { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.printsheet .specLine span { font-size: 0.95em; }
+.printsheet .specTotal { font-weight: 700; }
+
+
+/* ===== PRINTSHEET LAYOUT (FINAL, tight & namespaced) ===== */
+.printsheet{
+  --ps-bg:#fff; --ps-text:#0d1117;
+  --ps-border:#cfd8e3; --ps-val-border:#e6edf7;
+  --ps-radius:12px; --ps-pad-box:5px; --ps-pad-val:5px;
+  --ps-fs-h:18px; --ps-fs-base:11.7px; --ps-fs-label:9.7px;
+  --ps-gap-row:4px; --ps-gap-col:6px;
+  color:var(--ps-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+.printsheet .page{
+  background:var(--ps-bg);
+  border-radius:var(--ps-radius);
+  border:1px solid var(--ps-border);
+  padding:8px;
+  break-inside: avoid;
+}
+.printsheet .hdr, .printsheet .ftr{ font-size:11px; color:#4b5563; text-align:center; margin:6px 0; }
+/* Grid */
+.printsheet .row{ display:grid; gap: var(--ps-gap-row); margin-bottom: var(--ps-gap-row); }
+.printsheet .grid12{ grid-template-columns: repeat(12, minmax(0,1fr)); column-gap: var(--ps-gap-col); }
+.printsheet .col-12{ grid-column: span 12; }
+.printsheet .col-9{ grid-column: span 9; }
+.printsheet .col-8{ grid-column: span 8; }
+.printsheet .col-6{ grid-column: span 6; }
+.printsheet .col-4{ grid-column: span 4; }
+.printsheet .col-3{ grid-column: span 3; }
+/* Boxes */
+.printsheet .box{
+  border:1px solid var(--ps-border);
+  border-radius: 8px;
+  padding: var(--ps-pad-box);
+  background:#fff;
+}
+.printsheet .label{
+  font-size: var(--ps-fs-label);
+  letter-spacing:.03em;
+  text-transform: uppercase;
+  color:#6b7280;
+}
+.printsheet .val{
+  margin-top: 3px;
+  border:1px solid var(--ps-val-border);
+  border-radius: 8px;
+  padding: var(--ps-pad-val);
+  font-size: var(--ps-fs-base);
+  background:#fafcff;
+}
+/* condensed specialty line */
+.printsheet .specRow { display: grid; gap: 2px; }
+.printsheet .specLine { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.printsheet .specLine span { font-size: 0.95em; }
+.printsheet .specTotal { font-weight: 700; }
+/* Print behavior */
+@media print {
+  @page { margin: 8mm; } /* can drop to 7mm if still 2 pages */
+  .watermark::after { display:none !important; }
+  .printsheet { margin: 0 !important; padding: 0 !important; }
+  .printsheet .page.onepage { transform: none !important; } /* stop phantom last page */
+  .printsheet .page + .page { break-before: page !important; page-break-before: always !important; }
+  .printsheet .page { break-inside: avoid-page !important; page-break-inside: avoid !important; }
+}
+
+
+@media print {
+  /* last‑mile tightening only for print */
+  .printsheet{
+    --ps-fs-base: 11.4px;
+    --ps-fs-label: 9.5px;
+    --ps-gap-row: 3px;
+    --ps-gap-col: 6px;
+  }
+  .printsheet .page { padding: 6px !important; }
+  .printsheet .val { padding: 4px !important; }
+  .printsheet .box { padding: 4px !important; }
+  .printsheet .hdr { margin: 2px 0 8px 0 !important; }
+  .printsheet .ftr { font-size: 9px !important; margin-top: 4px !important; }
+  @page { margin: 7mm; } /* was 8mm */
+}
+
+/* === KILL THE PHANTOM PAGE: print-only hard stop === */
+@media print {
+  /* 1) Eliminate transforms/filters anywhere that could force an extra sheet */
+  *, *::before, *::after {
+    transform: none !important;
+    filter: none !important;
+    perspective: none !important;
+    backface-visibility: visible !important;
+  }
+
+  /* 2) Hide any fixed headers/watermarks that can extend the print canvas */
+  header.site-header, .site-header, .watermark::after { display: none !important; }
+
+  /* 3) Keep our sheet compact and unbroken */
+  .printsheet { margin: 0 !important; padding: 0 !important; }
+  .printsheet .page { box-shadow: none !important; }
+  .printsheet .page + .page { break-before: page !important; page-break-before: always !important; }
+  .printsheet .page:last-child { break-after: auto !important; page-break-after: auto !important; }
+
+  /* 4) Reasonable margins; auto size to the printer */
+  @page { size: auto; margin: 7mm; }
+
+  /* 5) Safety: don’t let global heights/margins stretch the print doc */
+  html, body { height: auto !important; margin: 0 !important; }
+}
