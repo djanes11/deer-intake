@@ -1629,3 +1629,29 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   /* 5) Safety: don’t let global heights/margins stretch the print doc */
   html, body { height: auto !important; margin: 0 !important; }
 }
+
+/* Backstrap compact value styling (keeps the 3 fields tight) */
+.printsheet .bs-val { padding-top: 3px; padding-bottom: 3px; font-size: 0.96em; }
+
+@media print {
+  .printsheet .bs-val { padding-top: 2px; padding-bottom: 2px; }
+}
+
+/* === PRINT-ONLY TIGHTENING (one-page lock) === */
+@media print {
+  /* smaller type + tighter gaps only during print */
+  .printsheet {
+    --ps-fs-base: 11.1px;
+    --ps-fs-label: 9.3px;
+    --ps-gap-row: 3px;
+    --ps-gap-col: 5px;
+  }
+  .printsheet .page { padding: 5px !important; }
+  .printsheet .box { padding: 4px !important; }
+  .printsheet .val { padding: 3px !important; line-height: 1.2 !important; }
+  .printsheet .label { letter-spacing: .02em !important; }
+  .printsheet .hdr { margin: 2px 0 6px 0 !important; }
+  .printsheet .ftr { font-size: 9px !important; margin-top: 2px !important; }
+  .printsheet .bs-val { padding-top: 2px !important; padding-bottom: 2px !important; font-size: 0.94em !important; }
+  @page { margin: 6.5mm; } /* careful drop from 7mm */
+}

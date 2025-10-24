@@ -360,6 +360,38 @@ return () => {
         </div>
       </div>
 
+{/* Row: Backstrap (after steak/burger, before specialty) */}
+<div className="row grid12">
+  <div className="col-4 box">
+    <div className="label">Backstrap — Prep</div>
+    <div className="val bs-val">
+      {textVal(
+        'Backstrap Prep','backstrapPrep','backstrap_prep',
+        'Back Strap Prep','back_strap_prep'
+      )}
+    </div>
+  </div>
+  <div className="col-4 box">
+    <div className="label">Backstrap — Thickness</div>
+    <div className="val bs-val">
+      {textVal(
+        'Backstrap Thickness','backstrapThickness','backstrap_thickness',
+        'Back Strap Thickness','back_strap_thickness'
+      )}
+    </div>
+  </div>
+  <div className="col-4 box">
+    <div className="label">Backstrap — Thickness (Other)</div>
+    <div className="val bs-val">
+      {textVal(
+        'Backstrap Thickness (Other)','backstrapThicknessOther','backstrap_thickness_other',
+        'Back Strap Thickness (Other)','back_strap_thickness_other'
+      )}
+    </div>
+  </div>
+</div>
+
+
       
 {/* Row F */}
 <div className="row grid12">
