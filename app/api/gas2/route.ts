@@ -346,6 +346,31 @@ export async function POST(req: NextRequest) {
   const action =
     String(body.action || body.endpoint || '').trim().toLowerCase() || (body.job ? 'save' : '');
 
+  // === NEW: row-based paid toggle so we can mark paid *before* a tag exists ===
+  if (action === 'markpaidprocessing') {
+    const row = Number(body.row || 0) | 0;
+    const paid = truthyBool(body.paid ?? true);
+
+    if (!row) {
+      return new Response(JSON.stringify({ ok: false, error: 'row required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const up = await gasPost({ action: 'markPaidProcessing', row, paid });
+    if (up.status >= 400) {
+      return new Response(
+        up.text || JSON.stringify(up.json || { ok: false, error: 'markPaidProcessing failed' }),
+        { status: up.status, headers: { 'Content-Type': up.text ? 'text/plain' : 'application/json' } }
+      );
+    }
+    return new Response(up.text || JSON.stringify(up.json || { ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': up.text ? 'text/plain' : 'application/json' },
+    });
+  }
+
   // === NEW: job action: return full flat row keyed by sheet headers ===
   if (action === 'job') {
     const tag = String(body?.tag ?? '').trim();
