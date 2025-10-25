@@ -340,25 +340,52 @@ return () => {
         </div>
       </div>
 
-      {/* Row E */}
-      <div className="row grid12">
-        <div className="col-3 box">
-          <div className="label">Steak Size</div>
-          <div className="val">{textVal('Steak','steak','steakSize','Steak Size')}</div>
-        </div>
-        <div className="col-3 box">
-          <div className="label">Steak Size (Other)</div>
-          <div className="val">{textVal('Steak Size (Other)','Steak Size Other','steakSizeOther','steakOther','steak_size_other','Steak size other','SteakSizeOther')}</div>
-        </div>
-        <div className="col-3 box">
-          <div className="label">Burger Size</div>
-          <div className="val">{textVal('Burger Size','burgerSize','burger_size')}</div>
-        </div>
-        <div className="col-3 box">
-          <div className="label">Beef Fat</div>
-          <div className="val"><strong className="check">{truthy('Beef Fat','beefFat','beef_fat') ? CHK : BOX}</strong> Adds $5</div>
-        </div>
-      </div>
+{/* Row E */}
+<div className="row grid12">
+  <div className="col-3 box">
+    <div className="label">Steak Size</div>
+    <div className="val">
+      {textVal('Steak','steak','steakSize','Steak Size')}
+    </div>
+  </div>
+
+  <div className="col-3 box">
+    <div className="label">Steak Size (Other)</div>
+    <div className="val">
+      {textVal(
+        'Steak Size (Other)','Steak Size Other',
+        'steakSizeOther','steakOther','steak_size_other',
+        'Steak size other','SteakSizeOther'
+      )}
+    </div>
+  </div>
+
+  <div className="col-2 box">
+    <div className="label">Steaks per Package</div>
+    <div className="val">
+      {textVal(
+        'Steaks per Package','Steaks Per Package',
+        'Steaks/Package','Steaks Per Pkg',
+        'steaksPerPackage','steaks_per_package','SteaksPerPackage'
+      )}
+    </div>
+  </div>
+
+  <div className="col-2 box">
+    <div className="label">Burger Size</div>
+    <div className="val">
+      {textVal('Burger Size','burgerSize','burger_size')}
+    </div>
+  </div>
+
+  <div className="col-2 box">
+    <div className="label">Beef Fat</div>
+    <div className="val">
+      <strong className="check">{truthy('Beef Fat','beefFat','beef_fat') ? CHK : BOX}</strong> Adds $5
+    </div>
+  </div>
+</div>
+
 
 {/* Row: Backstrap (after steak/burger, before specialty) */}
 <div className="row grid12">
