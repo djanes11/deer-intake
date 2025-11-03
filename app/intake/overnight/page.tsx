@@ -1131,6 +1131,35 @@ function OvernightIntakePage() {
 @media (max-width: 720px) {
   .summary { position: static !important; top: auto !important; box-shadow: none; z-index: auto; }
 }
+/* Kill sticky + force scrolling on short (landscape) screens */
+@media (orientation: landscape) and (max-height: 520px) {
+  /* 1) Make the summary non-sticky */
+  .summary {
+    position: static !important;
+    top: auto !important;
+    box-shadow: none;
+  }
+
+  /* 2) Ensure the page can actually scroll */
+  html, body {
+    height: auto !important;
+    overflow: auto !important;
+  }
+
+  /* 3) Some wrappers use fixed heights; neutralize them so content can flow */
+  /* adjust these class names to match your wrappers if different */
+  .page, .wrap, .container, .content, .main {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* 4) If you ever used a sticky heading helper, unstick that too */
+  .stickyHeading {
+    position: static !important;
+    top: auto !important;
+  }
+}
       `}</style>
     </div>
   );
