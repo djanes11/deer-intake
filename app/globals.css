@@ -1657,3 +1657,24 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 }
 
 .printsheet .col-2 { grid-column: span 2; }
+
+/* === PRINT LEGIBILITY — bigger but still one page === */
+@media print {
+  /* Slight font bump */
+  .printsheet .val   { font-size: 12.2px !important; line-height: 1.25 !important; }
+  .printsheet .label { font-size: 10.2px !important; font-weight: 600 !important; }
+
+  /* Shave tiny vertical space to compensate for larger text */
+  .printsheet .box { padding: 4px 6px !important; }
+  .printsheet .val { padding-top: 2px !important; padding-bottom: 2px !important; }
+
+  /* Header/footer stay compact so we don’t trigger a second page */
+  .printsheet .hdr { font-size: 11px !important; margin-bottom: 2px !important; }
+  .printsheet .ftr { font-size: 9.5px !important; margin-top: 1px !important; }
+
+  /* Backstrap row stays tight */
+  .printsheet .bs-val { font-size: 0.98em !important; padding-top: 2px !important; padding-bottom: 2px !important; }
+
+  /* Keep page margin conservative (don’t reduce further unless we must) */
+  @page { margin: 6.5mm; }
+}
