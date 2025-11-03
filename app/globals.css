@@ -1695,3 +1695,25 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   }
 }
 
+/* === FINAL PRINT FONT OVERRIDE (forces visible size increase) === */
+@media print {
+  .printsheet {
+    --ps-fs-base: 13px !important;  /* bump readable text size */
+    --ps-fs-label: 11px !important; /* larger labels */
+    --ps-gap-row: 3px !important;
+    --ps-gap-col: 6px !important;
+  }
+
+  .printsheet .val,
+  .printsheet .box,
+  .printsheet .row {
+    font-size: 13px !important;
+    line-height: 1.25 !important;
+  }
+
+  .printsheet .label {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+  }
+}
+
