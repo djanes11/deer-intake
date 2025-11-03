@@ -234,13 +234,18 @@ return () => {
         (document.documentElement as any).dataset.tight = mode;
       }
       const MM_PER_IN = 25.4, DPI = 96, MARGIN_MM = 5;
-      const printable = Math.round(11 * DPI - 2 * MARGIN_MM * (DPI / MM_PER_IN));
-      pages.forEach(p => {
-        const h = p.scrollHeight;
-        let sc = 1;
-        if (h > printable) sc = Math.max(0.93, (printable - 3) / h);
-        (p as HTMLElement).style.setProperty('--print-scale', String(sc));
-      });
+const printable = Math.round(11 * DPI - 2 * MARGIN_MM * (DPI / MM_PER_IN));
+pages.forEach(p => {
+  const h = p.scrollHeight;
+  let sc = 1;
+  // Only shrink if we truly overflow. Keep it near 1 so text doesn't get visibly smaller.
+  if (h > printable) {
+    const target = (printable - 2) / h;   // shrink just enough
+    sc = Math.max(0.985, Math.min(1, target));  // NEVER below 98.5%
+  }
+  (p as HTMLElement).style.setProperty('--print-scale', sc.toFixed(3));
+});
+
     };
     adjust();
     const onBeforePrint = () => setTimeout(adjust, 0);

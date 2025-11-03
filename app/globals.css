@@ -1731,3 +1731,16 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   /* Leave global page margin as-is; you've already tuned this */
   @page { margin: 6.5mm; }
 }
+/* FINAL: larger mid-section for print; stay one page */
+@media print {
+  /* Only the meat/backstrap/specialty rows (already tagged as .meat-row in your TSX) */
+  .printsheet .meat-row .val   { font-size: 13.2px !important; line-height: 1.24 !important; }
+  .printsheet .meat-row .label { font-size: 11.2px !important; font-weight: 700 !important; }
+
+  /* Give back a touch of vertical space */
+  .printsheet .meat-row .box { padding: 3px 5px !important; }
+  .printsheet .meat-row      { margin-bottom: 3px !important; }
+
+  @page { margin: 6.5mm; } /* your current safe margin */
+}
+
