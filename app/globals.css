@@ -1658,34 +1658,36 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 
 .printsheet .col-2 { grid-column: span 2; }
 
-/* === PRINT LEGIBILITY (Focused bump for product detail section) === */
+/* === PRINT FONT UPGRADE (larger text, still fits one page) === */
 @media print {
-  /* Increase text in steak/backstrap/specialty rows */
-  .printsheet .row:nth-of-type(5),
-  .printsheet .row:nth-of-type(6),
-  .printsheet .row:nth-of-type(7),
-  .printsheet .row:nth-of-type(8) {
-    font-size: 12.6px !important; /* modest increase */
+  .printsheet {
+    --scale: 0.98; /* safeguard scaling if needed */
+  }
+
+  /* Apply bigger, bolder text only to data-heavy sections */
+  .printsheet .rowA,
+  .printsheet .rowB,
+  .printsheet .rowC,
+  .printsheet .rowE,
+  .printsheet .rowF {
+    font-size: 13px !important;
     line-height: 1.25 !important;
   }
 
-  /* Make inputs and labels a touch larger */
-  .printsheet .val input,
-  .printsheet .val {
-    font-size: 12.4px !important;
-  }
-
+  /* Keep headers slightly smaller */
   .printsheet .label {
-    font-size: 10.4px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
   }
 
-  /* Recover vertical space so we stay one-page */
+  /* Tighten boxes so layout still fits one sheet */
   .printsheet .box {
-    padding: 3px 6px !important;
+    padding: 3px 5px !important;
   }
 
-  .printsheet .hdr {
-    margin-bottom: 2px !important;
+  /* Slightly reduce vertical whitespace between rows */
+  .printsheet .row {
+    margin-bottom: 3px !important;
   }
 
   @page {
