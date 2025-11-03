@@ -1658,23 +1658,38 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 
 .printsheet .col-2 { grid-column: span 2; }
 
-/* === PRINT LEGIBILITY — bigger but still one page === */
+/* === PRINT LEGIBILITY (Focused bump for product detail section) === */
 @media print {
-  /* Slight font bump */
-  .printsheet .val   { font-size: 12.2px !important; line-height: 1.25 !important; }
-  .printsheet .label { font-size: 10.2px !important; font-weight: 600 !important; }
+  /* Increase text in steak/backstrap/specialty rows */
+  .printsheet .row:nth-of-type(5),
+  .printsheet .row:nth-of-type(6),
+  .printsheet .row:nth-of-type(7),
+  .printsheet .row:nth-of-type(8) {
+    font-size: 12.6px !important; /* modest increase */
+    line-height: 1.25 !important;
+  }
 
-  /* Shave tiny vertical space to compensate for larger text */
-  .printsheet .box { padding: 4px 6px !important; }
-  .printsheet .val { padding-top: 2px !important; padding-bottom: 2px !important; }
+  /* Make inputs and labels a touch larger */
+  .printsheet .val input,
+  .printsheet .val {
+    font-size: 12.4px !important;
+  }
 
-  /* Header/footer stay compact so we don’t trigger a second page */
-  .printsheet .hdr { font-size: 11px !important; margin-bottom: 2px !important; }
-  .printsheet .ftr { font-size: 9.5px !important; margin-top: 1px !important; }
+  .printsheet .label {
+    font-size: 10.4px !important;
+  }
 
-  /* Backstrap row stays tight */
-  .printsheet .bs-val { font-size: 0.98em !important; padding-top: 2px !important; padding-bottom: 2px !important; }
+  /* Recover vertical space so we stay one-page */
+  .printsheet .box {
+    padding: 3px 6px !important;
+  }
 
-  /* Keep page margin conservative (don’t reduce further unless we must) */
-  @page { margin: 6.5mm; }
+  .printsheet .hdr {
+    margin-bottom: 2px !important;
+  }
+
+  @page {
+    margin: 6.5mm;
+  }
 }
+
