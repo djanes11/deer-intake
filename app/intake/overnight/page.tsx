@@ -576,7 +576,7 @@ function OvernightIntakePage() {
                   <span>Roast</span>
                 </label>
                 <span className="count">
-                  <span className="muted">Count</span>
+                  <span className="muted"># of Roast</span>
                   <input
                     className="countInp"
                     value={!!job.hind?.['Hind - Roast'] ? (job.hindRoastCount || '') : ''}
@@ -628,7 +628,7 @@ function OvernightIntakePage() {
                   <span>Roast</span>
                 </label>
                 <span className="count">
-                  <span className="muted">Count</span>
+                  <span className="muted"># of Roast</span>
                   <input
                     className="countInp"
                     value={!!job.front?.['Front - Roast'] ? (job.frontRoastCount || '') : ''}
