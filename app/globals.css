@@ -1717,3 +1717,17 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   }
 }
 
+/* === FINAL: enlarge mid-section for print, keep single page === */
+@media print {
+  /* Bigger values & labels only inside the tagged rows */
+  .printsheet .meat-row .val   { font-size: 13.2px !important; line-height: 1.25 !important; }
+  .printsheet .meat-row .label { font-size: 11.2px !important; font-weight: 700 !important; }
+
+  /* Give back a little space so we don't spill to a second page */
+  .printsheet .meat-row .box { padding: 3px 5px !important; }
+  .printsheet .meat-row .val { padding-top: 2px !important; padding-bottom: 2px !important; }
+  .printsheet .meat-row      { margin-bottom: 3px !important; }
+
+  /* Leave global page margin as-is; you've already tuned this */
+  @page { margin: 6.5mm; }
+}

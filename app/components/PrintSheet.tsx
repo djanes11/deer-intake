@@ -317,7 +317,7 @@ return () => {
       </div>
 
       {/* Row D: Hind | Front (with None, roast derives from count) */}
-      <div className="row grid12">
+      <div className="row grid12 meat-row">
         <div className="col-6 box">
           <div className="label">Hind Quarter</div>
           <div className="val"><strong className="check">{hindSteak ? CHK : BOX}</strong> Steak</div>
@@ -341,7 +341,7 @@ return () => {
       </div>
 
 {/* Row E */}
-<div className="row grid12">
+<div className="row grid12 meat-row">
   <div className="col-3 box">
     <div className="label">Steak Size</div>
     <div className="val">
@@ -388,7 +388,7 @@ return () => {
 
 
 {/* Row: Backstrap (after steak/burger, before specialty) */}
-<div className="row grid12">
+<div className="row grid12 meat-row">
   <div className="col-4 box">
     <div className="label">Backstrap — Prep</div>
     <div className="val bs-val">
@@ -421,7 +421,7 @@ return () => {
 
       
 {/* Row F */}
-<div className="row grid12">
+<div className="row grid12 meat-row">
   <div className="col-3 box">
     <div className="label">Specialty Products</div>
     <div className="val">
@@ -448,12 +448,12 @@ return () => {
 
 {/* Row G */}
 
-      <div className="row grid12">
+      <div className="row grid12 meat-row">
         <div className="col-12 box"><div className="label">Notes</div><div className="val">{textVal('Notes','notes')}</div></div>
       </div>
 
       {/* Row H */}
-      <div className="row grid12">
+      <div className="row grid12 meat-row">
         <div className="col-3 box">
           <div className="label">Webbs Order</div>
           <div className="val"><strong className="check">{truthy('Webbs Order','webbsOrder','webbs_order') ? CHK : BOX}</strong> Webbs order</div>
