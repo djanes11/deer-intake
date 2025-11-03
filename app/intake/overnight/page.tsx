@@ -1128,6 +1128,9 @@ function OvernightIntakePage() {
         .modal-card h3 { margin: 4px 0 0; }
         .modal-card code { background: #f3f4f6; padding: 0 6px; border-radius: 4px; }
         .btn.wide { width: 100%; margin-top: 12px; }
+@media (max-width: 720px) {
+  .summary { position: static !important; top: auto !important; box-shadow: none; z-index: auto; }
+}
       `}</style>
     </div>
   );
