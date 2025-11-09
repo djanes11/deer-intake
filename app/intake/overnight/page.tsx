@@ -418,7 +418,6 @@ function OvernightIntakePage() {
             </div>
             <div className="c6">
               <label>Customer Name</label>
-		<Hint>Name of the person dropping off the deer.</Hint>
               <input
                 value={job.customer || ''}
                 onChange={(e) => setVal('customer', e.target.value)}
@@ -427,7 +426,6 @@ function OvernightIntakePage() {
             </div>
             <div className="c3">
               <label>Phone</label>
-		<Hint>Used for pickup notification.</Hint>
               <input
                 value={job.phone || ''}
                 onChange={(e) => setVal('phone', e.target.value)}
@@ -446,7 +444,6 @@ function OvernightIntakePage() {
             </div>
             <div className="c8">
               <label>Address</label>
-		<Hint>Street address</Hint>
               <input
                 value={job.address || ''}
                 onChange={(e) => setVal('address', e.target.value)}
@@ -539,7 +536,7 @@ function OvernightIntakePage() {
 
     <div className="c4">
       <label>Process Type</label>
-	<Hint>Choose based on whether you want the cape or skull preserved for taxidermy.</Hint>
+	<Hint>Select Standard for normal processing of Doe or Buck you do not want skull.</Hint>
       <select
         value={job.processType || ''}
         onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
@@ -676,7 +673,6 @@ function OvernightIntakePage() {
           <div className="pkgGrid">
             <div className="pkg steak">
               <label>Steak Size</label>
-		<Hint>How thick you'd like your steaks sliced.</Hint>
               <select
                 value={job.steak || ''}
                 onChange={(e) => setVal('steak', e.target.value)}
@@ -701,7 +697,6 @@ function OvernightIntakePage() {
 
             <div className="pkg steaksPer">
               <label>Steaks per Package</label>
-		<Hint>How many steaks go into each vacuum-sealed pack.</Hint>
               <select
                 value={job.steaksPerPackage || ''}
                 onChange={(e) => setVal('steaksPerPackage', e.target.value)}
@@ -716,7 +711,6 @@ function OvernightIntakePage() {
 
             <div className="pkg burgerSize">
               <label>Burger Size</label>
-		<Hint>Choose pack size for ground burger.</Hint>
               <select
                 value={job.burgerSize || ''}
                 onChange={(e) => setVal('burgerSize', e.target.value)}
@@ -730,7 +724,7 @@ function OvernightIntakePage() {
 
             <div className="pkg beefFat">
               <label className="chk tight pkg-beef">
-		<Hint>Would you like beef fat added to your burger meat</Hint>
+		<Hint>Beef Fat added to Burger Meat</Hint>
                 <input
                   type="checkbox"
                   checked={!!job.beefFat}
@@ -750,7 +744,6 @@ function OvernightIntakePage() {
           <div className="grid">
             <div className="c4">
               <label>Prep</label>
-		<Hint>Enter how you would like you backstrap prepared if it is still with deer.</Hint>
               <select
                 value={job.backstrapPrep || ''}
                 onChange={(e) =>
@@ -809,7 +802,6 @@ function OvernightIntakePage() {
             </div>
             <div className="c3">
               <label>Summer Sausage (lb)</label>
-		<Hint>Enter total pounds of meat you want made into summer sausage.</Hint>
               <input
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.summerSausageLbs ?? '') : ''}
@@ -819,7 +811,6 @@ function OvernightIntakePage() {
             </div>
             <div className="c3">
               <label>Summer Sausage + Cheese (lb)</label>
-		<Hint>Enter total pounds of meat you want made into summer sausage with cheese.</Hint>
               <input
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.summerSausageCheeseLbs ?? '') : ''}
@@ -829,7 +820,6 @@ function OvernightIntakePage() {
             </div>
             <div className="c3">
               <label>Sliced Jerky (lb)</label>
-		<Hint>Enter total pounds of meat you want made into sliced jerky.</Hint>
               <input
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.slicedJerkyLbs ?? '') : ''}
