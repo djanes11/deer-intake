@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import { saveJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
+import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 
 export const dynamic = 'force-dynamic';
 
