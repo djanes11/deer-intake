@@ -468,19 +468,16 @@ useEffect(() => {
   <input
     value={job.city || ''}
     onChange={(e) => { setZipDirty(false); setVal('city', e.target.value); }}
-    disabled={locked}
+	  disabled={locked}
   />
 </div>
-
-            </div>
 <div className="c4">
   <label>State</label>
   <select
     value={job.state || ''}
-    onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}
-    disabled={locked}
+    onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}	disabled={locked}
   >
-<option value="">—</option>
+  <option value="">—</option>
   <option value="IN">IN</option>
   <option value="KY">KY</option>
   <option value="--">--</option>
@@ -535,20 +532,16 @@ useEffect(() => {
   </select>
 </div>
 
-            </div>
 <div className="c4">
   <label>Zip</label>
   <input
     value={job.zip || ''}
     onChange={(e) => { setZipDirty(true); setVal('zip', e.target.value); }}
-    disabled={locked}
+        disabled={locked}
   />
 </div>
-
-            </div>
           </div>
         </section>
-
         <section>
   <h3>Hunt Details</h3>
   <div className="grid">
