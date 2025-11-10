@@ -14,6 +14,22 @@ export function normalizeCity(input: string | undefined | null): string {
 // If a place has multiple ZIPs, do NOT include it here.
 export const CITY_ZIPS: Record<string, Record<string, string[]>> = {
   IN: {
+
+    "CORYDON": ["47112"],
+    "NEW SALISBURY": ["47161"],
+    "LANESVILLE": ["47136"],
+    "RAMSEY": ["47166"],
+    "PALMYRA": ["47164"],
+    "DEPauw": ["47115"].map(z => z), // normalize style-safe
+    "NEW MIDDLETOWN": ["47160"],
+    "ELIZABETH": ["47117"],
+
+    // CLARK COUNTY + nearby (incl. your Otisco case)
+    "OTISCO": ["47163"], // Served by Henryville PO
+    "HENRYVILLE": ["47163"],
+    "CHARLESTOWN": ["47111"],
+    "SELLERSBURG": ["47172"],
+    "SCOTTSBURG": ["47170"],
     "AKRON": ["46910"],
     "ALBANY": ["47320"],
     "ALEXANDRIA": ["46001"],
@@ -175,6 +191,7 @@ export const CITY_ZIPS: Record<string, Record<string, string[]>> = {
     "ORLAND": ["46776"],
     "ORLEANS": ["47452"],
     "OSSIAN": ["46777"],
+    "OTISCO": ["47163"],
     "OXFORD": ["47971"],
     "PALMYRA": ["47164"],
     "PARKER CITY": ["47368"],
