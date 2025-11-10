@@ -255,6 +255,7 @@ export const CITY_ZIPS: Record<string, Record<string, string[]>> = {
     "BEE SPRING": ["42207"],
     "BENTON": ["42025"],
     "BOONEVILLE": ["41314"],
+    "BRANDENBURG": ["40108"],
     "BRODHEAD": ["40409"],
     "BROOKSVILLE": ["41004"],
     "BROWNSVILLE": ["42210"],
