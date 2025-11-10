@@ -1028,7 +1028,7 @@ useEffect(() => {
           <div className="modal-card">
             <h3>Thank you!</h3>
             <p style={{marginTop:8}}>
-              Please leave a note with the <b>last 5 digits</b> of your confirmation number
+              Please leave a note with your Full Name, Phone Numnber, and the <b>last 5 digits</b> of your confirmation number
               {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
               {' '}with your deer.
             </p>
