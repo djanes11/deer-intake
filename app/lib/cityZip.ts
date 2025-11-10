@@ -27,7 +27,6 @@ export const CITY_ZIPS: Record<string, Record<string, string[]>> = {
     // CLARK COUNTY + nearby (incl. your Otisco case)
     "OTISCO": ["47163"], // Served by Henryville PO
     "HENRYVILLE": ["47163"],
-    "CHARLESTOWN": ["47111"],
     "SELLERSBURG": ["47172"],
     "SCOTTSBURG": ["47170"],
     "AKRON": ["46910"],
