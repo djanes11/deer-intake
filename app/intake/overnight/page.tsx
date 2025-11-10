@@ -855,6 +855,7 @@ useEffect(() => {
           <div className="grid">
             <div className="c3 rowInline">
               <label className="chk tight pkg-beef">
+		<Hint>Please Specify in the Notes section the exact Flavor Summer Sausage or Jerky you would like.</Hint>
                 <input
                   type="checkbox"
                   checked={!!job.specialtyProducts}
