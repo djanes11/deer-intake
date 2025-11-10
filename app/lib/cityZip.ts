@@ -21,7 +21,6 @@ export const CITY_ZIPS: Record<string, Record<string, string[]>> = {
     "PALMYRA": ["47164"],
     "DEPauw": ["47115"].map(z => z), // normalize style-safe
     "NEW MIDDLETOWN": ["47160"],
-    "ELIZABETH": ["47117"],
 
     // CLARK COUNTY + nearby (incl. your Otisco case)
     "OTISCO": ["47163"], // Served by Henryville PO
