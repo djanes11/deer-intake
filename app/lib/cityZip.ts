@@ -15,7 +15,6 @@ export function normalizeCity(input: string | undefined | null): string {
 export const CITY_ZIPS: Record<string, Record<string, string[]>> = {
   IN: {
 
-    "CORYDON": ["47112"],
     "NEW SALISBURY": ["47161"],
     "LANESVILLE": ["47136"],
     "RAMSEY": ["47166"],
