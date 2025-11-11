@@ -526,7 +526,7 @@ useEffect(() => {
             <div className="col price">
               <label>Specialty Price</label>
               <div className="money">{specialtyPrice.toFixed(2)}</div>
-              <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
+              <div className="muted" style={{fontSize:12}}>Based On Summer Sausage lbs</div>
             </div>
           </div>
 

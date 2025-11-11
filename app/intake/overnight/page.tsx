@@ -403,7 +403,7 @@ useEffect(() => {
             <div className="col price">
               <label>Specialty Price</label>
               <div className="money">{specialtyPrice.toFixed(2)}</div>
-              <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
+              <div className="muted" style={{fontSize:12}}>Based upon Summer Sausage lbs</div>
             </div>
           </div>
 
@@ -855,7 +855,6 @@ useEffect(() => {
           <div className="grid">
             <div className="c3 rowInline">
               <label className="chk tight pkg-beef">
-		<Hint>Please Specify in the Notes section the exact Flavor Summer Sausage you would like.</Hint>
                 <input
                   type="checkbox"
                   checked={!!job.specialtyProducts}
@@ -934,7 +933,7 @@ useEffect(() => {
             </div>
             <div className="c3">
               <label>Webbs Pounds (lb)</label>
-		<Hint>Enter total pounds of meat you want to send to Webb's. If you do not know the number of pounds, leave this blank and we will fill it in while processing.</Hint>
+		<Hint>Enter total pounds of meat you want to send to Webb's. If you are unsure on the number of lbs that will be sent because you want all or most of your deer sent, leave this blank and we will enter it during processing.</Hint>
               <input
                 inputMode="numeric"
                 value={job.webbsPounds || ''}
