@@ -220,7 +220,7 @@ export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: 
   const p = normProc(proc) || '';
   const base =
     p === 'Caped' ? 150
-    : p === 'Cape & Donate' ? 50
+    : p === 'Cape & Donate' ? 20
     : p === 'Donate' ? 0
     : (['Standard Processing', 'Skull-Cap', 'European'] as string[]).includes(p) ? 130
     : 0;

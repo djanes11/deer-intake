@@ -121,7 +121,7 @@ const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean
   const p = normProc(proc);
   const base =
     p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 50 :
+    p === 'Cape & Donate' ? 20 :
     ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
     p === 'Donate' ? 0 : 0;
   if (!base) return 0;
@@ -326,7 +326,7 @@ useEffect(() => {
     const ss  = toInt(job.summerSausageLbs);
     const ssc = toInt(job.summerSausageCheeseLbs);
     const jer = toInt(job.slicedJerkyLbs);
-    return ss * 4.25 + ssc * 4.60 + jer * 15.0;
+    return ss * 4.25 + ssc * 4.60 + jer * 4.60;
   }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -1076,7 +1076,7 @@ useEffect(() => {
         </div>
 
         <div className="c4">
-          <label>Summer Sausage + Cheese (lb)</label>
+          <label>Plain Summer Sausage + Cheddar (lb)</label>
           <input
             inputMode="numeric"
             pattern="[0-9]*"
@@ -1087,7 +1087,7 @@ useEffect(() => {
         </div>
 
         <div className="c4">
-          <label>Sliced Jerky (lb)</label>
+          <label>Jalapeno Summer Sausage + Cheddar (lb)</label>
           <input
             inputMode="numeric"
             pattern="[0-9]*"

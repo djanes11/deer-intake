@@ -78,7 +78,7 @@ function suggestedProcessingPrice(proc: any, beef: any, webbs: any): number {
   const p = normProc(proc);
   const base =
     p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 50 :
+    p === 'Cape & Donate' ? 20 :
     ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
     p === 'Donate' ? 0 : 0;
   if (!base) return 0;
@@ -124,7 +124,7 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     return v > 0 ? v : proc;
   }, [proc, job?.['Processing Price'], job?.priceProcessing, job?.processing_price]);
 
-  const specialtyPrice = useMemo(() => ssN * 4.25 + sscN * 4.60 + jerN * 15.0, [ssN, sscN, jerN]);
+  const specialtyPrice = useMemo(() => ssN * 4.25 + sscN * 4.60 + jerN * 4.60, [ssN, sscN, jerN]);
   const totalPrice = processingPrice + specialtyPrice;
 
   const copies = useMemo(
@@ -441,9 +441,9 @@ pages.forEach(p => {
     <div className="val">
       <div className="specRow">
         <div className="specLine">
-          <span><b>SS:</b> {ssN || ''}</span>
-          <span> | <b>+Ch:</b> {sscN || ''}</span>
-          <span> | <b>Jerky:</b> {jerN || ''}</span>
+          <span><b>Plain SS:</b> {ssN || ''}</span>
+          <span> | <b>Plain SS + Ch:</b> {sscN || ''}</span>
+          <span> | <b>Jalapeno SS + Ch:</b> {jerN || ''}</span>
         </div>
         <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
       </div>

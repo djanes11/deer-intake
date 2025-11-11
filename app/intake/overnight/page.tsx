@@ -234,7 +234,7 @@ useEffect(() => {
     const ss  = toInt(job.summerSausageLbs);
     const ssc = toInt(job.summerSausageCheeseLbs);
     const jer = toInt(job.slicedJerkyLbs);
-    return ss * 4.25 + ssc * 4.60 + jer * 15.0;
+    return ss * 4.25 + ssc * 4.60 + jer * 4.60;
   }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -855,7 +855,7 @@ useEffect(() => {
           <div className="grid">
             <div className="c3 rowInline">
               <label className="chk tight pkg-beef">
-		<Hint>Please Specify in the Notes section the exact Flavor Summer Sausage or Jerky you would like.</Hint>
+		<Hint>Please Specify in the Notes section the exact Flavor Summer Sausage you would like.</Hint>
                 <input
                   type="checkbox"
                   checked={!!job.specialtyProducts}
@@ -875,7 +875,7 @@ useEffect(() => {
               />
             </div>
             <div className="c3">
-              <label>Summer Sausage + Cheese (lb)</label>
+              <label>Summer Sausage + Cheddar (lb)</label>
               <input
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.summerSausageCheeseLbs ?? '') : ''}
@@ -884,7 +884,7 @@ useEffect(() => {
               />
             </div>
             <div className="c3">
-              <label>Sliced Jerky (lb)</label>
+              <label>Jalapeno Summer Sausage + Cheddar (lb)</label>
               <input
                 inputMode="numeric"
                 value={job.specialtyProducts ? String(job.slicedJerkyLbs ?? '') : ''}
