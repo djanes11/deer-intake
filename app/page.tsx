@@ -140,6 +140,17 @@ function PublicLanding() {
         </aside>
       </section>
 
+      {/* Pricing (new) */}
+      <section aria-label="Pricing" style={{ marginTop: 12 }}>
+        <div style={panel}>
+          <div style={h3}>Pricing</div>
+          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
+            <li><strong>Standard Processing</strong>: $130</li>
+            <li><strong>Caped (add-on)</strong>: +$20 &nbsp;<span style={{ opacity: 0.8 }}>(i.e., $150 total)</span></li>
+          </ul>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer style={footer} aria-label="Footer">
         <div>© {new Date().getFullYear()} McAfee Custom Deer Processing. All rights reserved.</div>

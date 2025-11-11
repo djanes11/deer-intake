@@ -55,12 +55,3 @@ export default function FAQPublic() {
     </main>
   );
 }
-
-
-{/* Added pricing helper */}
-<section className="screen-only">
-  <h3>Processing Prices</h3>
-  <p className="muted">
-    Standard Processing: <strong>$130</strong> • Caped: <strong>+$20</strong> (i.e., $150 total)
-  </p>
-</section>
