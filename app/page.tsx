@@ -122,14 +122,14 @@ function PublicLanding() {
             <li>Arrive during business hours or use our 24/7 Overnight Drop.</li>
             <li>Fill the simple intake form and choose your cuts/specialty items.</li>
             <li>Track progress on the Status page. We’ll also email updates.</li>
-            <li>Pick up quickly when notified. Cold, clean, organized.</li>
+            <li>Pick up quickly when notified.</li>
           </ol>
           <div style={{ height: 12 }} />
           <Link href="/faq-public" style={cta(false)}>Read the FAQ</Link>
         </div>
 
         <aside style={panel} aria-label="Hours & Location">
-          <div style={h3}>Hours &amp; Location</div>
+          <div style={h3}>Pickup Hours</div>
           <div style={list}>
             <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Mon–Fri: 6:00 PM – 8:00 PM</div></div>
             <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sat: 9:00 AM – 5:00 PM</div></div>

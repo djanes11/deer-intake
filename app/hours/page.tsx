@@ -24,7 +24,7 @@ export default function HoursPage() {
   return (
     <main>
       <div style={{ maxWidth: 900, margin: '20px auto', padding: '0 16px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Season Hours</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Season Pickup Hours</h1>
 
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
           {(SITE.hours as ReadonlyArray<{ label: string; value: string }>).map((h) => (

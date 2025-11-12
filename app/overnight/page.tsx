@@ -162,9 +162,9 @@ export default function OvernightInstructionsPage() {
         >
           <h2 style={{ margin: '0 0 10px', fontSize: 18, fontWeight: 900, color: '#f3f4f6' }}>What you’ll need</h2>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            <li>Your <b>GoOutdoorsIN confirmation #</b> from check-in</li>
+            <li>Your <b>GoOutdoorsIN confirmation #</b> from State check-in</li>
             <li>Your phone and contact info</li>
-            <li>A <b>Deer Tag</b>, and optionally a <b>Webbs form</b> (for specialty products)</li>
+            <li>A <b>Blank Deer Tag</b>, and optionally a <b>Webbs form</b> (for specialty products)</li>
           </ul>
           {WarningCallout}
         </section>
@@ -186,7 +186,7 @@ export default function OvernightInstructionsPage() {
             <li style={stepBox}>
               <b>1) Stop at the first door</b> and grab:
               <ul style={{ margin: '6px 0 0 18px' }}>
-                <li>a <b>Deer Tag</b></li>
+                <li>a <b>Blank Deer Tag</b></li>
                 <li>a <b>Webbs form</b> (only if you want Webbs specialty products)</li>
               </ul>
             </li>
@@ -208,7 +208,7 @@ export default function OvernightInstructionsPage() {
               <b>4) Webbs (optional):</b> If you want Webbs products, fill out the Webbs form and include:
               <ul style={{ margin: '6px 0 0 18px' }}>
                 <li>the <b>form number</b> and</li>
-                <li>the <b>number of pounds</b> to send to Webbs</li>
+                <li>the <b>number of pounds</b> to send to Webbs if known</li>
               </ul>
               <div style={{ marginTop: 6 }}>
                 <a
@@ -227,8 +227,8 @@ export default function OvernightInstructionsPage() {
             </li>
 
             <li style={stepBox}>
-              <b>6) Tag your deer.</b> On the Deer Tag, write your <b>Full Name</b>, <b>Phone Number</b>, and{' '}
-              <b>GoOutdoorsIN Confirmation Number</b>. Attach the tag securely to the deer.
+              <b>6) Tag your deer.</b> On the Blank Deer Tag, write your <b>Full Name</b>, <b>Phone Number</b>, and{' '}
+              <b>GoOutdoorsIN State Confirmation Number</b>. Attach the tag securely to the deer.
             </li>
 
             <li style={stepBox}>

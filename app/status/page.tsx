@@ -125,15 +125,15 @@ export default function StatusPage() {
     // "123456" => confirmation (pure digits and length >= 4)
     if (/^\d{4,}$/.test(s)) return { confirmation: s };
 
-    // "54321 Janes" => tag + last
+    // "54321 McAfee" => tag + last
     let m = s.match(/^(\d{2,})\s+([a-zA-Z'-]{2,})$/);
     if (m) return { tag: m[1], lastName: normalizeName(m[2]) };
 
-    // "Janes 54321" => last + tag
+    // "McAfee 54321" => last + tag
     m = s.match(/^([a-zA-Z'-]{2,})\s+(\d{2,})$/);
     if (m) return { tag: m[2], lastName: normalizeName(m[1]) };
 
-    // "Janes" => last only
+    // "McAfee" => last only
     if (/^[a-zA-Z'-]{2,}$/.test(s)) return { lastName: normalizeName(s) };
 
     // Fallback: strip non-digits as confirmation
@@ -321,7 +321,7 @@ export default function StatusPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g., 123456  •  54321 Janes  •  Janes 54321"
+            placeholder="e.g., 123456  •  54321 McAfee  •  McAfee 54321"
             inputMode="text"
             enterKeyHint="search"
             autoCapitalize="none"
@@ -361,7 +361,7 @@ export default function StatusPage() {
         </button>
 
         <div style={{ fontSize: 12, opacity: 0.8 }}>
-          Tip: Confirmation # is fastest. For Tag search, you can type <code>54321 Janes</code> or <code>Janes 54321</code>.
+          Tip: Confirmation # is fastest. For Tag search, you can type <code>54321 McAfee</code> or <code>McAfee 54321</code>.
         </div>
       </form>
 
