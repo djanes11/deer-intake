@@ -30,7 +30,8 @@ type AnyRec = Record<string, any>;
 // ======================== Config ========================
 const API = '/api/gas2';
 // Name | Conf | Phone | Drop-off | Antlers | Webbs | Proc $ | Assign Tag | Paid
-const GRID = '1fr 1fr 1.1fr 1fr 0.6fr 0.5fr 0.7fr 1.2fr 1fr';
+const GRID = '1.3fr 1.2fr 1.0fr 0.7fr 0.7fr 0.6fr 0.8fr 1.2fr 0.6fr';
+
 
 
 // ======================== Utils ========================
@@ -208,10 +209,15 @@ async function togglePaid(row: number, current?: boolean) {
 }
 
 
-  const cell = { overflow: 'hidden', whiteSpace: 'nowrap' as const, textOverflow: 'ellipsis' };
+const cell = {
+  overflow: 'hidden',
+  whiteSpace: 'nowrap' as const,
+  textOverflow: 'ellipsis',
+  fontSize: 14,
+};
 
   return (
-    <main className="light-page watermark" style={{ maxWidth: 1240, margin: '18px auto', padding: '0 14px 40px' }}>
+    <main className="light-page watermark" style={{ maxWidth: 1540, margin: '18px auto', padding: '0 14px 40px' }}>
       {/* list UI (hidden during print) */}
       <div className="form-card no-print" style={{ padding: 14, color: '#0b0f12' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
@@ -239,7 +245,7 @@ async function togglePaid(row: number, current?: boolean) {
               style={{
                 display:'grid',
                 gridTemplateColumns: GRID,
-                gap:10,
+                gap:6,
                 fontWeight:800,
                 padding:'6px 4px',
                 borderBottom:'1px solid #e6e9ec',
@@ -249,7 +255,7 @@ async function togglePaid(row: number, current?: boolean) {
               <div>Name</div>
               <div>Conf. #</div>
               <div>Phone</div>
-              <div>Drop-off</div>
+              <div style={{ fontSize: 14 }}>Drop-off</div>
               <div style={{ textAlign:'center' }}>Antlers</div>
               <div style={{ textAlign:'center' }}>Webbs</div>
 	      <div style={{ textAlign:'center' }}>Proc $</div>
@@ -264,16 +270,20 @@ async function togglePaid(row: number, current?: boolean) {
                 style={{
                   display:'grid',
                   gridTemplateColumns: GRID,
-                  gap:10,
+                  gap:6,
                   alignItems:'center',
-                  padding:'8px 4px',
+                  padding:'6px 4px',
                   borderBottom:'1px solid #f1f5f9'
                 }}
               >
                 <div style={{ ...cell }}>{r.customer || ''}</div>
                 <div style={{ ...cell, fontVariantNumeric:'tabular-nums' as const }}>{r.confirmation || ''}</div>
                 <div style={cell}>{r.phone || ''}</div>
-                <div style={cell}>{r.dropoff || ''}</div>
+                <div style={cell}>
+  {r.dropoff
+    ? r.dropoff.replace(/^(\d{4})[-/](\d{2})[-/](\d{2})$/, '$2-$3')
+    : ''}
+</div>
 
                 <div style={{ display:'flex', justifyContent:'center' }}>
   {(() => {
@@ -289,7 +299,7 @@ async function togglePaid(row: number, current?: boolean) {
                   {r.webbs ? 'Yes' : ''}
                 </div>
 <div style={{ textAlign:'center', fontVariantNumeric:'tabular-nums' as const }}>
-  {r.priceProcessing ? `$${Number(r.priceProcessing).toFixed(2)}` : ''}
+  {r.priceProcessing ? Math.round(Number(r.priceProcessing)) : ''}
 </div>
 
 
@@ -302,7 +312,7 @@ async function togglePaid(row: number, current?: boolean) {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') assign(r.row, (e.currentTarget as HTMLInputElement).value);
                     }}
-                    style={{ width:'7ch', fontVariantNumeric:'tabular-nums', padding:'6px 8px' }}
+                    style={{ width:'5ch', fontVariantNumeric:'tabular-nums', padding:'6px 8px' }}
                   />
                   <button
                     className="btn small"
@@ -323,7 +333,7 @@ async function togglePaid(row: number, current?: boolean) {
                     disabled={busyRow === r.row}
                     onClick={() => togglePaid(r.row, r.paidProcessing)}
                     title={r.paidProcessing ? 'Click to mark as UNPAID' : 'Click to mark as PAID'}
-                    style={{ minWidth: 96 }}
+                    style={{ minWidth: 80 }}
                   >
                     {r.paidProcessing ? 'Paid' : 'Mark Paid'}
                   </button>
@@ -349,7 +359,13 @@ async function togglePaid(row: number, current?: boolean) {
         .btn:disabled { opacity: .6; cursor: not-allowed; }
 
         /* Antler pill styles */
-        .pill { padding: 4px 10px; border-radius: 999px; font-weight: 800; border: 2px solid transparent; }
+.pill {
+  padding: 2px 6px;       /* smaller */
+  border-radius: 999px;
+  font-weight: 700;       /* slightly lighter */
+  font-size: 12px;        /* smaller text */
+  border: 2px solid transparent;
+}
         .pill.caped { background:#fecaca; color:#7f1d1d; border-color:#ef4444; }       /* red */
         .pill.european { background:#dbeafe; color:#1e3a8a; border-color:#3b82f6; }   /* blue */
         .pill.skull-cap { background:#dcfce7; color:#065f46; border-color:#22c55e; }  /* green */
@@ -365,3 +381,4 @@ async function togglePaid(row: number, current?: boolean) {
     </main>
   );
 }
+
