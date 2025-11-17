@@ -142,7 +142,7 @@ export default async function IntakeView({
     const specialtyPrice =
       (toInt(job?.summerSausageLbs) * 4.25) +
       (toInt(job?.summerSausageCheeseLbs) * 4.60) +
-      (toInt(job?.slicedJerkyLbs) * 15.0);
+      (toInt(job?.slicedJerkyLbs) * 4.60);
     const totalPrice = processingPrice + (job?.specialtyProducts ? specialtyPrice : 0);
 
     // --- Communication Preference + Consent (accept header or camel case) ---
@@ -330,9 +330,9 @@ export default async function IntakeView({
               </div>
               {job?.specialtyProducts && (
                 <>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Summer Sausage (lb)" value={String(job?.summerSausageLbs ?? '')} /></div>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Summer Sausage + Cheese (lb)" value={String(job?.summerSausageCheeseLbs ?? '')} /></div>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Sliced Jerky (lb)" value={String(job?.slicedJerkyLbs ?? '')} /></div>
+                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Plain Summer Sausage (lb)" value={String(job?.summerSausageLbs ?? '')} /></div>
+                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Plain Summer Sausage + Cheddar (lb)" value={String(job?.summerSausageCheeseLbs ?? '')} /></div>
+                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Jalapeno Summer Sausage + Cheddar" value={String(job?.slicedJerkyLbs ?? '')} /></div>
                 </>
               )}
             </div>
