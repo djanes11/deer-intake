@@ -1,12 +1,18 @@
 // app/api/v2/jobs/route.ts
 import { NextRequest } from 'next/server';
-import { getJobByTag, searchJobs, saveJob, logCall } from '@/lib/jobsSupabase';
+import {
+  getJobByTag,
+  searchJobs,
+  saveJob,
+  logCall,
+  progressJob,
+} from '@/lib/jobsSupabase';
 import { Job } from '@/types/job';
 
-const API_TOKEN = process.env.DEER_API_TOKEN; // mirror your GAS auth token if you want
+const API_TOKEN = process.env.DEER_API_TOKEN;
 
 function checkAuth(token: string | null): { ok: boolean; error?: string } {
-  if (!API_TOKEN) return { ok: true }; // dev mode
+  if (!API_TOKEN) return { ok: true }; // dev mode if no token set
   if (token && token === API_TOKEN) return { ok: true };
   return { ok: false, error: 'Unauthorized' };
 }
@@ -18,7 +24,7 @@ function normalizeAction(v: string | null) {
   if (['search', 'find', 'query'].includes(s)) return 'search';
   if (['save', 'upsert'].includes(s)) return 'save';
   if (['log-call', 'logcall', 'call'].includes(s)) return 'log-call';
-  // TODO: add progress, markCalled, needsTag, setTag, etc.
+  // progress stays as "progress"
   return s;
 }
 
@@ -39,14 +45,19 @@ export async function GET(req: NextRequest) {
   if (action === 'get') {
     const tag = searchParams.get('tag');
     if (!tag) {
-      return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), { status: 400 });
+      return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
+        status: 400,
+      });
     }
+
     try {
       const result = await getJobByTag(tag);
       return new Response(JSON.stringify(result), { status: 200 });
     } catch (err: any) {
       console.error('GET get error', err);
-      return new Response(JSON.stringify({ ok: false, error: 'Server error' }), { status: 500 });
+      return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
+        status: 500,
+      });
     }
   }
 
@@ -57,7 +68,9 @@ export async function GET(req: NextRequest) {
       return new Response(JSON.stringify(result), { status: 200 });
     } catch (err: any) {
       console.error('GET search error', err);
-      return new Response(JSON.stringify({ ok: false, error: 'Server error' }), { status: 500 });
+      return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
+        status: 500,
+      });
     }
   }
 
@@ -102,7 +115,20 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify(result), { status: 200 });
     }
 
-    // TODO: add progress, markCalled, needsTag, setTag handlers
+    if (action === 'progress') {
+      const { tag } = body;
+      const tagFromQuery = searchParams.get('tag');
+      const finalTag = tag || tagFromQuery;
+
+      if (!finalTag) {
+        return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
+          status: 400,
+        });
+      }
+
+      const result = await progressJob(finalTag);
+      return new Response(JSON.stringify(result), { status: 200 });
+    }
 
     return new Response(JSON.stringify({ ok: false, error: 'Unknown action (POST)' }), {
       status: 400,
