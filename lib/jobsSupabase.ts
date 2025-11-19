@@ -1,5 +1,5 @@
 // lib/jobsSupabase.ts
-import { supabaseServer } from './supabaseClient';
+import { getSupabaseServer } from './supabaseClient';
 import { Job, JobSearchRow } from '@/types/job';
 
 function mapDbRowToJob(row: any): Job {
@@ -106,6 +106,7 @@ function mapDbRowToJob(row: any): Job {
 }
 
 export async function getJobByTag(tag: string) {
+  const supabaseServer = getSupabaseServer();
   const { data, error } = await supabaseServer
     .from('jobs')
     .select('*')
@@ -125,6 +126,7 @@ export async function getJobByTag(tag: string) {
 }
 
 export async function searchJobs(query: string): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+  const supabaseServer = getSupabaseServer();
   // Basic search: tag/confirmation/phone/customer
   const q = query.trim();
   if (!q) return { ok: true, rows: [] };
@@ -201,6 +203,7 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
 export async function saveJob(job: Partial<Job>) {
   // You can decide whether tag is unique and required here.
   // Map from Job shape back to DB columns.
+  const supabaseServer = getSupabaseServer();
   const upsertPayload: any = {
     tag: job.tag ?? null,
     confirmation: job.confirmation ?? null,
@@ -315,6 +318,7 @@ export async function saveJob(job: Partial<Job>) {
 }
 
 export async function logCall(params: {
+  const supabaseServer = getSupabaseServer();
   tag: string;
   scope?: 'meat' | 'cape' | 'webbs';
   reason?: string;

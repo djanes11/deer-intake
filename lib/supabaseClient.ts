@@ -1,22 +1,23 @@
 // lib/supabaseClient.ts
-import { createClient } from '@supabase/supabase-js';
-// If you generate types from Supabase, import them here.
-// import { Database } from './supabase-types';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+let cachedClient: SupabaseClient<any> | null = null;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  // You can log/throw here in dev to avoid silent failures
-  // console.warn('Supabase env vars not configured');
-}
+export function getSupabaseServer(): SupabaseClient<any> {
+  if (cachedClient) return cachedClient;
 
-export const supabaseServer = createClient(
-  SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY,
-  {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error('Supabase env not configured');
+  }
+
+  cachedClient = createClient(url, key, {
     auth: {
       persistSession: false,
     },
-  }
-);
+  });
+
+  return cachedClient;
+}
