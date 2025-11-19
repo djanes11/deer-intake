@@ -6,6 +6,7 @@ import {
   saveJob,
   logCall,
   progressJob,
+  markCalled,
 } from '@/lib/jobsSupabase';
 import { Job } from '@/types/job';
 
@@ -24,6 +25,7 @@ function normalizeAction(v: string | null) {
   if (['search', 'find', 'query'].includes(s)) return 'search';
   if (['save', 'upsert'].includes(s)) return 'save';
   if (['log-call', 'logcall', 'call'].includes(s)) return 'log-call';
+  if (['markcalled', 'mark-called', 'mark_called'].includes(s)) return 'markcalled';
   // progress stays as "progress"
   return s;
 }
@@ -103,6 +105,22 @@ export async function POST(req: NextRequest) {
       const result = await saveJob(job);
       return new Response(JSON.stringify(result), { status: 200 });
     }
+
+    if (action === 'markcalled') {
+      const { tag, scope, notes } = body;
+      const tagFromQuery = searchParams.get('tag');
+      const finalTag = tag || tagFromQuery;
+
+      if (!finalTag) {
+        return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
+          status: 400,
+        });
+      }
+
+      const result = await markCalled({ tag: finalTag, scope, notes });
+      return new Response(JSON.stringify(result), { status: 200 });
+    }
+
 
     if (action === 'log-call') {
       const { tag, scope, reason, notes, outcome } = body;
