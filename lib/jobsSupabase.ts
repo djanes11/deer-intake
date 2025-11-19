@@ -330,10 +330,10 @@ export async function saveJob(job: Partial<Job>) {
   return { ok: true, job: data ? mapDbRowToJob(data) : null };
 }
 
+// MAIN STATUS PROGRESSION + CAPE FLOW
 export async function progressJob(tag: string) {
   const supabaseServer = getSupabaseServer();
 
-  // Find job by tag
   const { data: job, error: jobError } = await supabaseServer
     .from('jobs')
     .select('*')
@@ -346,7 +346,6 @@ export async function progressJob(tag: string) {
   }
 
   if (!job) {
-    // Nothing to update if tag not found
     return { ok: true, nextStatus: null, job: null };
   }
 
@@ -361,7 +360,6 @@ export async function progressJob(tag: string) {
 
   let nextStatus: string | null = null;
 
-  // MAIN STATUS FLOW:
   // initial/ dropped off -> Skinning -> Skinned -> Processing -> Finished
   if (isInitialStatus) {
     nextStatus = 'Skinning';
@@ -375,11 +373,11 @@ export async function progressJob(tag: string) {
     nextStatus = null;
   }
 
-  // CAPE FLOW (only for buck + caped jobs)
+  // CAPE FLOW (buck + caped): Dropped Off -> Caping -> Caped
   const deerSex = String(job.deer_sex || '').trim().toLowerCase();
   const procType = String(job.process_type || '').trim().toLowerCase();
   const isBuck = deerSex.includes('buck');
-  const isCaped = procType.includes('cape'); // "Caped", "Caping", "Cape & Donate", etc.
+  const isCaped = procType.includes('cape');
 
   const curCapingRaw = String(job.caping_status || '').trim();
   const curCaping = curCapingRaw.toLowerCase();
@@ -387,28 +385,18 @@ export async function progressJob(tag: string) {
   let nextCaping: string | null = null;
 
   if (isBuck && isCaped) {
-    // First scan: main initial → Skinning, cape → Caping
     if (isInitialStatus) {
       nextCaping = 'Caping';
-    }
-    // Second scan: main Skinning → Skinned, cape Caping → Caped
-    else if (curCaping === 'caping') {
+    } else if (curCaping === 'caping') {
       nextCaping = 'Caped';
     }
-    // Otherwise, leave cape status alone
   }
 
   const updates: any = {};
-
-  if (nextStatus) {
-    updates.status = nextStatus;
-  }
-  if (nextCaping) {
-    updates.caping_status = nextCaping;
-  }
+  if (nextStatus) updates.status = nextStatus;
+  if (nextCaping) updates.caping_status = nextCaping;
 
   if (Object.keys(updates).length === 0) {
-    // Nothing to change
     return { ok: true, nextStatus: null, job: null };
   }
 
@@ -433,121 +421,7 @@ export async function progressJob(tag: string) {
   };
 }
 
-export async function markCalled(params: {
-  tag: string;
-  scope?: 'meat' | 'cape' | 'webbs' | 'all' | 'auto';
-  notes?: string;
-}) {
-  const supabaseServer = getSupabaseServer();
-  const { tag, scope: rawScope, notes } = params;
-
-  // 1) Load job
-  const { data: job, error: jobError } = await supabaseServer
-    .from('jobs')
-    .select('*')
-    .eq('tag', tag)
-    .maybeSingle();
-
-  if (jobError) {
-    console.error('markCalled get error', jobError);
-    throw jobError;
-  }
-  if (!job) {
-    return { ok: false, error: 'Job not found for tag ' + tag };
-  }
-
-  // 2) Current statuses
-  const sNow = String(job.status || '').toLowerCase();
-  const cNow = String(job.caping_status || '').toLowerCase();
-  const wNow = String(job.webbs_status || '').toLowerCase();
-
-  function hasAny(s: string | null | undefined, needles: string[]): boolean {
-    const lower = String(s || '').toLowerCase();
-    return needles.some((n) => lower.includes(n));
-  }
-
-  const meatReady = hasAny(sNow, ['finish', 'ready', 'complete', 'completed', 'done']);
-  const capeReady = hasAny(cNow, ['cape', 'caped', 'ready', 'complete', 'completed', 'done']);
-  const webbsReady = hasAny(wNow, ['deliver', 'delivered', 'ready', 'complete', 'completed', 'done']);
-
-  let scope = (rawScope || 'auto') as 'meat' | 'cape' | 'webbs' | 'all' | 'auto';
-  const updates: any = {};
-
-  // 3) Decide what to mark "Called"
-  if (scope === 'all') {
-    if (meatReady) updates.status = 'Called';
-    if (capeReady) updates.caping_status = 'Called';
-    if (webbsReady) updates.webbs_status = 'Called';
-  } else if (scope === 'meat') {
-    updates.status = 'Called';
-  } else if (scope === 'cape') {
-    updates.caping_status = 'Called';
-  } else if (scope === 'webbs') {
-    updates.webbs_status = 'Called';
-  } else {
-    // auto
-    if (webbsReady) {
-      updates.webbs_status = 'Called';
-      scope = 'webbs';
-    } else if (capeReady) {
-      updates.caping_status = 'Called';
-      scope = 'cape';
-    } else {
-      updates.status = 'Called';
-      scope = 'meat';
-    }
-  }
-
-  // 4) Append call notes (if provided)
-  if (notes) {
-    const oldNotes = String(job.call_notes || '');
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
-      now.getDate()
-    )} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    const line = `[${stamp} • Marked Called (${scope})] ${notes}`;
-    const combined = oldNotes ? `${oldNotes}\n${line}` : line;
-    updates.call_notes = combined;
-  }
-
-  // Always bump updated_at if we changed anything
-  if (Object.keys(updates).length > 0) {
-    updates.updated_at = new Date().toISOString();
-
-    const { error: updErr } = await supabaseServer
-      .from('jobs')
-      .update(updates)
-      .eq('id', job.id);
-
-    if (updErr) {
-      console.error('markCalled update error', updErr);
-      throw updErr;
-    }
-  }
-
-  // 5) Log to call_logs (like your log sheet)
-  try {
-    await supabaseServer.from('call_logs').insert({
-      job_id: job.id,
-      tag,
-      customer_name: job.customer_name,
-      phone: job.phone,
-      scope,
-      reason: `Marked Called (${scope})`,
-      outcome: null,
-      notes: notes ?? null,
-    });
-  } catch (e) {
-    console.error('markCalled log error', e);
-    // swallow, just like the old try/catch
-  }
-
-  return { ok: true, tag, scope };
-}
-
-
+// LOG CALL + ATTEMPTS
 export async function logCall(params: {
   tag: string;
   scope?: 'meat' | 'cape' | 'webbs';
@@ -558,7 +432,6 @@ export async function logCall(params: {
   const supabaseServer = getSupabaseServer();
   const { tag, scope, reason, notes, outcome } = params;
 
-  // Find job by tag
   const { data: job, error: jobError } = await supabaseServer
     .from('jobs')
     .select('*')
@@ -570,7 +443,6 @@ export async function logCall(params: {
     return { ok: false, error: 'Job not found for tag ' + tag };
   }
 
-  // Insert into call_logs
   const { error: logError } = await supabaseServer.from('call_logs').insert({
     job_id: job.id,
     tag,
@@ -584,7 +456,6 @@ export async function logCall(params: {
 
   if (logError) throw logError;
 
-  // Update attempts counters on jobs
   const patch: any = {
     call_attempts: (job.call_attempts ?? 0) + 1,
     last_call_at: new Date().toISOString(),
@@ -604,4 +475,262 @@ export async function logCall(params: {
   if (updateError) throw updateError;
 
   return { ok: true };
+}
+
+// MARK CALLED
+export async function markCalled(params: {
+  tag: string;
+  scope?: 'meat' | 'cape' | 'webbs' | 'all' | 'auto';
+  notes?: string;
+}) {
+  const supabaseServer = getSupabaseServer();
+  const { tag, scope: rawScope, notes } = params;
+
+  const { data: job, error: jobError } = await supabaseServer
+    .from('jobs')
+    .select('*')
+    .eq('tag', tag)
+    .maybeSingle();
+
+  if (jobError) {
+    console.error('markCalled get error', jobError);
+    throw jobError;
+  }
+  if (!job) {
+    return { ok: false, error: 'Job not found for tag ' + tag };
+  }
+
+  const sNow = String(job.status || '').toLowerCase();
+  const cNow = String(job.caping_status || '').toLowerCase();
+  const wNow = String(job.webbs_status || '').toLowerCase();
+
+  function hasAny(s: string | null | undefined, needles: string[]): boolean {
+    const lower = String(s || '').toLowerCase();
+    return needles.some((n) => lower.includes(n));
+  }
+
+  const meatReady = hasAny(sNow, ['finish', 'ready', 'complete', 'completed', 'done']);
+  const capeReady = hasAny(cNow, ['cape', 'caped', 'ready', 'complete', 'completed', 'done']);
+  const webbsReady = hasAny(wNow, ['deliver', 'delivered', 'ready', 'complete', 'completed', 'done']);
+
+  let scope = (rawScope || 'auto') as 'meat' | 'cape' | 'webbs' | 'all' | 'auto';
+  const updates: any = {};
+
+  if (scope === 'all') {
+    if (meatReady) updates.status = 'Called';
+    if (capeReady) updates.caping_status = 'Called';
+    if (webbsReady) updates.webbs_status = 'Called';
+  } else if (scope === 'meat') {
+    updates.status = 'Called';
+  } else if (scope === 'cape') {
+    updates.caping_status = 'Called';
+  } else if (scope === 'webbs') {
+    updates.webbs_status = 'Called';
+  } else {
+    if (webbsReady) {
+      updates.webbs_status = 'Called';
+      scope = 'webbs';
+    } else if (capeReady) {
+      updates.caping_status = 'Called';
+      scope = 'cape';
+    } else {
+      updates.status = 'Called';
+      scope = 'meat';
+    }
+  }
+
+  if (notes) {
+    const oldNotes = String(job.call_notes || '');
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(
+      now.getDate()
+    )} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const line = `[${stamp} • Marked Called (${scope})] ${notes}`;
+    const combined = oldNotes ? `${oldNotes}\n${line}` : line;
+    updates.call_notes = combined;
+  }
+
+  if (Object.keys(updates).length > 0) {
+    updates.updated_at = new Date().toISOString();
+
+    const { error: updErr } = await supabaseServer
+      .from('jobs')
+      .update(updates)
+      .eq('id', job.id);
+
+    if (updErr) {
+      console.error('markCalled update error', updErr);
+      throw updErr;
+    }
+  }
+
+  try {
+    await supabaseServer.from('call_logs').insert({
+      job_id: job.id,
+      tag,
+      customer_name: job.customer_name,
+      phone: job.phone,
+      scope,
+      reason: `Marked Called (${scope})`,
+      outcome: null,
+      notes: notes ?? null,
+    });
+  } catch (e) {
+    console.error('markCalled log error', e);
+  }
+
+  return { ok: true, tag, scope };
+}
+
+// =============== needsTag (jobs needing tag) ===============
+export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+  const supabaseServer = getSupabaseServer();
+
+  // Jobs where tag is null OR '' OR requires_tag = true
+  const { data, error } = await supabaseServer
+    .from('jobs')
+    .select(
+      `
+      id,
+      tag,
+      confirmation,
+      customer_name,
+      phone,
+      status,
+      caping_status,
+      webbs_status,
+      specialty_status,
+      price_processing,
+      price_specialty,
+      price_total,
+      requires_tag,
+      paid_processing,
+      paid_specialty,
+      paid,
+      call_attempts,
+      meat_attempts,
+      cape_attempts,
+      webbs_attempts,
+      dropoff_date
+    `
+    )
+    .or('tag.is.null,tag.eq.,requires_tag.eq.true')
+    .order('dropoff_date', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error('listJobsNeedingTag error', error);
+    throw error;
+  }
+
+  const rows: JobSearchRow[] =
+    data?.map((row: any) => ({
+      tag: row.tag,
+      confirmation: row.confirmation,
+      customer: row.customer_name,
+      phone: row.phone,
+      status: row.status,
+      capingStatus: row.caping_status,
+      webbsStatus: row.webbs_status,
+      specialtyStatus: row.specialty_status,
+      priceProcessing: Number(row.price_processing ?? 0),
+      priceSpecialty: Number(row.price_specialty ?? 0),
+      price: Number(row.price_total ?? 0),
+      requiresTag: !!row.requires_tag,
+      paidProcessing: !!row.paid_processing,
+      paidSpecialty: !!row.paid_specialty,
+      paid: !!row.paid,
+      callAttempts: Number(row.call_attempts ?? 0),
+      meatAttempts: Number(row.meat_attempts ?? 0),
+      capeAttempts: Number(row.cape_attempts ?? 0),
+      webbsAttempts: Number(row.webbs_attempts ?? 0),
+      dropoff: row.dropoff_date,
+    })) ?? [];
+
+  return { ok: true, rows };
+}
+
+// =============== setTag (assign physical tag) ===============
+export async function setJobTag(params: {
+  jobId: string;
+  newTag: string;
+  stampDropEmail?: boolean;
+  returnRow?: boolean;
+}) {
+  const supabaseServer = getSupabaseServer();
+  const { jobId, newTag, stampDropEmail, returnRow } = params;
+
+  const tag = String(newTag || '').trim();
+  if (!jobId || !tag) {
+    return { ok: false, error: 'Missing jobId or newTag' };
+  }
+
+  // Ensure tag not already used by another job
+  const { data: existing, error: existErr } = await supabaseServer
+    .from('jobs')
+    .select('id, tag')
+    .eq('tag', tag)
+    .neq('id', jobId)
+    .maybeSingle();
+
+  if (existErr) {
+    console.error('setJobTag check error', existErr);
+    throw existErr;
+  }
+  if (existing) {
+    return { ok: false, error: 'Tag already in use' };
+  }
+
+  // Load current job
+  const { data: job, error: jobErr } = await supabaseServer
+    .from('jobs')
+    .select('*')
+    .eq('id', jobId)
+    .maybeSingle();
+
+  if (jobErr) {
+    console.error('setJobTag get error', jobErr);
+    throw jobErr;
+  }
+  if (!job) {
+    return { ok: false, error: 'Job not found' };
+  }
+
+  const updates: any = {
+    tag,
+    requires_tag: false,
+    updated_at: new Date().toISOString(),
+  };
+
+  let stamped = false;
+  if (stampDropEmail) {
+    updates.dropoff_email_sent_at = new Date().toISOString();
+    stamped = true;
+  }
+
+  const { data: updated, error: updErr } = await supabaseServer
+    .from('jobs')
+    .update(updates)
+    .eq('id', jobId)
+    .select('*')
+    .maybeSingle();
+
+  if (updErr) {
+    console.error('setJobTag update error', updErr);
+    throw updErr;
+  }
+
+  if (!returnRow) {
+    return { ok: true, jobId, tag };
+  }
+
+  const mapped = updated ? mapDbRowToJob(updated) : null;
+  return {
+    ok: true,
+    jobId,
+    tag,
+    job: mapped,
+    dropEmailStamped: stamped,
+  };
 }

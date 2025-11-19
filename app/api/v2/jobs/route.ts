@@ -7,6 +7,8 @@ import {
   logCall,
   progressJob,
   markCalled,
+  listJobsNeedingTag,
+  setJobTag,
 } from '@/lib/jobsSupabase';
 import { Job } from '@/types/job';
 
@@ -26,7 +28,8 @@ function normalizeAction(v: string | null) {
   if (['save', 'upsert'].includes(s)) return 'save';
   if (['log-call', 'logcall', 'call'].includes(s)) return 'log-call';
   if (['markcalled', 'mark-called', 'mark_called'].includes(s)) return 'markcalled';
-  // progress stays as "progress"
+  if (['needstag', '@needstag', 'needs-tag', 'needs_tag'].includes(s)) return 'needstag';
+  if (['settag', 'set-tag', 'set_tag'].includes(s)) return 'settag';
   return s;
 }
 
@@ -76,6 +79,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  if (action === 'needstag') {
+    try {
+      const result = await listJobsNeedingTag();
+      return new Response(JSON.stringify(result), { status: 200 });
+    } catch (err: any) {
+      console.error('GET needstag error', err);
+      return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
+        status: 500,
+      });
+    }
+  }
+
   return new Response(JSON.stringify({ ok: false, error: 'Unknown action (GET)' }), {
     status: 400,
   });
@@ -106,22 +121,6 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify(result), { status: 200 });
     }
 
-    if (action === 'markcalled') {
-      const { tag, scope, notes } = body;
-      const tagFromQuery = searchParams.get('tag');
-      const finalTag = tag || tagFromQuery;
-
-      if (!finalTag) {
-        return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
-          status: 400,
-        });
-      }
-
-      const result = await markCalled({ tag: finalTag, scope, notes });
-      return new Response(JSON.stringify(result), { status: 200 });
-    }
-
-
     if (action === 'log-call') {
       const { tag, scope, reason, notes, outcome } = body;
       if (!tag) {
@@ -146,6 +145,38 @@ export async function POST(req: NextRequest) {
 
       const result = await progressJob(finalTag);
       return new Response(JSON.stringify(result), { status: 200 });
+    }
+
+    if (action === 'markcalled') {
+      const { tag, scope, notes } = body;
+      const tagFromQuery = searchParams.get('tag');
+      const finalTag = tag || tagFromQuery;
+
+      if (!finalTag) {
+        return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
+          status: 400,
+        });
+      }
+
+      const result = await markCalled({ tag: finalTag, scope, notes });
+      return new Response(JSON.stringify(result), { status: 200 });
+    }
+
+    if (action === 'needstag') {
+      const result = await listJobsNeedingTag();
+      return new Response(JSON.stringify(result), { status: 200 });
+    }
+
+    if (action === 'settag') {
+      const { jobId, newTag, stampDropEmail, returnRow } = body;
+      const result = await setJobTag({
+        jobId,
+        newTag,
+        stampDropEmail: !!stampDropEmail,
+        returnRow: !!returnRow,
+      });
+      const status = result.ok ? 200 : 400;
+      return new Response(JSON.stringify(result), { status });
     }
 
     return new Response(JSON.stringify({ ok: false, error: 'Unknown action (POST)' }), {
