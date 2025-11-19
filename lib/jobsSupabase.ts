@@ -330,6 +330,110 @@ export async function saveJob(job: Partial<Job>) {
   return { ok: true, job: data ? mapDbRowToJob(data) : null };
 }
 
+export async function progressJob(tag: string) {
+  const supabaseServer = getSupabaseServer();
+
+  // Find job by tag
+  const { data: job, error: jobError } = await supabaseServer
+    .from('jobs')
+    .select('*')
+    .eq('tag', tag)
+    .maybeSingle();
+
+  if (jobError) {
+    console.error('progressJob get error', jobError);
+    throw jobError;
+  }
+
+  if (!job) {
+    // Nothing to update if tag not found
+    return { ok: true, nextStatus: null, job: null };
+  }
+
+  const curStatusRaw = String(job.status || '').trim();
+  const curStatus = curStatusRaw.toLowerCase();
+
+  const isInitialStatus =
+    !curStatus ||
+    curStatus === 'dropped off' ||
+    curStatus === 'drop off' ||
+    curStatus === 'droppedoff';
+
+  let nextStatus: string | null = null;
+
+  // MAIN STATUS FLOW:
+  // initial/ dropped off -> Skinning -> Skinned -> Processing -> Finished
+  if (isInitialStatus) {
+    nextStatus = 'Skinning';
+  } else if (curStatus === 'skinning') {
+    nextStatus = 'Skinned';
+  } else if (curStatus === 'skinned') {
+    nextStatus = 'Processing';
+  } else if (curStatus === 'processing') {
+    nextStatus = 'Finished';
+  } else {
+    nextStatus = null;
+  }
+
+  // CAPE FLOW (only for buck + caped jobs)
+  const deerSex = String(job.deer_sex || '').trim().toLowerCase();
+  const procType = String(job.process_type || '').trim().toLowerCase();
+  const isBuck = deerSex.includes('buck');
+  const isCaped = procType.includes('cape'); // "Caped", "Caping", "Cape & Donate", etc.
+
+  const curCapingRaw = String(job.caping_status || '').trim();
+  const curCaping = curCapingRaw.toLowerCase();
+
+  let nextCaping: string | null = null;
+
+  if (isBuck && isCaped) {
+    // First scan: main initial → Skinning, cape → Caping
+    if (isInitialStatus) {
+      nextCaping = 'Caping';
+    }
+    // Second scan: main Skinning → Skinned, cape Caping → Caped
+    else if (curCaping === 'caping') {
+      nextCaping = 'Caped';
+    }
+    // Otherwise, leave cape status alone
+  }
+
+  const updates: any = {};
+
+  if (nextStatus) {
+    updates.status = nextStatus;
+  }
+  if (nextCaping) {
+    updates.caping_status = nextCaping;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    // Nothing to change
+    return { ok: true, nextStatus: null, job: null };
+  }
+
+  updates.updated_at = new Date().toISOString();
+
+  const { data: updated, error: updErr } = await supabaseServer
+    .from('jobs')
+    .update(updates)
+    .eq('id', job.id)
+    .select('*')
+    .maybeSingle();
+
+  if (updErr) {
+    console.error('progressJob update error', updErr);
+    throw updErr;
+  }
+
+  return {
+    ok: true,
+    nextStatus,
+    job: updated ? mapDbRowToJob(updated) : null,
+  };
+}
+
+
 export async function logCall(params: {
   tag: string;
   scope?: 'meat' | 'cape' | 'webbs';
