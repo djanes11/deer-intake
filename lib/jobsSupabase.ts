@@ -2,10 +2,13 @@
 import { getSupabaseServer } from './supabaseClient';
 import { Job, JobSearchRow } from '@/types/job';
 
+// Map DB row → Job (what your frontend expects)
 function mapDbRowToJob(row: any): Job {
-  // Minimal pass-through; adjust as needed
   return {
     id: row.id,
+    row: undefined, // only used for Sheets, not Supabase
+
+    // Identity
     tag: row.tag,
     confirmation: row.confirmation,
     customer: row.customer_name,
@@ -21,19 +24,21 @@ function mapDbRowToJob(row: any): Job {
     sex: row.deer_sex,
     processType: row.process_type,
 
+    // Statuses
     status: row.status,
     capingStatus: row.caping_status,
     webbsStatus: row.webbs_status,
     specialtyStatus: row.specialty_status,
 
+    // Cuts / packaging
     steak: row.steak_size,
     steakOther: row.steak_size_other,
     burgerSize: row.burger_size,
     steaksPerPackage: row.steaks_per_package,
     beefFat: !!row.beef_fat,
 
-    hindRoastCount: row.hind_roast_count?.toString?.() ?? null,
-    frontRoastCount: row.front_roast_count?.toString?.() ?? null,
+    hindRoastCount: row.hind_roast_count != null ? String(row.hind_roast_count) : null,
+    frontRoastCount: row.front_roast_count != null ? String(row.front_roast_count) : null,
 
     hind: {
       'Hind - Steak': !!row.hind_steak,
@@ -52,6 +57,7 @@ function mapDbRowToJob(row: any): Job {
     backstrapThickness: row.backstrap_thickness,
     backstrapThicknessOther: row.backstrap_thickness_other,
 
+    // Specialty
     specialtyProducts: !!row.specialty_products,
     specialtyPounds: Number(row.specialty_pounds ?? 0),
     summerSausageLbs: Number(row.summer_sausage_lbs ?? 0),
@@ -60,25 +66,30 @@ function mapDbRowToJob(row: any): Job {
 
     notes: row.notes,
 
+    // Webbs
     webbsOrder: !!row.webbs_order,
     webbsOrderFormNumber: row.webbs_order_form_number,
     webbsPounds: Number(row.webbs_pounds ?? 0),
 
+    // Pricing
     priceProcessing: Number(row.price_processing ?? 0),
     priceSpecialty: Number(row.price_specialty ?? 0),
     price: Number(row.price_total ?? 0),
 
+    // Paid flags
     paid: !!row.paid,
     paidProcessing: !!row.paid_processing,
     paidSpecialty: !!row.paid_specialty,
     requiresTag: !!row.requires_tag,
 
+    // Public link / notifications
     publicToken: row.public_token,
     publicLinkSentAt: row.public_link_sent_at,
     dropoffEmailSentAt: row.dropoff_email_sent_at,
     paidProcessingAt: row.paid_processing_at,
     paidSpecialtyAt: row.paid_specialty_at,
 
+    // Pickup
     pickedUpProcessing: !!row.picked_up_processing,
     pickedUpProcessingAt: row.picked_up_processing_at,
     pickedUpCape: !!row.picked_up_cape,
@@ -86,6 +97,7 @@ function mapDbRowToJob(row: any): Job {
     pickedUpWebbs: !!row.picked_up_webbs,
     pickedUpWebbsAt: row.picked_up_webbs_at,
 
+    // Call tracking
     callAttempts: Number(row.call_attempts ?? 0),
     meatAttempts: Number(row.meat_attempts ?? 0),
     capeAttempts: Number(row.cape_attempts ?? 0),
@@ -95,18 +107,21 @@ function mapDbRowToJob(row: any): Job {
     lastCallOutcome: row.last_call_outcome,
     callNotes: row.call_notes,
 
+    // Comms prefs
     prefEmail: !!row.pref_email,
     prefSMS: !!row.pref_sms,
     prefCall: !!row.pref_call,
     smsConsent: !!row.sms_consent,
     autoCallConsent: !!row.auto_call_consent,
 
+    // Misc
     howKilled: row.how_killed,
   };
 }
 
 export async function getJobByTag(tag: string) {
   const supabaseServer = getSupabaseServer();
+
   const { data, error } = await supabaseServer
     .from('jobs')
     .select('*')
@@ -119,15 +134,14 @@ export async function getJobByTag(tag: string) {
   }
 
   if (!data) {
-    return { ok: true, exists: false, job: null as Job | null };
+    return { ok: true, exists: false as const, job: null as Job | null };
   }
 
-  return { ok: true, exists: true, job: mapDbRowToJob(data) };
+  return { ok: true, exists: true as const, job: mapDbRowToJob(data) };
 }
 
 export async function searchJobs(query: string): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  // Basic search: tag/confirmation/phone/customer
   const q = query.trim();
   if (!q) return { ok: true, rows: [] };
 
@@ -201,9 +215,8 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
 }
 
 export async function saveJob(job: Partial<Job>) {
-  // You can decide whether tag is unique and required here.
-  // Map from Job shape back to DB columns.
   const supabaseServer = getSupabaseServer();
+
   const upsertPayload: any = {
     tag: job.tag ?? null,
     confirmation: job.confirmation ?? null,
@@ -318,13 +331,13 @@ export async function saveJob(job: Partial<Job>) {
 }
 
 export async function logCall(params: {
-  const supabaseServer = getSupabaseServer();
   tag: string;
   scope?: 'meat' | 'cape' | 'webbs';
   reason?: string;
   notes?: string;
   outcome?: string;
 }) {
+  const supabaseServer = getSupabaseServer();
   const { tag, scope, reason, notes, outcome } = params;
 
   // Find job by tag
