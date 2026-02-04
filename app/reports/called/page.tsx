@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { searchJobs, saveJob } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +21,7 @@ function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean
   const base =
     p === 'Caped' ? 150 :
     p === 'Cape & Donate' ? 50 :
-    ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
+    ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
     p === 'Donate' ? 0 : 0;
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
@@ -31,7 +32,7 @@ function toInt(val: any) {
 }
 function specialtyPrice(row: any) {
   if (!row?.specialtyProducts) return 0;
-  const ss  = toInt(row?.summerSausageLbs);
+  const ss = toInt(row?.summerSausageLbs);
   const ssc = toInt(row?.summerSausageCheeseLbs);
   const jer = toInt(row?.slicedJerkyLbs);
   return ss * 4.25 + ssc * 4.60 + jer * 15.0;
@@ -39,29 +40,6 @@ function specialtyPrice(row: any) {
 
 /* ---------- types ---------- */
 type Track = 'meat' | 'cape' | 'webbs';
-type BaseRow = {
-  tag: string;
-  customer: string;
-  phone: string;
-
-  status?: string;
-  capingStatus?: string;
-  webbsStatus?: string;
-  lastCallAt?: string;
-
-  processType?: string;
-  beefFat?: boolean;
-  webbsOrder?: boolean;
-  specialtyProducts?: boolean;
-  summerSausageLbs?: string;
-  summerSausageCheeseLbs?: string;
-  slicedJerkyLbs?: string;
-
-  paidProcessing?: boolean;
-  pickedUpProcessing?: boolean;
-  pickedUpCape?: boolean;
-  pickedUpWebbs?: boolean;
-};
 type Row = {
   tag: string;
   customer: string;
@@ -74,111 +52,84 @@ type Row = {
   pickedUp?: boolean;
 };
 
-const API = '/api/gas2';
-
-/* ---------- fetch helpers ---------- */
-async function postJSON(body: any) {
-  const r = await fetch(API, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    cache: 'no-store',
-    body: JSON.stringify(body),
-  });
-  const t = await r.text();
-  let json: any;
-  try { json = JSON.parse(t); } catch { json = { __raw: t }; }
-  if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
-  return json;
+/* ---------- helpers ---------- */
+function isCalled(s?: string) {
+  return String(s || '').trim().toLowerCase() === 'called';
 }
-function isCalled(s?: string) { return String(s || '').trim().toLowerCase() === 'called'; }
 
+/**
+ * Pulls "Called" items from Supabase via /api/v2/jobs
+ * Requires backend support: searchJobs('@recall') returns rows.
+ */
 async function fetchCalled(): Promise<Row[]> {
-  const data = await postJSON({ action: 'search', q: '@recall' });
-  const rows = (Array.isArray(data?.rows) ? data.rows : []) as any[];
+  const res = await searchJobs('@recall');
+  const rows = (Array.isArray(res?.rows) ? res.rows : []) as any[];
 
   const out: Row[] = [];
 
   for (const r of rows) {
-    const base: BaseRow = {
-      tag: String(r?.tag ?? r?.Tag ?? ''),
-      customer: String(r?.customer ?? r?.['Customer Name'] ?? ''),
-      phone: String(r?.phone ?? ''),
-      status: String(r?.status ?? r?.Status ?? ''),
-      capingStatus: String(r?.capingStatus ?? r?.['Caping Status'] ?? ''),
-      webbsStatus: String(r?.webbsStatus ?? r?.['Webbs Status'] ?? ''),
-      lastCallAt: String(r?.lastCallAt ?? r?.['Last Call At'] ?? ''),
-      processType: String(r?.processType ?? ''),
-      beefFat: !!r?.beefFat,
-      webbsOrder: !!r?.webbsOrder,
-      specialtyProducts: !!r?.specialtyProducts,
-      summerSausageLbs: String(r?.summerSausageLbs ?? ''),
-      summerSausageCheeseLbs: String(r?.summerSausageCheeseLbs ?? ''),
-      slicedJerkyLbs: String(r?.slicedJerkyLbs ?? ''),
-      paidProcessing: !!(r?.paidProcessing || r?.['Paid Processing']),
-      pickedUpProcessing: !!r?.['Picked Up - Processing'],
-      pickedUpCape: !!r?.['Picked Up - Cape'],
-      pickedUpWebbs: !!r?.['Picked Up - Webbs'],
-    };
+    const tag = String(r?.tag ?? r?.Tag ?? '').trim();
+    if (!tag) continue;
 
-    // compute once and reuse so Cape/Webbs rows still show prices
-    const priceProc = suggestedProcessingPrice(base.processType, !!base.beefFat, !!base.webbsOrder);
-    const priceSpec = specialtyPrice(base);
+    const customer = String(r?.customer ?? r?.Customer ?? r?.['Customer Name'] ?? '').trim();
+    const phone = String(r?.phone ?? r?.Phone ?? '').trim();
 
-    if (isCalled(base.status)) {
-      out.push({
-        tag: base.tag,
-        customer: base.customer,
-        phone: base.phone,
-        track: 'meat',
-        calledAt: base.lastCallAt || '',
-        priceProc,
-        priceSpec,
-        paidProcessing: base.paidProcessing,
-        pickedUp: base.pickedUpProcessing,
-      });
+    const status = String(r?.status ?? r?.Status ?? '').trim();
+    const capingStatus = String(r?.capingStatus ?? r?.['Caping Status'] ?? '').trim();
+    const webbsStatus = String(r?.webbsStatus ?? r?.['Webbs Status'] ?? '').trim();
+
+    const calledAt =
+      String(r?.lastCallAt ?? r?.lastCalledAt ?? r?.['Last Call At'] ?? r?.calledAt ?? '').trim();
+
+    const priceProc = suggestedProcessingPrice(
+      r?.processType ?? r?.['Process Type'],
+      !!(r?.beefFat ?? r?.['Beef Fat']),
+      !!(r?.webbsOrder ?? r?.['Webbs Order'])
+    );
+    const priceSpec = specialtyPrice(r);
+
+    const paidProcessing = !!(r?.paidProcessing ?? r?.['Paid Processing']);
+    const pickedUpProcessing = !!(r?.pickedUpProcessing ?? r?.['Picked Up - Processing']);
+    const pickedUpCape = !!(r?.pickedUpCape ?? r?.['Picked Up - Cape']);
+    const pickedUpWebbs = !!(r?.pickedUpWebbs ?? r?.['Picked Up - Webbs']);
+
+    if (isCalled(status)) {
+      out.push({ tag, customer, phone, track: 'meat', calledAt, priceProc, priceSpec, paidProcessing, pickedUp: pickedUpProcessing });
     }
-    if (isCalled(base.capingStatus)) {
-      out.push({
-        tag: base.tag,
-        customer: base.customer,
-        phone: base.phone,
-        track: 'cape',
-        calledAt: base.lastCallAt || '',
-        priceProc,
-        priceSpec,
-        pickedUp: base.pickedUpCape,
-      });
+    if (isCalled(capingStatus)) {
+      out.push({ tag, customer, phone, track: 'cape', calledAt, priceProc, priceSpec, pickedUp: pickedUpCape });
     }
-    if (isCalled(base.webbsStatus)) {
-      out.push({
-        tag: base.tag,
-        customer: base.customer,
-        phone: base.phone,
-        track: 'webbs',
-        calledAt: base.lastCallAt || '',
-        priceProc,
-        priceSpec,
-        pickedUp: base.pickedUpWebbs,
-      });
+    if (isCalled(webbsStatus)) {
+      out.push({ tag, customer, phone, track: 'webbs', calledAt, priceProc, priceSpec, pickedUp: pickedUpWebbs });
     }
   }
 
   const order: Record<Track, number> = { meat: 0, cape: 1, webbs: 2 };
   out.sort((a, b) => {
     const at = (a.calledAt || '').localeCompare(b.calledAt || '');
-    if (at !== 0) return -at;          // newest first
+    if (at !== 0) return -at; // newest first
     return order[a.track] - order[b.track];
   });
+
   return out;
 }
 
 /* ---------- actions ---------- */
 async function markPaid(tag: string) {
-  return postJSON({ action: 'save', job: { tag, paidProcessing: true } });
+  // meat track only
+  return saveJob({ tag, paidProcessing: true } as any);
 }
+
 async function markPickedUp(tag: string, track: Track) {
-  // unified endpoint that also flips the specific Status column to "Picked Up"
-  return postJSON({ action: 'pickedUp', tag, scope: track });
+  const now = new Date().toISOString();
+
+  if (track === 'meat') {
+    return saveJob({ tag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now } as any);
+  }
+  if (track === 'cape') {
+    return saveJob({ tag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now } as any);
+  }
+  return saveJob({ tag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now } as any);
 }
 
 /* ---------- UI ---------- */
@@ -187,22 +138,22 @@ function TrackBadge({ track }: { track: Track | string }) {
   const label = t === 'webbs' ? 'Webbs' : t === 'cape' ? 'Cape' : 'Meat';
   const styles: React.CSSProperties =
     t === 'webbs'
-      ? { background:'#5b21b6', color:'#fff' }   // purple
+      ? { background: '#5b21b6', color: '#fff' }
       : t === 'cape'
-      ? { background:'#92400e', color:'#fff' }   // amber/brown
-      : { background:'#065f46', color:'#fff' };  // green
+      ? { background: '#92400e', color: '#fff' }
+      : { background: '#065f46', color: '#fff' };
 
   return (
     <span
       style={{
-        display:'inline-block',
-        padding:'6px 12px',
-        borderRadius:999,
-        fontWeight:800,
-        fontSize:14,
-        letterSpacing:0.3,
-        lineHeight:1,
-        textTransform:'capitalize',
+        display: 'inline-block',
+        padding: '6px 12px',
+        borderRadius: 999,
+        fontWeight: 800,
+        fontSize: 14,
+        letterSpacing: 0.3,
+        lineHeight: 1,
+        textTransform: 'capitalize',
         ...styles,
       }}
     >
@@ -219,7 +170,7 @@ export default function CalledPickupQueue() {
   const [selectedKey, setSelectedKey] = useState<string>('');
 
   const selected = useMemo(
-    () => rows.find(r => `${r.tag}|${r.track}` === selectedKey),
+    () => rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
     [rows, selectedKey]
   );
 
@@ -229,7 +180,7 @@ export default function CalledPickupQueue() {
     try {
       const list = await fetchCalled();
       setRows(list);
-      if (selectedKey && !list.some(r => `${r.tag}|${r.track}` === selectedKey)) {
+      if (selectedKey && !list.some((r) => `${r.tag}|${r.track}` === selectedKey)) {
         setSelectedKey('');
       }
     } catch (e: any) {
@@ -240,10 +191,10 @@ export default function CalledPickupQueue() {
       setLoading(false);
     }
   }
+
   useEffect(() => { load(); }, []);
 
   const gridCols = '0.7fr 1.2fr 1.1fr 0.7fr 0.9fr 0.7fr 0.7fr 0.6fr 0.7fr';
-  // Tag | Name | Phone | Track | Called At | Proc $ | Spec $ | Paid? | Picked Up
 
   function openIntake(tag: string) {
     const url = `/intake?tag=${encodeURIComponent(tag)}`;
@@ -253,8 +204,8 @@ export default function CalledPickupQueue() {
   return (
     <main style={{ maxWidth: 1200, margin: '18px auto', padding: '0 14px 40px' }}>
       <div>
-        <div style={{ display:'flex', alignItems:'center', gap: 10, marginBottom: 10 }}>
-          <h2 style={{ margin: 0, flex: '1 1 auto', color:'#e5e7eb' }}>Called — Pickup Queue</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <h2 style={{ margin: 0, flex: '1 1 auto', color: '#e5e7eb' }}>Called — Pickup Queue</h2>
           <button onClick={load} className="btn small">{loading ? 'Refreshing…' : 'Refresh'}</button>
         </div>
 
@@ -266,7 +217,6 @@ export default function CalledPickupQueue() {
           <div className="empty">Nobody currently in Called.</div>
         ) : (
           <div className="table">
-            {/* Header */}
             <div className="thead" style={{ gridTemplateColumns: gridCols }}>
               <div>Tag</div>
               <div>Name</div>
@@ -279,7 +229,6 @@ export default function CalledPickupQueue() {
               <div>Picked Up</div>
             </div>
 
-            {/* Rows */}
             {rows.map((r, i) => {
               const key = `${r.tag}|${r.track}`;
               const isSel = key === selectedKey;
@@ -315,7 +264,6 @@ export default function CalledPickupQueue() {
           </div>
         )}
 
-        {/* Bottom toolbar */}
         <div className="toolbar">
           <div className="toolbar-inner">
             <div className="sel">
@@ -325,8 +273,8 @@ export default function CalledPickupQueue() {
                   <span className="pill small">{selected.track === 'meat' ? 'Meat' : selected.track === 'cape' ? 'Cape' : 'Webbs'}</span>{' '}
                   <span className="muted">{selected.customer || '—'}</span>{' '}
                   {selected.calledAt ? <span className="muted">• {selected.calledAt}</span> : null}
-                  <span className="muted"> • Proc {selected.priceProc.toLocaleString('en-US',{style:'currency',currency:'USD'})}</span>
-                  <span className="muted"> • Spec {selected.priceSpec.toLocaleString('en-US',{style:'currency',currency:'USD'})}</span>
+                  <span className="muted"> • Proc {selected.priceProc.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
+                  <span className="muted"> • Spec {selected.priceSpec.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
                 </>
               ) : (
                 <span className="muted">Select a row to take action</span>
@@ -336,7 +284,7 @@ export default function CalledPickupQueue() {
             <div className="toolbar-actions">
               <button
                 className="btn secondary small"
-                disabled={!selected || busy === `paid:${selected?.tag}` || selected?.track !== 'meat' || selected?.paidProcessing}
+                disabled={!selected || busy === `paid:${selected?.tag}` || selected?.track !== 'meat' || !!selected?.paidProcessing}
                 onClick={async () => {
                   if (!selected) return;
                   setBusy(`paid:${selected.tag}`);
@@ -353,7 +301,7 @@ export default function CalledPickupQueue() {
 
               <button
                 className="btn small"
-                disabled={!selected || busy === `pu:${selected?.tag}:${selected?.track}` || selected?.pickedUp}
+                disabled={!selected || busy === `pu:${selected?.tag}:${selected?.track}` || !!selected?.pickedUp}
                 onClick={async () => {
                   if (!selected) return;
                   setBusy(`pu:${selected.tag}:${selected.track}`);
@@ -373,67 +321,23 @@ export default function CalledPickupQueue() {
       </div>
 
       <style jsx>{`
-        /* --- dark table to match Call Report --- */
-        .table {
-          background:#0f172a;
-          border:1px solid #111827;
-          border-radius:12px;
-          overflow:hidden;
-          color:#e5e7eb;
-        }
-        .thead {
-          display:grid;
-          gap:8px;
-          font-weight:800;
-          padding:12px 12px;
-          border-bottom:1px solid #111827;
-          background:#0b1220;
-          font-size:15px;
-        }
-        .trow {
-          display:grid;
-          gap:8px;
-          align-items:center;
-          padding:12px 12px;
-          border-bottom:1px solid #0b1220;
-          background:#0f172a;
-          cursor:pointer;
-        }
+        .table { background:#0f172a; border:1px solid #111827; border-radius:12px; overflow:hidden; color:#e5e7eb; }
+        .thead { display:grid; gap:8px; font-weight:800; padding:12px 12px; border-bottom:1px solid #111827; background:#0b1220; font-size:15px; }
+        .trow { display:grid; gap:8px; align-items:center; padding:12px 12px; border-bottom:1px solid #0b1220; background:#0f172a; cursor:pointer; }
         .trow.odd { background:#0e1627; }
         .trow.selected { outline:2px solid #1f6f3e; outline-offset:-2px; background:#062d25 !important; }
         a { color:#9fe3b4; font-weight:800; text-decoration:underline; }
         .num { font-variant-numeric: tabular-nums; text-align:right; }
-
         .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#1f2937; color:#fff; font-weight:800; font-size:12px; }
         .badge.ok { background:#065f46; }
-
         .muted { color:#9ca3af; }
         .empty { background:#0f172a; border:1px solid #111827; color:#e5e7eb; border-radius:12px; padding:12px; }
-
         .btn { padding:8px 12px; border:1px solid #2b3a55; border-radius:10px; background:#155acb; color:#fff; font-weight:800; cursor:pointer; }
         .btn.secondary { background:#0f172a; color:#e5e7eb; }
         .btn.small { padding:6px 10px; font-size:14px; }
         .btn:disabled { opacity:.6; cursor:not-allowed; }
-
-        .toolbar {
-          position: sticky;
-          bottom: 0;
-          z-index: 15;
-          margin-top: 10px;
-          background: #0b0f12;
-          border-top: 1px solid #111827;
-          box-shadow: 0 -8px 30px rgba(0,0,0,.25);
-        }
-        .toolbar-inner {
-          max-width: 1150px;
-          margin: 0 auto;
-          padding: 10px 12px;
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          justify-content: space-between;
-          color:#e5e7eb;
-        }
+        .toolbar { position: sticky; bottom: 0; z-index: 15; margin-top: 10px; background: #0b0f12; border-top: 1px solid #111827; box-shadow: 0 -8px 30px rgba(0,0,0,.25); }
+        .toolbar-inner { max-width: 1150px; margin: 0 auto; padding: 10px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; color:#e5e7eb; }
         .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#111827; color:#e5e7eb; font-weight:800; }
         .pill.small { padding:2px 8px; }
       `}</style>
