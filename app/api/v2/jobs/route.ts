@@ -36,7 +36,8 @@ function normalizeAction(v: string | null) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = normalizeAction(searchParams.get('action'));
-  const token = searchParams.get('token');
+  const token = req.headers.get('x-api-token') || searchParams.get('token');
+
 
   const auth = checkAuth(token);
   if (!auth.ok) {
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const url = new URL(req.url);
   const { searchParams } = url;
-  const token = searchParams.get('token');
+  const token = req.headers.get('x-api-token') || searchParams.get('token');
   const auth = checkAuth(token);
 
   if (!auth.ok) {

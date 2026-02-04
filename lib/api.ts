@@ -1,16 +1,28 @@
 // lib/api.ts
-// Single client-side entrypoint for talking to our Next API proxy (/api/gas2),
-// which in turn talks to Google Apps Script (GAS).
-// Preserves previous helpers (getJob, saveJob, progress, searchJobs)
-// and adds markCalled + logCallSimple used by the Calls report.
+// Single client-side entrypoint for talking to our Next API.
+// NOW points to /api/v2/jobs (Supabase-backed) instead of /api/gas2 (GAS/Sheets).
 //
-// NOTE: Do NOT call GAS directly from the browser. Always go through /api/gas2.
-// That keeps your token server-side and lets the server add signatures, links, etc.
+// NOTE:
+// - Frontend should NOT talk to Supabase directly.
+// - Frontend calls /api/v2/jobs; server uses service role + lib/jobsSupabase.ts.
+//
+// Auth:
+// - Sends token via header: x-api-token
+// - Optionally supports query token on server for backward compatibility.
 
 export type AnyRec = Record<string, any>;
 type Json = Record<string, any>;
 
-const API_BASE = '/api/gas2';
+// ---------- CONFIG ----------
+/**
+ * Optional kill-switch:
+ * Set NEXT_PUBLIC_USE_SUPABASE=1 to use Supabase API, otherwise fallback to legacy /api/gas2.
+ * If you don't need fallback, you can hardcode '/api/v2/jobs'.
+ */
+const USE_SUPABASE =
+  (process.env.NEXT_PUBLIC_USE_SUPABASE || '1').trim() === '1';
+
+const API_BASE = USE_SUPABASE ? '/api/v2/jobs' : '/api/gas2';
 
 // Keep Job super loose to avoid cross-file literal-union collisions.
 export type Job = AnyRec & { tag?: string };
@@ -19,15 +31,13 @@ export interface SaveResponse {
   ok: boolean;
   row?: number;
   error?: string;
-  // echo from GAS
   job?: Job;
   exists?: boolean;
-  // anything else GAS returns
   [k: string]: any;
 }
 
 export interface GetResponse {
-  ok?: boolean;        // GAS "get" usually returns {exists, job}
+  ok?: boolean;
   exists: boolean;
   job?: Job;
   [k: string]: any;
@@ -37,11 +47,9 @@ export interface SearchOptions {
   limit?: number;
   status?: string;
   scope?: 'auto' | 'meat' | 'cape' | 'webbs' | 'all';
-  // free-form passthrough for future filters
   [k: string]: any;
 }
 
-// Accept object-style queries as well as plain string
 export type SearchParams = {
   status?: string;
   tag?: string;
@@ -50,9 +58,23 @@ export type SearchParams = {
   [k: string]: any;
 };
 
+// ---------- TOKEN HEADER ----------
+function tokenHeader(): Record<string, string> {
+  // Put this in Vercel for the *facility* deployment only.
+  // Do NOT put this in your public app env.
+  const t = (process.env.NEXT_PUBLIC_DEER_API_TOKEN || '').trim();
+  return t ? { 'x-api-token': t } : {};
+}
+
 // ----------- low-level fetch helpers (no-cache, JSON-safe) -----------
 async function getJSON<T = any>(url: string): Promise<T> {
-  const r = await fetch(url, { cache: 'no-store' });
+  const r = await fetch(url, {
+    cache: 'no-store',
+    headers: {
+      ...tokenHeader(),
+    },
+  });
+
   const text = await r.text();
   try {
     const json = JSON.parse(text);
@@ -67,10 +89,14 @@ async function getJSON<T = any>(url: string): Promise<T> {
 async function postJSON<T = any>(body: AnyRec): Promise<T> {
   const r = await fetch(API_BASE, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...tokenHeader(),
+    },
     cache: 'no-store',
     body: JSON.stringify(body),
   });
+
   const text = await r.text();
   try {
     const json = JSON.parse(text);
@@ -84,7 +110,7 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
 
 // ---------------- public API used across the app ----------------
 
-/** Read a single job by tag (proxied through /api/gas2 → GAS) */
+/** Read a single job by tag */
 export async function getJob(tag: string): Promise<GetResponse> {
   if (!tag) throw new Error('Missing tag');
   const qs = new URLSearchParams({ action: 'get', tag });
@@ -94,10 +120,7 @@ export async function getJob(tag: string): Promise<GetResponse> {
 /**
  * Save a job (create or update).
  * - Regular intake: include a real tag → upsert-by-tag.
- * - Overnight intake: send `{ requiresTag: true, tag: '' }` → server appends w/ "Requires Tag".
- *
- * IMPORTANT: We intentionally do NOT validate `job.tag` here.
- * The /api/gas2 route decides whether blank-tag is allowed.
+ * - Overnight intake: send `{ requiresTag: true, tag: '' }` → server marks Requires Tag.
  */
 export async function saveJob(job: Job): Promise<SaveResponse> {
   if (!job) throw new Error('Missing job');
@@ -107,9 +130,9 @@ export async function saveJob(job: Job): Promise<SaveResponse> {
 /**
  * Progress a job.
  * Accepts either:
- *   - progress('ABC123')                 // bare tag → server auto-advances
- *   - progress({ tag: 'ABC123' })        // same as above
- *   - progress({ tag: 'ABC123', status: 'Finished' }) // force status
+ *   - progress('ABC123')
+ *   - progress({ tag: 'ABC123' })
+ *   - progress({ tag: 'ABC123', status: 'Finished' }) // optional force, if server supports
  */
 export async function progress(
   arg: string | { tag: string; status?: string }
@@ -123,8 +146,11 @@ export async function progress(
   return postJSON(body);
 }
 
-/** Search jobs. Use q='@report' to fetch the "ready to call" report. */
-export async function searchJobs(q: string | SearchParams, opts: SearchOptions = {}): Promise<any> {
+/** Search jobs. Use q='@report' if your server supports it. */
+export async function searchJobs(
+  q: string | SearchParams,
+  opts: SearchOptions = {}
+): Promise<any> {
   const params = new URLSearchParams({ action: 'search' });
 
   if (typeof q === 'string') {
@@ -163,12 +189,12 @@ export async function markCalled(arg1: any, arg2?: any) {
   if (typeof arg1 === 'object' && arg1) {
     const { tag, scope, notes } = arg1 as any;
     if (!tag) throw new Error('Missing tag');
-    payload = { action: 'markCalled', tag, scope, notes };
+    payload = { action: 'markcalled', tag, scope, notes };
   } else {
     const tag = arg1 as string;
     const scope = (arg2 as any) || 'auto';
     if (!tag) throw new Error('Missing tag');
-    payload = { action: 'markCalled', tag, scope };
+    payload = { action: 'markcalled', tag, scope };
   }
   return postJSON<SaveResponse>(payload);
 }
@@ -195,7 +221,6 @@ export async function logCallSimple(arg1: any, arg2?: any, arg3?: any, arg4?: an
 
 // ---------------- convenience utilities ----------------
 
-/** Cheap boolean parser that matches our server-side semantics. */
 export function asBool(v: any): boolean {
   if (v === true) return true;
   if (v === false) return false;
@@ -203,7 +228,6 @@ export function asBool(v: any): boolean {
   return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
 }
 
-/** Normalize process type to one of our canonical labels (string in, string out). */
 export function normProc(s?: string): string {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
@@ -215,7 +239,6 @@ export function normProc(s?: string): string {
   return '';
 }
 
-/** Client-side mirror of the processing price logic (for previews only). */
 export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean): number {
   const p = normProc(proc) || '';
   const base =
@@ -228,16 +251,13 @@ export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: 
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
 
-
-/** Fetch a full flat row for the overlay (server returns { ok, job }) */
+/**
+ * Previously used GAS-only "job" action.
+ * For v2, just call getJob(tag) or implement a dedicated "full" action server-side if needed.
+ */
 export async function getJobFull(tag: string) {
-  const r = await fetch('/api/gas2', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'job', tag }),
-    cache: 'no-store',
-  });
-  if (!r.ok) throw new Error(`getJobFull failed: ${r.status}`);
-  const j = await r.json();
-  return j?.job ?? null;
+  // Keep behavior: return { ok, job } shape if server returns it.
+  // v2 GET action=get already returns { ok, exists, job }.
+  const r = await getJob(tag);
+  return (r as any)?.job ?? null;
 }
