@@ -1,44 +1,34 @@
-// app/intake/page.tsx — public read-only view (no actions)
+// app/intake/[tag]/page.tsx — public read-only view (no actions)
 import 'server-only';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import crypto from 'crypto';
+import { getJobByTag } from '@/lib/jobsSupabase';
 
 // ---- Config/env ----
-const RAW_GAS_BASE =
-  (process.env.NEXT_PUBLIC_GAS_BASE || process.env.GAS_BASE || '')
-    .trim()
-    .replace(/^['"]|['"]$/g, '');
-const GAS_TOKEN = process.env.GAS_TOKEN || process.env.EMAIL_SIGNING_SECRET || '';
+// Keep legacy compatibility: old links used GAS_TOKEN-derived HMAC.
+// Long-term: set EMAIL_SIGNING_SECRET and stop using GAS_TOKEN entirely.
+const SIGNING_SECRET =
+  (process.env.EMAIL_SIGNING_SECRET || process.env.GAS_TOKEN || '').trim();
 
 // ---- Helpers ----
-function assertValidGasBase() {
-  if (!RAW_GAS_BASE) throw new Error('NEXT_PUBLIC_GAS_BASE is not set.');
-  new URL(RAW_GAS_BASE); // throws if invalid
-}
-
 function hmac16(tag: string) {
-  if (!GAS_TOKEN) return '';
-  return crypto.createHmac('sha256', GAS_TOKEN).update(tag).digest('hex').slice(0, 16);
+  if (!SIGNING_SECRET) return '';
+  return crypto.createHmac('sha256', SIGNING_SECRET).update(tag).digest('hex').slice(0, 16);
 }
 function verifyToken(tag: string, token?: string | null) {
-  if (!GAS_TOKEN) return true; // if no secret configured, allow
+  if (!SIGNING_SECRET) return true; // if no secret configured, allow
   return token === hmac16(tag);
 }
 
 async function getJob(tag: string) {
-  assertValidGasBase();
-  const url = new URL(RAW_GAS_BASE);
-  url.searchParams.set('action', 'get');
-  url.searchParams.set('tag', tag);
-  if (process.env.GAS_TOKEN) url.searchParams.set('token', process.env.GAS_TOKEN);
-  const r = await fetch(url.toString(), { cache: 'no-store' });
-  if (!r.ok) throw new Error(`GAS get failed: HTTP ${r.status}`);
-  const data = await r.json();
-  if (!data?.job) throw new Error('Form not found for that tag.');
-  return data.job as Record<string, any>;
+  // Supabase-backed lookup (server-side)
+  const res = await getJobByTag(tag);
+  if (!res?.exists || !res?.job) throw new Error('Form not found for that tag.');
+  // jobsSupabase already maps DB → frontend Job shape
+  return res.job as Record<string, any>;
 }
 
 // ---- Simple pricing helpers to show the summary numbers like the intake page ----
@@ -145,14 +135,14 @@ export default async function IntakeView({
       (toInt(job?.slicedJerkyLbs) * 4.60);
     const totalPrice = processingPrice + (job?.specialtyProducts ? specialtyPrice : 0);
 
-    // --- Communication Preference + Consent (accept header or camel case) ---
+    // --- Communication Preference + Consent ---
     const prefEmail        = asBool(pick(job, ['Pref Email','prefEmail']));
     const prefSMS          = asBool(pick(job, ['Pref SMS','prefSMS']));
     const prefCall         = asBool(pick(job, ['Pref Call','prefCall']));
     const smsConsent       = asBool(pick(job, ['SMS Consent','smsConsent']));
     const autoCallConsent  = asBool(pick(job, ['Auto Call Consent','autoCallConsent']));
 
-    // Pull specialty status for summary bar (either column name or camelCase)
+    // Pull specialty status for summary bar
     const specialtyStatus =
       String(pick(job, ['Specialty Status', 'specialtyStatus']) ?? '').trim();
 
@@ -184,13 +174,12 @@ export default async function IntakeView({
               </div>
             </div>
 
-            {/* Summary statuses row — now includes Specialty Status */}
             <div
               className="row grid small"
               style={{
                 display:'grid',
                 gap:8,
-                gridTemplateColumns:'repeat(5, 1fr)', // was 4; now 5 to fit Specialty Status
+                gridTemplateColumns:'repeat(5, 1fr)',
                 marginTop:6
               }}
             >
@@ -360,7 +349,7 @@ export default async function IntakeView({
             </div>
           </section>
 
-          {/* Communication & Consent (NEW) */}
+          {/* Communication & Consent */}
           <section>
             <h3>Communication & Consent</h3>
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
@@ -389,7 +378,9 @@ export default async function IntakeView({
       <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
         <h1 style={{color:'#0b0f12'}}>Unable to load form</h1>
         <p style={{whiteSpace:'pre-wrap', color:'#374151'}}>{String(err?.message || err)}</p>
-        <div style={{marginTop:8, fontSize:12, color:'#6b7280'}}>Tip: ensure NEXT_PUBLIC_GAS_BASE is your Apps Script /exec URL.</div>
+        <div style={{marginTop:8, fontSize:12, color:'#6b7280'}}>
+          Tip: if this is a public link, make sure the tag exists in the database and the token is valid.
+        </div>
       </div>
     );
   }
