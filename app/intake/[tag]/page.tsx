@@ -18,9 +18,23 @@ function hmac16(tag: string) {
   if (!SIGNING_SECRET) return '';
   return crypto.createHmac('sha256', SIGNING_SECRET).update(tag).digest('hex').slice(0, 16);
 }
-function verifyToken(tag: string, token?: string | null) {
-  if (!SIGNING_SECRET) return true; // if no secret configured, allow
-  return token === hmac16(tag);
+function verifyToken(tag: string, token: string | undefined, jobPublicToken: string | undefined) {
+  const t = String(token || '').trim();
+  const pub = String(jobPublicToken || '').trim();
+
+  // Prefer new public token
+  if (pub && t && t === pub) return true;
+
+  // Allow legacy HMAC links
+  if (SIGNING_SECRET) {
+    const legacy = hmac16(tag);
+    if (legacy && t && t === legacy) return true;
+  }
+
+  // If neither is configured, allow (dev only)
+  if (!SIGNING_SECRET && !pub) return true;
+
+  return false;
 }
 
 async function getJob(tag: string) {
@@ -117,7 +131,9 @@ export default async function IntakeView({
 
     const tagDec = decodeURIComponent(tag);
     const t = typeof sp.t === 'string' ? sp.t : Array.isArray(sp.t) ? sp.t[0] : undefined;
-    if (!verifyToken(tagDec, t)) {
+    const job = await getJob(tagDec);
+    const jobPublicToken = String((job as any)?.publicToken || (job as any)?.public_token || '').trim();
+    if (!verifyToken(tagDec, t, jobPublicToken)) {
       return (
         <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
           <h1 className="text-lg font-bold mb-2" style={{color:'#0b0f12'}}>Access denied</h1>
@@ -126,7 +142,6 @@ export default async function IntakeView({
       );
     }
 
-    const job = await getJob(tagDec);
 
     const processingPrice = suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
     const specialtyPrice =

@@ -1,10 +1,9 @@
-// app/scan/page.tsx — scan-only with aggressive flatten + canonization (overlay kept dumb)
+// app/scan/page.tsx — scan-only (Supabase via /api/v2/jobs)
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import ButcherOverlay from '@/app/components/ButcherOverlay';
 import { useScanner } from '@/lib/useScanner';
-import { progress, searchJobs } from '@/lib/api';
 
 type AnyRec = Record<string, any>;
 
@@ -22,7 +21,10 @@ export default function ScanPage() {
     focus();
     window.addEventListener('focus', focus);
     const id = setInterval(focus, 2000);
-    return () => { window.removeEventListener('focus', focus); clearInterval(id); };
+    return () => {
+      window.removeEventListener('focus', focus);
+      clearInterval(id);
+    };
   }, []);
 
   const isProcessingLike = (s: any) => String(s ?? '').toLowerCase().includes('processing');
@@ -31,183 +33,261 @@ export default function ScanPage() {
     return v.includes('finished') || v.includes('ready');
   };
 
-  // ===== Canon headers from your sheet =====
+  // ===== Canon headers (kept so overlay can stay dumb) =====
   const HEADERS = [
-    "Tag","Confirmation #","Customer","Phone","Email","Address","City","State","Zip",
-    "County Killed","Sex","Process Type","Drop-off Date","Status","Caping Status","Webbs Status",
-    "Steak","Steak Size (Other)","Burger Size","Steaks per Package","Beef Fat",
-    "Hind Roast Count","Front Roast Count","Backstrap Prep","Backstrap Thickness","Backstrap Thickness (Other)",
-    "Notes","Webbs Order","Webbs Order Form Number","Webbs Pounds","Price","Paid",
-    "Specialty Products","Specialty Pounds","Summer Sausage (lb)","Summer Sausage + Cheese (lb)","Sliced Jerky (lb)",
-    "Hind - Steak","Hind - Roast","Hind - Grind","Hind - None","Front - Steak","Front - Roast","Front - Grind","Front - None",
-    "Notified Ready At","Public Token","Public Link Sent At","Drop-off Email Sent At",
-    "Processing Price","Specialty Price",
-    "Paid Processing","Paid Processing At","Paid Specialty","Paid Specialty At",
-    "Picked Up - Processing","Picked Up - Processing At","Picked Up - Cape","Picked Up - Cape At","Picked Up - Webbs","Picked Up - Webbs At",
-    "Call Attempts","Last Called At","Last Called By","Last Call Outcome","Last Call At","Call Notes",
-    "Meat Attempts","Cape Attempts","Webbs Attempts","Requires Tag","Phone Last4"
+    'Tag',
+    'Confirmation #',
+    'Customer',
+    'Phone',
+    'Email',
+    'Address',
+    'City',
+    'State',
+    'Zip',
+    'County Killed',
+    'Sex',
+    'Process Type',
+    'Drop-off Date',
+    'Status',
+    'Caping Status',
+    'Webbs Status',
+    'Steak',
+    'Steak Size (Other)',
+    'Burger Size',
+    'Steaks per Package',
+    'Beef Fat',
+    'Hind Roast Count',
+    'Front Roast Count',
+    'Backstrap Prep',
+    'Backstrap Thickness',
+    'Backstrap Thickness (Other)',
+    'Notes',
+    'Webbs Order',
+    'Webbs Order Form Number',
+    'Webbs Pounds',
+    'Price',
+    'Paid',
+    'Specialty Products',
+    'Specialty Pounds',
+    'Summer Sausage (lb)',
+    'Summer Sausage + Cheese (lb)',
+    'Sliced Jerky (lb)',
+    'Hind - Steak',
+    'Hind - Roast',
+    'Hind - Grind',
+    'Hind - None',
+    'Front - Steak',
+    'Front - Roast',
+    'Front - Grind',
+    'Front - None',
+    'Notified Ready At',
+    'Public Token',
+    'Public Link Sent At',
+    'Drop-off Email Sent At',
+    'Processing Price',
+    'Specialty Price',
+    'Paid Processing',
+    'Paid Processing At',
+    'Paid Specialty',
+    'Paid Specialty At',
+    'Picked Up - Processing',
+    'Picked Up - Processing At',
+    'Picked Up - Cape',
+    'Picked Up - Cape At',
+    'Picked Up - Webbs',
+    'Picked Up - Webbs At',
+    'Call Attempts',
+    'Last Called At',
+    'Last Called By',
+    'Last Call Outcome',
+    'Last Call At',
+    'Call Notes',
+    'Meat Attempts',
+    'Cape Attempts',
+    'Webbs Attempts',
+    'Requires Tag',
+    'Phone Last4',
   ];
 
-  // === Key helpers: flatten anything → array of objects keyed by headers ===
-  const toKey = (s: string) => s?.toString()?.normalize('NFKC').toLowerCase().replace(/[^a-z]/g, '') || '';
-  const headerKeyIndex: Record<string,string> = (() => {
-    const m: Record<string,string> = {};
-    for (const h of HEADERS) m[toKey(h)] = h;
-    // common aliases
-    Object.assign(m, {
-      customer: 'Customer', customername: 'Customer', name: 'Customer', cust: 'Customer',
-      steaksize: 'Steak',
-      steaksperpkg: 'Steaks per Package', steaksperpackage: 'Steaks per Package',
-      burgersize: 'Burger Size',
-      backstrapprep: 'Backstrap Prep',
-      backstrapthickness: 'Backstrap Thickness',
-      backstrapthicknessother: 'Backstrap Thickness (Other)',
-      steaksizeother: 'Steak Size (Other)',
-      specialtypounds: 'Specialty Pounds',
-      webbsorder: 'Webbs Order',
-      webbsorderformnumber: 'Webbs Order Form Number',
-      webbspounds: 'Webbs Pounds',
-      hindsteak: 'Hind - Steak', hindroast: 'Hind - Roast', hindgrind: 'Hind - Grind', hindnone: 'Hind - None',
-      frontsteak: 'Front - Steak', frontroast: 'Front - Roast', frontgrind: 'Front - Grind', frontnone: 'Front - None',
-    });
-    return m;
-  })();
-
-  function fromArrays(headers: string[], rows: any[]): AnyRec[] {
-    return rows.map((arr: any[]) =>
-      Object.fromEntries(headers.map((h, i) => [h, arr?.[i] ?? '']))
-    );
-  }
-
-  function dictToCanon(d: AnyRec): AnyRec {
-    const out: AnyRec = {};
-    for (const [k, v] of Object.entries(d || {})) {
-      const canon = headerKeyIndex[toKey(k)];
-      if (canon) out[canon] = v;
-    }
-    // “Customer” guarantee from common variants
-    if (!('Customer' in out)) {
-      out['Customer'] =
-        d['Customer'] ?? d['Customer Name'] ?? d['CustomerName'] ?? d['customerName'] ??
-        d['customer_name'] ?? d['name'] ?? d['customer'] ?? '';
-    }
-    return out;
-  }
-
-  function flattenPayload(payload: any): AnyRec[] {
-    if (!payload) return [];
-    // direct objects
-    if (Array.isArray(payload) && payload.every(x => x && typeof x === 'object' && !Array.isArray(x))) {
-      return (payload as AnyRec[]).map(dictToCanon);
-    }
-    // { rows, headers? } or { items } shapes
-    if (payload.rows) {
-      const rows = payload.rows;
-      const headers: string[] = (payload.headers?.length ? payload.headers : HEADERS) as string[];
-      if (Array.isArray(rows) && rows.length) {
-        if (Array.isArray(rows[0])) return fromArrays(headers, rows).map(dictToCanon);
-        if (typeof rows[0] === 'object') return rows.map(dictToCanon);
-      }
-    }
-    if (payload.items && Array.isArray(payload.items)) {
-      const items = payload.items;
-      if (items.length && Array.isArray(items[0])) return fromArrays(HEADERS, items).map(dictToCanon);
-      return items.map(dictToCanon);
-    }
-    // { header,row } / { headers, values } / { values }
-    if (payload.header && payload.row) {
-      return fromArrays(payload.header, [payload.row]).map(dictToCanon);
-    }
-    if (payload.headers && payload.values) {
-      const values = Array.isArray(payload.values[0]) ? payload.values : [payload.values];
-      return fromArrays(payload.headers.length ? payload.headers : HEADERS, values).map(dictToCanon);
-    }
-    if (payload.values && Array.isArray(payload.values)) {
-      return fromArrays(HEADERS, payload.values).map(dictToCanon);
-    }
-    if (payload.data?.values && Array.isArray(payload.data.values)) {
-      return fromArrays(HEADERS, payload.data.values).map(dictToCanon);
-    }
-    // Google Sheets feed style gsx$customer, etc.
-    if (payload.entry && Array.isArray(payload.entry)) {
-      const rows: AnyRec[] = payload.entry.map((e: any) => {
-        const d: AnyRec = {};
-        Object.keys(e).forEach(k => {
-          if (k.startsWith('gsx$')) {
-            const label = k.slice(4); // after gsx$
-            d[label] = e[k]?.$t ?? '';
-          }
-        });
-        return dictToCanon(d);
-      });
-      return rows;
-    }
-    // array-of-arrays
-    if (Array.isArray(payload) && payload.length && Array.isArray(payload[0])) {
-      return fromArrays(HEADERS, payload).map(dictToCanon);
-    }
-    // single dict fallback
-    if (typeof payload === 'object') return [dictToCanon(payload)];
-    return [];
-  }
-
+  // === Toggle normalization (overlay expects booleans, not "x"/"TRUE"/etc) ===
   const truthy = (v: any) => {
     if (typeof v === 'boolean') return v;
     const s = String(v ?? '').trim().toLowerCase();
-    if (!s || ['0','false','no','off','none','n/a','na'].includes(s)) return false;
-    if (['true','yes','y','x','1','✓','✔','on'].includes(s)) return true;
-    const n = Number(s); return Number.isFinite(n) ? n > 0 : !!s;
+    if (!s || ['0', 'false', 'no', 'off', 'none', 'n/a', 'na'].includes(s)) return false;
+    if (['true', 'yes', 'y', 'x', '1', '✓', '✔', 'on'].includes(s)) return true;
+    const n = Number(s);
+    return Number.isFinite(n) ? n > 0 : !!s;
   };
+
   function normalizeToggles(o: AnyRec) {
-    const keys = ['Hind - Steak','Hind - Roast','Hind - Grind','Hind - None','Front - Steak','Front - Roast','Front - Grind','Front - None'];
+    const keys = [
+      'Hind - Steak',
+      'Hind - Roast',
+      'Hind - Grind',
+      'Hind - None',
+      'Front - Steak',
+      'Front - Roast',
+      'Front - Grind',
+      'Front - None',
+      'Beef Fat',
+      'Webbs Order',
+      'Specialty Products',
+      'Paid',
+      'Paid Processing',
+      'Paid Specialty',
+      'Picked Up - Processing',
+      'Picked Up - Cape',
+      'Picked Up - Webbs',
+      'Requires Tag',
+    ];
     for (const k of keys) if (k in o) o[k] = truthy(o[k]);
     return o;
   }
 
+  // ===== Supabase API (Next route) =====
+  const JOBS_API = '/api/v2/jobs';
+  const PUBLIC_TOKEN =
+    (process.env.NEXT_PUBLIC_DEER_API_TOKEN ||
+      process.env.NEXT_PUBLIC_API_TOKEN ||
+      '') as string;
+
+  async function jobsGET(params: Record<string, string>) {
+    const url = new URL(JOBS_API, window.location.origin);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+    const headers: Record<string, string> = {};
+    if (PUBLIC_TOKEN) headers['x-api-token'] = PUBLIC_TOKEN;
+
+    const r = await fetch(url.toString(), { method: 'GET', headers, cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || `GET ${params.action || ''} failed`);
+    return j;
+  }
+
+  async function jobsPOST(body: any) {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (PUBLIC_TOKEN) headers['x-api-token'] = PUBLIC_TOKEN;
+
+    const r = await fetch(JOBS_API, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || `POST ${body?.action || ''} failed`);
+    return j;
+  }
+
+  // ===== Map Supabase Job (camelCase) → overlay row (sheet-like headers) =====
+  function jobToCanon(job: AnyRec, tagFallback: string): AnyRec {
+    const j = job || {};
+    const out: AnyRec = {
+      Tag: j.tag ?? tagFallback,
+
+      'Confirmation #': j.confirmation ?? '',
+      Customer: j.customer ?? '',
+      Phone: j.phone ?? '',
+      Email: j.email ?? '',
+      Address: j.address ?? '',
+      City: j.city ?? '',
+      State: j.state ?? '',
+      Zip: j.zip ?? '',
+
+      'County Killed': j.county ?? '',
+      Sex: j.sex ?? '',
+      'Process Type': j.processType ?? '',
+      'Drop-off Date': j.dropoff ?? '',
+
+      Status: j.status ?? '',
+      'Caping Status': j.capingStatus ?? '',
+      'Webbs Status': j.webbsStatus ?? '',
+
+      Steak: j.steak ?? '',
+      'Steak Size (Other)': j.steakOther ?? '',
+      'Burger Size': j.burgerSize ?? '',
+      'Steaks per Package': j.steaksPerPackage ?? '',
+      'Beef Fat': j.beefFat ?? false,
+
+      'Hind Roast Count': j.hindRoastCount ?? '',
+      'Front Roast Count': j.frontRoastCount ?? '',
+
+      'Backstrap Prep': j.backstrapPrep ?? '',
+      'Backstrap Thickness': j.backstrapThickness ?? '',
+      'Backstrap Thickness (Other)': j.backstrapThicknessOther ?? '',
+
+      Notes: j.notes ?? '',
+
+      'Webbs Order': j.webbsOrder ?? false,
+      'Webbs Order Form Number': j.webbsOrderFormNumber ?? '',
+      'Webbs Pounds': j.webbsPounds ?? '',
+
+      'Processing Price': j.priceProcessing ?? '',
+      'Specialty Price': j.priceSpecialty ?? '',
+      Price: j.price ?? '',
+
+      Paid: j.paid ?? false,
+      'Paid Processing': j.paidProcessing ?? false,
+      'Paid Processing At': j.paidProcessingAt ?? '',
+      'Paid Specialty': j.paidSpecialty ?? false,
+      'Paid Specialty At': j.paidSpecialtyAt ?? '',
+
+      'Specialty Products': j.specialtyProducts ?? false,
+      'Specialty Pounds': j.specialtyPounds ?? '',
+      'Summer Sausage (lb)': j.summerSausageLbs ?? '',
+      'Summer Sausage + Cheese (lb)': j.summerSausageCheeseLbs ?? '',
+      'Sliced Jerky (lb)': j.slicedJerkyLbs ?? '',
+
+      'Public Token': j.publicToken ?? '',
+      'Public Link Sent At': j.publicLinkSentAt ?? '',
+      'Drop-off Email Sent At': j.dropoffEmailSentAt ?? '',
+
+      'Picked Up - Processing': j.pickedUpProcessing ?? false,
+      'Picked Up - Processing At': j.pickedUpProcessingAt ?? '',
+      'Picked Up - Cape': j.pickedUpCape ?? false,
+      'Picked Up - Cape At': j.pickedUpCapeAt ?? '',
+      'Picked Up - Webbs': j.pickedUpWebbs ?? false,
+      'Picked Up - Webbs At': j.pickedUpWebbsAt ?? '',
+
+      'Call Attempts': j.callAttempts ?? 0,
+      'Meat Attempts': j.meatAttempts ?? 0,
+      'Cape Attempts': j.capeAttempts ?? 0,
+      'Webbs Attempts': j.webbsAttempts ?? 0,
+
+      'Last Called At': j.lastCallAt ?? '',
+      'Last Called By': j.lastCalledBy ?? '',
+      'Last Call Outcome': j.lastCallOutcome ?? '',
+      'Last Call At': j.lastCallAt ?? '',
+      'Call Notes': j.callNotes ?? '',
+
+      'Requires Tag': j.requiresTag ?? false,
+    };
+
+    // Hind/front toggles
+    out['Hind - Steak'] = j.hind?.['Hind - Steak'] ?? false;
+    out['Hind - Roast'] = j.hind?.['Hind - Roast'] ?? false;
+    out['Hind - Grind'] = j.hind?.['Hind - Grind'] ?? false;
+    out['Hind - None'] = j.hind?.['Hind - None'] ?? false;
+
+    out['Front - Steak'] = j.front?.['Front - Steak'] ?? false;
+    out['Front - Roast'] = j.front?.['Front - Roast'] ?? false;
+    out['Front - Grind'] = j.front?.['Front - Grind'] ?? false;
+    out['Front - None'] = j.front?.['Front - None'] ?? false;
+
+    // Guarantee all known headers exist (keeps overlay tolerant)
+    for (const h of HEADERS) if (!(h in out)) out[h] = '';
+    return out;
+  }
+
   async function fetchFullRow(tag: string): Promise<AnyRec> {
     const t = String(tag).trim();
-
-    // 1) action=job (if your route supports it)
     try {
-      const r = await fetch('/api/gas2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'job', tag: t }),
-        cache: 'no-store',
-      });
-      if (r.ok) {
-        const j = await r.json();
-        const rows = flattenPayload(j?.job ?? j);
-        const row = rows.find(r => String(r?.Tag ?? r?.tag).trim() === t) || rows[0] || null;
-        if (row) return normalizeToggles({ Tag: t, ...row });
-      }
-    } catch {}
-
-    // 2) action=get (your older full-row shape)
-    try {
-      const r = await fetch('/api/gas2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'get', tag: t }),
-        cache: 'no-store',
-      });
-      if (r.ok) {
-        const j = await r.json();
-        const rows = flattenPayload(j?.job ?? j);
-        const row = rows.find(r => String(r?.Tag ?? r?.tag).trim() === t) || rows[0] || null;
-        if (row) return normalizeToggles({ Tag: t, ...row });
-      }
-    } catch {}
-
-    // 3) last resort: action=search (summary)
-    try {
-      const res: any = await searchJobs(t);
-      const rows = flattenPayload(res);
-      const row = rows.find(r => String(r?.Tag ?? r?.tag).trim() === t) || rows[0] || null;
-      if (row) return normalizeToggles({ Tag: t, ...row });
-    } catch {}
-
-    return { Tag: t };
+      const res: any = await jobsGET({ action: 'get', tag: t });
+      const job = res?.job;
+      if (job) return normalizeToggles(jobToCanon(job, t));
+      return { Tag: t };
+    } catch {
+      return { Tag: t };
+    }
   }
 
   async function handleScan(code: string) {
@@ -216,42 +296,63 @@ export default function ScanPage() {
     setLastTag(tag);
 
     let next = '';
+    let progressedJob: AnyRec | null = null;
+
     try {
-      const res: any = await progress(tag);
-      next = String(res?.nextStatus || '').trim();
+      const res: any = await jobsPOST({ action: 'progress', tag });
+      next = String(res?.nextStatus || res?.next || '').trim();
+      progressedJob = res?.job ?? null; // progressJob may return updated job
     } catch {
       setStatus({ kind: 'err', text: `Tag ${tag}: progress failed.` });
       return;
     }
 
+    const overlayFromProgress = progressedJob ? normalizeToggles(jobToCanon(progressedJob, tag)) : null;
+
     if (isProcessingLike(next)) {
       setStatus({ kind: 'ok', text: `Tag ${tag}: Dropped Off → Processing.` });
       setOverlayOn(true);
-      const job = await fetchFullRow(tag);
+
+      const job = overlayFromProgress ?? (await fetchFullRow(tag));
       setOverlayJob(job);
-      try { new BroadcastChannel('butcher').postMessage({ type: 'SHOW', job }); } catch {}
-    } else if (isFinishedLike(next)) {
+
+      try {
+        new BroadcastChannel('butcher').postMessage({ type: 'SHOW', job });
+      } catch {}
+      return;
+    }
+
+    if (isFinishedLike(next)) {
       setStatus({ kind: 'ok', text: `Tag ${tag}: Processing → Finished/Ready.` });
       setOverlayOn(false);
       setOverlayJob(null);
-    } else {
-      const job = await fetchFullRow(tag);
-      const sheetStatus = String(job?.['Status'] ?? job?.status ?? '').trim();
-      if (isProcessingLike(sheetStatus)) {
-        setStatus({ kind: 'ok', text: `Tag ${tag}: moved to Processing.` });
-        setOverlayOn(true);
-        setOverlayJob(job);
-      } else if (isFinishedLike(sheetStatus)) {
-        setStatus({ kind: 'ok', text: `Tag ${tag}: moved to Finished/Ready.` });
-        setOverlayOn(false);
-        setOverlayJob(null);
-      } else {
-        setStatus({ kind: 'err', text: `Tag ${tag}: unexpected transition (${next || 'unknown'}).` });
-      }
+      return;
     }
+
+    // If progress returns something odd, trust the actual job status from DB
+    const job = overlayFromProgress ?? (await fetchFullRow(tag));
+    const liveStatus = String(job?.['Status'] ?? job?.status ?? '').trim();
+
+    if (isProcessingLike(liveStatus)) {
+      setStatus({ kind: 'ok', text: `Tag ${tag}: moved to Processing.` });
+      setOverlayOn(true);
+      setOverlayJob(job);
+      return;
+    }
+
+    if (isFinishedLike(liveStatus)) {
+      setStatus({ kind: 'ok', text: `Tag ${tag}: moved to Finished/Ready.` });
+      setOverlayOn(false);
+      setOverlayJob(null);
+      return;
+    }
+
+    setStatus({ kind: 'err', text: `Tag ${tag}: unexpected transition (${next || 'unknown'}).` });
   }
 
-  useScanner((code) => { void handleScan(code); }, { resetMs: 150 });
+  useScanner((code) => {
+    void handleScan(code);
+  }, { resetMs: 150 });
 
   return (
     <main style={{ maxWidth: 880, margin: '0 auto', padding: '24px 16px' }}>
@@ -283,7 +384,7 @@ export default function ScanPage() {
           backdropFilter: 'blur(6px)',
         }}
       >
-        <div style={{ fontSize: 16, opacity: .9 }}>Ready to scan</div>
+        <div style={{ fontSize: 16, opacity: 0.9 }}>Ready to scan</div>
         <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last: ${lastTag}` : 'Awaiting tag…'}</div>
       </div>
 
