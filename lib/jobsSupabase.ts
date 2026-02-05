@@ -47,6 +47,12 @@ function buildIntakeEmail(opts: { name: string; tag: string; link: string }) {
   };
 }
 
+/** Only send customer-facing emails once we have a real tag (prevents overnight/no-tag duplicates). */
+function hasRealTag(row: any) {
+  const t = String(row?.tag ?? '').trim();
+  return !!t;
+}
+
 function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number }) {
   const name = opts.name || 'there';
   const paid = !!opts.paidProcessing;
@@ -642,6 +648,10 @@ Object.keys(upsertPayload).forEach((k) => {
 // Drop-off email: send on intake save if pref_email=true and not stamped.
 try {
   if (data) {
+    // Never send intake email for an overnight/no-tag record.
+    if (!hasRealTag(data) || (data as any).requires_tag) {
+      // skip
+    } else {
     const wantsEmail = !!(data as any).pref_email;
     const email = String((data as any).email || '').trim();
     const alreadyStamped = !!(data as any).dropoff_email_sent_at;
@@ -674,6 +684,7 @@ try {
         });
       }
     }
+    }
   }
 } catch (e) {
   console.error('Intake email failed (non-fatal)', e);
@@ -681,7 +692,7 @@ try {
 
 // Finished email: if status is Finished/Ready-ish and not stamped (covers manual status changes + scan workflow)
 try {
-  if (data && statusIsFinishedLike((data as any).status)) {
+  if (data && hasRealTag(data) && !(data as any).requires_tag && statusIsFinishedLike((data as any).status)) {
     const wantsEmail = !!(data as any).pref_email;
     const email = String((data as any).email || '').trim();
     const alreadyStamped = !!(data as any).finished_email_sent_at;
@@ -1086,6 +1097,47 @@ export async function setJobTag(params: {
   }
 
   const mapped = updated ? mapDbRowToJob(updated) : null;
+
+  // If we just assigned a real tag to an overnight/no-tag record, try to send the intake email now.
+  // This keeps the rule: intake email sends at most once, and only after a real tag exists.
+  if (updated && !stampDropEmail) {
+    try {
+      const wantsEmail = !!(updated as any).pref_email;
+      const email = String((updated as any).email || '').trim();
+      const alreadyStamped = !!(updated as any).dropoff_email_sent_at;
+
+      if (hasRealTag(updated) && !(updated as any).requires_tag && wantsEmail && email && !alreadyStamped) {
+        const token = String((updated as any).public_token || '').trim() || makePublicToken();
+
+        const { data: locked } = await supabaseServer
+          .from('jobs')
+          .update({ dropoff_email_sent_at: nowIso(), public_token: token })
+          .eq('id', (updated as any).id)
+          .is('dropoff_email_sent_at', null)
+          .select('tag, email, customer_name, public_token')
+          .maybeSingle();
+
+        if (locked) {
+          const link = intakeFormLink(String((locked as any).tag), String((locked as any).public_token));
+          const tpl = buildIntakeEmail({
+            name: String((locked as any).customer_name || ''),
+            tag: String((locked as any).tag || ''),
+            link,
+          });
+
+          await sendEmail({
+            to: String((locked as any).email),
+            subject: tpl.subject,
+            html: tpl.html,
+            text: tpl.text,
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Intake email after setTag failed (non-fatal)', e);
+    }
+  }
+
   return {
     ok: true,
     jobId,
