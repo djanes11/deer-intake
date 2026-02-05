@@ -310,7 +310,7 @@ function IntakePage() {
     if (!zipDirty && (job.city || job.state)) {
       const z = lookupUniqueZipByCity(job.state, job.city);
       if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
-        setJob((p) => ({ ...p, zip: z })));
+        setJob((p) => ({ ...p, zip: z }));
       }
     }
   }, [job.city, job.state, zipDirty]);
