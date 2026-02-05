@@ -196,7 +196,7 @@ function stampLine(prefix: string, notes: string) {
 
 // Map DB row → Job (what your frontend expects)
 function mapDbRowToJob(row: any): Job {
-  return {
+  const j: any = {
     id: row.id,
     row: undefined, // only used for Sheets, not Supabase
 
@@ -309,7 +309,12 @@ function mapDbRowToJob(row: any): Job {
     // Misc
     howKilled: row.how_killed,
   };
+  // Price overrides (stored separately from computed prices)
+  j.processing_price_override = row.processing_price_override ?? null;
+  j.specialty_price_override = row.specialty_price_override ?? null;
+  return j as Job;
 }
+
 
 function mapDbRowToSearchRow(row: any): JobSearchRow {
   return {
@@ -521,10 +526,28 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
 
 /* ---------------- save ---------------- */
 
+
+function calcSpecialtyPriceFromLbs(job: Partial<Job>): number {
+  // Matches the staff intake page preview pricing:
+  // Summer sausage: $4.25/lb, SS+Cheddar: $4.60/lb, Jerky: $4.60/lb
+  const ss = Number(numOrZero((job as any).summerSausageLbs ?? (job as any).summer_sausage_lbs));
+  const ssc = Number(numOrZero((job as any).summerSausageCheeseLbs ?? (job as any).summer_sausage_cheese_lbs));
+  const jer = Number(numOrZero((job as any).slicedJerkyLbs ?? (job as any).sliced_jerky_lbs));
+  return ss * 4.25 + ssc * 4.60 + jer * 4.60;
+}
+
 export async function saveJob(job: Partial<Job>) {
   const supabaseServer = getSupabaseServer();
 
   const computedProcessingPrice = calcProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder);
+  const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(job);
+
+  const processingOverride = numOrNull((job as any).processing_price_override ?? (job as any).processingPriceOverride);
+  const specialtyOverride  = numOrNull((job as any).specialty_price_override  ?? (job as any).specialtyPriceOverride);
+
+  const usedProcessingPrice = processingOverride ?? (numOrNull(job.priceProcessing) ?? computedProcessingPrice);
+  const usedSpecialtyPrice  = specialtyOverride  ?? (numOrNull(job.priceSpecialty) ?? computedSpecialtyPrice);
+  const usedTotalPrice      = numOrNull(job.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
 
   const upsertPayload: any = {
     tag: job.tag ?? null,
@@ -582,9 +605,12 @@ export async function saveJob(job: Partial<Job>) {
     webbs_order_form_number: job.webbsOrderFormNumber ?? null,
     webbs_pounds: numOrZero(job.webbsPounds),
 
-    price_processing: (numOrNull(job.priceProcessing) ?? computedProcessingPrice),
-    price_specialty: numOrZero(job.priceSpecialty),
-    price_total: numOrZero(job.price),
+    processing_price_override: processingOverride,
+    specialty_price_override: specialtyOverride,
+
+    price_processing: usedProcessingPrice,
+    price_specialty: usedSpecialtyPrice,
+    price_total: usedTotalPrice,
 
     paid: job.paid ?? false,
     paid_processing: job.paidProcessing ?? false,
