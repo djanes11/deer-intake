@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { saveJob, getJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
-
+import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +35,7 @@ type Job = {
 
   county?: string;
   dropoff?: string; // yyyy-mm-dd
-  sex?: '' | 'Buck' | 'Doe'| 'Antlerless';
+  sex?: '' | 'Buck' | 'Doe' | 'Antlerless';
   processType?:
     | ''
     | 'Standard Processing'
@@ -45,11 +45,10 @@ type Job = {
     | 'Cape & Donate'
     | 'Donate';
 
-  status?: string;            // regular status
-  capingStatus?: string;      // only shown if Caped / Cape & Donate
-  webbsStatus?: string;       // only shown if Webbs (and not Donate)
+  status?: string; // regular status
+  capingStatus?: string; // only shown if Caped / Cape & Donate
+  webbsStatus?: string; // only shown if Webbs (and not Donate)
 
-  // NEW: specialty status (mirrors cape-style flow)
   specialtyStatus?: '' | 'Dropped Off' | 'In Progress' | 'Finished' | 'Called' | 'Picked Up';
 
   steak?: string;
@@ -78,27 +77,23 @@ type Job = {
 
   howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';
 
-
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
 
   price?: number | string; // optional override
 
-  // legacy + new paid flags
   Paid?: boolean;
   paid?: boolean;
-  paidProcessing?: boolean;  // NEW
-  paidSpecialty?: boolean;   // NEW
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
 
-  // NEW: communication prefs + consents
   prefEmail?: boolean;
   prefSMS?: boolean;
   prefCall?: boolean;
   smsConsent?: boolean;
   autoCallConsent?: boolean;
 };
-
 
 const todayISO = () => {
   const d = new Date();
@@ -122,7 +117,7 @@ const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean
   const base =
     p === 'Caped' ? 150 :
     p === 'Cape & Donate' ? 20 :
-    ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
+    ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
     p === 'Donate' ? 0 : 0;
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
@@ -136,7 +131,7 @@ const toInt = (val: any) => {
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true','yes','y','1','on','paid','x','✓','✔'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
 };
 
 type AnyRec = Record<string, any>;
@@ -151,22 +146,18 @@ const fullPaid = (j: Job): boolean => {
   return proc && spec;
 };
 
-const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
-const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
+const STATUS_MAIN = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
+const STATUS_CAPE = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
 const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up'] as const;
-// NEW: Specialty flow like requested
 const STATUS_SPECIALTY = ['Dropped Off', 'In Progress', 'Finished', 'Called', 'Picked Up'] as const;
 
-// replace your current coerce with this typed version
-const coerce = <T extends readonly string[]>(
-  v: string | undefined,
-  list: T
-): T[number] => (list.includes(String(v)) ? String(v) : list[0]) as T[number];
+const coerce = <T extends readonly string[]>(v: string | undefined, list: T): T[number] =>
+  (list.includes(String(v)) ? String(v) : list[0]) as T[number];
 
 /* ===== Suspense wrapper ===== */
 export default function Page() {
   return (
-    <Suspense fallback={<div className="form-card"><div style={{padding:16}}>Loading…</div></div>}>
+    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>Loading…</div></div>}>
       <IntakePage />
     </Suspense>
   );
@@ -175,8 +166,6 @@ export default function Page() {
 function IntakePage() {
   const sp = useSearchParams();
   const tagFromUrl = sp.get('tag') ?? '';
-
-
 
   const [job, setJob] = useState<Job>({
     tag: tagFromUrl || '',
@@ -208,10 +197,8 @@ function IntakePage() {
 
     specialtyProducts: false,
 
-    howKilled: '',            // <-- NEW
+    howKilled: '',
 
-
-    // NEW: defaults for comms/consent
     prefEmail: true,
     prefSMS: false,
     prefCall: false,
@@ -221,20 +208,46 @@ function IntakePage() {
 
   const [zipDirty, setZipDirty] = useState(false);
 
-useEffect(() => {
-  if (!zipDirty && (job.city || job.state)) {
-    const z = lookupUniqueZipByCity(job.state, job.city);
-    if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
-      setJob(p => ({ ...p, zip: z }));
+  useEffect(() => {
+    if (!zipDirty && (job.city || job.state)) {
+      const z = lookupUniqueZipByCity(job.state, job.city);
+      if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
+        setJob((p) => ({ ...p, zip: z }));
+      }
     }
-  }
-}, [job.city, job.state, zipDirty]);
+  }, [job.city, job.state, zipDirty]);
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
-  const tagRef = useRef<HTMLInputElement|null>(null);
+  const tagRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => { tagRef.current?.focus(); }, []);
+  // ---- UNSAVED CHANGES GUARD ----
+  const [lastSavedJson, setLastSavedJson] = useState<string>('');
+  const currentJson = useMemo(() => JSON.stringify(job), [job]);
+  const dirty = useMemo(() => {
+    if (!lastSavedJson) return false; // no baseline yet
+    return currentJson !== lastSavedJson;
+  }, [currentJson, lastSavedJson]);
+
+  useUnsavedChanges({
+    when: dirty && !busy,
+    message: 'You have NOT saved this intake. Leave without saving?',
+  });
+
+  useEffect(() => {
+    tagRef.current?.focus();
+  }, []);
+
+  // Establish baseline for a brand new job (or when tag query changes)
+  useEffect(() => {
+    // only reset baseline if we are not currently loaded with an existing job
+    // (load effect below will set baseline again when it finishes)
+    setLastSavedJson(JSON.stringify({
+      ...job,
+      tag: tagFromUrl || job.tag || '',
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagFromUrl]);
 
   // Load existing job by tag (if present)
   useEffect(() => {
@@ -244,72 +257,105 @@ useEffect(() => {
         const res = await getJob(tagFromUrl);
         if (res?.exists && res.job) {
           const j: any = res.job;
-          setJob((prev) => {
-            const pnorm = normProc(j.processType);
-            const next: Job = {
-              ...prev,
-              ...j,
-              tag: j.tag || tagFromUrl,
-              dropoff: j.dropoff || todayISO(),
 
-              status:
-                pnorm === 'Cape & Donate' || pnorm === 'Donate'
-                  ? ''
-                  : coerce(j.status || prev.status || 'Dropped Off', STATUS_MAIN),
+          const base: Job = {
+            tag: tagFromUrl || '',
+            dropoff: todayISO(),
+            status: 'Dropped Off',
+            capingStatus: '',
+            webbsStatus: '',
+            specialtyStatus: '',
+            hind: {
+              'Hind - Steak': false,
+              'Hind - Roast': false,
+              'Hind - Grind': false,
+              'Hind - None': false,
+            },
+            front: {
+              'Front - Steak': false,
+              'Front - Roast': false,
+              'Front - Grind': false,
+              'Front - None': false,
+            },
+            beefFat: false,
+            webbsOrder: false,
+            Paid: false,
+            paid: false,
+            paidProcessing: false,
+            paidSpecialty: false,
+            specialtyProducts: false,
+            howKilled: '',
+            prefEmail: true,
+            prefSMS: false,
+            prefCall: false,
+            smsConsent: false,
+            autoCallConsent: false,
+          };
 
-              capingStatus:
-                (pnorm === 'Caped' || pnorm === 'Cape & Donate')
-                  ? coerce(j.capingStatus || 'Dropped Off', STATUS_CAPE)
-                  : '',
+          const pnorm = normProc(j.processType);
+          const next: Job = {
+            ...base,
+            ...j,
+            tag: j.tag || tagFromUrl,
+            dropoff: j.dropoff || todayISO(),
 
-              webbsStatus:
-                (asBool(j.webbsOrder) && pnorm !== 'Donate')
-                  ? coerce(j.webbsStatus || 'Dropped Off', STATUS_WEBBS)
-                  : '',
+            status:
+              pnorm === 'Cape & Donate' || pnorm === 'Donate'
+                ? ''
+                : coerce(j.status || base.status || 'Dropped Off', STATUS_MAIN),
 
-              // NEW: specialty status (if specialtyProducts)
-              specialtyStatus: asBool(j.specialtyProducts)
-                ? coerce(j.specialtyStatus || 'Dropped Off', STATUS_SPECIALTY)
+            capingStatus:
+              (pnorm === 'Caped' || pnorm === 'Cape & Donate')
+                ? coerce(j.capingStatus || 'Dropped Off', STATUS_CAPE)
                 : '',
 
-              hind: {
-                'Hind - Steak': pickCut(j?.hind, 'Hind - Steak'),
-                'Hind - Roast': pickCut(j?.hind, 'Hind - Roast'),
-                'Hind - Grind': pickCut(j?.hind, 'Hind - Grind'),
-                'Hind - None' : pickCut(j?.hind, 'Hind - None'),
-              },
-              front: {
-                'Front - Steak': pickCut(j?.front, 'Front - Steak'),
-                'Front - Roast': pickCut(j?.front, 'Front - Roast'),
-                'Front - Grind': pickCut(j?.front, 'Front - Grind'),
-                'Front - None' : pickCut(j?.front, 'Front - None'),
-              },
+            webbsStatus:
+              (asBool(j.webbsOrder) && pnorm !== 'Donate')
+                ? coerce(j.webbsStatus || 'Dropped Off', STATUS_WEBBS)
+                : '',
 
-              confirmation:
-                j.confirmation ??
-                j['Confirmation #'] ??
-                j['Confirmation'] ??
-                prev.confirmation ??
-                '',
+            specialtyStatus: asBool(j.specialtyProducts)
+              ? coerce(j.specialtyStatus || 'Dropped Off', STATUS_SPECIALTY)
+              : '',
 
-              paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
-              paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
-              specialtyProducts: asBool(j.specialtyProducts),
+            hind: {
+              'Hind - Steak': pickCut(j?.hind, 'Hind - Steak'),
+              'Hind - Roast': pickCut(j?.hind, 'Hind - Roast'),
+              'Hind - Grind': pickCut(j?.hind, 'Hind - Grind'),
+              'Hind - None': pickCut(j?.hind, 'Hind - None'),
+            },
+            front: {
+              'Front - Steak': pickCut(j?.front, 'Front - Steak'),
+              'Front - Roast': pickCut(j?.front, 'Front - Roast'),
+              'Front - Grind': pickCut(j?.front, 'Front - Grind'),
+              'Front - None': pickCut(j?.front, 'Front - None'),
+            },
 
-  		howKilled: j.howKilled || j['How Killed'] || '',  // NEW
+            confirmation:
+              j.confirmation ??
+              j['Confirmation #'] ??
+              j['Confirmation'] ??
+              '',
 
-              // NEW: load prefs + consents
-              prefEmail:  asBool(j.prefEmail),
-              prefSMS:    asBool(j.prefSMS),
-              prefCall:   asBool(j.prefCall),
-              smsConsent: asBool(j.smsConsent),
-              autoCallConsent: asBool(j.autoCallConsent),
-            };
-            const fp = fullPaid(next);
-            next.Paid = !!(j.Paid ?? j.paid ?? fp);
-            next.paid = !!(j.Paid ?? j.paid ?? fp);
-            return next;
-          });
+            paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+            paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
+            specialtyProducts: asBool(j.specialtyProducts),
+
+            howKilled: j.howKilled || j['How Killed'] || '',
+
+            prefEmail: asBool(j.prefEmail),
+            prefSMS: asBool(j.prefSMS),
+            prefCall: asBool(j.prefCall),
+            smsConsent: asBool(j.smsConsent),
+            autoCallConsent: asBool(j.autoCallConsent),
+          };
+
+          const fp = fullPaid(next);
+          next.Paid = !!(j.Paid ?? j.paid ?? fp);
+          next.paid = !!(j.Paid ?? j.paid ?? fp);
+
+          setJob(next);
+          setLastSavedJson(JSON.stringify(next)); // baseline after load
         }
       } catch (e: any) {
         setMsg(`Load failed: ${e?.message || e}`);
@@ -321,13 +367,15 @@ useEffect(() => {
     () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
     [job.processType, job.beefFat, job.webbsOrder]
   );
+
   const specialtyPrice = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    const ss  = toInt(job.summerSausageLbs);
+    const ss = toInt(job.summerSausageLbs);
     const ssc = toInt(job.summerSausageCheeseLbs);
     const jer = toInt(job.slicedJerkyLbs);
     return ss * 4.25 + ssc * 4.60 + jer * 4.60;
   }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
+
   const totalPrice = processingPrice + specialtyPrice;
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
@@ -339,9 +387,9 @@ useEffect(() => {
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
 
-  const showMainStatus      = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
-  const showCapingStatus    = capingFlow;
-  const showWebbsStatus     = webbsOn && procNorm !== 'Donate';
+  const showMainStatus = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
+  const showCapingStatus = capingFlow;
+  const showWebbsStatus = webbsOn && procNorm !== 'Donate';
   const showSpecialtyStatus = !!job.specialtyProducts;
 
   useEffect(() => {
@@ -377,7 +425,6 @@ useEffect(() => {
   useEffect(() => {
     setJob((prev) => {
       if (!asBool(prev.specialtyProducts)) {
-        // Turn off specialty paid + status if they uncheck the section
         const next: Job = { ...prev, paidSpecialty: false, specialtyStatus: '' };
         const fp = fullPaid(next);
         return { ...next, Paid: fp, paid: fp };
@@ -404,12 +451,12 @@ useEffect(() => {
     return missing;
   };
 
-  const onSave = async () => {
+  const onSave = async (): Promise<boolean> => {
     setMsg('');
     const missing = validate();
     if (missing.length) {
       setMsg(`Missing or invalid: ${missing.join(', ')}`);
-      return;
+      return false;
     }
 
     const pnorm = normProc(job.processType);
@@ -431,7 +478,6 @@ useEffect(() => {
           ? coerce(job.webbsStatus, STATUS_WEBBS)
           : '',
 
-      // keep specialty status only if section is on
       specialtyStatus: job.specialtyProducts
         ? coerce(job.specialtyStatus, STATUS_SPECIALTY)
         : '',
@@ -439,8 +485,8 @@ useEffect(() => {
       Paid: fullPaid(job),
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
-      paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
-  howKilled: job.howKilled || '', // NEW
+      paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
+      howKilled: job.howKilled || '',
 
       summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
@@ -452,9 +498,12 @@ useEffect(() => {
       const res = await saveJob(payload);
       if (!res?.ok) {
         setMsg(res?.error || 'Save failed');
-        return;
+        return false;
       }
+
       setMsg('Saved ✓');
+      setLastSavedJson(JSON.stringify(payload)); // baseline immediately (so leaving won't warn)
+
       if (job.tag) {
         const fresh = await getJob(job.tag);
         if (fresh?.exists && fresh.job) {
@@ -466,12 +515,11 @@ useEffect(() => {
               confirmation:
                 j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? p.confirmation ?? '',
               paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
-              paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
+              paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
 
-              // ensure prefs/consents reflect sheet
-              prefEmail:  asBool(j.prefEmail),
-              prefSMS:    asBool(j.prefSMS),
-              prefCall:   asBool(j.prefCall),
+              prefEmail: asBool(j.prefEmail),
+              prefSMS: asBool(j.prefSMS),
+              prefCall: asBool(j.prefCall),
               smsConsent: asBool(j.smsConsent),
               autoCallConsent: asBool(j.autoCallConsent),
             };
@@ -480,18 +528,23 @@ useEffect(() => {
             merged.paid = !!(j.Paid ?? j.paid ?? fp);
             return merged;
           });
+
+          // Update baseline to match the merged state from backend
+          setLastSavedJson(JSON.stringify(fresh.job));
         }
       }
+
+      return true;
     } catch (e: any) {
       setMsg(e?.message || String(e));
+      return false;
     } finally {
       setBusy(false);
       setTimeout(() => setMsg(''), 1500);
     }
   };
 
-  const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
-    setJob((p) => ({ ...p, [k]: v }));
+  const setVal = <K extends keyof Job>(k: K, v: Job[K]) => setJob((p) => ({ ...p, [k]: v }));
 
   const setHind = (k: keyof Required<CutsBlock>) =>
     setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
@@ -514,19 +567,19 @@ useEffect(() => {
                 onChange={(e) => setVal('tag', e.target.value)}
                 placeholder="e.g. 1234"
               />
-              <div className="muted" style={{fontSize:12}}>Deer Tag</div>
+              <div className="muted" style={{ fontSize: 12 }}>Deer Tag</div>
             </div>
 
             <div className="col price">
               <label>Processing Price</label>
               <div className="money">{processingPrice.toFixed(2)}</div>
-              <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
+              <div className="muted" style={{ fontSize: 12 }}>Proc. type + beef fat + Webbs fee</div>
             </div>
 
             <div className="col price">
               <label>Specialty Price</label>
               <div className="money">{specialtyPrice.toFixed(2)}</div>
-              <div className="muted" style={{fontSize:12}}>Based On Summer Sausage lbs</div>
+              <div className="muted" style={{ fontSize: 12 }}>Based On Summer Sausage lbs</div>
             </div>
           </div>
 
@@ -543,7 +596,9 @@ useEffect(() => {
                   value={coerce(job.status, STATUS_MAIN)}
                   onChange={(e) => setVal('status', e.target.value)}
                 >
-                  {STATUS_MAIN.map(s => <option key={s} value={s}>{s}</option>)}
+                  {STATUS_MAIN.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </div>
             )}
@@ -555,7 +610,9 @@ useEffect(() => {
                   value={coerce(job.capingStatus, STATUS_CAPE)}
                   onChange={(e) => setVal('capingStatus', e.target.value)}
                 >
-                  {STATUS_CAPE.map(s => <option key={s} value={s}>{s}</option>)}
+                  {STATUS_CAPE.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </div>
             )}
@@ -567,7 +624,9 @@ useEffect(() => {
                   value={coerce(job.webbsStatus, STATUS_WEBBS)}
                   onChange={(e) => setVal('webbsStatus', e.target.value)}
                 >
-                  {STATUS_WEBBS.map(s => <option key={s} value={s}>{s}</option>)}
+                  {STATUS_WEBBS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </div>
             )}
@@ -579,7 +638,9 @@ useEffect(() => {
                   value={coerce(job.specialtyStatus, STATUS_SPECIALTY)}
                   onChange={(e) => setVal('specialtyStatus', e.target.value as Job['specialtyStatus'])}
                 >
-                  {STATUS_SPECIALTY.map(s => <option key={s} value={s}>{s}</option>)}
+                  {STATUS_SPECIALTY.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </div>
             )}
@@ -687,154 +748,154 @@ useEffect(() => {
                 onChange={(e) => setVal('address', e.target.value)}
               />
             </div>
-<div className="c4">
-  <label>City</label>
-  <input
-    value={job.city || ''}
-    onChange={(e) => { setZipDirty(false); setVal('city', e.target.value); }}
-  />
-</div>
-<div className="c4">
-  <label>State</label>
-  <select
-    value={job.state || ''}
-    onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}
-  >
-  <option value="">—</option>
-  <option value="IN">IN</option>
-  <option value="KY">KY</option>
-  <option value="--">--</option>
-  <option value="AL">AL</option>
-  <option value="AK">AK</option>
-  <option value="AZ">AZ</option>
-  <option value="AR">AR</option>
-  <option value="CA">CA</option>
-  <option value="CO">CO</option>
-  <option value="CT">CT</option>
-  <option value="DE">DE</option>
-  <option value="FL">FL</option>
-  <option value="GA">GA</option>
-  <option value="HI">HI</option>
-  <option value="ID">ID</option>
-  <option value="IL">IL</option>
-  <option value="IA">IA</option>
-  <option value="KS">KS</option>
-  <option value="LA">LA</option>
-  <option value="ME">ME</option>
-  <option value="MD">MD</option>
-  <option value="MA">MA</option>
-  <option value="MI">MI</option>
-  <option value="MN">MN</option>
-  <option value="MS">MS</option>
-  <option value="MO">MO</option>
-  <option value="MT">MT</option>
-  <option value="NE">NE</option>
-  <option value="NV">NV</option>
-  <option value="NH">NH</option>
-  <option value="NJ">NJ</option>
-  <option value="NM">NM</option>
-  <option value="NY">NY</option>
-  <option value="NC">NC</option>
-  <option value="ND">ND</option>
-  <option value="OH">OH</option>
-  <option value="OK">OK</option>
-  <option value="OR">OR</option>
-  <option value="PA">PA</option>
-  <option value="RI">RI</option>
-  <option value="SC">SC</option>
-  <option value="SD">SD</option>
-  <option value="TN">TN</option>
-  <option value="TX">TX</option>
-  <option value="UT">UT</option>
-  <option value="VT">VT</option>
-  <option value="VA">VA</option>
-  <option value="WA">WA</option>
-  <option value="WV">WV</option>
-  <option value="WI">WI</option>
-  <option value="WY">WY</option>
-  </select>
-</div>
 
-<div className="c4">
-  <label>Zip</label>
-  <input
-    value={job.zip || ''}
-    onChange={(e) => { setZipDirty(true); setVal('zip', e.target.value); }}
-  />
-</div>
+            <div className="c4">
+              <label>City</label>
+              <input
+                value={job.city || ''}
+                onChange={(e) => { setZipDirty(false); setVal('city', e.target.value); }}
+              />
+            </div>
+
+            <div className="c4">
+              <label>State</label>
+              <select
+                value={job.state || ''}
+                onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}
+              >
+                <option value="">—</option>
+                <option value="IN">IN</option>
+                <option value="KY">KY</option>
+                <option value="--">--</option>
+                <option value="AL">AL</option>
+                <option value="AK">AK</option>
+                <option value="AZ">AZ</option>
+                <option value="AR">AR</option>
+                <option value="CA">CA</option>
+                <option value="CO">CO</option>
+                <option value="CT">CT</option>
+                <option value="DE">DE</option>
+                <option value="FL">FL</option>
+                <option value="GA">GA</option>
+                <option value="HI">HI</option>
+                <option value="ID">ID</option>
+                <option value="IL">IL</option>
+                <option value="IA">IA</option>
+                <option value="KS">KS</option>
+                <option value="LA">LA</option>
+                <option value="ME">ME</option>
+                <option value="MD">MD</option>
+                <option value="MA">MA</option>
+                <option value="MI">MI</option>
+                <option value="MN">MN</option>
+                <option value="MS">MS</option>
+                <option value="MO">MO</option>
+                <option value="MT">MT</option>
+                <option value="NE">NE</option>
+                <option value="NV">NV</option>
+                <option value="NH">NH</option>
+                <option value="NJ">NJ</option>
+                <option value="NM">NM</option>
+                <option value="NY">NY</option>
+                <option value="NC">NC</option>
+                <option value="ND">ND</option>
+                <option value="OH">OH</option>
+                <option value="OK">OK</option>
+                <option value="OR">OR</option>
+                <option value="PA">PA</option>
+                <option value="RI">RI</option>
+                <option value="SC">SC</option>
+                <option value="SD">SD</option>
+                <option value="TN">TN</option>
+                <option value="TX">TX</option>
+                <option value="UT">UT</option>
+                <option value="VT">VT</option>
+                <option value="VA">VA</option>
+                <option value="WA">WA</option>
+                <option value="WV">WV</option>
+                <option value="WI">WI</option>
+                <option value="WY">WY</option>
+              </select>
+            </div>
+
+            <div className="c4">
+              <label>Zip</label>
+              <input
+                value={job.zip || ''}
+                onChange={(e) => { setZipDirty(true); setVal('zip', e.target.value); }}
+              />
+            </div>
           </div>
         </section>
 
-<section>
-  <h3>Hunt Details</h3>
-  <div className="grid">
-    <div className="c3">
-      <label className="text-sm font-medium whitespace-nowrap mb-1">County Killed</label>
-      <input
-        value={job.county || ''}
-        onChange={(e) => setVal('county', e.target.value)}
-        className="w-full"
-      />
-    </div>
+        <section>
+          <h3>Hunt Details</h3>
+          <div className="grid">
+            <div className="c3">
+              <label className="text-sm font-medium whitespace-nowrap mb-1">County Killed</label>
+              <input
+                value={job.county || ''}
+                onChange={(e) => setVal('county', e.target.value)}
+                className="w-full"
+              />
+            </div>
 
-    <div className="c3">
-      <label className="text-sm font-medium whitespace-nowrap mb-1">Drop-off Date</label>
-      <input
-        type="date"
-        value={job.dropoff || ''}
-        onChange={(e) => setVal('dropoff', e.target.value)}
-        className="w-full"
-      />
-    </div>
+            <div className="c3">
+              <label className="text-sm font-medium whitespace-nowrap mb-1">Drop-off Date</label>
+              <input
+                type="date"
+                value={job.dropoff || ''}
+                onChange={(e) => setVal('dropoff', e.target.value)}
+                className="w-full"
+              />
+            </div>
 
-    <div className="c2">
-      <label className="text-sm font-medium whitespace-nowrap mb-1">Deer Sex</label>
-      <select
-        value={job.sex || ''}
-        onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
-        className="w-full min-w-[10rem]"
-      >
-        <option value="">—</option>
-        <option value="Buck">Buck</option>
-        <option value="Doe">Doe</option>
-        <option value="Antlerless">Antlerless</option>
-      </select>
-    </div>
+            <div className="c2">
+              <label className="text-sm font-medium whitespace-nowrap mb-1">Deer Sex</label>
+              <select
+                value={job.sex || ''}
+                onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
+                className="w-full min-w-[10rem]"
+              >
+                <option value="">—</option>
+                <option value="Buck">Buck</option>
+                <option value="Doe">Doe</option>
+                <option value="Antlerless">Antlerless</option>
+              </select>
+            </div>
 
-    <div className="c2">
-      <label className="text-sm font-medium whitespace-nowrap mb-1">How Killed</label>
-      <select
-        value={job.howKilled || ''}
-        onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
-        className="w-full min-w-[10rem]"
-      >
-        <option value="">—</option>
-        <option value="Gun">Gun</option>
-        <option value="Archery">Archery</option>
-        <option value="Vehicle">Vehicle</option>
-      </select>
-    </div>
+            <div className="c2">
+              <label className="text-sm font-medium whitespace-nowrap mb-1">How Killed</label>
+              <select
+                value={job.howKilled || ''}
+                onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
+                className="w-full min-w-[10rem]"
+              >
+                <option value="">—</option>
+                <option value="Gun">Gun</option>
+                <option value="Archery">Archery</option>
+                <option value="Vehicle">Vehicle</option>
+              </select>
+            </div>
 
-    <div className="c2">
-      <label className="text-sm font-medium whitespace-nowrap mb-1">Process Type</label>
-      <select
-        value={job.processType || ''}
-        onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
-        className="w-full min-w-[10rem]"
-      >
-        <option value="">—</option>
-        <option>Standard Processing</option>
-        <option>Caped</option>
-        <option>Skull-Cap</option>
-        <option>European</option>
-        <option>Cape & Donate</option>
-        <option>Donate</option>
-      </select>
-    </div>
-  </div>
-</section>
-
-
+            <div className="c2">
+              <label className="text-sm font-medium whitespace-nowrap mb-1">Process Type</label>
+              <select
+                value={job.processType || ''}
+                onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
+                className="w-full min-w-[10rem]"
+              >
+                <option value="">—</option>
+                <option>Standard Processing</option>
+                <option>Caped</option>
+                <option>Skull-Cap</option>
+                <option>European</option>
+                <option>Cape & Donate</option>
+                <option>Donate</option>
+              </select>
+            </div>
+          </div>
+        </section>
 
         {/* Cuts */}
         <section>
@@ -1009,9 +1070,7 @@ useEffect(() => {
               <label>Prep</label>
               <select
                 value={job.backstrapPrep || ''}
-                onChange={(e) =>
-                  setVal('backstrapPrep', e.target.value as Job['backstrapPrep'])
-                }
+                onChange={(e) => setVal('backstrapPrep', e.target.value as Job['backstrapPrep'])}
               >
                 <option value="">—</option>
                 <option>Whole</option>
@@ -1023,9 +1082,7 @@ useEffect(() => {
               <label>Thickness</label>
               <select
                 value={isWholeBackstrap ? '' : (job.backstrapThickness || '')}
-                onChange={(e) =>
-                  setVal('backstrapThickness', e.target.value as Job['backstrapThickness'])
-                }
+                onChange={(e) => setVal('backstrapThickness', e.target.value as Job['backstrapThickness'])}
                 disabled={isWholeBackstrap}
               >
                 <option value="">—</option>
@@ -1045,62 +1102,59 @@ useEffect(() => {
           </div>
         </section>
 
-{/* Specialty Products */}
-<section>
-  <h3>McAfee Specialty Products</h3>
-  <div className="grid">
-    <div className="c3 rowInline">
-      <label className="chk tight">
-        <input
-          type="checkbox"
-          checked={!!job.specialtyProducts}
-          onChange={(e) => setVal('specialtyProducts', e.target.checked)}
-        />
-        <span><strong>Would like specialty products</strong></span>
-      </label>
-    </div>
+        {/* Specialty Products */}
+        <section>
+          <h3>McAfee Specialty Products</h3>
+          <div className="grid">
+            <div className="c3 rowInline">
+              <label className="chk tight">
+                <input
+                  type="checkbox"
+                  checked={!!job.specialtyProducts}
+                  onChange={(e) => setVal('specialtyProducts', e.target.checked)}
+                />
+                <span><strong>Would like specialty products</strong></span>
+              </label>
+            </div>
 
-    {job.specialtyProducts && (
-      <>
-        {/* Specialty Status is intentionally NOT shown here; it's in the summary bar only */}
+            {job.specialtyProducts && (
+              <>
+                <div className="c4">
+                  <label>Summer Sausage (lb)</label>
+                  <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={String(job.summerSausageLbs ?? '')}
+                    onChange={(e) => setVal('summerSausageLbs', e.target.value)}
+                    placeholder="e.g., 10"
+                  />
+                </div>
 
-        <div className="c4">
-          <label>Summer Sausage (lb)</label>
-          <input
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={String(job.summerSausageLbs ?? '')}
-            onChange={(e) => setVal('summerSausageLbs', e.target.value)}
-            placeholder="e.g., 10"
-          />
-        </div>
+                <div className="c4">
+                  <label>Plain Summer Sausage + Cheddar (lb)</label>
+                  <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={String(job.summerSausageCheeseLbs ?? '')}
+                    onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
+                    placeholder="e.g., 5"
+                  />
+                </div>
 
-        <div className="c4">
-          <label>Plain Summer Sausage + Cheddar (lb)</label>
-          <input
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={String(job.summerSausageCheeseLbs ?? '')}
-            onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
-            placeholder="e.g., 5"
-          />
-        </div>
-
-        <div className="c4">
-          <label>Jalapeno Summer Sausage + Cheddar (lb)</label>
-          <input
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={String(job.slicedJerkyLbs ?? '')}
-            onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
-            placeholder="e.g., 3"
-          />
-        </div>
-      </>
-    )}
-  </div>
-</section>
-
+                <div className="c4">
+                  <label>Jalapeno Summer Sausage + Cheddar (lb)</label>
+                  <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={String(job.slicedJerkyLbs ?? '')}
+                    onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
+                    placeholder="e.g., 3"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </section>
 
         {/* Notes */}
         <section>
@@ -1205,12 +1259,21 @@ useEffect(() => {
 
         {/* Actions */}
         <div className="actions">
-          <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
+          <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>
+            {msg || (dirty ? 'Unsaved changes' : '')}
+          </div>
 
           <button
             className="btn"
             type="button"
-            onClick={() => window.print()}
+            onClick={async () => {
+              // Auto-save before printing to prevent lost intakes
+              if (dirty) {
+                const ok = await onSave();
+                if (!ok) return;
+              }
+              window.print();
+            }}
             disabled={busy}
           >
             Print
