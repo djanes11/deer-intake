@@ -95,6 +95,104 @@ type Job = {
   autoCallConsent?: boolean;
 };
 
+
+type Json = string | number | boolean | null | { [k: string]: Json } | Json[];
+
+function stableStringify(obj: any): string {
+  const seen = new WeakSet();
+  const normalize = (v: any): Json => {
+    if (v === undefined) return null;
+    if (v === null) return null;
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return v as any;
+    if (Array.isArray(v)) return v.map(normalize);
+    if (typeof v === 'object') {
+      if (seen.has(v)) return null; // should never happen here, but safe
+      seen.add(v);
+      const out: Record<string, Json> = {};
+      Object.keys(v).sort().forEach((k) => {
+        out[k] = normalize(v[k]);
+      });
+      return out;
+    }
+    return String(v);
+  };
+  return JSON.stringify(normalize(obj));
+}
+
+function snapshotJob(j: Job) {
+  // Force a consistent shape + defaults so the dirty check is reliable.
+  return {
+    tag: j.tag ?? '',
+    confirmation: j.confirmation ?? '',
+    customer: j.customer ?? '',
+    phone: j.phone ?? '',
+    email: j.email ?? '',
+    address: j.address ?? '',
+    city: j.city ?? '',
+    state: j.state ?? '',
+    zip: j.zip ?? '',
+    county: j.county ?? '',
+    dropoff: j.dropoff ?? '',
+    sex: j.sex ?? '',
+    howKilled: j.howKilled ?? '',
+    processType: j.processType ?? '',
+
+    status: j.status ?? '',
+    capingStatus: j.capingStatus ?? '',
+    webbsStatus: j.webbsStatus ?? '',
+    specialtyStatus: j.specialtyStatus ?? '',
+
+    steak: j.steak ?? '',
+    steakOther: j.steakOther ?? '',
+    burgerSize: j.burgerSize ?? '',
+    steaksPerPackage: j.steaksPerPackage ?? '',
+    beefFat: !!j.beefFat,
+
+    hindRoastCount: j.hindRoastCount ?? '',
+    frontRoastCount: j.frontRoastCount ?? '',
+
+    hind: {
+      'Hind - Steak': !!j.hind?.['Hind - Steak'],
+      'Hind - Roast': !!j.hind?.['Hind - Roast'],
+      'Hind - Grind': !!j.hind?.['Hind - Grind'],
+      'Hind - None': !!j.hind?.['Hind - None'],
+    },
+    front: {
+      'Front - Steak': !!j.front?.['Front - Steak'],
+      'Front - Roast': !!j.front?.['Front - Roast'],
+      'Front - Grind': !!j.front?.['Front - Grind'],
+      'Front - None': !!j.front?.['Front - None'],
+    },
+
+    backstrapPrep: j.backstrapPrep ?? '',
+    backstrapThickness: j.backstrapThickness ?? '',
+    backstrapThicknessOther: j.backstrapThicknessOther ?? '',
+
+    specialtyProducts: !!j.specialtyProducts,
+    summerSausageLbs: String(j.summerSausageLbs ?? ''),
+    summerSausageCheeseLbs: String(j.summerSausageCheeseLbs ?? ''),
+    slicedJerkyLbs: String(j.slicedJerkyLbs ?? ''),
+    specialtyPounds: j.specialtyPounds ?? '',
+
+    notes: j.notes ?? '',
+
+    webbsOrder: !!j.webbsOrder,
+    webbsFormNumber: j.webbsFormNumber ?? '',
+    webbsPounds: j.webbsPounds ?? '',
+
+    paidProcessing: !!j.paidProcessing,
+    paidSpecialty: !!j.paidSpecialty,
+    Paid: !!j.Paid,
+    paid: !!j.paid,
+
+    prefEmail: !!j.prefEmail,
+    prefSMS: !!j.prefSMS,
+    prefCall: !!j.prefCall,
+    smsConsent: !!j.smsConsent,
+    autoCallConsent: !!j.autoCallConsent,
+  };
+}
+
 const todayISO = () => {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -212,7 +310,7 @@ function IntakePage() {
     if (!zipDirty && (job.city || job.state)) {
       const z = lookupUniqueZipByCity(job.state, job.city);
       if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
-        setJob((p) => ({ ...p, zip: z }));
+        setJob((p) => ({ ...p, zip: z })));
       }
     }
   }, [job.city, job.state, zipDirty]);
@@ -223,7 +321,7 @@ function IntakePage() {
 
   // ---- UNSAVED CHANGES GUARD ----
   const [lastSavedJson, setLastSavedJson] = useState<string>('');
-  const currentJson = useMemo(() => JSON.stringify(job), [job]);
+  const currentJson = useMemo(() => stableStringify(snapshotJob(job)), [job]);
   const dirty = useMemo(() => {
     if (!lastSavedJson) return false; // no baseline yet
     return currentJson !== lastSavedJson;
@@ -242,7 +340,7 @@ function IntakePage() {
   useEffect(() => {
     // only reset baseline if we are not currently loaded with an existing job
     // (load effect below will set baseline again when it finishes)
-    setLastSavedJson(JSON.stringify({
+    setLastSavedJson(stableStringify(snapshotJob({
       ...job,
       tag: tagFromUrl || job.tag || '',
     }));
@@ -355,7 +453,7 @@ function IntakePage() {
           next.paid = !!(j.Paid ?? j.paid ?? fp);
 
           setJob(next);
-          setLastSavedJson(JSON.stringify(next)); // baseline after load
+          setLastSavedJson(stableStringify(snapshotJob(next))); // baseline after load
         }
       } catch (e: any) {
         setMsg(`Load failed: ${e?.message || e}`);
@@ -502,35 +600,34 @@ function IntakePage() {
       }
 
       setMsg('Saved ✓');
-      setLastSavedJson(JSON.stringify(payload)); // baseline immediately (so leaving won't warn)
+      setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
 
       if (job.tag) {
         const fresh = await getJob(job.tag);
         if (fresh?.exists && fresh.job) {
           const j: any = fresh.job;
-          setJob((p) => {
-            const merged: Job = {
-              ...p,
-              ...j,
-              confirmation:
-                j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? p.confirmation ?? '',
-              paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
-              paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
+          
+const j: any = fresh.job;
+const merged: Job = {
+  ...job,
+  ...j,
+  confirmation:
+    j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
+  paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+  paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
 
-              prefEmail: asBool(j.prefEmail),
-              prefSMS: asBool(j.prefSMS),
-              prefCall: asBool(j.prefCall),
-              smsConsent: asBool(j.smsConsent),
-              autoCallConsent: asBool(j.autoCallConsent),
-            };
-            const fp = fullPaid(merged);
-            merged.Paid = !!(j.Paid ?? j.paid ?? fp);
-            merged.paid = !!(j.Paid ?? j.paid ?? fp);
-            return merged;
-          });
+  prefEmail: asBool(j.prefEmail),
+  prefSMS: asBool(j.prefSMS),
+  prefCall: asBool(j.prefCall),
+  smsConsent: asBool(j.smsConsent),
+  autoCallConsent: asBool(j.autoCallConsent),
+};
+const fp = fullPaid(merged);
+merged.Paid = !!(j.Paid ?? j.paid ?? fp);
+merged.paid = !!(j.Paid ?? j.paid ?? fp);
 
-          // Update baseline to match the merged state from backend
-          setLastSavedJson(JSON.stringify(fresh.job));
+setJob(merged);
+setLastSavedJson(stableStringify(snapshotJob(merged)));
         }
       }
 
