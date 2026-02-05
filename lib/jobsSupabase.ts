@@ -120,6 +120,30 @@ function stampLine(prefix: string, notes: string) {
   return `[${ts} • ${prefix}] ${notes}`;
 }
 
+function numOrNull(v: any): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+
+  const s = String(v).trim();
+  if (!s) return null; // "" -> null
+
+  const n = Number(s.replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function numOrZero(v: any): number {
+  const n = numOrNull(v);
+  return n === null ? 0 : n;
+}
+
+function intOrNull(v: any): number | null {
+  const n = numOrNull(v);
+  if (n === null) return null;
+  const i = Math.trunc(n);
+  return Number.isFinite(i) ? i : null;
+}
+
+
 /* ---------------- mapping ---------------- */
 
 // Map DB row → Job (what your frontend expects)
@@ -494,8 +518,9 @@ export async function saveJob(job: Partial<Job>) {
     steaks_per_package: job.steaksPerPackage ?? null,
     beef_fat: job.beefFat ?? false,
 
-    hind_roast_count: job.hindRoastCount ? Number(job.hindRoastCount) : null,
-    front_roast_count: job.frontRoastCount ? Number(job.frontRoastCount) : null,
+    hind_roast_count: intOrNull(job.hindRoastCount),
+    front_roast_count: intOrNull(job.frontRoastCount),
+
 
     hind_steak: job.hind?.['Hind - Steak'] ?? false,
     hind_roast: job.hind?.['Hind - Roast'] ?? false,
@@ -512,20 +537,23 @@ export async function saveJob(job: Partial<Job>) {
     backstrap_thickness_other: job.backstrapThicknessOther ?? null,
 
     specialty_products: job.specialtyProducts ?? false,
-    specialty_pounds: job.specialtyPounds ?? 0,
-    summer_sausage_lbs: job.summerSausageLbs ?? 0,
-    summer_sausage_cheese_lbs: job.summerSausageCheeseLbs ?? 0,
-    sliced_jerky_lbs: job.slicedJerkyLbs ?? 0,
+specialty_pounds: numOrZero(job.specialtyPounds),
+summer_sausage_lbs: numOrZero(job.summerSausageLbs),
+summer_sausage_cheese_lbs: numOrZero(job.summerSausageCheeseLbs),
+sliced_jerky_lbs: numOrZero(job.slicedJerkyLbs),
+
 
     notes: job.notes ?? null,
 
     webbs_order: job.webbsOrder ?? false,
     webbs_order_form_number: job.webbsOrderFormNumber ?? null,
-    webbs_pounds: job.webbsPounds ?? 0,
+    webbs_pounds: numOrZero(job.webbsPounds),
 
-    price_processing: job.priceProcessing ?? 0,
-    price_specialty: job.priceSpecialty ?? 0,
-    price_total: job.price ?? 0,
+
+    price_processing: numOrZero(job.priceProcessing),
+price_specialty: numOrZero(job.priceSpecialty),
+price_total: numOrZero(job.price),
+
 
     paid: job.paid ?? false,
     paid_processing: job.paidProcessing ?? false,
