@@ -92,28 +92,34 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Ro
   }, [rows]);
 
   const markFinished = async (tag: string) => {
-    setErr('');
-    setMsg('');
-    setBusyTag(tag);
-    try {
-      const res = await fetch('/api/specialty/mark-finished', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ tag }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j?.ok) throw new Error(j?.error || 'Update failed');
+  setErr('');
+  setMsg('');
+  setBusyTag(tag);
 
-      // remove from list (since it's no longer "open")
-      setRows((prev) => prev.filter((r) => r.tag !== tag));
-      setMsg(`Marked ${tag} specialty as Finished`);
-      setTimeout(() => setMsg(''), 1500);
-    } catch (e: any) {
-      setErr(String(e?.message || e));
-    } finally {
-      setBusyTag('');
+  try {
+    const res = await fetch('/api/specialty/mark-finished', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tag }),
+    });
+
+    const j = await res.json().catch(() => ({}));
+
+    if (!res.ok || !j?.ok) {
+      throw new Error(`HTTP ${res.status}: ${j?.error || 'Update failed'}`);
     }
-  };
+
+    // remove row from table after success
+    setRows((prev) => prev.filter((r) => r.tag !== tag));
+    setMsg(`Marked ${tag} as Finished`);
+    setTimeout(() => setMsg(''), 1500);
+  } catch (e: any) {
+    setErr(String(e?.message || e));
+  } finally {
+    setBusyTag('');
+  }
+};
+
 
   return (
     <div>
