@@ -545,6 +545,9 @@ useEffect(() => {
 
   const validate = (): string[] => {
     const missing: string[] = [];
+    // Tag: required (numbers only)
+    const tagDigits = digitsOnly(job.tag || '');
+    if (!tagDigits) missing.push('Tag Number');
     // Confirmation: exactly 13 digits
     const conf13 = digitsOnly(job.confirmation || '');
     if (conf13.length !== 13) missing.push('Confirmation # (13 digits)');
@@ -621,8 +624,9 @@ useEffect(() => {
       setMsg('Saved ✓');
       setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
 
-      if (job.tag) {
-        const fresh = await getJob(job.tag);
+      // Re-load after save (use the standardized tag from payload)
+      if (payload.tag) {
+        const fresh = await getJob(payload.tag);
 if (fresh?.exists && fresh.job) {
   const j: any = fresh.job;
 
