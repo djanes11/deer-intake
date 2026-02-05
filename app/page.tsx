@@ -310,6 +310,14 @@ function StaffHome() {
               </div>
             </Link>
 
+            <Link href="/reports/specialty" style={linkStyle}>
+              <div style={row}>
+                <div style={dot('rgba(200,70,25,.9)')} />
+                <div style={{ fontWeight: 800 }}>Specialty Totals — Open lbs</div>
+              </div>
+            </Link>
+
+
             <Link href="/overnight/review" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(167,115,18,.9)')} />
