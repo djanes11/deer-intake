@@ -29,6 +29,13 @@ function asNum(x: any): number {
   const n = Number(x);
   return Number.isFinite(n) ? n : 0;
 }
+function numOrNull(x: any): number | null {
+  if (x === undefined || x === null) return null;
+  const s = String(x).trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
 function asPounds(x: any): number {
   const n = Number(x);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -119,12 +126,29 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const jerN = useMemo(() => asPounds(jget(job, ['Sliced Jerky (lb)','slicedJerkyLbs','sliced_jerky_lbs'])), [job?.['Sliced Jerky (lb)'], job?.slicedJerkyLbs, job?.sliced_jerky_lbs]);
   const specialtyLbs = ssN + sscN + jerN;
 
-  const processingPrice = useMemo(() => {
-    const v = asNum(jpick(job, ['Processing Price','priceProcessing','processing_price']));
-    return v > 0 ? v : proc;
-  }, [proc, job?.['Processing Price'], job?.priceProcessing, job?.processing_price]);
+  const processingOverride = useMemo(
+    () => numOrNull(jpick(job, ['processing_price_override', 'processingPriceOverride'])),
+    [job?.processing_price_override, job?.processingPriceOverride]
+  );
 
-  const specialtyPrice = useMemo(() => ssN * 4.25 + sscN * 4.60 + jerN * 4.60, [ssN, sscN, jerN]);
+  const specialtyOverride = useMemo(
+    () => numOrNull(jpick(job, ['specialty_price_override', 'specialtyPriceOverride'])),
+    [job?.specialty_price_override, job?.specialtyPriceOverride]
+  );
+
+  // Stored processing price (historical field) or computed auto price as fallback
+  const processingStored = useMemo(() => {
+    const v = numOrNull(
+      jpick(job, ['Processing Price', 'priceProcessing', 'processing_price', 'price_processing'])
+    );
+    return v;
+  }, [job?.['Processing Price'], job?.priceProcessing, job?.processing_price, job?.price_processing]);
+
+  const processingPrice = processingOverride ?? processingStored ?? proc;
+
+  const specialtyAuto = useMemo(() => ssN * 4.25 + sscN * 4.60 + jerN * 4.60, [ssN, sscN, jerN]);
+  const specialtyPrice = specialtyOverride ?? specialtyAuto;
+
   const totalPrice = processingPrice + specialtyPrice;
 
   const copies = useMemo(
@@ -283,8 +307,31 @@ pages.forEach(p => {
         <div className="col-3 box">
           <div className="label">Price</div>
           <div className="val">
-            <div className="splitPriceRow"><div className="lhs">Processing</div><div className="money">{money(processingPrice)}</div></div>
-            <div className="splitPriceRow"><div className="lhs">Specialty</div><div className="money">{money(specialtyPrice)}</div></div>
+            <div className="splitPriceRow">
+              <div className="lhs">
+                Processing{processingOverride !== null ? <span style={{ fontWeight: 800, fontSize: 12 }}> (override)</span> : null}
+              </div>
+              <div className="money">{money(processingPrice)}</div>
+            </div>
+            {processingOverride !== null ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: '#6b7280' }}>Auto</div>
+                <div style={{ fontSize: 11, color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{money(proc)}</div>
+              </div>
+            ) : null}
+
+            <div className="splitPriceRow">
+              <div className="lhs">
+                Specialty{specialtyOverride !== null ? <span style={{ fontWeight: 800, fontSize: 12 }}> (override)</span> : null}
+              </div>
+              <div className="money">{money(specialtyPrice)}</div>
+            </div>
+            {specialtyOverride !== null ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: '#6b7280' }}>Auto</div>
+                <div style={{ fontSize: 11, color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{money(specialtyAuto)}</div>
+              </div>
+            ) : null}
             <div className="splitSep" />
             <div className="splitPriceRow"><div className="lhs">Total</div><div className="moneyTotal">{money(totalPrice)}</div></div>
           </div>
