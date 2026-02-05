@@ -73,6 +73,16 @@ const toInt = (val: any) => {
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
+// Handle numbers coming back as number/null, or as strings (just in case)
+const toNumOrNull = (v: any): number | null => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s.replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : null;
+};
+
 // ---- tiny UI bits ----
 function Field({ label, value }: { label: string; value?: string }) {
   return (
@@ -142,13 +152,27 @@ export default async function IntakeView({
       );
     }
 
+    // --- Pricing (auto vs override) ---
+    const processingAuto = suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
 
-    const processingPrice = suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
-    const specialtyPrice =
+    const specialtyAutoRaw =
       (toInt(job?.summerSausageLbs) * 4.25) +
       (toInt(job?.summerSausageCheeseLbs) * 4.60) +
       (toInt(job?.slicedJerkyLbs) * 4.60);
-    const totalPrice = processingPrice + (job?.specialtyProducts ? specialtyPrice : 0);
+
+    const specialtyAuto = job?.specialtyProducts ? specialtyAutoRaw : 0;
+
+    const processingOverride = toNumOrNull(
+      (job as any)?.processing_price_override ?? (job as any)?.processingPriceOverride
+    );
+    const specialtyOverride = toNumOrNull(
+      (job as any)?.specialty_price_override ?? (job as any)?.specialtyPriceOverride
+    );
+
+    const processingUsed = (processingOverride ?? processingAuto);
+    const specialtyUsed = (specialtyOverride ?? specialtyAuto);
+
+    const totalUsed = processingUsed + specialtyUsed;
 
     // --- Communication Preference + Consent ---
     const prefEmail        = asBool(pick(job, ['Pref Email','prefEmail']));
@@ -177,15 +201,31 @@ export default async function IntakeView({
                 <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.tag || ''}</div>
                 <div className="muted" style={{fontSize:12}}>Deer Tag</div>
               </div>
+
               <div className="col" style={{minWidth:0}}>
                 <label>Processing Price</label>
-                <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{`$${processingPrice.toFixed(2)}`}</div>
-                <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
+                <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>
+                  {`$${processingUsed.toFixed(2)}`}
+                  {processingOverride !== null ? ' (override)' : ''}
+                </div>
+                <div className="muted" style={{fontSize:12}}>
+                  {processingOverride !== null
+                    ? `Auto would be: $${processingAuto.toFixed(2)}`
+                    : 'Proc. type + beef fat + Webbs fee'}
+                </div>
               </div>
+
               <div className="col" style={{minWidth:0}}>
                 <label>Specialty Price</label>
-                <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>{`$${(job?.specialtyProducts ? specialtyPrice : 0).toFixed(2)}`}</div>
-                <div className="muted" style={{fontSize:12}}>Sausage/Jerky lbs</div>
+                <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>
+                  {`$${specialtyUsed.toFixed(2)}`}
+                  {specialtyOverride !== null ? ' (override)' : ''}
+                </div>
+                <div className="muted" style={{fontSize:12}}>
+                  {specialtyOverride !== null
+                    ? `Auto would be: $${specialtyAuto.toFixed(2)}`
+                    : 'Sausage/Jerky lbs'}
+                </div>
               </div>
             </div>
 
@@ -200,7 +240,7 @@ export default async function IntakeView({
             >
               <div className="col total" style={{minWidth:0}}>
                 <label>Total (preview)</label>
-                <div className="money total" style={{ fontWeight:900, minWidth:0 }}>{`$${totalPrice.toFixed(2)}`}</div>
+                <div className="money total" style={{ fontWeight:900, minWidth:0 }}>{`$${totalUsed.toFixed(2)}`}</div>
               </div>
               <div className="col" style={{minWidth:0}}>
                 <label>Status</label>
