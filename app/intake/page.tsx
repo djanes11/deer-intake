@@ -607,31 +607,32 @@ useEffect(() => {
 
       if (job.tag) {
         const fresh = await getJob(job.tag);
-        if (fresh?.exists && fresh.job) {
-          const j: any = fresh.job;
-          
-const j: any = fresh.job;
-const merged: Job = {
-  ...job,
-  ...j,
-  confirmation:
-    j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
-  paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
-  paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
+if (fresh?.exists && fresh.job) {
+  const j: any = fresh.job;
 
-  prefEmail: asBool(j.prefEmail),
-  prefSMS: asBool(j.prefSMS),
-  prefCall: asBool(j.prefCall),
-  smsConsent: asBool(j.smsConsent),
-  autoCallConsent: asBool(j.autoCallConsent),
-};
-const fp = fullPaid(merged);
-merged.Paid = !!(j.Paid ?? j.paid ?? fp);
-merged.paid = !!(j.Paid ?? j.paid ?? fp);
+  const merged: Job = {
+    ...job,
+    ...j,
+    confirmation:
+      j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
+    paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+    paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
 
-setJob(merged);
-setLastSavedJson(stableStringify(snapshotJob(merged)));
-        }
+    prefEmail:  asBool(j.prefEmail),
+    prefSMS:    asBool(j.prefSMS),
+    prefCall:   asBool(j.prefCall),
+    smsConsent: asBool(j.smsConsent),
+    autoCallConsent: asBool(j.autoCallConsent),
+  };
+
+  const fp = fullPaid(merged);
+  merged.Paid = !!(j.Paid ?? j.paid ?? fp);
+  merged.paid = !!(j.Paid ?? j.paid ?? fp);
+
+  setJob(merged);
+  setLastSavedJson(stableStringify(snapshotJob(merged)));
+}
+
       }
 
       return true;
