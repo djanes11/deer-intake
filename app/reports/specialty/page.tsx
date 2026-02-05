@@ -15,7 +15,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 type OrderRow = {
   tag: string;
   customer_name: string | null;
-  dropoff: string | null;
+  dropoff_date: string | null;
   specialty_status: string | null;
   summer_sausage_lbs: number | null;
   summer_sausage_cheese_lbs: number | null;
@@ -68,11 +68,11 @@ export default async function SpecialtyReport() {
   const { data, error } = await supabase
     .from('jobs')
     .select(
-      'tag,customer_name,dropoff,specialty_status,summer_sausage_lbs,summer_sausage_cheese_lbs,sliced_jerky_lbs'
+      'tag,customer_name,dropoff_date,specialty_status,summer_sausage_lbs,summer_sausage_cheese_lbs,sliced_jerky_lbs'
     )
     .eq('specialty_products', true)
     .in('specialty_status', ['Dropped Off', 'In Progress'])
-    .order('dropoff', { ascending: true })
+    .order('dropoff_date', { ascending: true })
     .order('tag', { ascending: true });
 
   const rows = ((data as any) || []) as OrderRow[];

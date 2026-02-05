@@ -6,7 +6,7 @@ import Link from 'next/link';
 type OrderRow = {
   tag: string;
   customer_name: string | null;
-  dropoff: string | null;
+  dropoff_date: string | null;
   specialty_status: string | null;
   summer_sausage_lbs: number | null;
   summer_sausage_cheese_lbs: number | null;
@@ -186,7 +186,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                   </Link>
                 </td>
                 <td style={styles.td}>{r.customer_name || ''}</td>
-                <td style={styles.td}>{r.dropoff || ''}</td>
+                <td style={styles.td}>{r.dropoff_date || ''}</td>
                 <td style={styles.td}>{r.specialty_status || ''}</td>
                 <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.summer_sausage_lbs)}</td>
                 <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.summer_sausage_cheese_lbs)}</td>
