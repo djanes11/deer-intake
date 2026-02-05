@@ -337,15 +337,18 @@ function IntakePage() {
   }, []);
 
   // Establish baseline for a brand new job (or when tag query changes)
-  useEffect(() => {
-    // only reset baseline if we are not currently loaded with an existing job
-    // (load effect below will set baseline again when it finishes)
-    setLastSavedJson(stableStringify(snapshotJob({
-      ...job,
-      tag: tagFromUrl || job.tag || '',
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFromUrl]);
+useEffect(() => {
+  setLastSavedJson(
+    stableStringify(
+      snapshotJob({
+        ...job,
+        tag: tagFromUrl || job.tag || '',
+      } as Job)
+    )
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [tagFromUrl]);
+
 
   // Load existing job by tag (if present)
   useEffect(() => {
