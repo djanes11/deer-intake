@@ -199,6 +199,10 @@ const todayISO = () => {
   return d.toISOString().slice(0, 10);
 };
 
+// ---- Input standardization helpers ----
+const digitsOnly = (s: string) => String(s || '').replace(/\D+/g, '');
+const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
+
 const normProc = (s?: string) => {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
@@ -541,8 +545,13 @@ useEffect(() => {
 
   const validate = (): string[] => {
     const missing: string[] = [];
+    // Confirmation: exactly 13 digits
+    const conf13 = digitsOnly(job.confirmation || '');
+    if (conf13.length !== 13) missing.push('Confirmation # (13 digits)');
     if (!job.customer) missing.push('Customer Name');
-    if (!job.phone) missing.push('Phone');
+    // Phone: store as 10 digits
+    const phone10 = digitsOnly(job.phone || '');
+    if (phone10.length !== 10) missing.push('Phone (10 digits)');
     if (!job.email) missing.push('Email');
     if (!job.address) missing.push('Address');
     if (!job.city) missing.push('City');
@@ -567,6 +576,10 @@ useEffect(() => {
 
     const payload: Job = {
       ...job,
+      // enforce standardized values on save
+      tag: digitsOnly(job.tag || ''),
+      confirmation: clip(digitsOnly(job.confirmation || ''), 13),
+      phone: clip(digitsOnly(job.phone || ''), 10),
       status:
         pnorm === 'Cape & Donate' || pnorm === 'Donate'
           ? ''
@@ -687,7 +700,9 @@ if (fresh?.exists && fresh.job) {
               <input
                 ref={tagRef}
                 value={job.tag || ''}
-                onChange={(e) => setVal('tag', e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onChange={(e) => setVal('tag', digitsOnly(e.target.value))}
                 placeholder="e.g. 1234"
               />
               <div className="muted" style={{ fontSize: 12 }}>Deer Tag</div>
@@ -839,7 +854,10 @@ if (fresh?.exists && fresh.job) {
               <label>Confirmation #</label>
               <input
                 value={job.confirmation || ''}
-                onChange={(e) => setVal('confirmation', e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={13}
+                onChange={(e) => setVal('confirmation', clip(digitsOnly(e.target.value), 13))}
               />
             </div>
             <div className="c6">
@@ -853,7 +871,10 @@ if (fresh?.exists && fresh.job) {
               <label>Phone</label>
               <input
                 value={job.phone || ''}
-                onChange={(e) => setVal('phone', e.target.value)}
+                inputMode="tel"
+                pattern="[0-9]*"
+                maxLength={10}
+                onChange={(e) => setVal('phone', clip(digitsOnly(e.target.value), 10))}
               />
             </div>
 
