@@ -605,6 +605,47 @@ price_total: numOrZero(job.price),
     throw error;
   }
 
+// Finished email if status was set to Finished via saveJob (not just progressJob)
+try {
+  const statusNow = String(data?.status || '').trim().toLowerCase();
+  const isFinished = statusNow === 'finished'; // or /finish|ready/.test(statusNow)
+
+  if (data && isFinished) {
+    const wantsEmail = !!data.pref_email;
+    const email = String(data.email || '').trim();
+    const alreadyStamped = !!(data as any).finished_email_sent_at;
+
+    if (wantsEmail && email && !alreadyStamped) {
+      const { data: locked } = await supabaseServer
+        .from('jobs')
+        .update({ finished_email_sent_at: nowIso() })
+        .eq('id', data.id)
+        .is('finished_email_sent_at', null)
+        .select('tag, email, customer_name, paid_processing, price_processing')
+        .maybeSingle();
+
+      if (locked) {
+        const tpl = buildFinishedEmail({
+          name: String(locked.customer_name || ''),
+          tag: String(locked.tag || tag),
+          paidProcessing: !!locked.paid_processing,
+          processingPrice: Number(locked.price_processing ?? 0),
+        });
+
+        await sendEmail({
+          to: String(locked.email),
+          subject: tpl.subject,
+          html: tpl.html,
+          text: tpl.text,
+        });
+      }
+    }
+  }
+} catch (e) {
+  console.error('Finished email (saveJob) failed (non-fatal)', e);
+}
+
+
   
 
   // ---- Intake email: on first save only, if pref_email=true, and not previously stamped ----
