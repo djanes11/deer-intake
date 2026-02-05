@@ -83,6 +83,10 @@ type Job = {
 
   price?: number | string; // optional override
 
+  // Price overrides (leave null/blank to use auto)
+  processing_price_override?: number | string | null;
+  specialty_price_override?: number | string | null;
+
   Paid?: boolean;
   paid?: boolean;
   paidProcessing?: boolean;
@@ -180,6 +184,9 @@ function snapshotJob(j: Job) {
     webbsFormNumber: j.webbsFormNumber ?? '',
     webbsPounds: j.webbsPounds ?? '',
 
+    processing_price_override: String((j as any).processing_price_override ?? ''),
+    specialty_price_override: String((j as any).specialty_price_override ?? ''),
+
     paidProcessing: !!j.paidProcessing,
     paidSpecialty: !!j.paidSpecialty,
     Paid: !!j.Paid,
@@ -228,6 +235,13 @@ const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean
 const toInt = (val: any) => {
   const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+const toMoneyOrNull = (v: any): number | null => {
+  const s = String(v ?? '').trim();
+  if (!s) return null;
+  const n = Number(s.replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : null;
 };
 
 const asBool = (v: any): boolean => {
@@ -292,6 +306,10 @@ function IntakePage() {
     },
     beefFat: false,
     webbsOrder: false,
+
+    processing_price_override: null,
+    specialty_price_override: null,
+
 
     Paid: false,
     paid: false,
@@ -471,12 +489,12 @@ useEffect(() => {
     })();
   }, [tagFromUrl]);
 
-  const processingPrice = useMemo(
+  const processingPriceAuto = useMemo(
     () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
     [job.processType, job.beefFat, job.webbsOrder]
   );
 
-  const specialtyPrice = useMemo(() => {
+  const specialtyPriceAuto = useMemo(() => {
     if (!job.specialtyProducts) return 0;
     const ss = toInt(job.summerSausageLbs);
     const ssc = toInt(job.summerSausageCheeseLbs);
@@ -484,7 +502,13 @@ useEffect(() => {
     return ss * 4.25 + ssc * 4.60 + jer * 4.60;
   }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
 
-  const totalPrice = processingPrice + specialtyPrice;
+  const processingOverride = toMoneyOrNull((job as any).processing_price_override);
+  const specialtyOverride = toMoneyOrNull((job as any).specialty_price_override);
+
+  const processingPriceUsed = processingOverride ?? processingPriceAuto;
+  const specialtyPriceUsed = specialtyOverride ?? specialtyPriceAuto;
+
+  const totalPrice = processingPriceUsed + specialtyPriceUsed;
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
@@ -533,7 +557,7 @@ useEffect(() => {
   useEffect(() => {
     setJob((prev) => {
       if (!asBool(prev.specialtyProducts)) {
-        const next: Job = { ...prev, paidSpecialty: false, specialtyStatus: '' };
+        const next: Job = { ...prev, paidSpecialty: false, specialtyStatus: '', specialty_price_override: null };
         const fp = fullPaid(next);
         return { ...next, Paid: fp, paid: fp };
       } else if (!prev.specialtyStatus) {
@@ -555,6 +579,18 @@ useEffect(() => {
     // Phone: store as 10 digits
     const phone10 = digitsOnly(job.phone || '');
     if (phone10.length !== 10) missing.push('Phone (10 digits)');
+
+    // Overrides: if provided, must be valid numbers (>= 0)
+    const poRaw = String((job as any).processing_price_override ?? '').trim();
+    if (poRaw) {
+      const po = toMoneyOrNull(poRaw);
+      if (po == null || po < 0) missing.push('Processing Override (valid $ amount)');
+    }
+    const soRaw = String((job as any).specialty_price_override ?? '').trim();
+    if (soRaw) {
+      const so = toMoneyOrNull(soRaw);
+      if (so == null || so < 0) missing.push('Specialty Override (valid $ amount)');
+    }
     if (!job.email) missing.push('Email');
     if (!job.address) missing.push('Address');
     if (!job.city) missing.push('City');
@@ -611,6 +647,8 @@ useEffect(() => {
       summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
       slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
+      processing_price_override: toMoneyOrNull((job as any).processing_price_override),
+      specialty_price_override: job.specialtyProducts ? toMoneyOrNull((job as any).specialty_price_override) : null,
     };
 
     try {
@@ -714,14 +752,33 @@ if (fresh?.exists && fresh.job) {
 
             <div className="col price">
               <label>Processing Price</label>
-              <div className="money">{processingPrice.toFixed(2)}</div>
+              <div className="money">{processingPriceUsed.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>Proc. type + beef fat + Webbs fee</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' • override active' : ''}
+              </div>
+              <input
+                inputMode="decimal"
+                placeholder="Override (optional)"
+                value={((job as any).processing_price_override ?? '') as any}
+                onChange={(e) => setVal('processing_price_override', e.target.value as any)}
+              />
             </div>
 
             <div className="col price">
               <label>Specialty Price</label>
-              <div className="money">{specialtyPrice.toFixed(2)}</div>
+              <div className="money">{specialtyPriceUsed.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>Based On Summer Sausage lbs</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                Auto: {specialtyPriceAuto.toFixed(2)}{specialtyOverride != null ? ' • override active' : ''}
+              </div>
+              <input
+                inputMode="decimal"
+                placeholder={job.specialtyProducts ? 'Override (optional)' : 'Enable specialty first'}
+                value={((job as any).specialty_price_override ?? '') as any}
+                onChange={(e) => setVal('specialty_price_override', e.target.value as any)}
+                disabled={!job.specialtyProducts}
+              />
             </div>
           </div>
 
