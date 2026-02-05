@@ -30,23 +30,13 @@ export async function POST(req: Request) {
       .eq('tag', tag)
       .select('tag,specialty_status');
 
-    if (error) {
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-    }
-
-    // If nothing matched, tell you clearly
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     if (!data || data.length === 0) {
-      return NextResponse.json(
-        { ok: false, error: `No job found for tag ${tag}` },
-        { status: 404 }
-      );
+      return NextResponse.json({ ok: false, error: `No job found for tag ${tag}` }, { status: 404 });
     }
 
     return NextResponse.json({ ok: true, data: data[0] });
   } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: String(e?.message || e) },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
 }
