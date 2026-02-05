@@ -1,8 +1,88 @@
 // lib/jobsSupabase.ts
 import { getSupabaseServer } from './supabaseClient';
 import { Job, JobSearchRow } from '@/types/job';
+import crypto from 'crypto';
+import { sendEmail } from '@/lib/email';
 
 /* ---------------- helpers ---------------- */
+
+const SITE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || '')
+  .trim()
+  .replace(/^['"]|['"]$/g, '')
+  .replace(/\/$/, '');
+
+function makePublicToken() {
+  return crypto.randomBytes(18).toString('base64url');
+}
+
+function escapeHtml(s: any) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function intakeFormLink(tag: string, publicToken: string) {
+  if (!SITE_URL) return '';
+  return `${SITE_URL}/intake/${encodeURIComponent(tag)}?t=${encodeURIComponent(publicToken)}`;
+}
+
+function buildIntakeEmail(opts: { name: string; tag: string; link: string }) {
+  const name = opts.name || 'there';
+  return {
+    subject: `We received your deer (${opts.tag})`,
+    html: [
+      `<p>Hi ${escapeHtml(name)}</p>`,
+      `<p>We received your deer (${escapeHtml(opts.tag)})</p>`,
+      opts.link ? `<p><a href="${opts.link}" target="_blank" rel="noopener">Click here to view your intake form</a></p>` : '',
+      `<p>If you need to make any updates or have questions, please contact Travis at <a href="tel:15026433916">(502) 643-3916</a></p>`,
+    ].join(''),
+    text:
+      `Hi ${name}\n` +
+      `We received your deer (${opts.tag})\n` +
+      (opts.link ? `Click here to view your intake form: ${opts.link}\n` : '') +
+      `If you need to make any updates or have questions, please contact Travis at (502) 643-3916\n`,
+  };
+}
+
+function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number }) {
+  const name = opts.name || 'there';
+  const paid = !!opts.paidProcessing;
+  const price = Number(opts.processingPrice || 0);
+
+  const payBlock = paid
+    ? `<div style="padding:10px 12px;border:1px solid #16a34a;border-radius:10px;background:#f0fdf4;"><b>Regular processing:</b> PAID</div>`
+    : `<div style="padding:10px 12px;border:1px solid #dc2626;border-radius:10px;background:#fef2f2;"><b>Amount still owed (regular processing):</b> $${price.toFixed(2)}</div>`;
+
+  return {
+    subject: `Finished & ready for pickup (${opts.tag})`,
+    html: [
+      `<p>Hi ${escapeHtml(name)}</p>`,
+      `<p>Your regular processing is finished and ready for pickup.</p>`,
+      payBlock,
+      `<p><b>Pickup hours:</b> 6:00 pm–8:00 pm Monday–Friday, 9:00 am–5:00 pm Saturday, 9:00 am-12:00pm Sunday.</p>`,
+      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.</p>`,
+      `<p>Please bring a cooler or box to transport your meat.</p>`,
+      `<p><i>Reminder:</i> This update is for your regular processing only. We’ll reach out separately about any Webbs orders or McAfee Specialty Products.</p>`,
+    ].join(''),
+    text:
+      `Hi ${name}\n` +
+      `Your regular processing is finished and ready for pickup.\n\n` +
+      (paid ? 'Regular processing: PAID' : `Amount still owed (regular processing): $${price.toFixed(2)}`) +
+      `\n\nPickup hours: 6:00 pm–8:00 pm Monday–Friday, 9:00 am–5:00 pm Saturday, 9:00 am-12:00pm Sunday.\n` +
+      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.\n` +
+      `Please bring a cooler or box to transport your meat.\n` +
+      `Reminder: This update is for your regular processing only. We’ll reach out separately about any Webbs orders or McAfee Specialty Products.\n`,
+  };
+}
+
+function statusIsFinishedLike(v: any) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return /finish|ready/.test(s);
+}
+
 
 function nowIso() {
   return new Date().toISOString();
@@ -505,7 +585,7 @@ export async function saveJob(job: Partial<Job>) {
     paid_specialty: job.paidSpecialty ?? false,
     requires_tag: job.requiresTag ?? false,
 
-    public_token: job.publicToken ?? null,
+    public_token: job.publicToken ? String(job.publicToken) : undefined,
     public_link_sent_at: job.publicLinkSentAt ?? null,
     dropoff_email_sent_at: job.dropoffEmailSentAt ?? null,
     paid_processing_at: job.paidProcessingAt ?? null,
@@ -537,6 +617,13 @@ export async function saveJob(job: Partial<Job>) {
     updated_at: nowIso(),
   };
 
+
+// Don't overwrite existing DB fields with undefined (e.g., keep public_token stable)
+Object.keys(upsertPayload).forEach((k) => {
+  if (upsertPayload[k] === undefined) delete upsertPayload[k];
+});
+
+
   const { data, error } = await supabaseServer
     .from('jobs')
     .upsert(upsertPayload, {
@@ -549,6 +636,94 @@ export async function saveJob(job: Partial<Job>) {
     console.error('saveJob error', error);
     throw error;
   }
+
+
+// ---- Emails (best-effort) ----
+// Drop-off email: send on intake save if pref_email=true and not stamped.
+try {
+  if (data) {
+    const wantsEmail = !!(data as any).pref_email;
+    const email = String((data as any).email || '').trim();
+    const alreadyStamped = !!(data as any).dropoff_email_sent_at;
+
+    if (wantsEmail && email && !alreadyStamped) {
+      const token = String((data as any).public_token || '').trim() || makePublicToken();
+
+      // Atomic stamp-first (prevents double send)
+      const { data: locked } = await supabaseServer
+        .from('jobs')
+        .update({ dropoff_email_sent_at: nowIso(), public_token: token })
+        .eq('id', (data as any).id)
+        .is('dropoff_email_sent_at', null)
+        .select('tag, email, customer_name, public_token')
+        .maybeSingle();
+
+      if (locked) {
+        const link = intakeFormLink(String((locked as any).tag), String((locked as any).public_token));
+        const tpl = buildIntakeEmail({
+          name: String((locked as any).customer_name || ''),
+          tag: String((locked as any).tag || ''),
+          link,
+        });
+
+        await sendEmail({
+          to: String((locked as any).email),
+          subject: tpl.subject,
+          html: tpl.html,
+          text: tpl.text,
+        });
+      }
+    }
+  }
+} catch (e) {
+  console.error('Intake email failed (non-fatal)', e);
+}
+
+// Finished email: if status is Finished/Ready-ish and not stamped (covers manual status changes + scan workflow)
+try {
+  if (data && statusIsFinishedLike((data as any).status)) {
+    const wantsEmail = !!(data as any).pref_email;
+    const email = String((data as any).email || '').trim();
+    const alreadyStamped = !!(data as any).finished_email_sent_at;
+
+    if (wantsEmail && email && !alreadyStamped) {
+      const { data: locked } = await supabaseServer
+        .from('jobs')
+        .update({ finished_email_sent_at: nowIso() })
+        .eq('id', (data as any).id)
+        .is('finished_email_sent_at', null)
+        .select('tag, email, customer_name, paid_processing, price_processing, process_type, beef_fat, webbs_order')
+        .maybeSingle();
+
+      if (locked) {
+        const computed = calcProcessingPrice((locked as any).process_type, !!(locked as any).beef_fat, !!(locked as any).webbs_order);
+        const price = Number((locked as any).price_processing ?? 0) || computed;
+
+        const tpl = buildFinishedEmail({
+          name: String((locked as any).customer_name || ''),
+          tag: String((locked as any).tag || ''),
+          paidProcessing: !!(locked as any).paid_processing,
+          processingPrice: price,
+        });
+
+        await sendEmail({
+          to: String((locked as any).email),
+          subject: tpl.subject,
+          html: tpl.html,
+          text: tpl.text,
+        });
+
+        // backfill price_processing if it was missing/0
+        if (!Number((locked as any).price_processing ?? 0) && computed) {
+          await supabaseServer.from('jobs').update({ price_processing: computed }).eq('tag', String((locked as any).tag));
+        }
+      }
+    }
+  }
+} catch (e) {
+  console.error('Finished email failed (non-fatal)', e);
+}
+
 
   return { ok: true, job: data ? mapDbRowToJob(data) : null };
 }
