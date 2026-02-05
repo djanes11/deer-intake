@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
@@ -262,11 +262,12 @@ export default function Page() {
 }
 
 function IntakePage() {
+  const router = useRouter();
   const sp = useSearchParams();
   const tagFromUrl = sp.get('tag') ?? '';
 
-  const [job, setJob] = useState<Job>({
-    tag: tagFromUrl || '',
+  const newBlankJob = (tag: string = ''): Job => ({
+    tag,
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
@@ -303,6 +304,8 @@ function IntakePage() {
     smsConsent: false,
     autoCallConsent: false,
   });
+
+  const [job, setJob] = useState<Job>(() => newBlankJob(tagFromUrl || ''));
 
   const [zipDirty, setZipDirty] = useState(false);
 
@@ -643,6 +646,25 @@ if (fresh?.exists && fresh.job) {
       setBusy(false);
       setTimeout(() => setMsg(''), 1500);
     }
+  };
+
+  const resetForNew = () => {
+    const fresh = newBlankJob('');
+    setJob(fresh);
+    setZipDirty(false);
+    setMsg('');
+    setLastSavedJson(stableStringify(snapshotJob(fresh))); // not dirty after reset
+
+    // Clear ?tag= in the URL so we don't accidentally reload an existing job
+    try {
+      router.replace('/intake');
+    } catch {
+      // ignore
+    }
+
+    // Put the cursor back on Tag Number for fast counter workflow
+    requestAnimationFrame(() => tagRef.current?.focus());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) => setJob((p) => ({ ...p, [k]: v }));
@@ -1382,6 +1404,19 @@ if (fresh?.exists && fresh.job) {
 
           <button className="btn" onClick={onSave} disabled={busy}>
             {busy ? 'Saving…' : 'Save'}
+          </button>
+
+          <button
+            className="btn"
+            type="button"
+            onClick={async () => {
+              const ok = await onSave();
+              if (!ok) return;
+              resetForNew();
+            }}
+            disabled={busy}
+          >
+            {busy ? 'Saving…' : 'Save & New'}
           </button>
         </div>
       </div>
