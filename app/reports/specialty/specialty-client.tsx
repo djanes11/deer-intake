@@ -3,10 +3,10 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 
-type Row = {
+type OrderRow = {
   tag: string;
   customer_name: string | null;
-  dropoff_date: string | null;
+  dropoff: string | null;
   specialty_status: string | null;
   summer_sausage_lbs: number | null;
   summer_sausage_cheese_lbs: number | null;
@@ -21,7 +21,20 @@ function fmt1(v: any) {
   return n(v).toFixed(1);
 }
 
-const tableStyles: Record<string, React.CSSProperties> = {
+const styles: Record<string, React.CSSProperties> = {
+  // Tiles
+  kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 12 },
+  card: {
+    background: '#ffffff',
+    border: '1px solid #e5e7eb',
+    borderRadius: 12,
+    padding: 14,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+  },
+  label: { fontSize: 12, fontWeight: 900, color: '#334155', marginBottom: 6 },
+  value: { fontSize: 22, fontWeight: 950 as any, color: '#0f172a' },
+
+  // Table
   wrap: {
     marginTop: 12,
     background: '#fff',
@@ -51,6 +64,8 @@ const tableStyles: Record<string, React.CSSProperties> = {
   },
   right: { textAlign: 'right' },
   link: { color: '#155acb', fontWeight: 900, textDecoration: 'none' },
+
+  // Buttons / messages
   btn: {
     padding: '6px 10px',
     borderRadius: 10,
@@ -73,8 +88,8 @@ const tableStyles: Record<string, React.CSSProperties> = {
   err: { fontSize: 12, color: '#b91c1c', marginBottom: 8, fontWeight: 900 },
 };
 
-export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Row[] }) {
-  const [rows, setRows] = useState<Row[]>(initialRows);
+export default function SpecialtyOrdersClient({ initialRows }: { initialRows: OrderRow[] }) {
+  const [rows, setRows] = useState<OrderRow[]>(initialRows);
   const [busyTag, setBusyTag] = useState<string>('');
   const [msg, setMsg] = useState<string>('');
   const [err, setErr] = useState<string>('');
@@ -85,81 +100,103 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Ro
         a.ss += n(r.summer_sausage_lbs);
         a.ssc += n(r.summer_sausage_cheese_lbs);
         a.jer += n(r.sliced_jerky_lbs);
+        a.jobs += 1;
         return a;
       },
-      { ss: 0, ssc: 0, jer: 0 }
+      { ss: 0, ssc: 0, jer: 0, jobs: 0 }
     );
   }, [rows]);
 
   const markFinished = async (tag: string) => {
-  setErr('');
-  setMsg('');
-  setBusyTag(tag);
+    setErr('');
+    setMsg('');
+    setBusyTag(tag);
 
-  try {
-    const res = await fetch('/api/specialty/mark-finished', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tag }),
-    });
+    try {
+      const res = await fetch('/api/specialty/mark-finished', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tag }),
+      });
 
-    const j = await res.json().catch(() => ({}));
+      const j = await res.json().catch(() => ({}));
 
-    if (!res.ok || !j?.ok) {
-      throw new Error(`HTTP ${res.status}: ${j?.error || 'Update failed'}`);
+      if (!res.ok || !j?.ok) {
+        throw new Error(`HTTP ${res.status}: ${j?.error || 'Update failed'}`);
+      }
+
+      // remove row -> tiles recalc instantly
+      setRows((prev) => prev.filter((r) => r.tag !== tag));
+      setMsg(`Marked ${tag} specialty as Finished`);
+      setTimeout(() => setMsg(''), 1500);
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setBusyTag('');
     }
-
-    // remove row from table after success
-    setRows((prev) => prev.filter((r) => r.tag !== tag));
-    setMsg(`Marked ${tag} as Finished`);
-    setTimeout(() => setMsg(''), 1500);
-  } catch (e: any) {
-    setErr(String(e?.message || e));
-  } finally {
-    setBusyTag('');
-  }
-};
-
+  };
 
   return (
     <div>
-      {msg && <div style={tableStyles.msg}>{msg}</div>}
-      {err && <div style={tableStyles.err}>{err}</div>}
+      {msg && <div style={styles.msg}>{msg}</div>}
+      {err && <div style={styles.err}>{err}</div>}
 
-      <div style={tableStyles.wrap}>
-        <table style={tableStyles.table}>
+      {/* TOP TILES — now tied to rows state so it auto updates */}
+      <div style={styles.kpiGrid}>
+        <div style={styles.card}>
+          <div style={styles.label}>Summer Sausage</div>
+          <div style={styles.value}>{totals.ss.toFixed(1)} lb</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>SS + Cheddar</div>
+          <div style={styles.value}>{totals.ssc.toFixed(1)} lb</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Sliced Jerky</div>
+          <div style={styles.value}>{totals.jer.toFixed(1)} lb</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Open Jobs</div>
+          <div style={styles.value}>{totals.jobs}</div>
+        </div>
+      </div>
+
+      <div style={styles.wrap}>
+        <table style={styles.table}>
           <thead>
             <tr>
-              <th style={tableStyles.th}>Tag</th>
-              <th style={tableStyles.th}>Customer</th>
-              <th style={tableStyles.th}>Drop-off</th>
-              <th style={tableStyles.th}>Spec Status</th>
-              <th style={{ ...tableStyles.th, ...tableStyles.right }}>SS lb</th>
-              <th style={{ ...tableStyles.th, ...tableStyles.right }}>SS+C lb</th>
-              <th style={{ ...tableStyles.th, ...tableStyles.right }}>Jerky lb</th>
-              <th style={tableStyles.th}>Actions</th>
+              <th style={styles.th}>Tag</th>
+              <th style={styles.th}>Customer</th>
+              <th style={styles.th}>Drop-off</th>
+              <th style={styles.th}>Spec Status</th>
+              <th style={{ ...styles.th, ...styles.right }}>SS lb</th>
+              <th style={{ ...styles.th, ...styles.right }}>SS+C lb</th>
+              <th style={{ ...styles.th, ...styles.right }}>Jerky lb</th>
+              <th style={styles.th}>Actions</th>
             </tr>
           </thead>
+
           <tbody>
             {rows.map((r) => (
               <tr key={r.tag}>
-                <td style={tableStyles.td}>
-                  <Link style={tableStyles.link} href={`/intake?tag=${encodeURIComponent(r.tag)}`}>
+                <td style={styles.td}>
+                  {/* staff intake edit page */}
+                  <Link style={styles.link} href={`/intake?tag=${encodeURIComponent(r.tag)}`}>
                     {r.tag}
                   </Link>
                 </td>
-                <td style={tableStyles.td}>{r.customer_name || ''}</td>
-                <td style={tableStyles.td}>{r.dropoff_date || ''}</td>
-                <td style={tableStyles.td}>{r.specialty_status || ''}</td>
-                <td style={{ ...tableStyles.td, ...tableStyles.right }}>{fmt1(r.summer_sausage_lbs)}</td>
-                <td style={{ ...tableStyles.td, ...tableStyles.right }}>{fmt1(r.summer_sausage_cheese_lbs)}</td>
-                <td style={{ ...tableStyles.td, ...tableStyles.right }}>{fmt1(r.sliced_jerky_lbs)}</td>
-                <td style={tableStyles.td}>
+                <td style={styles.td}>{r.customer_name || ''}</td>
+                <td style={styles.td}>{r.dropoff || ''}</td>
+                <td style={styles.td}>{r.specialty_status || ''}</td>
+                <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.summer_sausage_lbs)}</td>
+                <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.summer_sausage_cheese_lbs)}</td>
+                <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.sliced_jerky_lbs)}</td>
+                <td style={styles.td}>
                   <button
                     type="button"
                     onClick={() => markFinished(r.tag)}
                     disabled={!!busyTag}
-                    style={busyTag ? tableStyles.btnOff : tableStyles.btn}
+                    style={busyTag ? styles.btnOff : styles.btn}
                     title="Sets Specialty Status to Finished"
                   >
                     {busyTag === r.tag ? 'Updating…' : 'Mark Finished'}
@@ -168,15 +205,15 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Ro
               </tr>
             ))}
 
-            {/* totals footer */}
+            {/* optional footer totals row */}
             <tr>
-              <td style={{ ...tableStyles.td, borderBottom: 0 }} colSpan={4}>
+              <td style={{ ...styles.td, borderBottom: 0 }} colSpan={4}>
                 Totals (open)
               </td>
-              <td style={{ ...tableStyles.td, ...tableStyles.right, borderBottom: 0 }}>{totals.ss.toFixed(1)}</td>
-              <td style={{ ...tableStyles.td, ...tableStyles.right, borderBottom: 0 }}>{totals.ssc.toFixed(1)}</td>
-              <td style={{ ...tableStyles.td, ...tableStyles.right, borderBottom: 0 }}>{totals.jer.toFixed(1)}</td>
-              <td style={{ ...tableStyles.td, borderBottom: 0 }} />
+              <td style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>{totals.ss.toFixed(1)}</td>
+              <td style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>{totals.ssc.toFixed(1)}</td>
+              <td style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>{totals.jer.toFixed(1)}</td>
+              <td style={{ ...styles.td, borderBottom: 0 }} />
             </tr>
           </tbody>
         </table>
