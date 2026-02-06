@@ -169,7 +169,7 @@ export default function Page() {
 
 function OvernightIntakePage() {
   const [job, setJob] = useState<Job>({
-    tag: '',                  // overnight has no tag at intake time
+    tag: undefined,                  // overnight has no tag at intake time
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
@@ -308,7 +308,7 @@ useEffect(() => {
     // Construct payload exactly as backend expects; requiresTag=true allows no tag
     const payload: Job = {
       ...job,
-      tag: '',                 // never send a tag on overnight
+      tag: null,                 // never send a tag on overnight
       requiresTag: true,
 
       status:
