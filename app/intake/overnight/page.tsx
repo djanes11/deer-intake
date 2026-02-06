@@ -923,7 +923,7 @@ useEffect(() => {
         </section>
 
         {/* Backstrap */}
-        {step.key === 'extras' && (
+        {step.key === 'cuts' && (
         <>
 <section>
           <h3>Backstrap</h3>
