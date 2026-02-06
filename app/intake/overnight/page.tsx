@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import { saveJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
-import { Hint } from '@/app/intake/overnight/_ux_upgrades';
+import { Hint, BulletErrors, styles as ux } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 
 export const dynamic = 'force-dynamic';
@@ -222,6 +222,71 @@ useEffect(() => {
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
+
+  // ---- Wizard (mobile-first) ----
+  const steps = [
+    { key: 'customer', title: 'Customer' },
+    { key: 'hunt', title: 'Hunt Details' },
+    { key: 'cuts', title: 'Cuts & Add-ons' },
+    { key: 'extras', title: 'Specialty / Notes / Webbs' },
+    { key: 'review', title: 'Review & Submit' },
+  ] as const;
+  type StepKey = (typeof steps)[number]['key'];
+  const [stepIdx, setStepIdx] = useState(0);
+  const step = steps[stepIdx];
+
+  const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
+
+  const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(digitsOnly(s));
+  const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(digitsOnly(s));
+
+  const validateStep = (k: StepKey): string[] => {
+    const missing: string[] = [];
+
+    if (k === 'customer') {
+      if (!is13Digits(job.confirmation)) missing.push('Confirmation # (13 digits)');
+      if (!job.customer) missing.push('Customer Name');
+      if (!is10Digits(job.phone)) missing.push('Phone (10 digits)');
+      // Email is optional
+    }
+
+    if (k === 'hunt') {
+      if (!job.county) missing.push('County Killed');
+      if (!job.dropoff) missing.push('Drop-off Date');
+      if (!job.sex) missing.push('Deer Sex');
+      if (!job.howKilled) missing.push('How Killed');
+      if (!job.processType) missing.push('Process Type');
+    }
+
+    // cuts/extras are mostly preference-driven; keep them optional
+    return missing;
+  };
+
+  const canGoNext = () => validateStep(step.key).length === 0;
+
+  const goNext = () => {
+    const missing = validateStep(step.key);
+    if (missing.length) {
+      setMsg(`Missing or invalid: ${missing.join(', ')}`);
+      return;
+    }
+    setMsg('');
+    setStepIdx((i) => Math.min(i + 1, steps.length - 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goBack = () => {
+    setMsg('');
+    setStepIdx((i) => Math.max(i - 1, 0));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const validateAll = (): string[] => {
+    const all = new Set<string>();
+    for (const s of steps) for (const m of validateStep(s.key)) all.add(m);
+    return Array.from(all);
+  };
+
   const [locked, setLocked] = useState<boolean>(false);
   const [showThanks, setShowThanks] = useState<boolean>(false);
 
@@ -275,22 +340,7 @@ useEffect(() => {
     });
   }, [capingFlow, webbsOn, procNorm, job.specialtyProducts]);
 
-  const validate = (): string[] => {
-    const missing: string[] = [];
-    if (!job.customer) missing.push('Customer Name');
-    if (!job.phone) missing.push('Phone');
-    if (!job.email) missing.push('Email');
-    if (!job.address) missing.push('Address');
-    if (!job.city) missing.push('City');
-    if (!job.state) missing.push('State');
-    if (!job.zip) missing.push('Zip');
-    if (!job.county) missing.push('County Killed');
-    if (!job.dropoff) missing.push('Drop-off Date');
-    if (!job.sex) missing.push('Deer Sex');
-    if (!job.howKilled) missing.push('How Killed');   // NEW
-    if (!job.processType) missing.push('Process Type');
-    return missing;
-  };
+  const validate = (): string[] => validateAll();
 
   const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
 
@@ -367,8 +417,17 @@ useEffect(() => {
     }
   };
 
-  const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
-    !locked && setJob((p) => ({ ...p, [k]: v }));
+  const setVal = <K extends keyof Job>(k: K, v: Job[K]) => {
+    if (locked) return;
+    let next: any = v;
+
+    // Sanitize numeric-only fields for mobile friendliness
+    if (k === 'confirmation') next = digitsOnly(String(v)).slice(0, 13);
+    if (k === 'phone') next = digitsOnly(String(v)).slice(0, 10);
+    if (k === 'zip') next = digitsOnly(String(v)).slice(0, 10);
+
+    setJob((p) => ({ ...p, [k]: next }));
+  };
 
   const setHind = (k: keyof Required<CutsBlock>) =>
     !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
@@ -380,6 +439,27 @@ useEffect(() => {
     <div className={`form-card ${locked ? 'locked' : ''}`}>
       <div className="screen-only">
         <h2>Deer Intake (Overnight)</h2>
+
+        {/* Wizard nav (mobile-first) */}
+        <div style={ux.stickyHeading} className="wizard-nav">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <div>
+              <div style={{ ...ux.small, ...ux.muted }}>Step {stepIdx + 1} of {steps.length}</div>
+              <div style={{ fontSize: 18, fontWeight: 900 }}>{step.title}</div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" className="btn" onClick={goBack} disabled={stepIdx === 0}>
+                Back
+              </button>
+              {step.key !== 'review' ? (
+                <button type="button" className="btn" onClick={goNext} disabled={busy || locked || !canGoNext()}>
+                  Next
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
 
         <div className="summary">
           <div className="row">
@@ -416,6 +496,7 @@ useEffect(() => {
           </div>
         </div>
 
+        { step.key === 'customer'  && (
         {/* Customer */}
         <section>
           <h3>Customer</h3>
@@ -426,6 +507,10 @@ useEffect(() => {
               <input
                 value={job.confirmation || ''}
                 onChange={(e) => setVal('confirmation', e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={13}
+                placeholder="13-digit confirmation"
                 disabled={locked}
               />
             </div>
@@ -442,6 +527,10 @@ useEffect(() => {
               <input
                 value={job.phone || ''}
                 onChange={(e) => setVal('phone', e.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={10}
+                placeholder="10-digit phone"
                 disabled={locked}
               />
             </div>
@@ -542,6 +631,8 @@ useEffect(() => {
 </div>
           </div>
         </section>
+
+        )}        { step.key === 'hunt'  && (
         <section>
   <h3>Hunt Details</h3>
   <div className="grid">
@@ -619,6 +710,8 @@ useEffect(() => {
 </section>
 
 
+
+        )}        { step.key === 'cuts'  && (
         {/* Cuts */}
         <section>
           <h3>Cuts</h3>
@@ -849,6 +942,8 @@ useEffect(() => {
           </div>
         </section>
 
+
+        )}        { step.key === 'extras'  && (
         {/* Specialty Products (no Specialty Status UI) */}
         <section>
           <h3>McAfee Specialty Products</h3>
@@ -944,6 +1039,8 @@ useEffect(() => {
           </div>
         </section>
 
+
+        )}        { step.key === 'review'  && (
         {/* Communication & Consent */}
         <section>
           <h3>Communication Preference & Consent</h3>
@@ -1008,15 +1105,18 @@ useEffect(() => {
 
         
 
+
+        )}        { step.key === 'review'  && (
 {/* Actions */}
         <div className="actions">
-          <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
+          <BulletErrors message={msg} />
           {/* Overnight = no print button */}
           <button className="btn" onClick={onSave} disabled={busy || locked}>
             {busy ? 'Saving…' : locked ? 'Saved' : 'Save'}
           </button>
         </div>
-      </div>
+      
+        )}</div>
 
       <div className="print-only">
         <PrintSheet job={job} />
