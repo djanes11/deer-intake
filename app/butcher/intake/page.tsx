@@ -13,7 +13,7 @@ type CutsBlock = {
   'Front - Steak'?: boolean; 'Front - Roast'?: boolean; 'Front - Grind'?: boolean; 'Front - None'?: boolean;
 };
 type Job = {
-  tag?: string; status?: string; Paid?: boolean; paid?: boolean; processType?: string; sex?: string;
+  tag?: string | null; status?: string; Paid?: boolean; paid?: boolean; processType?: string; sex?: string;
   hind?: CutsBlock; front?: CutsBlock; hindRoastCount?: string; frontRoastCount?: string;
   steak?: string; steaksPerPackage?: string; burgerSize?: string; beefFat?: boolean;
   backstrapPrep?: string; backstrapThickness?: string;
