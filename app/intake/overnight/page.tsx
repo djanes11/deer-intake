@@ -497,7 +497,6 @@ useEffect(() => {
         </div>
 
         { step.key === 'customer'  && (
-        {/* Customer */}
         <section>
           <h3>Customer</h3>
           <div className="grid">
@@ -712,7 +711,6 @@ useEffect(() => {
 
 
         )}        { step.key === 'cuts'  && (
-        {/* Cuts */}
         <section>
           <h3>Cuts</h3>
           <div className="grid">
@@ -944,7 +942,6 @@ useEffect(() => {
 
 
         )}        { step.key === 'extras'  && (
-        {/* Specialty Products (no Specialty Status UI) */}
         <section>
           <h3>McAfee Specialty Products</h3>
           <div className="grid">
@@ -1040,7 +1037,10 @@ useEffect(() => {
         </section>
 
 
-        )}        { step.key === 'review'  && (
+        )}
+
+        { step.key === 'review'  && (
+          <>
         {/* Communication & Consent */}
         <section>
           <h3>Communication Preference & Consent</h3>
@@ -1106,7 +1106,7 @@ useEffect(() => {
         
 
 
-        )}        { step.key === 'review'  && (
+        
 {/* Actions */}
         <div className="actions">
           <BulletErrors message={msg} />
@@ -1116,7 +1116,9 @@ useEffect(() => {
           </button>
         </div>
       
-        )}</div>
+          </>
+        )}
+        </div>
 
       <div className="print-only">
         <PrintSheet job={job} />
