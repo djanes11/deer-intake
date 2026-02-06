@@ -25,7 +25,7 @@ const USE_SUPABASE =
 const API_BASE = USE_SUPABASE ? '/api/v2/jobs' : '/api/gas2';
 
 // Keep Job super loose to avoid cross-file literal-union collisions.
-export type Job = AnyRec & { tag?: string };
+export type Job = AnyRec & { tag?: string | null };
 
 export interface SaveResponse {
   ok: boolean;
@@ -52,7 +52,7 @@ export interface SearchOptions {
 
 export type SearchParams = {
   status?: string;
-  tag?: string;
+  tag?: string | null;
   limit?: number;
   q?: string;
   [k: string]: any;
@@ -97,19 +97,11 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
     body: JSON.stringify(body),
   });
 
-  // Read as text first so we can handle empty 204/empty-body responses safely.
-  const text = await r.text().catch(() => '');
-
-  // Some save endpoints intentionally return no body on success.
-  // If this was a save and we got an empty body, treat it as ok.
-  if (r.ok && (!text || text.trim() === '') && body?.action === 'save') {
-    return { ok: true } as unknown as T;
-  }
-
+  const text = await r.text();
   try {
-    const json = text ? JSON.parse(text) : null;
-    if (!r.ok) throw new Error((json as any)?.error || `HTTP ${r.status}`);
-    return (json as T) ?? ({} as T);
+    const json = JSON.parse(text);
+    if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
+    return json as T;
   } catch {
     if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
     return text as unknown as T;
