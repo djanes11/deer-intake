@@ -10,6 +10,7 @@ import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 export const dynamic = 'force-dynamic';
 
 /* ---------------- Types ---------------- */
+
 type CutsBlock = {
   'Hind - Steak'?: boolean;
   'Hind - Roast'?: boolean;
@@ -22,7 +23,8 @@ type CutsBlock = {
 };
 
 type Job = {
-  // NOTE: Tag intentionally blank/disabled in UI. We still keep the key in state.
+  // Overnight/public does NOT have a tag at intake time.
+  // Keep it in state for typing parity, but we will send an empty string to the backend.
   tag?: string | null;
   confirmation?: string;
 
@@ -36,8 +38,8 @@ type Job = {
 
   county?: string;
   dropoff?: string; // yyyy-mm-dd
-  sex?: '' | 'Buck' | 'Doe'| 'Antlerless';
-  howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';  // NEW
+  sex?: '' | 'Buck' | 'Doe' | 'Antlerless';
+  howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';
   processType?:
     | ''
     | 'Standard Processing'
@@ -47,11 +49,10 @@ type Job = {
     | 'Cape & Donate'
     | 'Donate';
 
-  status?: string;            // regular status (hidden in UI)
-  capingStatus?: string;      // cape status (hidden in UI)
-  webbsStatus?: string;       // webbs status (hidden in UI)
+  status?: string;       // hidden in UI
+  capingStatus?: string; // hidden in UI
+  webbsStatus?: string;  // hidden in UI
 
-  // Specialty Status (hidden in UI but kept in payload)
   specialtyStatus?: '' | 'Dropped Off' | 'In Progress' | 'Finished' | 'Called' | 'Picked Up';
 
   steak?: string;
@@ -67,14 +68,13 @@ type Job = {
   front?: CutsBlock;
 
   backstrapPrep?: '' | 'Whole' | 'Sliced' | 'Butterflied';
-  backstrapThickness?: '' | '1/2\"' | '3/4\"' | 'Other';
+  backstrapThickness?: '' | '1/2"' | '3/4"' | 'Other';
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
   summerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
   slicedJerkyLbs?: string | number;
-  specialtyPounds?: string;
 
   notes?: string;
 
@@ -82,26 +82,25 @@ type Job = {
   webbsFormNumber?: string;
   webbsPounds?: string;
 
-  // legacy + new paid flags
   Paid?: boolean;
   paid?: boolean;
-  paidProcessing?: boolean;  // regular processing paid
-  paidSpecialty?: boolean;   // specialty paid
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
 
   priceProcessing?: number | string;
   priceSpecialty?: number | string;
   price?: number | string;
 
-  // overnight signal for backend
   requiresTag?: boolean;
 
-  // comms prefs + consent
-  prefEmail?: boolean;       // maps to "Pref Email"
-  prefSMS?: boolean;         // maps to "Pref SMS"
-  prefCall?: boolean;        // maps to "Pref Call"
-  smsConsent?: boolean;      // maps to "SMS Consent"
-  autoCallConsent?: boolean; // maps to "Auto Call Consent"
+  prefEmail?: boolean;
+  prefSMS?: boolean;
+  prefCall?: boolean;
+  smsConsent?: boolean;
+  autoCallConsent?: boolean;
 };
+
+/* ---------------- Helpers ---------------- */
 
 const todayISO = () => {
   const d = new Date();
@@ -123,10 +122,15 @@ const normProc = (s?: string) => {
 const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
   const p = normProc(proc);
   const base =
-    p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 50 :
-    ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
-    p === 'Donate' ? 0 : 0;
+    p === 'Caped'
+      ? 150
+      : p === 'Cape & Donate'
+        ? 50
+        : ['Standard Processing', 'Skull-Cap', 'European'].includes(p)
+          ? 130
+          : p === 'Donate'
+            ? 0
+            : 0;
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 };
@@ -139,7 +143,7 @@ const toInt = (val: any) => {
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true','yes','y','1','on','paid','x','✓','✔'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
 };
 
 const fullPaid = (j: Job): boolean => {
@@ -149,19 +153,15 @@ const fullPaid = (j: Job): boolean => {
   return proc && spec;
 };
 
-// keep lists for internal coercion only (not rendered)
-const STATUS_MAIN  = ['Dropped Off', 'Processing', 'Finished', 'Called', 'Picked Up'] as const;
-const STATUS_CAPE  = ['Dropped Off', 'Caped', 'Called', 'Picked Up'] as const;
-const STATUS_WEBBS = ['Dropped Off', 'Sent', 'Delivered', 'Called', 'Picked Up'] as const;
-const STATUS_SPEC  = ['Dropped Off', 'In Progress', 'Finished', 'Called', 'Picked Up'] as const;
-
-const coerce = (v: string | undefined, list: readonly string[]) =>
-  list.includes(String(v)) ? String(v) : list[0];
+const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
+const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(s);
+const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
 
 /* ===== Suspense wrapper ===== */
+
 export default function Page() {
   return (
-    <Suspense fallback={<div className="form-card"><div style={{padding:16}}>Loading…</div></div>}>
+    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>Loading…</div></div>}>
       <OvernightIntakePage />
     </Suspense>
   );
@@ -169,14 +169,13 @@ export default function Page() {
 
 function OvernightIntakePage() {
   const [job, setJob] = useState<Job>({
-    tag: undefined,                  // overnight has no tag at intake time
+    tag: undefined,
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
     webbsStatus: '',
     specialtyStatus: '',
-    howKilled: '',   // NEW
-
+    howKilled: '',
 
     hind: {
       'Hind - Steak': false,
@@ -190,6 +189,7 @@ function OvernightIntakePage() {
       'Front - Grind': false,
       'Front - None': false,
     },
+
     beefFat: false,
     webbsOrder: false,
     Paid: false,
@@ -198,9 +198,8 @@ function OvernightIntakePage() {
     paidSpecialty: false,
     specialtyProducts: false,
 
-    requiresTag: true,        // backend allows missing tag
+    requiresTag: true,
 
-    // sensible defaults for prefs
     prefEmail: true,
     prefSMS: false,
     prefCall: false,
@@ -208,17 +207,16 @@ function OvernightIntakePage() {
     autoCallConsent: false,
   });
 
-const [zipDirty, setZipDirty] = useState(false);
+  const [zipDirty, setZipDirty] = useState(false);
 
-useEffect(() => {
-  if (!zipDirty && (job.city || job.state)) {
-    const z = lookupUniqueZipByCity(job.state, job.city);
-    if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
-      setJob(p => ({ ...p, zip: z }));
+  useEffect(() => {
+    if (!zipDirty && (job.city || job.state)) {
+      const z = lookupUniqueZipByCity(job.state, job.city);
+      if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
+        setJob((p) => ({ ...p, zip: z }));
+      }
     }
-  }
-}, [job.city, job.state, zipDirty]);
-
+  }, [job.city, job.state, zipDirty]);
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
@@ -235,21 +233,23 @@ useEffect(() => {
     { key: 'extras', title: 'Extras' },
     { key: 'review', title: 'Review' },
   ] as const;
+
   type StepKey = (typeof steps)[number]['key'];
   const step = steps[stepIdx];
-
 
   const processingPrice = useMemo(
     () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
     [job.processType, job.beefFat, job.webbsOrder]
   );
+
   const specialtyPrice = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    const ss  = toInt(job.summerSausageLbs);
+    const ss = toInt(job.summerSausageLbs);
     const ssc = toInt(job.summerSausageCheeseLbs);
     const jer = toInt(job.slicedJerkyLbs);
-    return ss * 4.25 + ssc * 4.60 + jer * 4.60;
+    return ss * 4.25 + ssc * 4.6 + jer * 4.6;
   }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
+
   const totalPrice = processingPrice + specialtyPrice;
 
   const procNorm = normProc(job.processType);
@@ -289,13 +289,7 @@ useEffect(() => {
     });
   }, [capingFlow, webbsOn, procNorm, job.specialtyProducts]);
 
-  const validate = (): string[] => Object.values(validateAll());
-
   const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
-
-  const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
-  const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(s);
-  const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
 
   const clearErr = (k: string) =>
     setErrors((prev) => {
@@ -334,11 +328,12 @@ useEffect(() => {
   const validateStep = (k: StepKey): Record<string, string> => {
     const all = validateAll();
     const e: Record<string, string> = {};
-    const pick = (key: string) => { if (all[key]) e[key] = all[key]; };
+    const pick = (key: string) => {
+      if (all[key]) e[key] = all[key];
+    };
 
-    if (k === 'customer') ['confirmation','customer','phone'].forEach(pick);
-    if (k === 'hunt') ['county','dropoff','sex','howKilled','processType'].forEach(pick);
-    // cuts/extras have no required fields right now
+    if (k === 'customer') ['confirmation', 'customer', 'phone'].forEach(pick);
+    if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
   };
@@ -357,65 +352,52 @@ useEffect(() => {
   };
 
   const goBack = () => {
+    if (locked) return;
     setMsg('');
     setStepIdx((i) => Math.max(i - 1, 0));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-
 
   const onSave = async () => {
     if (locked) return;
     setMsg('');
     const e = validateAll();
     setErrors(e);
-    const missing = Object.values(e);
-    if (missing.length) {
+    if (Object.keys(e).length) {
       setMsg('Fix the highlighted required fields.');
       return;
     }
 
     const pnorm = normProc(job.processType);
 
-    // Construct payload exactly as backend expects; requiresTag=true allows no tag
+    // IMPORTANT: public/overnight has no tag. Send empty string (not null).
     const payload: Job = {
       ...job,
-      tag: null,                 // never send a tag on overnight
+      tag: '',
       requiresTag: true,
 
-      status:
-        pnorm === 'Cape & Donate' || pnorm === 'Donate'
-          ? ''
-          : (job.status || 'Dropped Off'),
+      status: pnorm === 'Cape & Donate' || pnorm === 'Donate' ? '' : (job.status || 'Dropped Off'),
 
-      capingStatus:
-        (pnorm === 'Caped' || pnorm === 'Cape & Donate')
-          ? (job.capingStatus || 'Dropped Off')
-          : '',
+      capingStatus: (pnorm === 'Caped' || pnorm === 'Cape & Donate') ? (job.capingStatus || 'Dropped Off') : '',
 
-      webbsStatus:
-        (job.webbsOrder && pnorm !== 'Donate')
-          ? (job.webbsStatus || 'Dropped Off')
-          : '',
+      webbsStatus: (job.webbsOrder && pnorm !== 'Donate') ? (job.webbsStatus || 'Dropped Off') : '',
 
       specialtyStatus: job.specialtyProducts ? (job.specialtyStatus || 'Dropped Off') : '',
 
-      howKilled: job.howKilled || '',   // NEW
-
+      howKilled: job.howKilled || '',
 
       priceProcessing: processingPrice,
-      priceSpecialty:  specialtyPrice,
-      price:           totalPrice,
+      priceSpecialty: specialtyPrice,
+      price: totalPrice,
 
-      // keep Paid flags consistent
       Paid: fullPaid(job),
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
-      paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
+      paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
 
-      // sanitize specialty number fields
-      summerSausageLbs:          job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
-      summerSausageCheeseLbs:    job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
-      slicedJerkyLbs:            job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
+      summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
+      summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
+      slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
     };
 
     try {
@@ -425,7 +407,6 @@ useEffect(() => {
         setMsg(res?.error || 'Save failed');
         return;
       }
-      // Lock and show thank-you; front-of-house will add Tag later.
       setLocked(true);
       setShowThanks(true);
       setMsg('Saved ✓');
@@ -438,8 +419,7 @@ useEffect(() => {
     }
   };
 
-  const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
-    !locked && setJob((p) => ({ ...p, [k]: v }));
+  const setVal = <K extends keyof Job>(k: K, v: Job[K]) => !locked && setJob((p) => ({ ...p, [k]: v }));
 
   const setHind = (k: keyof Required<CutsBlock>) =>
     !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
@@ -457,41 +437,29 @@ useEffect(() => {
             <div className="wizardStep">Step {stepIdx + 1} of {steps.length}</div>
             <div className="wizardTitle">{step.title}</div>
           </div>
-          <div className="wizardRight">
-            <button className="btn secondary" onClick={goBack} disabled={stepIdx === 0 || busy || locked}>Back</button>
-            {step.key !== 'review' ? (
-              <button className="btn" onClick={goNext} disabled={busy || locked}>Next</button>
-            ) : null}
-          </div>
         </div>
 
         <div className="summary">
           <div className="row">
             <div className="col">
               <label>Tag Number</label>
-              <input
-                value={''}
-                onChange={() => {}}
-                placeholder="Assigned by staff"
-                disabled
-              />
-              <div className="muted" style={{fontSize:12}}>Front desk will assign your tag in the morning.</div>
+              <input value={''} onChange={() => {}} placeholder="Assigned by staff" disabled />
+              <div className="muted" style={{ fontSize: 12 }}>Front desk will assign your tag in the morning.</div>
             </div>
 
             <div className="col price">
               <label>Processing Price</label>
               <div className="money">{processingPrice.toFixed(2)}</div>
-              <div className="muted" style={{fontSize:12}}>Proc. type + beef fat + Webbs fee</div>
+              <div className="muted" style={{ fontSize: 12 }}>Proc. type + beef fat + Webbs fee</div>
             </div>
 
             <div className="col price">
               <label>Specialty Price</label>
               <div className="money">{specialtyPrice.toFixed(2)}</div>
-              <div className="muted" style={{fontSize:12}}>Based upon Summer Sausage lbs</div>
+              <div className="muted" style={{ fontSize: 12 }}>Based upon Summer Sausage lbs</div>
             </div>
           </div>
 
-          {/* Trimmed summary: ONLY the total (no status UI at all) */}
           <div className="row small">
             <div className="col total">
               <label>Total (preview)</label>
@@ -500,643 +468,523 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Customer */}
+        {/* Step: Customer */}
+        {step.key === 'customer' && (
+          <section>
+            <h3>Customer</h3>
+            <div className="grid">
+              <div className="c3">
+                <label>Confirmation #</label>
+                <Hint>Confirmation number you received from your GoOutdoorsIN (State) check-in.</Hint>
+                <input
+                  value={job.confirmation || ''}
+                  onChange={(e) => setConfirmation(e.target.value)}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={13}
+                  className={errors.confirmation ? 'err' : ''}
+                  data-err="confirmation"
+                  disabled={locked}
+                />
+                {errors.confirmation ? <div className="errText">{errors.confirmation}</div> : null}
+              </div>
+
+              <div className="c6">
+                <label>Customer Name</label>
+                <input
+                  value={job.customer || ''}
+                  onChange={(e) => { clearErr('customer'); setVal('customer', e.target.value); }}
+                  className={errors.customer ? 'err' : ''}
+                  data-err="customer"
+                  disabled={locked}
+                />
+                {errors.customer ? <div className="errText">{errors.customer}</div> : null}
+              </div>
+
+              <div className="c3">
+                <label>Phone</label>
+                <input
+                  value={job.phone || ''}
+                  onChange={(e) => setPhone(e.target.value)}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
+                  className={errors.phone ? 'err' : ''}
+                  data-err="phone"
+                  disabled={locked}
+                />
+                {errors.phone ? <div className="errText">{errors.phone}</div> : null}
+              </div>
+
+              <div className="c4">
+                <label>Email</label>
+                <Hint>Used for receipts or email updates.</Hint>
+                <input value={job.email || ''} onChange={(e) => setVal('email', e.target.value)} disabled={locked} />
+              </div>
+
+              <div className="c8">
+                <label>Address</label>
+                <input value={job.address || ''} onChange={(e) => setVal('address', e.target.value)} disabled={locked} />
+              </div>
+
+              <div className="c4">
+                <label>City</label>
+                <input
+                  value={job.city || ''}
+                  onChange={(e) => { setZipDirty(false); setVal('city', e.target.value); }}
+                  disabled={locked}
+                />
+              </div>
+
+              <div className="c4">
+                <label>State</label>
+                <select
+                  value={job.state || ''}
+                  onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as any); }}
+                  disabled={locked}
+                >
+                  <option value="">—</option>
+                  <option value="IN">IN</option>
+                  <option value="KY">KY</option>
+                  <option value="IL">IL</option>
+                  <option value="OH">OH</option>
+                  <option value="MI">MI</option>
+                  <option value="TN">TN</option>
+                  <option value="MO">MO</option>
+                  <option value="WI">WI</option>
+                  <option value="IA">IA</option>
+                  <option value="WV">WV</option>
+                  <option value="PA">PA</option>
+                  <option value="VA">VA</option>
+                  <option value="NC">NC</option>
+                  <option value="SC">SC</option>
+                  <option value="GA">GA</option>
+                  <option value="FL">FL</option>
+                  <option value="AL">AL</option>
+                  <option value="MS">MS</option>
+                  <option value="LA">LA</option>
+                  <option value="AR">AR</option>
+                  <option value="TX">TX</option>
+                  <option value="OK">OK</option>
+                  <option value="KS">KS</option>
+                  <option value="NE">NE</option>
+                  <option value="SD">SD</option>
+                  <option value="ND">ND</option>
+                  <option value="MN">MN</option>
+                  <option value="CO">CO</option>
+                  <option value="WY">WY</option>
+                  <option value="MT">MT</option>
+                  <option value="NM">NM</option>
+                  <option value="AZ">AZ</option>
+                  <option value="UT">UT</option>
+                  <option value="ID">ID</option>
+                  <option value="NV">NV</option>
+                  <option value="CA">CA</option>
+                  <option value="OR">OR</option>
+                  <option value="WA">WA</option>
+                  <option value="AK">AK</option>
+                  <option value="HI">HI</option>
+                  <option value="NY">NY</option>
+                  <option value="NJ">NJ</option>
+                  <option value="CT">CT</option>
+                  <option value="RI">RI</option>
+                  <option value="MA">MA</option>
+                  <option value="VT">VT</option>
+                  <option value="NH">NH</option>
+                  <option value="ME">ME</option>
+                  <option value="MD">MD</option>
+                  <option value="DE">DE</option>
+                  <option value="DC">DC</option>
+                </select>
+              </div>
+
+              <div className="c4">
+                <label>Zip</label>
+                <input
+                  value={job.zip || ''}
+                  onChange={(e) => { setZipDirty(true); setVal('zip', e.target.value); }}
+                  disabled={locked}
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Step: Hunt */}
         {step.key === 'hunt' && (
-        <>
-<section>
-          <h3>Customer</h3>
-          <div className="grid">
-            <div className="c3">
-              <label>Confirmation #</label>
-		<Hint>Confrimation number you received from your GoOutdoorsIN (State) check-in.</Hint>
-              <input
-                value={job.confirmation || ''}
-                onChange={(e) => setConfirmation(e.target.value)}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={13}
-                className={errors.confirmation ? 'err' : ''}
-                data-err="confirmation"
-                disabled={locked}
-              />
-              {errors.confirmation ? <div className="errText">{errors.confirmation}</div> : null}
-            </div>
-            <div className="c6">
-              <label>Customer Name</label>
-              <input
-                value={job.customer || ''}
-                onChange={(e) => { clearErr('customer'); setVal('customer', e.target.value); }}
-                className={errors.customer ? 'err' : ''}
-                data-err="customer"
-                disabled={locked}
-              />
-              {errors.customer ? <div className="errText">{errors.customer}</div> : null}
-            </div>
-            <div className="c3">
-              <label>Phone</label>
-              <input
-                value={job.phone || ''}
-                onChange={(e) => setPhone(e.target.value)}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={10}
-                className={errors.phone ? 'err' : ''}
-                data-err="phone"
-                disabled={locked}
-              />
-              {errors.phone ? <div className="errText">{errors.phone}</div> : null}
-            </div>
+          <section>
+            <h3>Hunt Details</h3>
+            <div className="grid">
+              <div className="c4">
+                <label>County Killed</label>
+                <Hint>County where the deer was harvested (required for state reporting).</Hint>
+                <input
+                  value={job.county || ''}
+                  onChange={(e) => { clearErr('county'); setVal('county', e.target.value); }}
+                  className={errors.county ? 'err' : ''}
+                  data-err="county"
+                  disabled={locked}
+                />
+                {errors.county ? <div className="errText">{errors.county}</div> : null}
+              </div>
 
-            <div className="c4">
-              <label>Email</label>
-		<Hint>Used for receipts or email updates.</Hint>
-              <input
-                value={job.email || ''}
-                onChange={(e) => setVal('email', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-            <div className="c8">
-              <label>Address</label>
-              <input
-                value={job.address || ''}
-                onChange={(e) => setVal('address', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-<div className="c4">
-  <label>City</label>
-  <input
-    value={job.city || ''}
-    onChange={(e) => { setZipDirty(false); setVal('city', e.target.value); }}
-	  disabled={locked}
-  />
-</div>
-<div className="c4">
-  <label>State</label>
-  <select
-    value={job.state || ''}
-    onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}	disabled={locked}
-  >
-  <option value="">—</option>
-  <option value="IN">IN</option>
-  <option value="KY">KY</option>
-  <option value="--">--</option>
-  <option value="AL">AL</option>
-  <option value="AK">AK</option>
-  <option value="AZ">AZ</option>
-  <option value="AR">AR</option>
-  <option value="CA">CA</option>
-  <option value="CO">CO</option>
-  <option value="CT">CT</option>
-  <option value="DE">DE</option>
-  <option value="FL">FL</option>
-  <option value="GA">GA</option>
-  <option value="HI">HI</option>
-  <option value="ID">ID</option>
-  <option value="IL">IL</option>
-  <option value="IA">IA</option>
-  <option value="KS">KS</option>
-  <option value="LA">LA</option>
-  <option value="ME">ME</option>
-  <option value="MD">MD</option>
-  <option value="MA">MA</option>
-  <option value="MI">MI</option>
-  <option value="MN">MN</option>
-  <option value="MS">MS</option>
-  <option value="MO">MO</option>
-  <option value="MT">MT</option>
-  <option value="NE">NE</option>
-  <option value="NV">NV</option>
-  <option value="NH">NH</option>
-  <option value="NJ">NJ</option>
-  <option value="NM">NM</option>
-  <option value="NY">NY</option>
-  <option value="NC">NC</option>
-  <option value="ND">ND</option>
-  <option value="OH">OH</option>
-  <option value="OK">OK</option>
-  <option value="OR">OR</option>
-  <option value="PA">PA</option>
-  <option value="RI">RI</option>
-  <option value="SC">SC</option>
-  <option value="SD">SD</option>
-  <option value="TN">TN</option>
-  <option value="TX">TX</option>
-  <option value="UT">UT</option>
-  <option value="VT">VT</option>
-  <option value="VA">VA</option>
-  <option value="WA">WA</option>
-  <option value="WV">WV</option>
-  <option value="WI">WI</option>
-  <option value="WY">WY</option>
-  </select>
-</div>
+              <div className="c4">
+                <label>Drop-off Date</label>
+                <input
+                  type="date"
+                  value={job.dropoff || ''}
+                  onChange={(e) => { clearErr('dropoff'); setVal('dropoff', e.target.value); }}
+                  className={errors.dropoff ? 'err' : ''}
+                  data-err="dropoff"
+                  disabled={locked}
+                />
+                {errors.dropoff ? <div className="errText">{errors.dropoff}</div> : null}
+              </div>
 
-<div className="c4">
-  <label>Zip</label>
-  <input
-    value={job.zip || ''}
-    onChange={(e) => { setZipDirty(true); setVal('zip', e.target.value); }}
-        disabled={locked}
-  />
-</div>
-          </div>
-        </section>
-        </>
+              <div className="c4">
+                <label>Deer Sex</label>
+                <select
+                  value={job.sex || ''}
+                  onChange={(e) => { clearErr('sex'); setVal('sex', e.target.value as Job['sex']); }}
+                  className={errors.sex ? 'err' : ''}
+                  data-err="sex"
+                  disabled={locked}
+                >
+                  <option value="">—</option>
+                  <option value="Buck">Buck</option>
+                  <option value="Doe">Doe</option>
+                  <option value="Antlerless">Antlerless</option>
+                </select>
+                {errors.sex ? <div className="errText">{errors.sex}</div> : null}
+              </div>
+
+              <div className="c4">
+                <label>How Killed</label>
+                <select
+                  value={job.howKilled || ''}
+                  onChange={(e) => { clearErr('howKilled'); setVal('howKilled', e.target.value as Job['howKilled']); }}
+                  className={errors.howKilled ? 'err' : ''}
+                  data-err="howKilled"
+                  disabled={locked}
+                >
+                  <option value="">—</option>
+                  <option value="Gun">Gun</option>
+                  <option value="Archery">Archery</option>
+                  <option value="Vehicle">Vehicle</option>
+                </select>
+                {errors.howKilled ? <div className="errText">{errors.howKilled}</div> : null}
+              </div>
+
+              <div className="c4">
+                <label>Process Type</label>
+                <Hint>Select Standard for normal processing of Doe or Buck you do not want skull.</Hint>
+                <select
+                  value={job.processType || ''}
+                  onChange={(e) => { clearErr('processType'); setVal('processType', e.target.value as Job['processType']); }}
+                  className={errors.processType ? 'err' : ''}
+                  data-err="processType"
+                  disabled={locked}
+                >
+                  <option value="">—</option>
+                  <option>Standard Processing</option>
+                  <option>Caped</option>
+                  <option>Skull-Cap</option>
+                  <option>European</option>
+                  <option>Cape & Donate</option>
+                  <option>Donate</option>
+                </select>
+                {errors.processType ? <div className="errText">{errors.processType}</div> : null}
+              </div>
+            </div>
+          </section>
         )}
 
+        {/* Step: Cuts */}
         {step.key === 'cuts' && (
-        <>
-<section>
-  <h3>Hunt Details</h3>
-  <div className="grid">
-    <div className="c4">
-      <label>County Killed</label>
-	<Hint>County where the deer was harvested (required for state reporting).</Hint>
-      <input
-        value={job.county || ''}
-        onChange={(e) => { clearErr('county'); setVal('county', e.target.value); }}
-        className={errors.county ? 'err' : ''}
-        data-err="county"
-        disabled={locked}
-      />
-      {errors.county ? <div className="errText">{errors.county}</div> : null}
-    </div>
+          <>
+            <section>
+              <h3>Cuts</h3>
+              <div className="grid">
+                <div className="c6">
+                  <label>Hind Quarter</label>
+                  <Hint>Pick how you want the rear leg processed. Grind refers to burger meat.</Hint>
+                  <div className="checks">
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.hind?.['Hind - Steak']} onChange={() => setHind('Hind - Steak')} disabled={locked} />
+                      <span>Steak</span>
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.hind?.['Hind - Roast']} onChange={() => setHind('Hind - Roast')} disabled={locked} />
+                      <span>Roast</span>
+                    </label>
+                    <span className="count">
+                      <span className="muted"># of Roast</span>
+                      <input
+                        className="countInp"
+                        value={!!job.hind?.['Hind - Roast'] ? (job.hindRoastCount || '') : ''}
+                        onChange={(e) => setVal('hindRoastCount', e.target.value)}
+                        disabled={!job.hind?.['Hind - Roast'] || locked}
+                        inputMode="numeric"
+                      />
+                    </span>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.hind?.['Hind - Grind']} onChange={() => setHind('Hind - Grind')} disabled={locked} />
+                      <span>Grind</span>
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.hind?.['Hind - None']} onChange={() => setHind('Hind - None')} disabled={locked} />
+                      <span>None</span>
+                    </label>
+                  </div>
+                </div>
 
-    <div className="c4">
-      <label>Drop-off Date</label>
-      <input
-        type="date"
-        value={job.dropoff || ''}
-        onChange={(e) => { clearErr('dropoff'); setVal('dropoff', e.target.value); }}
-        className={errors.dropoff ? 'err' : ''}
-        data-err="dropoff"
-        disabled={locked}
-      />
-      {errors.dropoff ? <div className="errText">{errors.dropoff}</div> : null}
-    </div>
-
-    <div className="c4">
-      <label>Deer Sex</label>
-      <select
-        value={job.sex || ''}
-        onChange={(e) => { clearErr('sex'); setVal('sex', e.target.value as Job['sex']); }}
-        className={errors.sex ? 'err' : ''}
-        data-err="sex"
-        disabled={locked}
-      >
-        <option value="">—</option>
-        <option value="Buck">Buck</option>
-        <option value="Doe">Doe</option>
-        <option value="Antlerless">Antlerless</option>
-      </select>
-      {errors.sex ? <div className="errText">{errors.sex}</div> : null}
-    </div>
-
-    {/* Row 2 */}
-{/* How Killed */}
-<div className="c4">
-  <label>How Killed</label>
-  <select
-    value={job.howKilled || ''}
-    onChange={(e) => { clearErr('howKilled'); setVal('howKilled', e.target.value as Job['howKilled']); }}
-    className={errors.howKilled ? 'err' : ''}
-    data-err="howKilled"
-    disabled={locked}
-  >
-    <option value="">—</option>
-    <option value="Gun">Gun</option>
-    <option value="Archery">Archery</option>
-    <option value="Vehicle">Vehicle</option>
-  </select>
-</div>
-
-
-
-
-    <div className="c4">
-      <label>Process Type</label>
-	<Hint>Select Standard for normal processing of Doe or Buck you do not want skull.</Hint>
-      <select
-        value={job.processType || ''}
-        onChange={(e) => { clearErr('processType'); setVal('processType', e.target.value as Job['processType']); }}
-        className={errors.processType ? 'err' : ''}
-        data-err="processType"
-        disabled={locked}
-      >
-        <option value="">—</option>
-        <option>Standard Processing</option>
-        <option>Caped</option>
-        <option>Skull-Cap</option>
-        <option>European</option>
-        <option>Cape & Donate</option>
-        <option>Donate</option>
-      </select>
-      {errors.processType ? <div className="errText">{errors.processType}</div> : null}
-    </div>
-  </div>
-</section>
-
-
-        {/* Cuts */}
-        <section>
-          <h3>Cuts</h3>
-          <div className="grid">
-            <div className="c6">
-              <label>Hind Quarter</label>
-		<Hint>Pick how you want the rear leg processed. Grind refers to burger meat.</Hint>
-              <div className="checks">
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.hind?.['Hind - Steak']}
-                    onChange={() => setHind('Hind - Steak')}
-                    disabled={locked}
-                  />
-                  <span>Steak</span>
-                </label>
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.hind?.['Hind - Roast']}
-                    onChange={() => setHind('Hind - Roast')}
-                    disabled={locked}
-                  />
-                  <span>Roast</span>
-                </label>
-                <span className="count">
-                  <span className="muted"># of Roast</span>
-                  <input
-                    className="countInp"
-                    value={!!job.hind?.['Hind - Roast'] ? (job.hindRoastCount || '') : ''}
-                    onChange={(e) => setVal('hindRoastCount', e.target.value)}
-                    disabled={!job.hind?.['Hind - Roast'] || locked}
-                    inputMode="numeric"
-                  />
-                </span>
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.hind?.['Hind - Grind']}
-                    onChange={() => setHind('Hind - Grind')}
-                    disabled={locked}
-                  />
-                  <span>Grind</span>
-                </label>
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.hind?.['Hind - None']}
-                    onChange={() => setHind('Hind - None')}
-                    disabled={locked}
-                  />
-                  <span>None</span>
-                </label>
+                <div className="c6">
+                  <label>Front Shoulder</label>
+                  <Hint>Pick how you want the front shoulder processed. Grind refers to burger meat.</Hint>
+                  <div className="checks">
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.front?.['Front - Steak']} onChange={() => setFront('Front - Steak')} disabled={locked} />
+                      <span>Steak</span>
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.front?.['Front - Roast']} onChange={() => setFront('Front - Roast')} disabled={locked} />
+                      <span>Roast</span>
+                    </label>
+                    <span className="count">
+                      <span className="muted"># of Roast</span>
+                      <input
+                        className="countInp"
+                        value={!!job.front?.['Front - Roast'] ? (job.frontRoastCount || '') : ''}
+                        onChange={(e) => setVal('frontRoastCount', e.target.value)}
+                        disabled={!job.front?.['Front - Roast'] || locked}
+                        inputMode="numeric"
+                      />
+                    </span>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.front?.['Front - Grind']} onChange={() => setFront('Front - Grind')} disabled={locked} />
+                      <span>Grind</span>
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.front?.['Front - None']} onChange={() => setFront('Front - None')} disabled={locked} />
+                      <span>None</span>
+                    </label>
+                  </div>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div className="c6">
-              <label>Front Shoulder</label>
-		<Hint>Pick how you want the rear leg processed. Grind refers to burger meat.</Hint>
-              <div className="checks">
-                <label className="chk">
+            <section>
+              <h3>Packaging & Add-ons</h3>
+              <div className="pkgGrid">
+                <div className="pkg steak">
+                  <label>Steak Size</label>
+                  <select value={job.steak || ''} onChange={(e) => setVal('steak', e.target.value)} disabled={locked}>
+                    <option value="">—</option>
+                    <option>1/2"</option>
+                    <option>3/4"</option>
+                    <option>Other</option>
+                  </select>
+                </div>
+
+                <div className="pkg steakOther">
+                  <label>Steak Size (Other)</label>
+                  <Hint>If you selected other, type the thickness you want.</Hint>
                   <input
-                    type="checkbox"
-                    checked={!!job.front?.['Front - Steak']}
-                    onChange={() => setFront('Front - Steak')}
-                    disabled={locked}
+                    value={job.steak === 'Other' ? (job.steakOther || '') : ''}
+                    onChange={(e) => setVal('steakOther', e.target.value)}
+                    disabled={job.steak !== 'Other' || locked}
+                    placeholder={'e.g., 5/8"'}
                   />
-                  <span>Steak</span>
-                </label>
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.front?.['Front - Roast']}
-                    onChange={() => setFront('Front - Roast')}
-                    disabled={locked}
-                  />
-                  <span>Roast</span>
-                </label>
-                <span className="count">
-                  <span className="muted"># of Roast</span>
-                  <input
-                    className="countInp"
-                    value={!!job.front?.['Front - Roast'] ? (job.frontRoastCount || '') : ''}
-                    onChange={(e) => setVal('frontRoastCount', e.target.value)}
-                    disabled={!job.front?.['Front - Roast'] || locked}
-                    inputMode="numeric"
-                  />
-                </span>
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.front?.['Front - Grind']}
-                    onChange={() => setFront('Front - Grind')}
-                    disabled={locked}
-                  />
-                  <span>Grind</span>
-                </label>
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.front?.['Front - None']}
-                    onChange={() => setFront('Front - None')}
-                    disabled={locked}
-                  />
-                  <span>None</span>
-                </label>
+                </div>
+
+                <div className="pkg steaksPer">
+                  <label>Steaks per Package</label>
+                  <select value={job.steaksPerPackage || ''} onChange={(e) => setVal('steaksPerPackage', e.target.value)} disabled={locked}>
+                    <option value="">—</option>
+                    <option>4</option>
+                    <option>6</option>
+                    <option>8</option>
+                  </select>
+                </div>
+
+                <div className="pkg burgerSize">
+                  <label>Burger Size</label>
+                  <select value={job.burgerSize || ''} onChange={(e) => setVal('burgerSize', e.target.value)} disabled={locked}>
+                    <option value="">—</option>
+                    <option>1 lb</option>
+                    <option>2 lb</option>
+                  </select>
+                </div>
+
+                <div className="pkg beefFat">
+                  <label className="chk tight pkg-beef">
+                    <Hint>Beef Fat added to Burger Meat</Hint>
+                    <input type="checkbox" checked={!!job.beefFat} onChange={(e) => setVal('beefFat', e.target.checked)} disabled={locked} />
+                    <span>Beef fat</span>
+                    <span className="muted"> (+$5)</span>
+                  </label>
+                </div>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        {/* Packaging & Add-ons */}
-        <section>
-          <h3>Packaging & Add-ons</h3>
-          <div className="pkgGrid">
-            <div className="pkg steak">
-              <label>Steak Size</label>
-              <select
-                value={job.steak || ''}
-                onChange={(e) => setVal('steak', e.target.value)}
-                disabled={locked}
-              >
-                <option value="">—</option>
-                <option>1/2"</option>
-                <option>3/4"</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div className="pkg steakOther">
-              <label>Steak Size (Other)</label>
-		<Hint>If you selected other in the Steak Size field, input what you thickness you'd like here. </Hint>
-              <input
-                value={job.steak === 'Other' ? (job.steakOther || '') : ''}
-                onChange={(e) => setVal('steakOther', e.target.value)}
-                disabled={job.steak !== 'Other' || locked}
-                placeholder='e.g., 5/8"'
-              />
-            </div>
+            <section>
+              <h3>Backstrap</h3>
+              <div className="grid">
+                <div className="c4">
+                  <label>Prep</label>
+                  <select value={job.backstrapPrep || ''} onChange={(e) => setVal('backstrapPrep', e.target.value as any)} disabled={locked}>
+                    <option value="">—</option>
+                    <option>Whole</option>
+                    <option>Sliced</option>
+                    <option>Butterflied</option>
+                  </select>
+                </div>
 
-            <div className="pkg steaksPer">
-              <label>Steaks per Package</label>
-              <select
-                value={job.steaksPerPackage || ''}
-                onChange={(e) => setVal('steaksPerPackage', e.target.value)}
-                disabled={locked}
-              >
-                <option value="">—</option>
-                <option>4</option>
-                <option>6</option>
-                <option>8</option>
-              </select>
-            </div>
+                <div className="c4">
+                  <label>Thickness</label>
+                  <Hint>Only needed if Sliced/Butterflied.</Hint>
+                  <select
+                    value={job.backstrapPrep === 'Whole' ? '' : (job.backstrapThickness || '')}
+                    onChange={(e) => setVal('backstrapThickness', e.target.value as any)}
+                    disabled={job.backstrapPrep === 'Whole' || locked}
+                  >
+                    <option value="">—</option>
+                    <option>1/2"</option>
+                    <option>3/4"</option>
+                    <option>Other</option>
+                  </select>
+                </div>
 
-            <div className="pkg burgerSize">
-              <label>Burger Size</label>
-              <select
-                value={job.burgerSize || ''}
-                onChange={(e) => setVal('burgerSize', e.target.value)}
-                disabled={locked}
-              >
-                <option value="">—</option>
-                <option>1 lb</option>
-                <option>2 lb</option>
-              </select>
-            </div>
-
-            <div className="pkg beefFat">
-              <label className="chk tight pkg-beef">
-		<Hint>Beef Fat added to Burger Meat</Hint>
-                <input
-                  type="checkbox"
-                  checked={!!job.beefFat}
-                  onChange={(e) => setVal('beefFat', e.target.checked)}
-                  disabled={locked}
-                />
-                <span>Beef fat</span>
-                <span className="muted"> (+$5)</span>
-              </label>
-            </div>
-          </div>
-        </section>
-
-        {/* Backstrap */}
-        {step.key === 'cuts' && (
-        <>
-<section>
-          <h3>Backstrap</h3>
-          <div className="grid">
-            <div className="c4">
-              <label>Prep</label>
-              <select
-                value={job.backstrapPrep || ''}
-                onChange={(e) =>
-                  setVal('backstrapPrep', e.target.value as Job['backstrapPrep'])
-                }
-                disabled={locked}
-              >
-                <option value="">—</option>
-                <option>Whole</option>
-                <option>Sliced</option>
-                <option>Butterflied</option>
-              </select>
-            </div>
-            <div className="c4">
-              <label>Thickness</label>
-		<Hint>Enter the thickness you would like the backstrap if you want it sliced or butterflied.</Hint>
-              <select
-                value={job.backstrapPrep === 'Whole' ? '' : (job.backstrapThickness || '')}
-                onChange={(e) =>
-                  setVal('backstrapThickness', e.target.value as Job['backstrapThickness'])
-                }
-                disabled={job.backstrapPrep === 'Whole' || locked}
-              >
-                <option value="">—</option>
-                <option>1/2"</option>
-                <option>3/4"</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div className="c4">
-              <label>Thickness (Other)</label>
-		<Hint>If you selected a thickness of other for the Backstrap, input what thickness you would like here.</Hint>
-              <input
-                value={job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other' ? (job.backstrapThicknessOther || '') : ''}
-                onChange={(e) => setVal('backstrapThicknessOther', e.target.value)}
-                disabled={!(job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other') || locked}
-              />
-            </div>
-          </div>
-        </section>
-        </>
+                <div className="c4">
+                  <label>Thickness (Other)</label>
+                  <Hint>If you selected Other, type it here.</Hint>
+                  <input
+                    value={job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other' ? (job.backstrapThicknessOther || '') : ''}
+                    onChange={(e) => setVal('backstrapThicknessOther', e.target.value)}
+                    disabled={!(job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other') || locked}
+                  />
+                </div>
+              </div>
+            </section>
+          </>
         )}
 
+        {/* Step: Extras */}
+        {step.key === 'extras' && (
+          <>
+            <section>
+              <h3>McAfee Specialty Products</h3>
+              <div className="grid">
+                <div className="c3 rowInline">
+                  <label className="chk tight pkg-beef">
+                    <input type="checkbox" checked={!!job.specialtyProducts} onChange={(e) => setVal('specialtyProducts', e.target.checked)} disabled={locked} />
+                    <span><strong>Would like specialty products</strong></span>
+                  </label>
+                </div>
 
-        {/* Specialty Products (no Specialty Status UI) */}
-        <section>
-          <h3>McAfee Specialty Products</h3>
-          <div className="grid">
-            <div className="c3 rowInline">
-              <label className="chk tight pkg-beef">
-                <input
-                  type="checkbox"
-                  checked={!!job.specialtyProducts}
-                  onChange={(e) => setVal('specialtyProducts', e.target.checked)}
-                  disabled={locked}
-                />
-                <span><strong>Would like specialty products</strong></span>
-              </label>
-            </div>
-            <div className="c3">
-              <label>Summer Sausage (lb)</label>
-              <input
-                inputMode="numeric"
-                value={job.specialtyProducts ? String(job.summerSausageLbs ?? '') : ''}
-                onChange={(e) => setVal('summerSausageLbs', e.target.value)}
-                disabled={!job.specialtyProducts || locked}
-              />
-            </div>
-            <div className="c3">
-              <label>Summer Sausage + Cheddar (lb)</label>
-              <input
-                inputMode="numeric"
-                value={job.specialtyProducts ? String(job.summerSausageCheeseLbs ?? '') : ''}
-                onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
-                disabled={!job.specialtyProducts || locked}
-              />
-            </div>
-            <div className="c3">
-              <label>Jalapeno Summer Sausage + Cheddar (lb)</label>
-              <input
-                inputMode="numeric"
-                value={job.specialtyProducts ? String(job.slicedJerkyLbs ?? '') : ''}
-                onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
-                disabled={!job.specialtyProducts || locked}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Notes */}
-        <section>
-          <h3>Notes</h3>
-		<Hint>If there is anything we haven't covered on the form that you would like us to take note of, enter that information here and be specific.</Hint>
-          <textarea
-            rows={3}
-            value={job.notes || ''}
-            onChange={(e) => setVal('notes', e.target.value)}
-            disabled={locked}
-          />
-        </section>
-
-        {/* Webbs */}
-        <section>
-          <h3>Webbs</h3>
-          <div className="grid">
-            <div className="c3 rowInline">
-              <label className="chk tight pkg-beef">
-                <input
-                  type="checkbox"
-                  checked={!!job.webbsOrder}
-                  onChange={(e) => setVal('webbsOrder', e.target.checked)}
-                  disabled={locked}
-                />
-                <span><strong>Webbs Order</strong></span>
-                <span className="muted"> (+$20 fee)</span>
-              </label>
-            </div>
-            <div className="c4">
-              <label>Webbs Order Form Number</label>
-		<Hint>Enter the form number from the Webb's Order Form.</Hint>
-              <input
-                value={job.webbsFormNumber || ''}
-                onChange={(e) => setVal('webbsFormNumber', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-            <div className="c3">
-              <label>Webbs Pounds (lb)</label>
-		<Hint>Enter total pounds of meat you want to send to Webb's. If you are unsure on the number of lbs that will be sent because you want all or most of your deer sent, leave this blank and we will enter it during processing.</Hint>
-              <input
-                inputMode="numeric"
-                value={job.webbsPounds || ''}
-                onChange={(e) => setVal('webbsPounds', e.target.value)}
-                disabled={locked}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* Communication & Consent */}
-        <section>
-          <h3>Communication Preference & Consent</h3>
-          <div className="grid">
-            <div className="c6">
-              <label>Preferred Contact Methods</label>
-              <div className="checks">
-                <label className="chk">
+                <div className="c3">
+                  <label>Summer Sausage (lb)</label>
                   <input
-                    type="checkbox"
-                    checked={!!job.prefEmail}
-                    onChange={(e) => setVal('prefEmail', e.target.checked)}
-                    disabled={locked}
+                    inputMode="numeric"
+                    value={job.specialtyProducts ? String(job.summerSausageLbs ?? '') : ''}
+                    onChange={(e) => setVal('summerSausageLbs', e.target.value)}
+                    disabled={!job.specialtyProducts || locked}
                   />
-                  <span>Email</span>
-                </label>
-                <label className="chk">
+                </div>
+
+                <div className="c3">
+                  <label>Summer Sausage + Cheddar (lb)</label>
                   <input
-                    type="checkbox"
-                    checked={!!job.prefSMS}
-                    onChange={(e) => setVal('prefSMS', e.target.checked)}
-                    disabled={locked}
+                    inputMode="numeric"
+                    value={job.specialtyProducts ? String(job.summerSausageCheeseLbs ?? '') : ''}
+                    onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
+                    disabled={!job.specialtyProducts || locked}
                   />
-                  <span>Text (SMS)</span>
-                </label>
-                <label className="chk">
+                </div>
+
+                <div className="c3">
+                  <label>Sliced Jerky (lb)</label>
                   <input
-                    type="checkbox"
-                    checked={!!job.prefCall}
-                    onChange={(e) => setVal('prefCall', e.target.checked)}
-                    disabled={locked}
+                    inputMode="numeric"
+                    value={job.specialtyProducts ? String(job.slicedJerkyLbs ?? '') : ''}
+                    onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
+                    disabled={!job.specialtyProducts || locked}
                   />
-                  <span>Phone Call</span>
-                </label>
+                </div>
               </div>
-            </div>
-            <div className="c6">
-              <label>Legal Consent</label>
-              <div className="checks">
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.smsConsent}
-                    onChange={(e) => setVal('smsConsent', e.target.checked)}
-                    disabled={locked}
-                  />
-                  <span>I consent to receive informational/automated SMS</span>
-                </label>
-                <label className="chk">
-                  <input
-                    type="checkbox"
-                    checked={!!job.autoCallConsent}
-                    onChange={(e) => setVal('autoCallConsent', e.target.checked)}
-                    disabled={locked}
-                  />
-                  <span>I consent to receive automated phone calls</span>
-                </label>
+            </section>
+
+            <section>
+              <h3>Notes</h3>
+              <Hint>If there is anything we haven't covered, write it here (be specific).</Hint>
+              <textarea rows={3} value={job.notes || ''} onChange={(e) => setVal('notes', e.target.value)} disabled={locked} />
+            </section>
+
+            <section>
+              <h3>Webbs</h3>
+              <div className="grid">
+                <div className="c3 rowInline">
+                  <label className="chk tight pkg-beef">
+                    <input type="checkbox" checked={!!job.webbsOrder} onChange={(e) => setVal('webbsOrder', e.target.checked)} disabled={locked} />
+                    <span><strong>Webbs Order</strong></span>
+                    <span className="muted"> (+$20 fee)</span>
+                  </label>
+                </div>
+
+                <div className="c4">
+                  <label>Webbs Order Form Number</label>
+                  <Hint>Enter the form number from the Webb's Order Form.</Hint>
+                  <input value={job.webbsFormNumber || ''} onChange={(e) => setVal('webbsFormNumber', e.target.value)} disabled={locked} />
+                </div>
+
+                <div className="c3">
+                  <label>Webbs Pounds (lb)</label>
+                  <Hint>If unsure, leave blank and we will enter it during processing.</Hint>
+                  <input inputMode="numeric" value={job.webbsPounds || ''} onChange={(e) => setVal('webbsPounds', e.target.value)} disabled={locked} />
+                </div>
               </div>
-            </div>
-          </div>
-        </section>
-        </>
+            </section>
+
+            <section>
+              <h3>Communication Preference & Consent</h3>
+              <div className="grid">
+                <div className="c6">
+                  <label>Preferred Contact Methods</label>
+                  <div className="checks">
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.prefEmail} onChange={(e) => setVal('prefEmail', e.target.checked)} disabled={locked} />
+                      <span>Email</span>
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.prefSMS} onChange={(e) => setVal('prefSMS', e.target.checked)} disabled={locked} />
+                      <span>Text (SMS)</span>
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.prefCall} onChange={(e) => setVal('prefCall', e.target.checked)} disabled={locked} />
+                      <span>Phone Call</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="c6">
+                  <label>Legal Consent</label>
+                  <div className="checks">
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.smsConsent} onChange={(e) => setVal('smsConsent', e.target.checked)} disabled={locked} />
+                      <span>I consent to receive informational/automated SMS</span>
+                    </label>
+                    <label className="chk">
+                      <input type="checkbox" checked={!!job.autoCallConsent} onChange={(e) => setVal('autoCallConsent', e.target.checked)} disabled={locked} />
+                      <span>I consent to receive automated phone calls</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </>
         )}
 
-
-        
-
-
+        {/* Step: Review */}
         {step.key === 'review' && (
           <section>
             <h3>Review</h3>
@@ -1146,9 +994,14 @@ useEffect(() => {
             </div>
           </section>
         )}
-{/* Actions */}
+
+        {/* Actions */}
         <div className="actions">
-          <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
+          <div className={`status ${msg.startsWith('Save') || msg.startsWith('Saved') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
+
+          <button className="btn secondary" onClick={goBack} disabled={busy || locked || stepIdx === 0}>
+            Back
+          </button>
 
           {step.key === 'review' ? (
             <button className="btn" onClick={onSave} disabled={busy || locked}>
@@ -1171,12 +1024,12 @@ useEffect(() => {
         <div className="modal">
           <div className="modal-card">
             <h3>Thank you!</h3>
-            <p style={{marginTop:8}}>
-              Please leave a note with your Full Name, Phone Numnber, and the <b>last 5 digits</b> of your confirmation number
+            <p style={{ marginTop: 8 }}>
+              Please leave a note with your Full Name, Phone Number, and the <b>last 5 digits</b> of your confirmation number
               {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
               {' '}with your deer.
             </p>
-            <p className="muted" style={{marginTop:8}}>
+            <p className="muted" style={{ marginTop: 8 }}>
               Your form has been submitted and locked. Our front desk will assign your tag.
             </p>
             <button
@@ -1201,7 +1054,6 @@ useEffect(() => {
           width: 100%; padding: 6px 8px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box;
         }
         textarea { resize: vertical; }
-
         input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
 
         .grid { display: grid; gap: 8px; grid-template-columns: repeat(12, 1fr); }
@@ -1212,22 +1064,41 @@ useEffect(() => {
         .chk { display: inline-flex; align-items: center; gap: 6px; }
         .muted { color: #6b7280; font-size: 12px; }
 
+        /* Wizard header */
+        .wizardHead{
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-end;
+          gap:12px;
+          padding: 8px 0 12px;
+          border-bottom: 1px solid #eef2f7;
+          margin-bottom: 10px;
+        }
+        .wizardLeft{ display:flex; flex-direction:column; gap:2px; }
+        .wizardStep{ font-size:12px; color:#64748b; font-weight:700; }
+        .wizardTitle{ font-size:16px; font-weight:900; color:#0b0f12; }
+
         .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
-        .summary .row.small { margin-top: 6px; grid-template-columns: 1fr; } /* total only */
+        .summary .row.small { margin-top: 6px; grid-template-columns: 1fr; }
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
         .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
         .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
+        .btn.secondary{ background:#e2e8f0; color:#0b0f12; border-color:#cbd5e1; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
         .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
         .status.ok { color: #065f46; }
         .status.err { color: #b91c1c; }
 
+        .err{ border-color:#ef4444 !important; background:#fff1f2; }
+        .errText{ color:#b91c1c; font-size:12px; margin-top:4px; font-weight:700; }
+
         .print-only { display: none; }
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
+
         @media (max-width: 900px) {
           .summary .row { grid-template-columns: 1fr; }
           .summary .row.small { grid-template-columns: 1fr; }
@@ -1236,17 +1107,11 @@ useEffect(() => {
           .grid { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
           .summary .checks { gap: 8px; }
+          .wizardHead{ align-items:flex-start; }
         }
 
-
-        
-        
-        /* Packaging layout (grid areas for robustness) */
-        .pkgGrid {
-          display: grid;
-          gap: 16px;
-        }
-        /* Desktop and large tablets */
+        /* Packaging layout */
+        .pkgGrid { display: grid; gap: 16px; }
         @media (min-width: 960px) {
           .pkgGrid {
             grid-template-columns: 1fr 1fr 1fr;
@@ -1256,7 +1121,6 @@ useEffect(() => {
             align-items: end;
           }
         }
-        /* Phones / small tablets */
         @media (max-width: 959.98px) {
           .pkgGrid {
             grid-template-columns: 1fr 1fr;
@@ -1268,78 +1132,17 @@ useEffect(() => {
             align-items: end;
           }
         }
-
         .pkgGrid .pkg { min-width: 0; }
         .pkgGrid .steak      { grid-area: steak; }
         .pkgGrid .steakOther { grid-area: steakOther; }
         .pkgGrid .steaksPer  { grid-area: steaksPer; }
         .pkgGrid .burgerSize { grid-area: burger; }
-        .pkgGrid .beefFat    { grid-area: beef; display: flex; align-items: center; }
-        .pkgGrid .beefFat .chk { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-
-        /* Make controls fluid */
+        .pkgGrid .beefFat    { grid-area: beef; display: flex; align-items: center; justify-content:flex-start; }
         .pkgGrid select, .pkgGrid input { width: 100%; min-width: 0; }
-
-        
-        /* Scoped label fix so Beef fat text never stacks vertically */
         .pkgGrid .pkg-beef { white-space: nowrap; }
         .pkgGrid .pkg-beef span { white-space: nowrap; }
-        .pkgGrid .beefFat { justify-content: flex-start; }
 
-        /* Specialty layout (unchanged from last patch) */
-        .specGrid {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 12px;
-          align-items: end;
-        }
-        .specGrid .spec { min-width: 0; }
-        .specGrid .full { grid-column: 1 / -1; }
-        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
-
-        @media (max-width: 900px) {
-          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
-        }
-    
-        .specGrid {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 12px;
-          align-items: end;
-        }
-        .specGrid .spec { min-width: 0; }
-        .specGrid .full { grid-column: 1 / -1; }
-        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
-
-        @media (max-width: 900px) {
-          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
-        }
-
-    
-        .specGrid {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 12px;
-          align-items: end;
-        }
-        .specGrid .spec { min-width: 0; }
-        .specGrid .full { grid-column: 1 / -1; }
-        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
-
-        @media (max-width: 900px) {
-          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
-        }
-
-        @media (max-width: 720px) {
-          .pkgGrid {
-            grid-template-columns: 1fr 1fr;
-          }
-          .pkgGrid .steak, .pkgGrid .steakOther { grid-column: auto; }
-          .pkgGrid .steaksPer, .pkgGrid .burgerSize { grid-column: auto; }
-          .pkgGrid .beefFat { grid-column: 1 / -1; }
-        }
-
-                /* Modal */
+        /* Modal */
         .modal {
           position: fixed; inset: 0; background: rgba(11, 15, 18, 0.6);
           display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 9999;
@@ -1350,38 +1153,16 @@ useEffect(() => {
         .modal-card h3 { margin: 4px 0 0; }
         .modal-card code { background: #f3f4f6; padding: 0 6px; border-radius: 4px; }
         .btn.wide { width: 100%; margin-top: 12px; }
-@media (max-width: 720px) {
-  .summary { position: static !important; top: auto !important; box-shadow: none; z-index: auto; }
-}
-/* Kill sticky + force scrolling on short (landscape) screens */
-@media (orientation: landscape) and (max-height: 520px) {
-  /* 1) Make the summary non-sticky */
-  .summary {
-    position: static !important;
-    top: auto !important;
-    box-shadow: none;
-  }
 
-  /* 2) Ensure the page can actually scroll */
-  html, body {
-    height: auto !important;
-    overflow: auto !important;
-  }
-
-  /* 3) Some wrappers use fixed heights; neutralize them so content can flow */
-  /* adjust these class names to match your wrappers if different */
-  .page, .wrap, .container, .content, .main {
-    height: auto !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-  }
-
-  /* 4) If you ever used a sticky heading helper, unstick that too */
-  .stickyHeading {
-    position: static !important;
-    top: auto !important;
-  }
-}
+        @media (max-width: 720px) {
+          .summary { position: static !important; top: auto !important; box-shadow: none; z-index: auto; }
+        }
+        @media (orientation: landscape) and (max-height: 520px) {
+          .summary { position: static !important; top: auto !important; box-shadow: none; }
+          html, body { height: auto !important; overflow: auto !important; }
+          .page, .wrap, .container, .content, .main { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+          .stickyHeading { position: static !important; top: auto !important; }
+        }
       `}</style>
     </div>
   );
