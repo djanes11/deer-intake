@@ -710,7 +710,7 @@ useEffect(() => {
 
 
 
-        )}        { step.key === 'cuts'  && (
+        )}        { step.key === 'cuts'  && (<>
         <section>
           <h3>Cuts</h3>
           <div className="grid">
@@ -941,7 +941,9 @@ useEffect(() => {
         </section>
 
 
-        )}        { step.key === 'extras'  && (
+        </>)}
+
+        { step.key === 'extras'  && (
         <section>
           <h3>McAfee Specialty Products</h3>
           <div className="grid">
