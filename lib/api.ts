@@ -76,10 +76,6 @@ async function getJSON<T = any>(url: string): Promise<T> {
   });
 
   const text = await r.text();
-  if (r.ok && (!text || text.trim() === '') && body?.action === 'save') {
-    return { ok: true } as unknown as T;
-  }
-
   try {
     const json = JSON.parse(text);
     if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
@@ -101,15 +97,19 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
     body: JSON.stringify(body),
   });
 
-  const text = await r.text();
+  // Read as text first so we can handle empty 204/empty-body responses safely.
+  const text = await r.text().catch(() => '');
+
+  // Some save endpoints intentionally return no body on success.
+  // If this was a save and we got an empty body, treat it as ok.
   if (r.ok && (!text || text.trim() === '') && body?.action === 'save') {
     return { ok: true } as unknown as T;
   }
 
   try {
-    const json = JSON.parse(text);
-    if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
-    return json as T;
+    const json = text ? JSON.parse(text) : null;
+    if (!r.ok) throw new Error((json as any)?.error || `HTTP ${r.status}`);
+    return (json as T) ?? ({} as T);
   } catch {
     if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
     return text as unknown as T;
