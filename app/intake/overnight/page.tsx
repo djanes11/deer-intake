@@ -1,4 +1,4 @@
-// app/intake/overnight/page.tsx
+// app/(public)/overnight/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState, Suspense } from 'react';
@@ -167,16 +167,16 @@ export default function Page() {
   );
 }
 
+
 function OvernightIntakePage() {
   const [job, setJob] = useState<Job>({
-    tag: '',                  // overnight has no tag at intake time
+    tag: '',
     dropoff: todayISO(),
     status: 'Dropped Off',
     capingStatus: '',
     webbsStatus: '',
     specialtyStatus: '',
-    howKilled: '',   // NEW
-
+    howKilled: '',
 
     hind: {
       'Hind - Steak': false,
@@ -198,9 +198,8 @@ function OvernightIntakePage() {
     paidSpecialty: false,
     specialtyProducts: false,
 
-    requiresTag: true,        // backend allows missing tag
+    requiresTag: true,
 
-    // sensible defaults for prefs
     prefEmail: true,
     prefSMS: false,
     prefCall: false,
@@ -208,25 +207,65 @@ function OvernightIntakePage() {
     autoCallConsent: false,
   });
 
-const [zipDirty, setZipDirty] = useState(false);
-
-useEffect(() => {
-  if (!zipDirty && (job.city || job.state)) {
-    const z = lookupUniqueZipByCity(job.state, job.city);
-    if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
-      setJob(p => ({ ...p, zip: z }));
+  const [zipDirty, setZipDirty] = useState(false);
+  useEffect(() => {
+    if (!zipDirty && (job.city || job.state)) {
+      const z = lookupUniqueZipByCity(job.state, job.city);
+      if (z && (!job.zip || job.zip.trim() === '' || job.zip === z)) {
+        setJob((p) => ({ ...p, zip: z }));
+      }
     }
-  }
-}, [job.city, job.state, zipDirty]);
-
+  }, [job.city, job.state, zipDirty]);
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [showReview, setShowReview] = useState<boolean>(false);
+  const [locked, setLocked] = useState(false);
+  const [showThanks, setShowThanks] = useState(false);
 
-  const [locked, setLocked] = useState<boolean>(false);
-  const [showThanks, setShowThanks] = useState<boolean>(false);
+  const steps = [
+    { key: 'customer', title: 'Customer' },
+    { key: 'hunt', title: 'Hunt Details' },
+    { key: 'cuts', title: 'Cuts & Packaging' },
+    { key: 'extras', title: 'Specialty / Webbs / Notes' },
+    { key: 'review', title: 'Review & Submit' },
+  ] as const;
+  type StepKey = (typeof steps)[number]['key'];
+  const [stepIdx, setStepIdx] = useState(0);
+  const step = steps[stepIdx];
+
+  const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
+  const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(s);
+  const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
+
+  const clearErr = (k: string) =>
+    setErrors((prev) => {
+      if (!prev[k]) return prev;
+      const n = { ...prev };
+      delete n[k];
+      return n;
+    });
+
+  const setConfirmation = (v: string) => {
+    const val = digitsOnly(v).slice(0, 13);
+    setJob((p) => ({ ...p, confirmation: val }));
+    clearErr('confirmation');
+  };
+
+  const setPhone = (v: string) => {
+    const val = digitsOnly(v).slice(0, 10);
+    setJob((p) => ({ ...p, phone: val }));
+    clearErr('phone');
+  };
+
+  const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
+    !locked && setJob((p) => ({ ...p, [k]: v }));
+
+  const setHind = (k: keyof Required<CutsBlock>) =>
+    !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
+
+  const setFront = (k: keyof Required<CutsBlock>) =>
+    !locked && setJob((p) => ({ ...p, front: { ...(p.front || {}), [k]: !(p.front?.[k]) } }));
 
   const processingPrice = useMemo(
     () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
@@ -234,7 +273,7 @@ useEffect(() => {
   );
   const specialtyPrice = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    const ss  = toInt(job.summerSausageLbs);
+    const ss = toInt(job.summerSausageLbs);
     const ssc = toInt(job.summerSausageCheeseLbs);
     const jer = toInt(job.slicedJerkyLbs);
     return ss * 4.25 + ssc * 4.60 + jer * 4.60;
@@ -245,7 +284,6 @@ useEffect(() => {
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
 
-  // status coercion/initialization (hidden UI)
   useEffect(() => {
     setJob((prev) => {
       const next = { ...prev };
@@ -280,40 +318,57 @@ useEffect(() => {
 
   const validateAll = (): Record<string, string> => {
     const e: Record<string, string> = {};
-
     if (!is13Digits(job.confirmation)) e.confirmation = 'Confirmation must be 13 digits';
     if (!job.customer) e.customer = 'Customer Name is required';
     if (!is10Digits(job.phone)) e.phone = 'Phone must be 10 digits';
-
-    // Email is optional.
-    // Address/City/State/Zip are optional; we auto-fill Zip when possible.
-
     if (!job.county) e.county = 'County Killed is required';
     if (!job.dropoff) e.dropoff = 'Drop-off Date is required';
     if (!job.sex) e.sex = 'Deer Sex is required';
     if (!job.howKilled) e.howKilled = 'How Killed is required';
     if (!job.processType) e.processType = 'Process Type is required';
-
     return e;
   };
 
-  const validate = (): string[] => Object.values(validateAll());
+  const validateStep = (k: StepKey): Record<string, string> => {
+    const all = validateAll();
+    if (k === 'customer') {
+      const e: Record<string, string> = {};
+      if (all.confirmation) e.confirmation = all.confirmation;
+      if (all.customer) e.customer = all.customer;
+      if (all.phone) e.phone = all.phone;
+      return e;
+    }
+    if (k === 'hunt') {
+      const e: Record<string, string> = {};
+      if (all.county) e.county = all.county;
+      if (all.dropoff) e.dropoff = all.dropoff;
+      if (all.sex) e.sex = all.sex;
+      if (all.howKilled) e.howKilled = all.howKilled;
+      if (all.processType) e.processType = all.processType;
+      return e;
+    }
+    return {};
+  };
 
-
-  const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
-
-  const onReview = () => {
-    if (locked) return;
-    setMsg('');
-    const e = validateAll();
+  const goNext = () => {
+    const e = validateStep(step.key);
     setErrors(e);
     if (Object.keys(e).length) {
       setMsg('Fix the highlighted required fields.');
       return;
     }
-    setShowReview(true);
+    setMsg('');
+    setStepIdx((i) => Math.min(i + 1, steps.length - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const goBack = () => {
+    setMsg('');
+    setStepIdx((i) => Math.max(i - 1, 0));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
 
   const doSave = async () => {
     if (locked) return;
@@ -326,11 +381,9 @@ useEffect(() => {
     }
 
     const pnorm = normProc(job.processType);
-
-    // Construct payload exactly as backend expects; requiresTag=true allows no tag
     const payload: Job = {
       ...job,
-      tag: '',                 // never send a tag on overnight
+      tag: '',
       requiresTag: true,
 
       status:
@@ -350,23 +403,20 @@ useEffect(() => {
 
       specialtyStatus: job.specialtyProducts ? (job.specialtyStatus || 'Dropped Off') : '',
 
-      howKilled: job.howKilled || '',   // NEW
-
+      howKilled: job.howKilled || '',
 
       priceProcessing: processingPrice,
-      priceSpecialty:  specialtyPrice,
-      price:           totalPrice,
+      priceSpecialty: specialtyPrice,
+      price: totalPrice,
 
-      // keep Paid flags consistent
       Paid: fullPaid(job),
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
-      paidSpecialty:  job.specialtyProducts ? !!job.paidSpecialty : false,
+      paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
 
-      // sanitize specialty number fields
-      summerSausageLbs:          job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
-      summerSausageCheeseLbs:    job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
-      slicedJerkyLbs:            job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
+      summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
+      summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
+      slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
     };
 
     try {
@@ -377,7 +427,6 @@ useEffect(() => {
         setMsg((res && res.error) || 'Save failed');
         return;
       }
-      // Lock and show thank-you; front-of-house will add Tag later.
       setLocked(true);
       setShowThanks(true);
       setMsg('Saved ✓');
@@ -390,55 +439,28 @@ useEffect(() => {
     }
   };
 
-  
-  const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
-  const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(s);
-  const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
-
-  const clearErr = (k: string) =>
-    setErrors((prev) => {
-      if (!prev[k]) return prev;
-      const n = { ...prev };
-      delete n[k];
-      return n;
-    });
-
-  const setConfirmation = (v: string) => {
-    const val = digitsOnly(v).slice(0, 13);
-    setJob((p) => ({ ...p, confirmation: val }));
-    clearErr('confirmation');
-  };
-
-  const setPhone = (v: string) => {
-    const val = digitsOnly(v).slice(0, 10);
-    setJob((p) => ({ ...p, phone: val }));
-    clearErr('phone');
-  };
-
-const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
-    !locked && setJob((p) => ({ ...p, [k]: v }));
-
-  const setHind = (k: keyof Required<CutsBlock>) =>
-    !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
-
-  const setFront = (k: keyof Required<CutsBlock>) =>
-    !locked && setJob((p) => ({ ...p, front: { ...(p.front || {}), [k]: !(p.front?.[k]) } }));
-
   return (
     <div className={`form-card ${locked ? 'locked' : ''}`}>
       <div className="screen-only">
-        <h2>Deer Intake (Overnight)</h2>
+        <div className="wizardTop">
+          <div>
+            <div className="wizardMeta">Step {stepIdx + 1} of {steps.length}</div>
+            <h2>Deer Intake (Overnight)</h2>
+            <div className="wizardTitle">{step.title}</div>
+          </div>
+          <div className="wizardBtns">
+            <button className="btn secondary" onClick={goBack} disabled={stepIdx === 0 || busy}>Back</button>
+            {step.key !== 'review' ? (
+              <button className="btn" onClick={goNext} disabled={busy || locked}>Next</button>
+            ) : null}
+          </div>
+        </div>
 
         <div className="summary">
           <div className="row">
             <div className="col">
               <label>Tag Number</label>
-              <input
-                value={''}
-                onChange={() => {}}
-                placeholder="Assigned by staff"
-                disabled
-              />
+              <input value={''} onChange={() => {}} placeholder="Assigned by staff" disabled />
               <div className="muted" style={{fontSize:12}}>Front desk will assign your tag in the morning.</div>
             </div>
 
@@ -455,7 +477,6 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             </div>
           </div>
 
-          {/* Trimmed summary: ONLY the total (no status UI at all) */}
           <div className="row small">
             <div className="col total">
               <label>Total (preview)</label>
@@ -464,8 +485,9 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
           </div>
         </div>
 
-        {/* Customer */}
-        <section>
+        {step.key === 'customer' && (
+          <>
+<section>
           <h3>Customer</h3>
           <div className="grid">
             <div className="c3">
@@ -605,7 +627,12 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
 </div>
           </div>
         </section>
-        <section>
+          </>
+        )}
+
+        {step.key === 'hunt' && (
+          <>
+<section>
   <h3>Hunt Details</h3>
   <div className="grid">
     <div className="c4">
@@ -667,7 +694,7 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
     <option value="Archery">Archery</option>
     <option value="Vehicle">Vehicle</option>
   </select>
-  {errors.howKilled ? <div className="errText">{errors.howKilled}</div> : null}
+      {errors.howKilled ? <div className="errText">{errors.howKilled}</div> : null}
 </div>
 
 
@@ -695,10 +722,12 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
     </div>
   </div>
 </section>
+          </>
+        )}
 
-
-        {/* Cuts */}
-        <section>
+        {step.key === 'cuts' && (
+          <>
+<section>
           <h3>Cuts</h3>
           <div className="grid">
             <div className="c6">
@@ -808,9 +837,7 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             </div>
           </div>
         </section>
-
-        {/* Packaging & Add-ons */}
-        <section>
+<section>
           <h3>Packaging & Add-ons</h3>
           <div className="pkgGrid">
             <div className="pkg steak">
@@ -879,9 +906,7 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             </div>
           </div>
         </section>
-
-        {/* Backstrap */}
-        <section>
+<section>
           <h3>Backstrap</h3>
           <div className="grid">
             <div className="c4">
@@ -926,9 +951,12 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             </div>
           </div>
         </section>
+          </>
+        )}
 
-        {/* Specialty Products (no Specialty Status UI) */}
-        <section>
+        {step.key === 'extras' && (
+          <>
+<section>
           <h3>McAfee Specialty Products</h3>
           <div className="grid">
             <div className="c3 rowInline">
@@ -971,9 +999,7 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             </div>
           </div>
         </section>
-
-        {/* Notes */}
-        <section>
+<section>
           <h3>Notes</h3>
 		<Hint>If there is anything we haven't covered on the form that you would like us to take note of, enter that information here and be specific.</Hint>
           <textarea
@@ -983,9 +1009,7 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             disabled={locked}
           />
         </section>
-
-        {/* Webbs */}
-        <section>
+<section>
           <h3>Webbs</h3>
           <div className="grid">
             <div className="c3 rowInline">
@@ -1021,9 +1045,7 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             </div>
           </div>
         </section>
-
-        {/* Communication & Consent */}
-        <section>
+<section>
           <h3>Communication Preference & Consent</h3>
           <div className="grid">
             <div className="c6">
@@ -1083,54 +1105,48 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
             </div>
           </div>
         </section>
+          </>
+        )}
 
-        
+        {step.key === 'review' && (
+          <>
+            <section>
+              <h3>Review</h3>
+              <Hint>Double-check everything below. If it looks right, submit.</Hint>
+              <div style={{ marginTop: 12 }}>
+                <PrintSheet job={job as any} />
+              </div>
+            </section>
 
-{/* Actions */}
-        <div className="actions">
-          <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
-          {/* Overnight = no print button */}
-          <button className="btn" onClick={onReview} disabled={busy || locked}>
-            {busy ? 'Saving…' : locked ? 'Saved' : 'Review & Submit'}
-          </button>
-        </div>
-      </div>
-
-      <div className="print-only">
-        <PrintSheet job={job} />
-      </div>
-
-      {/* Thank-you modal */}
-      {showReview && (
-        <div className="modal">
-          <div className="modal-card">
-            <h3>Review</h3>
-            <p style={{ marginTop: 8, opacity: 0.85 }}>
-              Double-check everything below. If it looks right, submit.
-            </p>
-
-            <div style={{ marginTop: 12 }}>
-              <PrintSheet job={job as any} />
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn secondary" onClick={() => setShowReview(false)} disabled={busy}>
-                Back
-              </button>
+            <div className="actions">
+              <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
               <button className="btn" onClick={doSave} disabled={busy || locked}>
                 {busy ? 'Saving…' : locked ? 'Saved' : 'Submit'}
               </button>
             </div>
+          </>
+        )}
+
+        {step.key !== 'review' && (
+          <div className="actions">
+            <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
+            <button className="btn" onClick={goNext} disabled={busy || locked}>
+              Next
+            </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      <div className="print-only">
+        <PrintSheet job={job as any} />
+      </div>
 
       {showThanks && (
         <div className="modal">
           <div className="modal-card">
             <h3>Thank you!</h3>
             <p style={{marginTop:8}}>
-              Please leave a note with your Full Name, Phone Numnber, and the <b>last 5 digits</b> of your confirmation number
+              Please leave a note with your Full Name, Phone Number, and the <b>last 5 digits</b> of your confirmation number
               {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
               {' '}with your deer.
             </p>
@@ -1151,7 +1167,7 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
       )}
 
       <style jsx>{`
-        h2 { margin: 8px 0; }
+        h2 { margin: 0; }
         h3 { margin: 16px 0 8px; }
 
         label { font-size: 12px; font-weight: 700; color: #0b0f12; display: block; margin-bottom: 4px; }
@@ -1162,11 +1178,16 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
         .err { border: 2px solid #ef4444 !important; }
         .errText { color: #ef4444; font-size: 12px; font-weight: 700; margin-top: 6px; }
 
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 50; }
-        .modal-card { width: min(980px, 100%); max-height: 92vh; overflow: auto; background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
-        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
-
-
+        .wizardTop {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 8px 0 10px;
+        }
+        .wizardMeta { font-size: 12px; opacity: .75; }
+        .wizardTitle { font-size: 16px; font-weight: 900; margin-top: 4px; }
+        .wizardBtns { display: flex; gap: 8px; }
 
         input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
 
@@ -1180,13 +1201,14 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
 
         .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
-        .summary .row.small { margin-top: 6px; grid-template-columns: 1fr; } /* total only */
+        .summary .row.small { margin-top: 6px; grid-template-columns: 1fr; }
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
         .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
         .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
+        .btn.secondary { background: #fff; color: #0b0f12; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
         .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
         .status.ok { color: #065f46; }
@@ -1202,110 +1224,10 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
           .grid { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
           .summary .checks { gap: 8px; }
+          .summary { position: static !important; top: auto !important; box-shadow: none; z-index: auto; }
         }
 
-
-        
-        
-        /* Packaging layout (grid areas for robustness) */
-        .pkgGrid {
-          display: grid;
-          gap: 16px;
-        }
-        /* Desktop and large tablets */
-        @media (min-width: 960px) {
-          .pkgGrid {
-            grid-template-columns: 1fr 1fr 1fr;
-            grid-template-areas:
-              "steak steakOther steaksPer"
-              "burger beef beef";
-            align-items: end;
-          }
-        }
-        /* Phones / small tablets */
-        @media (max-width: 959.98px) {
-          .pkgGrid {
-            grid-template-columns: 1fr 1fr;
-            grid-template-areas:
-              "steak steakOther"
-              "steaksPer steaksPer"
-              "burger burger"
-              "beef beef";
-            align-items: end;
-          }
-        }
-
-        .pkgGrid .pkg { min-width: 0; }
-        .pkgGrid .steak      { grid-area: steak; }
-        .pkgGrid .steakOther { grid-area: steakOther; }
-        .pkgGrid .steaksPer  { grid-area: steaksPer; }
-        .pkgGrid .burgerSize { grid-area: burger; }
-        .pkgGrid .beefFat    { grid-area: beef; display: flex; align-items: center; }
-        .pkgGrid .beefFat .chk { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
-
-        /* Make controls fluid */
-        .pkgGrid select, .pkgGrid input { width: 100%; min-width: 0; }
-
-        
-        /* Scoped label fix so Beef fat text never stacks vertically */
-        .pkgGrid .pkg-beef { white-space: nowrap; }
-        .pkgGrid .pkg-beef span { white-space: nowrap; }
-        .pkgGrid .beefFat { justify-content: flex-start; }
-
-        /* Specialty layout (unchanged from last patch) */
-        .specGrid {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 12px;
-          align-items: end;
-        }
-        .specGrid .spec { min-width: 0; }
-        .specGrid .full { grid-column: 1 / -1; }
-        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
-
-        @media (max-width: 900px) {
-          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
-        }
-    
-        .specGrid {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 12px;
-          align-items: end;
-        }
-        .specGrid .spec { min-width: 0; }
-        .specGrid .full { grid-column: 1 / -1; }
-        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
-
-        @media (max-width: 900px) {
-          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
-        }
-
-    
-        .specGrid {
-          display: grid;
-          grid-template-columns: repeat(12, 1fr);
-          gap: 12px;
-          align-items: end;
-        }
-        .specGrid .spec { min-width: 0; }
-        .specGrid .full { grid-column: 1 / -1; }
-        .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: span 4; }
-
-        @media (max-width: 900px) {
-          .specGrid .ss, .specGrid .ssc, .specGrid .jerky { grid-column: 1 / -1; }
-        }
-
-        @media (max-width: 720px) {
-          .pkgGrid {
-            grid-template-columns: 1fr 1fr;
-          }
-          .pkgGrid .steak, .pkgGrid .steakOther { grid-column: auto; }
-          .pkgGrid .steaksPer, .pkgGrid .burgerSize { grid-column: auto; }
-          .pkgGrid .beefFat { grid-column: 1 / -1; }
-        }
-
-                /* Modal */
+        /* Modal */
         .modal {
           position: fixed; inset: 0; background: rgba(11, 15, 18, 0.6);
           display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 9999;
@@ -1316,38 +1238,6 @@ const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
         .modal-card h3 { margin: 4px 0 0; }
         .modal-card code { background: #f3f4f6; padding: 0 6px; border-radius: 4px; }
         .btn.wide { width: 100%; margin-top: 12px; }
-@media (max-width: 720px) {
-  .summary { position: static !important; top: auto !important; box-shadow: none; z-index: auto; }
-}
-/* Kill sticky + force scrolling on short (landscape) screens */
-@media (orientation: landscape) and (max-height: 520px) {
-  /* 1) Make the summary non-sticky */
-  .summary {
-    position: static !important;
-    top: auto !important;
-    box-shadow: none;
-  }
-
-  /* 2) Ensure the page can actually scroll */
-  html, body {
-    height: auto !important;
-    overflow: auto !important;
-  }
-
-  /* 3) Some wrappers use fixed heights; neutralize them so content can flow */
-  /* adjust these class names to match your wrappers if different */
-  .page, .wrap, .container, .content, .main {
-    height: auto !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-  }
-
-  /* 4) If you ever used a sticky heading helper, unstick that too */
-  .stickyHeading {
-    position: static !important;
-    top: auto !important;
-  }
-}
       `}</style>
     </div>
   );
