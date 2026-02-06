@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import { saveJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
-import { Hint, BulletErrors, styles as ux } from '@/app/intake/overnight/_ux_upgrades';
+import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 
 export const dynamic = 'force-dynamic';
@@ -222,70 +222,8 @@ useEffect(() => {
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
-
-  // ---- Wizard (mobile-first) ----
-  const steps = [
-    { key: 'customer', title: 'Customer' },
-    { key: 'hunt', title: 'Hunt Details' },
-    { key: 'cuts', title: 'Cuts & Add-ons' },
-    { key: 'extras', title: 'Specialty / Notes / Webbs' },
-    { key: 'review', title: 'Review & Submit' },
-  ] as const;
-  type StepKey = (typeof steps)[number]['key'];
-  const [stepIdx, setStepIdx] = useState(0);
-  const step = steps[stepIdx];
-
-  const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
-
-  const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(digitsOnly(s));
-  const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(digitsOnly(s));
-
-  const validateStep = (k: StepKey): string[] => {
-    const missing: string[] = [];
-
-    if (k === 'customer') {
-      if (!is13Digits(job.confirmation)) missing.push('Confirmation # (13 digits)');
-      if (!job.customer) missing.push('Customer Name');
-      if (!is10Digits(job.phone)) missing.push('Phone (10 digits)');
-      // Email is optional
-    }
-
-    if (k === 'hunt') {
-      if (!job.county) missing.push('County Killed');
-      if (!job.dropoff) missing.push('Drop-off Date');
-      if (!job.sex) missing.push('Deer Sex');
-      if (!job.howKilled) missing.push('How Killed');
-      if (!job.processType) missing.push('Process Type');
-    }
-
-    // cuts/extras are mostly preference-driven; keep them optional
-    return missing;
-  };
-
-  const canGoNext = () => validateStep(step.key).length === 0;
-
-  const goNext = () => {
-    const missing = validateStep(step.key);
-    if (missing.length) {
-      setMsg(`Missing or invalid: ${missing.join(', ')}`);
-      return;
-    }
-    setMsg('');
-    setStepIdx((i) => Math.min(i + 1, steps.length - 1));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const goBack = () => {
-    setMsg('');
-    setStepIdx((i) => Math.max(i - 1, 0));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const validateAll = (): string[] => {
-    const all = new Set<string>();
-    for (const s of steps) for (const m of validateStep(s.key)) all.add(m);
-    return Array.from(all);
-  };
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showReview, setShowReview] = useState<boolean>(false);
 
   const [locked, setLocked] = useState<boolean>(false);
   const [showThanks, setShowThanks] = useState<boolean>(false);
@@ -340,16 +278,50 @@ useEffect(() => {
     });
   }, [capingFlow, webbsOn, procNorm, job.specialtyProducts]);
 
-  const validate = (): string[] => validateAll();
+  const validateAll = (): Record<string, string> => {
+    const e: Record<string, string> = {};
+
+    if (!is13Digits(job.confirmation)) e.confirmation = 'Confirmation must be 13 digits';
+    if (!job.customer) e.customer = 'Customer Name is required';
+    if (!is10Digits(job.phone)) e.phone = 'Phone must be 10 digits';
+
+    // Email is optional.
+    // Address/City/State/Zip are optional; we auto-fill Zip when possible.
+
+    if (!job.county) e.county = 'County Killed is required';
+    if (!job.dropoff) e.dropoff = 'Drop-off Date is required';
+    if (!job.sex) e.sex = 'Deer Sex is required';
+    if (!job.howKilled) e.howKilled = 'How Killed is required';
+    if (!job.processType) e.processType = 'Process Type is required';
+
+    return e;
+  };
+
+  const validate = (): string[] => Object.values(validateAll());
+
 
   const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
 
-  const onSave = async () => {
+  const onReview = () => {
     if (locked) return;
     setMsg('');
-    const missing = validate();
-    if (missing.length) {
-      setMsg(`Missing or invalid: ${missing.join(', ')}`);
+    const e = validateAll();
+    setErrors(e);
+    if (Object.keys(e).length) {
+      setMsg('Fix the highlighted required fields.');
+      return;
+    }
+    setShowReview(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const doSave = async () => {
+    if (locked) return;
+    setMsg('');
+    const e = validateAll();
+    setErrors(e);
+    if (Object.keys(e).length) {
+      setMsg('Fix the highlighted required fields.');
       return;
     }
 
@@ -399,9 +371,10 @@ useEffect(() => {
 
     try {
       setBusy(true);
-      const res = await saveJob(payload);
-      if (!res?.ok) {
-        setMsg(res?.error || 'Save failed');
+      const res: any = await saveJob(payload);
+      const ok = (res && typeof res === 'object' && 'ok' in res) ? !!res.ok : true;
+      if (!ok) {
+        setMsg((res && res.error) || 'Save failed');
         return;
       }
       // Lock and show thank-you; front-of-house will add Tag later.
@@ -417,17 +390,33 @@ useEffect(() => {
     }
   };
 
-  const setVal = <K extends keyof Job>(k: K, v: Job[K]) => {
-    if (locked) return;
-    let next: any = v;
+  
+  const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
+  const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(s);
+  const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
 
-    // Sanitize numeric-only fields for mobile friendliness
-    if (k === 'confirmation') next = digitsOnly(String(v)).slice(0, 13);
-    if (k === 'phone') next = digitsOnly(String(v)).slice(0, 10);
-    if (k === 'zip') next = digitsOnly(String(v)).slice(0, 10);
+  const clearErr = (k: string) =>
+    setErrors((prev) => {
+      if (!prev[k]) return prev;
+      const n = { ...prev };
+      delete n[k];
+      return n;
+    });
 
-    setJob((p) => ({ ...p, [k]: next }));
+  const setConfirmation = (v: string) => {
+    const val = digitsOnly(v).slice(0, 13);
+    setJob((p) => ({ ...p, confirmation: val }));
+    clearErr('confirmation');
   };
+
+  const setPhone = (v: string) => {
+    const val = digitsOnly(v).slice(0, 10);
+    setJob((p) => ({ ...p, phone: val }));
+    clearErr('phone');
+  };
+
+const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
+    !locked && setJob((p) => ({ ...p, [k]: v }));
 
   const setHind = (k: keyof Required<CutsBlock>) =>
     !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
@@ -439,27 +428,6 @@ useEffect(() => {
     <div className={`form-card ${locked ? 'locked' : ''}`}>
       <div className="screen-only">
         <h2>Deer Intake (Overnight)</h2>
-
-        {/* Wizard nav (mobile-first) */}
-        <div style={ux.stickyHeading} className="wizard-nav">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <div>
-              <div style={{ ...ux.small, ...ux.muted }}>Step {stepIdx + 1} of {steps.length}</div>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>{step.title}</div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" className="btn" onClick={goBack} disabled={stepIdx === 0}>
-                Back
-              </button>
-              {step.key !== 'review' ? (
-                <button type="button" className="btn" onClick={goNext} disabled={busy || locked || !canGoNext()}>
-                  Next
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
 
         <div className="summary">
           <div className="row">
@@ -496,7 +464,7 @@ useEffect(() => {
           </div>
         </div>
 
-        { step.key === 'customer'  && (
+        {/* Customer */}
         <section>
           <h3>Customer</h3>
           <div className="grid">
@@ -504,34 +472,41 @@ useEffect(() => {
               <label>Confirmation #</label>
 		<Hint>Confrimation number you received from your GoOutdoorsIN (State) check-in.</Hint>
               <input
+                data-err="confirmation"
+                className={errors.confirmation ? 'err' : ''}
                 value={job.confirmation || ''}
-                onChange={(e) => setVal('confirmation', e.target.value)}
+                onChange={(e) => setConfirmation(e.target.value)}
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={13}
-                placeholder="13-digit confirmation"
                 disabled={locked}
               />
+              {errors.confirmation ? <div className="errText">{errors.confirmation}</div> : null}
             </div>
             <div className="c6">
               <label>Customer Name</label>
               <input
+                data-err="customer"
+                className={errors.customer ? 'err' : ''}
                 value={job.customer || ''}
-                onChange={(e) => setVal('customer', e.target.value)}
+                onChange={(e) => { clearErr('customer'); setVal('customer', e.target.value); }}
                 disabled={locked}
               />
+              {errors.customer ? <div className="errText">{errors.customer}</div> : null}
             </div>
             <div className="c3">
               <label>Phone</label>
               <input
+                data-err="phone"
+                className={errors.phone ? 'err' : ''}
                 value={job.phone || ''}
-                onChange={(e) => setVal('phone', e.target.value)}
+                onChange={(e) => setPhone(e.target.value)}
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={10}
-                placeholder="10-digit phone"
                 disabled={locked}
               />
+              {errors.phone ? <div className="errText">{errors.phone}</div> : null}
             </div>
 
             <div className="c4">
@@ -630,8 +605,6 @@ useEffect(() => {
 </div>
           </div>
         </section>
-
-        )}        { step.key === 'hunt'  && (
         <section>
   <h3>Hunt Details</h3>
   <div className="grid">
@@ -639,27 +612,35 @@ useEffect(() => {
       <label>County Killed</label>
 	<Hint>County where the deer was harvested (required for state reporting).</Hint>
       <input
+        data-err="county"
+        className={errors.county ? 'err' : ''}
         value={job.county || ''}
-        onChange={(e) => setVal('county', e.target.value)}
+        onChange={(e) => { clearErr('county'); setVal('county', e.target.value); }}
         disabled={locked}
       />
+      {errors.county ? <div className="errText">{errors.county}</div> : null}
     </div>
 
     <div className="c4">
       <label>Drop-off Date</label>
       <input
+        data-err="dropoff"
+        className={errors.dropoff ? 'err' : ''}
         type="date"
         value={job.dropoff || ''}
-        onChange={(e) => setVal('dropoff', e.target.value)}
+        onChange={(e) => { clearErr('dropoff'); setVal('dropoff', e.target.value); }}
         disabled={locked}
       />
+      {errors.dropoff ? <div className="errText">{errors.dropoff}</div> : null}
     </div>
 
     <div className="c4">
       <label>Deer Sex</label>
       <select
+        data-err="sex"
+        className={errors.sex ? 'err' : ''}
         value={job.sex || ''}
-        onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
+        onChange={(e) => { clearErr('sex'); setVal('sex', e.target.value as Job['sex']); }}
         disabled={locked}
       >
         <option value="">—</option>
@@ -667,6 +648,7 @@ useEffect(() => {
         <option value="Doe">Doe</option>
         <option value="Antlerless">Antlerless</option>
       </select>
+      {errors.sex ? <div className="errText">{errors.sex}</div> : null}
     </div>
 
     {/* Row 2 */}
@@ -674,8 +656,10 @@ useEffect(() => {
 <div className="c4">
   <label>How Killed</label>
   <select
+    data-err="howKilled"
+    className={errors.howKilled ? 'err' : ''}
     value={job.howKilled || ''}
-    onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
+    onChange={(e) => { clearErr('howKilled'); setVal('howKilled', e.target.value as Job['howKilled']); }}
     disabled={locked}
   >
     <option value="">—</option>
@@ -683,6 +667,7 @@ useEffect(() => {
     <option value="Archery">Archery</option>
     <option value="Vehicle">Vehicle</option>
   </select>
+  {errors.howKilled ? <div className="errText">{errors.howKilled}</div> : null}
 </div>
 
 
@@ -692,8 +677,10 @@ useEffect(() => {
       <label>Process Type</label>
 	<Hint>Select Standard for normal processing of Doe or Buck you do not want skull.</Hint>
       <select
+        data-err="processType"
+        className={errors.processType ? 'err' : ''}
         value={job.processType || ''}
-        onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
+        onChange={(e) => { clearErr('processType'); setVal('processType', e.target.value as Job['processType']); }}
         disabled={locked}
       >
         <option value="">—</option>
@@ -704,13 +691,13 @@ useEffect(() => {
         <option>Cape & Donate</option>
         <option>Donate</option>
       </select>
+      {errors.processType ? <div className="errText">{errors.processType}</div> : null}
     </div>
   </div>
 </section>
 
 
-
-        )}        { step.key === 'cuts'  && (<>
+        {/* Cuts */}
         <section>
           <h3>Cuts</h3>
           <div className="grid">
@@ -940,11 +927,7 @@ useEffect(() => {
           </div>
         </section>
 
-
-        </>)}
-
-        { step.key === 'extras'  && (
-        <>
+        {/* Specialty Products (no Specialty Status UI) */}
         <section>
           <h3>McAfee Specialty Products</h3>
           <div className="grid">
@@ -1039,12 +1022,6 @@ useEffect(() => {
           </div>
         </section>
 
-
-        </>
-        )}
-
-        { step.key === 'review'  && (
-          <>
         {/* Communication & Consent */}
         <section>
           <h3>Communication Preference & Consent</h3>
@@ -1109,26 +1086,45 @@ useEffect(() => {
 
         
 
-
-        
 {/* Actions */}
         <div className="actions">
-          <BulletErrors message={msg} />
+          <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
           {/* Overnight = no print button */}
-          <button className="btn" onClick={onSave} disabled={busy || locked}>
-            {busy ? 'Saving…' : locked ? 'Saved' : 'Save'}
+          <button className="btn" onClick={onReview} disabled={busy || locked}>
+            {busy ? 'Saving…' : locked ? 'Saved' : 'Review & Submit'}
           </button>
         </div>
-      
-          </>
-        )}
-        </div>
+      </div>
 
       <div className="print-only">
         <PrintSheet job={job} />
       </div>
 
       {/* Thank-you modal */}
+      {showReview && (
+        <div className="modal">
+          <div className="modal-card">
+            <h3>Review</h3>
+            <p style={{ marginTop: 8, opacity: 0.85 }}>
+              Double-check everything below. If it looks right, submit.
+            </p>
+
+            <div style={{ marginTop: 12 }}>
+              <PrintSheet job={job as any} />
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn secondary" onClick={() => setShowReview(false)} disabled={busy}>
+                Back
+              </button>
+              <button className="btn" onClick={doSave} disabled={busy || locked}>
+                {busy ? 'Saving…' : locked ? 'Saved' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showThanks && (
         <div className="modal">
           <div className="modal-card">
@@ -1163,6 +1159,14 @@ useEffect(() => {
           width: 100%; padding: 6px 8px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box;
         }
         textarea { resize: vertical; }
+        .err { border: 2px solid #ef4444 !important; }
+        .errText { color: #ef4444; font-size: 12px; font-weight: 700; margin-top: 6px; }
+
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; padding: 12px; z-index: 50; }
+        .modal-card { width: min(980px, 100%); max-height: 92vh; overflow: auto; background: #fff; border-radius: 16px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+
 
         input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
 

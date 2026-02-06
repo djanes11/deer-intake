@@ -76,6 +76,10 @@ async function getJSON<T = any>(url: string): Promise<T> {
   });
 
   const text = await r.text();
+  if (r.ok && (!text || text.trim() === '') && body?.action === 'save') {
+    return { ok: true } as unknown as T;
+  }
+
   try {
     const json = JSON.parse(text);
     if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
@@ -98,6 +102,10 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
   });
 
   const text = await r.text();
+  if (r.ok && (!text || text.trim() === '') && body?.action === 'save') {
+    return { ok: true } as unknown as T;
+  }
+
   try {
     const json = JSON.parse(text);
     if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
