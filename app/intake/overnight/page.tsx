@@ -397,7 +397,7 @@ function OvernightIntakePage() {
     // IMPORTANT: public/overnight has no tag. Send empty string (not null).
     const payload: Job = {
       ...job,
-      tag: '',
+      tag: null,
       requiresTag: true,
 
       status: pnorm === 'Cape & Donate' || pnorm === 'Donate' ? '' : (job.status || 'Dropped Off'),

@@ -565,24 +565,16 @@ const makePendingTag = () => {
   return `PENDING-${last5 || 'NA'}-${stamp}-${rand}`;
 };
 
-const tagToStore = hasRealTag(rawTag) ? rawTag : (requiresTag ? makePendingTag() : '');
+const tagToStore = hasRealTag(rawTag) ? rawTag : null;
 
 const hasConfirmation = String((job as any).confirmation ?? '').replace(/\D/g, '').length === 13;
 
-// Use a stable conflict key:
-// - If we have a real tag, it's the authoritative key.
-// - If tag is missing (overnight), use confirmation so staff can later update the same record when assigning a real tag.
-const conflictKey: 'tag' | 'confirmation' = hasRealTag(rawTag) ? 'tag' : 'confirmation';
-
-if (conflictKey === 'confirmation' && !hasConfirmation) {
-  throw new Error('Confirmation (13 digits) is required when tag is blank.');
-}
-
-
-if (!tagToStore) {
-  // Staff path (requiresTag !== true) is not allowed to be blank.
-  throw new Error('Tag is required.');
-}
+// Conflict target: keep it simple and always use the existing unique constraint on `tag`.
+// For overnight/public rows, we store tag = null and requires_tag = true, so they insert cleanly and staff can fill the tag later.
+const needsTag = asBool(job.requiresTag) || !hasRealTag(rawTag);
+const hasConfirmation = !!String(job.confirmation || '').trim();
+if (needsTag && !hasConfirmation) throw new Error('Confirmation is required when Tag is missing (overnight).');
+const conflictKey: 'tag' = 'tag';
 
 const upsertPayload: any = {
   tag: tagToStore,
