@@ -6,10 +6,30 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+function envInfo() {
+  const url =
+    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+
+  return {
+    url,
+    key,
+    present: {
+      SUPABASE_URL: !!process.env.SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    },
+  };
+}
+
 function supabaseAdmin() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('Supabase env not configured');
+  const { url, key, present } = envInfo();
+  if (!url || !key) {
+    const missing: string[] = [];
+    if (!url) missing.push('SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL)');
+    if (!key) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+    throw new Error(`Supabase env not configured. Missing: ${missing.join(', ')}. Present: ${JSON.stringify(present)}`);
+  }
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
@@ -26,9 +46,6 @@ export async function POST(req: Request) {
 
     const supabase = supabaseAdmin();
 
-    // IMPORTANT:
-    // If "tag" is a PRIMARY KEY in your table, updating it may fail.
-    // If it fails with constraint/PK errors, tell me and I’ll switch this to copy+delete.
     const { data, error } = await supabase
       .from('jobs')
       .update({ tag: newTag, requires_tag: false })
