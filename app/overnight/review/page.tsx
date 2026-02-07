@@ -221,7 +221,7 @@ export default function MissingTagsPage() {
                       alignItems: 'center',
                     }}
                   >
-                    <div style={{ fontWeight: 600 }}>{r.customer.name || '-'}</div>
+                    <div style={{ fontWeight: 600 }}>{r.customer_name || '-'}</div>
                     <div style={{ fontFamily: 'monospace' }}>{r.confirmation || '-'}</div>
                     <div style={{ fontFamily: 'monospace' }}>{r.phone || '-'}</div>
                     <div>{r.dropoff_date || '-'}</div>
