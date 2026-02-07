@@ -559,9 +559,9 @@ export async function saveJob(job: Partial<Job>) {
     rawTag.toLowerCase() !== 'undefined' &&
     !rawTag.toLowerCase().startsWith('pending-');
 
-  const allowMissingTag = !!(job as any).requiresTag;
+  const allowMissingTag = !!(job as any).requiresTag || (!hasRealTagInput && hasConfirmation13);
 
-  let tagToStore: string;
+let tagToStore: string;
   let requiresTag = !!(job as any).requiresTag;
 
   if (hasRealTagInput) {

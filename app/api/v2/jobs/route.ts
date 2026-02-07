@@ -185,8 +185,18 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error('POST v2/jobs error', err);
-    return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
-      status: 500,
-    });
+
+    const msg = String(err?.message || err || 'Server error');
+
+    // Validation/shape issues should be 400 (client error), not 500
+    if (
+      msg.includes('Tag is required') ||
+      msg.includes('Confirmation must be 13 digits') ||
+      msg.includes('Missing job payload')
+    ) {
+      return new Response(JSON.stringify({ ok: false, error: msg }), { status: 400 });
+    }
+
+    return new Response(JSON.stringify({ ok: false, error: msg }), { status: 500 });
   }
 }
