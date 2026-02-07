@@ -10,9 +10,9 @@ type Row = {
   id?: string;
   tag?: string; // will be PENDING-....
   confirmation?: string;
-  customer?: string;
+  customer_name?: string;
   phone?: string;
-  dropoff?: string;
+  dropoff_date?: string;
   status?: string;
   webbs?: boolean;
   paidProcessing?: boolean;
@@ -51,9 +51,9 @@ function normRow(r: any): Row {
     id: r?.id,
     tag: String(r?.tag ?? ''),
     confirmation: String(r?.confirmation ?? ''),
-    customer: String(r?.customer ?? ''),
+    customer_name: String(r?.customer_name ?? ''),
     phone: String(r?.phone ?? ''),
-    dropoff: String(r?.dropoff ?? ''),
+    dropoff_date: String(r?.dropoff_date ?? ''),
     status: String(r?.status ?? ''),
     webbs: normBool(r?.webbs),
     paidProcessing: normBool(r?.paid_processing ?? r?.paidProcessing),
@@ -221,10 +221,10 @@ export default function MissingTagsPage() {
                       alignItems: 'center',
                     }}
                   >
-                    <div style={{ fontWeight: 600 }}>{r.customer || '-'}</div>
+                    <div style={{ fontWeight: 600 }}>{r.customer.name || '-'}</div>
                     <div style={{ fontFamily: 'monospace' }}>{r.confirmation || '-'}</div>
                     <div style={{ fontFamily: 'monospace' }}>{r.phone || '-'}</div>
-                    <div>{r.dropoff || '-'}</div>
+                    <div>{r.dropoff_date || '-'}</div>
                     <div>{r.status || '-'}</div>
                     <div style={{ fontFamily: 'monospace' }}>{pendingTag || '-'}</div>
 
