@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
     if (!tag) {
       return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
         status: 400,
+      });
     }
 
     try {
@@ -62,6 +63,7 @@ export async function GET(req: NextRequest) {
       console.error('GET get error', err);
       return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
         status: 500,
+      });
     }
   }
 
@@ -74,6 +76,7 @@ export async function GET(req: NextRequest) {
       console.error('GET search error', err);
       return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
         status: 500,
+      });
     }
   }
 
@@ -85,11 +88,13 @@ export async function GET(req: NextRequest) {
       console.error('GET needstag error', err);
       return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
         status: 500,
+      });
     }
   }
 
   return new Response(JSON.stringify({ ok: false, error: 'Unknown action (GET)' }), {
     status: 400,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -111,6 +116,7 @@ export async function POST(req: NextRequest) {
       if (!job) {
         return new Response(JSON.stringify({ ok: false, error: 'Missing job payload' }), {
           status: 400,
+        });
       }
       const result = await saveJob(job);
       return new Response(JSON.stringify(result), { status: 200 });
@@ -121,6 +127,7 @@ export async function POST(req: NextRequest) {
       if (!tag) {
         return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
           status: 400,
+        });
       }
       const result = await logCall({ tag, scope, reason, notes, outcome });
       return new Response(JSON.stringify(result), { status: 200 });
@@ -134,6 +141,7 @@ export async function POST(req: NextRequest) {
       if (!finalTag) {
         return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
           status: 400,
+        });
       }
 
       const result = await progressJob(finalTag);
@@ -148,6 +156,7 @@ export async function POST(req: NextRequest) {
       if (!finalTag) {
         return new Response(JSON.stringify({ ok: false, error: 'Missing tag' }), {
           status: 400,
+        });
       }
 
       const result = await markCalled({ tag: finalTag, scope, notes });
@@ -166,16 +175,18 @@ export async function POST(req: NextRequest) {
         newTag,
         stampDropEmail: !!stampDropEmail,
         returnRow: !!returnRow,
+      });
       const status = result.ok ? 200 : 400;
       return new Response(JSON.stringify(result), { status });
     }
 
     return new Response(JSON.stringify({ ok: false, error: 'Unknown action (POST)' }), {
       status: 400,
+    });
   } catch (err: any) {
     console.error('POST v2/jobs error', err);
-    const message = (err && typeof err === 'object' && 'message' in err) ? String((err as any).message) : String(err);
-    const details = (err && typeof err === 'object') ? (err as any).details ?? (err as any).hint ?? (err as any).code : undefined;
-    return new Response(JSON.stringify({ ok: false, error: message, details }), { status: 500 });
+    return new Response(JSON.stringify({ ok: false, error: 'Server error' }), {
+      status: 500,
+    });
   }
 }
