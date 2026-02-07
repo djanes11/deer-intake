@@ -188,6 +188,5 @@ export async function POST(req: NextRequest) {
     const message = (err && typeof err === 'object' && 'message' in err) ? String((err as any).message) : String(err);
     const details = (err && typeof err === 'object') ? (err as any).details ?? (err as any).hint ?? (err as any).code : undefined;
     return new Response(JSON.stringify({ ok: false, error: message, details }), { status: 500 });
-    });
   }
 }

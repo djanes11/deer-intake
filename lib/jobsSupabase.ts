@@ -567,13 +567,15 @@ const makePendingTag = () => {
 
 const tagToStore = hasRealTag(rawTag) ? rawTag : null;
 
-const hasConfirmation = String((job as any).confirmation ?? '').replace(/\D/g, '').length === 13;
+// Confirmation is always expected on the overnight/public flow; keep it strict (13 digits).
+const hasConfirmation13 = String((job as any).confirmation ?? '').replace(/\D/g, '').length === 13;
 
 // Conflict target: keep it simple and always use the existing unique constraint on `tag`.
 // For overnight/public rows, we store tag = null and requires_tag = true, so they insert cleanly and staff can fill the tag later.
 const needsTag = asBool(job.requiresTag) || !hasRealTag(rawTag);
-const hasConfirmation = !!String(job.confirmation || '').trim();
-if (needsTag && !hasConfirmation) throw new Error('Confirmation is required when Tag is missing (overnight).');
+if (needsTag && !hasConfirmation13) {
+  throw new Error('Confirmation must be 13 digits when Tag is missing (overnight).');
+}
 const conflictKey: 'tag' = 'tag';
 
 const upsertPayload: any = {
