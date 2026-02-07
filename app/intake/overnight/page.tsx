@@ -302,26 +302,50 @@ function OvernightIntakePage() {
   const setConfirmation = (v: string) => {
     const val = digitsOnly(v).slice(0, 13);
     setJob((p) => ({ ...p, confirmation: val }));
-    clearErr('confirmation');
+
+    // Keep the red error until it's valid.
+    setErrors((prev) => {
+      if (!prev.confirmation) return prev;
+      const n = { ...prev };
+      if (is13Digits(val)) delete n.confirmation;
+      else n.confirmation = 'Confirmation must be 13 digits';
+      return n;
+    });
   };
 
   const setPhone = (v: string) => {
     const val = digitsOnly(v).slice(0, 10);
     setJob((p) => ({ ...p, phone: val }));
-    clearErr('phone');
+
+    // Keep the red error until it's valid.
+    setErrors((prev) => {
+      if (!prev.phone) return prev;
+      const n = { ...prev };
+      if (is10Digits(val)) delete n.phone;
+      else n.phone = 'Phone must be 10 digits';
+      return n;
+    });
   };
 
   const validateAll = (): Record<string, string> => {
     const e: Record<string, string> = {};
+
+    // Customer (everything required except email)
     if (!is13Digits(job.confirmation)) e.confirmation = 'Confirmation must be 13 digits';
     if (!job.customer?.trim()) e.customer = 'Customer Name is required';
     if (!is10Digits(job.phone)) e.phone = 'Phone must be 10 digits';
+    if (!job.address?.trim()) e.address = 'Address is required';
+    if (!job.city?.trim()) e.city = 'City is required';
+    if (!job.state?.trim()) e.state = 'State is required';
+    if (!job.zip?.trim()) e.zip = 'Zip is required';
 
+    // Hunt details (all required)
     if (!job.county?.trim()) e.county = 'County Killed is required';
     if (!job.dropoff?.trim()) e.dropoff = 'Drop-off Date is required';
     if (!job.sex) e.sex = 'Deer Sex is required';
     if (!job.howKilled) e.howKilled = 'How Killed is required';
     if (!job.processType) e.processType = 'Process Type is required';
+
     return e;
   };
 
@@ -332,7 +356,7 @@ function OvernightIntakePage() {
       if (all[key]) e[key] = all[key];
     };
 
-    if (k === 'customer') ['confirmation', 'customer', 'phone'].forEach(pick);
+    if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
@@ -493,7 +517,17 @@ function OvernightIntakePage() {
                 <label>Customer Name</label>
                 <input
                   value={job.customer || ''}
-                  onChange={(e) => { clearErr('customer'); setVal('customer', e.target.value); }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVal('customer', v);
+                    setErrors((prev) => {
+                      if (!prev.customer) return prev;
+                      const n = { ...prev };
+                      if (v.trim()) delete n.customer;
+                      else n.customer = 'Customer Name is required';
+                      return n;
+                    });
+                  }}
                   className={errors.customer ? 'err' : ''}
                   data-err="customer"
                   disabled={locked}
@@ -524,23 +558,67 @@ function OvernightIntakePage() {
 
               <div className="c8">
                 <label>Address</label>
-                <input value={job.address || ''} onChange={(e) => setVal('address', e.target.value)} disabled={locked} />
+                <input
+                  value={job.address || ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVal('address', v);
+                    setErrors((prev) => {
+                      if (!prev.address) return prev;
+                      const n = { ...prev };
+                      if (v.trim()) delete n.address;
+                      else n.address = 'Address is required';
+                      return n;
+                    });
+                  }}
+                  className={errors.address ? 'err' : ''}
+                  data-err="address"
+                  disabled={locked}
+                />
+                {errors.address ? <div className="errText">{errors.address}</div> : null}
               </div>
 
               <div className="c4">
                 <label>City</label>
                 <input
                   value={job.city || ''}
-                  onChange={(e) => { setZipDirty(false); setVal('city', e.target.value); }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setZipDirty(false);
+                    setVal('city', v);
+                    setErrors((prev) => {
+                      if (!prev.city) return prev;
+                      const n = { ...prev };
+                      if (v.trim()) delete n.city;
+                      else n.city = 'City is required';
+                      return n;
+                    });
+                  }}
+                  className={errors.city ? 'err' : ''}
+                  data-err="city"
                   disabled={locked}
                 />
+                {errors.city ? <div className="errText">{errors.city}</div> : null}
               </div>
 
               <div className="c4">
                 <label>State</label>
                 <select
                   value={job.state || ''}
-                  onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as any); }}
+                  onChange={(e) => {
+                    const v = e.target.value as any;
+                    setZipDirty(false);
+                    setVal('state', v);
+                    setErrors((prev) => {
+                      if (!prev.state) return prev;
+                      const n = { ...prev };
+                      if (String(v || '').trim()) delete n.state;
+                      else n.state = 'State is required';
+                      return n;
+                    });
+                  }}
+                  className={errors.state ? 'err' : ''}
+                  data-err="state"
                   disabled={locked}
                 >
                   <option value="">—</option>
@@ -596,15 +674,30 @@ function OvernightIntakePage() {
                   <option value="DE">DE</option>
                   <option value="DC">DC</option>
                 </select>
+                {errors.state ? <div className="errText">{errors.state}</div> : null}
               </div>
 
               <div className="c4">
                 <label>Zip</label>
                 <input
                   value={job.zip || ''}
-                  onChange={(e) => { setZipDirty(true); setVal('zip', e.target.value); }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setZipDirty(true);
+                    setVal('zip', v);
+                    setErrors((prev) => {
+                      if (!prev.zip) return prev;
+                      const n = { ...prev };
+                      if (v.trim()) delete n.zip;
+                      else n.zip = 'Zip is required';
+                      return n;
+                    });
+                  }}
+                  className={errors.zip ? 'err' : ''}
+                  data-err="zip"
                   disabled={locked}
                 />
+                {errors.zip ? <div className="errText">{errors.zip}</div> : null}
               </div>
             </div>
           </section>
@@ -620,7 +713,17 @@ function OvernightIntakePage() {
                 <Hint>County where the deer was harvested (required for state reporting).</Hint>
                 <input
                   value={job.county || ''}
-                  onChange={(e) => { clearErr('county'); setVal('county', e.target.value); }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVal('county', v);
+                    setErrors((prev) => {
+                      if (!prev.county) return prev;
+                      const n = { ...prev };
+                      if (String(v || '').trim()) delete n.county;
+                      else n.county = 'County Killed is required';
+                      return n;
+                    });
+                  }}
                   className={errors.county ? 'err' : ''}
                   data-err="county"
                   disabled={locked}
@@ -633,7 +736,17 @@ function OvernightIntakePage() {
                 <input
                   type="date"
                   value={job.dropoff || ''}
-                  onChange={(e) => { clearErr('dropoff'); setVal('dropoff', e.target.value); }}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVal('dropoff', v);
+                    setErrors((prev) => {
+                      if (!prev.dropoff) return prev;
+                      const n = { ...prev };
+                      if (String(v || '').trim()) delete n.dropoff;
+                      else n.dropoff = 'Drop-off Date is required';
+                      return n;
+                    });
+                  }}
                   className={errors.dropoff ? 'err' : ''}
                   data-err="dropoff"
                   disabled={locked}
@@ -645,7 +758,17 @@ function OvernightIntakePage() {
                 <label>Deer Sex</label>
                 <select
                   value={job.sex || ''}
-                  onChange={(e) => { clearErr('sex'); setVal('sex', e.target.value as Job['sex']); }}
+                  onChange={(e) => {
+                    const v = e.target.value as Job['sex'];
+                    setVal('sex', v);
+                    setErrors((prev) => {
+                      if (!prev.sex) return prev;
+                      const n = { ...prev };
+                      if (String(v || '').trim()) delete n.sex;
+                      else n.sex = 'Deer Sex is required';
+                      return n;
+                    });
+                  }}
                   className={errors.sex ? 'err' : ''}
                   data-err="sex"
                   disabled={locked}
@@ -662,7 +785,17 @@ function OvernightIntakePage() {
                 <label>How Killed</label>
                 <select
                   value={job.howKilled || ''}
-                  onChange={(e) => { clearErr('howKilled'); setVal('howKilled', e.target.value as Job['howKilled']); }}
+                  onChange={(e) => {
+                    const v = e.target.value as Job['howKilled'];
+                    setVal('howKilled', v);
+                    setErrors((prev) => {
+                      if (!prev.howKilled) return prev;
+                      const n = { ...prev };
+                      if (String(v || '').trim()) delete n.howKilled;
+                      else n.howKilled = 'How Killed is required';
+                      return n;
+                    });
+                  }}
                   className={errors.howKilled ? 'err' : ''}
                   data-err="howKilled"
                   disabled={locked}
@@ -680,7 +813,17 @@ function OvernightIntakePage() {
                 <Hint>Select Standard for normal processing of Doe or Buck you do not want skull.</Hint>
                 <select
                   value={job.processType || ''}
-                  onChange={(e) => { clearErr('processType'); setVal('processType', e.target.value as Job['processType']); }}
+                  onChange={(e) => {
+                    const v = e.target.value as Job['processType'];
+                    setVal('processType', v);
+                    setErrors((prev) => {
+                      if (!prev.processType) return prev;
+                      const n = { ...prev };
+                      if (String(v || '').trim()) delete n.processType;
+                      else n.processType = 'Process Type is required';
+                      return n;
+                    });
+                  }}
                   className={errors.processType ? 'err' : ''}
                   data-err="processType"
                   disabled={locked}
@@ -1046,7 +1189,17 @@ function OvernightIntakePage() {
       )}
 
       <style jsx>{`
-        h2 { margin: 8px 0; }
+                .form-card{
+          max-width: 980px;
+          margin: 18px auto;
+          padding: 16px 18px;
+          background: #fff;
+          border: 1px solid #eef2f7;
+          border-radius: 14px;
+          box-shadow: 0 10px 28px rgba(0,0,0,.10);
+        }
+
+h2 { margin: 8px 0; }
         h3 { margin: 16px 0 8px; }
 
         label { font-size: 12px; font-weight: 700; color: #0b0f12; display: block; margin-bottom: 4px; }

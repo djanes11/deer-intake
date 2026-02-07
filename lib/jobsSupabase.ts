@@ -549,8 +549,43 @@ export async function saveJob(job: Partial<Job>) {
   const usedSpecialtyPrice  = specialtyOverride  ?? (numOrNull(job.priceSpecialty) ?? computedSpecialtyPrice);
   const usedTotalPrice      = numOrNull(job.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
 
-  const upsertPayload: any = {
-    tag: job.tag ?? null,
+  // Tag handling:
+// - Staff intake MUST provide a real tag.
+// - Public/overnight can submit with no tag and `requiresTag=true`.
+//   In that case, we store a unique placeholder tag so DB constraints + onConflict(tag) still work,
+//   and staff can later assign the real tag.
+const rawTag = String((job as any).tag ?? '').trim();
+const requiresTag = (job as any).requiresTag === true;
+
+const hasRealTag = (t: string) => t.length > 0 && !/^pending[-_]/i.test(t);
+const makePendingTag = () => {
+  const last5 = String((job as any).confirmation ?? '').replace(/\D/g, '').slice(-5);
+  const rand = crypto.randomBytes(4).toString('hex'); // 8 hex chars
+  const stamp = Date.now().toString(36);
+  return `PENDING-${last5 || 'NA'}-${stamp}-${rand}`;
+};
+
+const tagToStore = hasRealTag(rawTag) ? rawTag : (requiresTag ? makePendingTag() : '');
+
+const hasConfirmation = String((job as any).confirmation ?? '').replace(/\D/g, '').length === 13;
+
+// Use a stable conflict key:
+// - If we have a real tag, it's the authoritative key.
+// - If tag is missing (overnight), use confirmation so staff can later update the same record when assigning a real tag.
+const conflictKey: 'tag' | 'confirmation' = hasRealTag(rawTag) ? 'tag' : 'confirmation';
+
+if (conflictKey === 'confirmation' && !hasConfirmation) {
+  throw new Error('Confirmation (13 digits) is required when tag is blank.');
+}
+
+
+if (!tagToStore) {
+  // Staff path (requiresTag !== true) is not allowed to be blank.
+  throw new Error('Tag is required.');
+}
+
+const upsertPayload: any = {
+  tag: tagToStore,
     confirmation: job.confirmation ?? null,
     customer_name: job.customer ?? null,
     phone: job.phone ?? null,
