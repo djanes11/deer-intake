@@ -53,6 +53,14 @@ function hasRealTag(row: any) {
   return !!t;
 }
 
+function makePendingTag(confirmation13: string) {
+  const last5 = String(confirmation13 ?? '').replace(/\D/g, '').slice(-5) || '00000';
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `PENDING-${last5}-${ts}-${rand}`;
+}
+
+
 function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number }) {
   const name = opts.name || 'there';
   const paid = !!opts.paidProcessing;
@@ -538,6 +546,35 @@ function calcSpecialtyPriceFromLbs(job: Partial<Job>): number {
 
 export async function saveJob(job: Partial<Job>) {
   const supabaseServer = getSupabaseServer();
+  // ---- Tag rules ----
+  // Staff intake must provide a real tag.
+  // Overnight/public submission has no tag yet: store a unique placeholder tag and mark requires_tag=true.
+  const rawTag = String((job as any).tag ?? '').trim();
+  const confirmationDigits = String((job as any).confirmation ?? '').replace(/\D/g, '');
+  const hasConfirmation13 = confirmationDigits.length === 13;
+
+  const hasRealTagInput =
+    rawTag !== '' &&
+    rawTag.toLowerCase() !== 'null' &&
+    rawTag.toLowerCase() !== 'undefined' &&
+    !rawTag.toLowerCase().startsWith('pending-');
+
+  const allowMissingTag = !!(job as any).requiresTag;
+
+  let tagToStore: string;
+  let requiresTag = !!(job as any).requiresTag;
+
+  if (hasRealTagInput) {
+    tagToStore = rawTag;
+    requiresTag = false;
+  } else {
+    if (!allowMissingTag) throw new Error('Tag is required.');
+    if (!hasConfirmation13) throw new Error('Confirmation must be 13 digits when Tag is missing (overnight).');
+    tagToStore = makePendingTag(confirmationDigits);
+    requiresTag = true;
+  }
+
+
 
   const computedProcessingPrice = calcProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder);
   const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(job);
@@ -549,37 +586,8 @@ export async function saveJob(job: Partial<Job>) {
   const usedSpecialtyPrice  = specialtyOverride  ?? (numOrNull(job.priceSpecialty) ?? computedSpecialtyPrice);
   const usedTotalPrice      = numOrNull(job.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
 
-  // Tag handling:
-// - Staff intake MUST provide a real tag.
-// - Public/overnight can submit with no tag and `requiresTag=true`.
-//   In that case, we store a unique placeholder tag so DB constraints + onConflict(tag) still work,
-//   and staff can later assign the real tag.
-const rawTag = String((job as any).tag ?? '').trim();
-const requiresTag = (job as any).requiresTag === true;
-
-const hasRealTag = (t: string) => t.length > 0 && !/^pending[-_]/i.test(t);
-const makePendingTag = () => {
-  const last5 = String((job as any).confirmation ?? '').replace(/\D/g, '').slice(-5);
-  const rand = crypto.randomBytes(4).toString('hex'); // 8 hex chars
-  const stamp = Date.now().toString(36);
-  return `PENDING-${last5 || 'NA'}-${stamp}-${rand}`;
-};
-
-const tagToStore = hasRealTag(rawTag) ? rawTag : null;
-
-// Confirmation is always expected on the overnight/public flow; keep it strict (13 digits).
-const hasConfirmation13 = String((job as any).confirmation ?? '').replace(/\D/g, '').length === 13;
-
-// Conflict target: keep it simple and always use the existing unique constraint on `tag`.
-// For overnight/public rows, we store tag = null and requires_tag = true, so they insert cleanly and staff can fill the tag later.
-const needsTag = asBool(job.requiresTag) || !hasRealTag(rawTag);
-if (needsTag && !hasConfirmation13) {
-  throw new Error('Confirmation must be 13 digits when Tag is missing (overnight).');
-}
-const conflictKey: 'tag' = 'tag';
-
-const upsertPayload: any = {
-  tag: tagToStore,
+  const upsertPayload: any = {
+    tag: tagToStore,
     confirmation: job.confirmation ?? null,
     customer_name: job.customer ?? null,
     phone: job.phone ?? null,
