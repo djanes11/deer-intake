@@ -26,9 +26,6 @@ type AnyRec = Record<string, any>;
 const API_MISSING = '/api/v2/reports/missing-tags';
 const API_ASSIGN = '/api/v2/reports/assign-tag';
 
-// Name | Conf | Phone | Drop-off | Status | Pending Tag | Assign | Open
-const GRID = '1.4fr 1.1fr 1.0fr 0.8fr 0.9fr 1.2fr 1.2fr 0.7fr';
-
 async function parseJsonSafe(r: Response) {
   const t = await r.text();
   try {
@@ -39,6 +36,7 @@ async function parseJsonSafe(r: Response) {
 }
 
 const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
+const displayDate = (s?: string) => String(s || '').slice(0, 10) || '-';
 
 function normBool(v: any): boolean {
   if (typeof v === 'boolean') return v;
@@ -182,27 +180,14 @@ export default function MissingTagsPage() {
           </div>
         ) : null}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12 }}>
-          {/* Left: table */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(320px, 0.9fr)', gap: 12 }}>
+          {/* Left: queue */}
           <div style={{ border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: GRID,
-                gap: 8,
-                padding: '10px 12px',
-                fontWeight: 700,
-                background: '#f7f7f7',
-              }}
-            >
-              <div>Name</div>
-              <div>Conf</div>
-              <div>Phone</div>
-              <div>Drop-off</div>
-              <div>Status</div>
-              <div>Pending Tag</div>
-              <div>Assign Tag</div>
-              <div>Open</div>
+            <div style={{ padding: '12px 14px', background: '#f7f7f7', borderBottom: '1px solid #e5e5e5' }}>
+              <div style={{ fontWeight: 700 }}>Overnight Deer Waiting For Tags</div>
+              <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
+                Assign the real tag number, then preview and print the intake sheet.
+              </div>
             </div>
 
             {loading ? (
@@ -220,39 +205,50 @@ export default function MissingTagsPage() {
                     key={pendingTag || r.id || Math.random()}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: GRID,
-                      gap: 8,
-                      padding: '10px 12px',
+                      gap: 12,
+                      padding: '14px 16px',
                       borderTop: '1px solid #eee',
-                      alignItems: 'center',
+                      background: isBusy ? '#fafaf9' : '#fff',
                     }}
                   >
-                    <div style={{ fontWeight: 600 }}>{r.customer_name || '-'}</div>
-                    <div style={{ fontFamily: 'monospace' }}>{r.confirmation || '-'}</div>
-                    <div style={{ fontFamily: 'monospace' }}>{r.phone || '-'}</div>
-                    <div>{r.dropoff_date || '-'}</div>
-                    <div>{r.status || '-'}</div>
-                    <div style={{ fontFamily: 'monospace' }}>{pendingTag || '-'}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.15 }}>
+                          {r.customer_name || 'Unnamed Customer'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
+                            Conf {r.confirmation || '-'}
+                          </span>
+                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
+                            {r.phone || 'No phone'}
+                          </span>
+                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontSize: 13 }}>
+                            Dropped off {displayDate(r.dropoff_date)}
+                          </span>
+                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#eef6ee', color: '#2f6f3f', fontSize: 13, fontWeight: 600 }}>
+                            {r.status || 'Dropped Off'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 220px) auto auto', gap: 10, alignItems: 'center' }}>
                       <input
                         value={drafts[draftKey] ?? ''}
                         onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: e.target.value }))}
-                        placeholder="e.g. 12345"
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd' }}
+                        placeholder="Enter actual deer tag"
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
                         disabled={isBusy || !r.id}
                       />
                       <button
                         className="btn"
                         onClick={() => doAssign(r)}
                         disabled={isBusy || !r.id}
-                        style={{ whiteSpace: 'nowrap' }}
+                        style={{ whiteSpace: 'nowrap', minWidth: 94 }}
                       >
                         {isBusy ? 'Saving…' : 'Save'}
                       </button>
-                    </div>
-
-                    <div>
                       <button
                         className="btn"
                         onClick={() => {
@@ -260,8 +256,9 @@ export default function MissingTagsPage() {
                           if (/^\d{5,}$/.test(draft)) openJob(draft);
                         }}
                         disabled={!/^\d{5,}$/.test(digitsOnly(drafts[draftKey] ?? ''))}
+                        style={{ whiteSpace: 'nowrap', minWidth: 94 }}
                       >
-                        Open
+                        Preview
                       </button>
                     </div>
                   </div>
