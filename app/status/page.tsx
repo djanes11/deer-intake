@@ -182,15 +182,38 @@ export default function StatusPage() {
 
   const priceProcessing = toNum(res?.priceProcessing);
   const priceSpecialty = toNum(res?.priceSpecialty);
-  const priceTotal =
-    toNum(res?.priceTotal) ??
-    (typeof priceProcessing === 'number' || typeof priceSpecialty === 'number'
+  const rawPriceTotal = toNum(res?.priceTotal);
+  const computedLineTotal =
+    typeof priceProcessing === 'number' || typeof priceSpecialty === 'number'
       ? (priceProcessing || 0) + (priceSpecialty || 0)
-      : undefined);
+      : undefined;
+  const priceTotal =
+    typeof computedLineTotal === 'number' &&
+    (rawPriceTotal === undefined || rawPriceTotal <= 0 || computedLineTotal > rawPriceTotal)
+      ? computedLineTotal
+      : rawPriceTotal;
 
-  const paidOverall = toBool(res?.paid);
-  const paidProc = toBool(res?.paidProcessing);
-  const paidSpec = toBool(res?.paidSpecialty);
+  const rawPaidOverall = toBool(res?.paid);
+  const rawPaidProc = toBool(res?.paidProcessing);
+  const rawPaidSpec = toBool(res?.paidSpecialty);
+  const paidProc =
+    rawPaidProc !== undefined
+      ? rawPaidProc
+      : rawPaidOverall !== undefined && (!priceProcessing || priceProcessing <= 0)
+        ? rawPaidOverall
+        : undefined;
+  const paidSpec =
+    rawPaidSpec !== undefined
+      ? rawPaidSpec
+      : rawPaidOverall !== undefined && (!priceSpecialty || priceSpecialty <= 0)
+        ? rawPaidOverall
+        : undefined;
+  const paidOverall =
+    [paidProc, paidSpec].some((v) => v !== undefined)
+      ? [paidProc, paidSpec].every((v, i) =>
+          i === 1 && (!priceSpecialty || priceSpecialty <= 0) ? true : v !== false
+        ) && [paidProc, paidSpec].some((v) => v === true)
+      : rawPaidOverall;
   const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some(
     (v) => v !== undefined && v !== null && String(v) !== ''
   );
@@ -200,16 +223,17 @@ export default function StatusPage() {
     typeof priceTotal === 'number';
 
   const owedProcessing =
-    paidOverall || paidProc ? 0 : typeof priceProcessing === 'number' ? priceProcessing : undefined;
+    paidProc === true ? 0 : typeof priceProcessing === 'number' ? priceProcessing : undefined;
   const owedSpecialty =
-    paidOverall || paidSpec ? 0 : typeof priceSpecialty === 'number' ? priceSpecialty : undefined;
-  const owedTotal = paidOverall
-    ? 0
-    : typeof priceTotal === 'number'
-      ? priceTotal
+    paidSpec === true ? 0 : typeof priceSpecialty === 'number' ? priceSpecialty : undefined;
+  const owedTotal =
+    paidOverall === true
+      ? 0
       : typeof owedProcessing === 'number' || typeof owedSpecialty === 'number'
         ? (owedProcessing || 0) + (owedSpecialty || 0)
-        : undefined;
+        : typeof priceTotal === 'number'
+          ? priceTotal
+          : undefined;
 
   const summaries = useMemo(() => trackSummaries(res), [res]);
   const currentStage = summaries[0];
