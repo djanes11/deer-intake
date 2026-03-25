@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, Suspense } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
+import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,9 +72,12 @@ type Job = {
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
-  summerSausageLbs?: string | number;
+  originalSummerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
-  slicedJerkyLbs?: string | number;
+  jalapenoSummerSausageCheeseLbs?: string | number;
+  originalSnackSticksLbs?: string | number;
+  originalSnackSticksCheeseLbs?: string | number;
+  jalapenoSnackSticksCheeseLbs?: string | number;
 
   notes?: string;
 
@@ -243,11 +247,16 @@ function OvernightIntakePage() {
 
   const specialtyPrice = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    const ss = toInt(job.summerSausageLbs);
-    const ssc = toInt(job.summerSausageCheeseLbs);
-    const jer = toInt(job.slicedJerkyLbs);
-    return ss * 4.25 + ssc * 4.6 + jer * 4.6;
-  }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
+    return calcSpecialtyPrice(job as any);
+  }, [
+    job.specialtyProducts,
+    job.originalSummerSausageLbs,
+    job.summerSausageCheeseLbs,
+    job.jalapenoSummerSausageCheeseLbs,
+    job.originalSnackSticksLbs,
+    job.originalSnackSticksCheeseLbs,
+    job.jalapenoSnackSticksCheeseLbs,
+  ]);
 
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -418,9 +427,12 @@ function OvernightIntakePage() {
       paidProcessing: !!job.paidProcessing,
       paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
 
-      summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
+      originalSummerSausageLbs: job.specialtyProducts ? String(toInt(job.originalSummerSausageLbs)) : '',
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
-      slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
+      jalapenoSummerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.jalapenoSummerSausageCheeseLbs)) : '',
+      originalSnackSticksLbs: job.specialtyProducts ? String(toInt(job.originalSnackSticksLbs)) : '',
+      originalSnackSticksCheeseLbs: job.specialtyProducts ? String(toInt(job.originalSnackSticksCheeseLbs)) : '',
+      jalapenoSnackSticksCheeseLbs: job.specialtyProducts ? String(toInt(job.jalapenoSnackSticksCheeseLbs)) : '',
     };
 
     try {
@@ -485,7 +497,7 @@ function OvernightIntakePage() {
             <div className="col price">
               <label>Specialty Price</label>
               <div className="money">{specialtyPrice.toFixed(2)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>Based upon Summer Sausage lbs</div>
+              <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
             </div>
           </div>
 
@@ -1029,36 +1041,17 @@ function OvernightIntakePage() {
                     <span><strong>Would like specialty products</strong></span>
                   </label>
                 </div>
-
-                <div className="c3">
-                  <label>Summer Sausage (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    value={job.specialtyProducts ? String(job.summerSausageLbs ?? '') : ''}
-                    onChange={(e) => setVal('summerSausageLbs', e.target.value)}
-                    disabled={!job.specialtyProducts || locked}
-                  />
-                </div>
-
-                <div className="c3">
-                  <label>Summer Sausage + Cheddar (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    value={job.specialtyProducts ? String(job.summerSausageCheeseLbs ?? '') : ''}
-                    onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
-                    disabled={!job.specialtyProducts || locked}
-                  />
-                </div>
-
-                <div className="c3">
-                  <label>Sliced Jerky (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    value={job.specialtyProducts ? String(job.slicedJerkyLbs ?? '') : ''}
-                    onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
-                    disabled={!job.specialtyProducts || locked}
-                  />
-                </div>
+                {SPECIALTY_ITEMS.map((item) => (
+                  <div className="c3" key={item.key}>
+                    <label>{item.label}</label>
+                    <input
+                      inputMode="numeric"
+                      value={job.specialtyProducts ? String((job as any)[item.key] ?? '') : ''}
+                      onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                      disabled={!job.specialtyProducts || locked}
+                    />
+                  </div>
+                ))}
               </div>
             </section>
 

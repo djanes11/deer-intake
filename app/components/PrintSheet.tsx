@@ -1,5 +1,11 @@
 'use client';
 import React, { useEffect, useMemo, useRef } from 'react';
+import {
+  hasSpecialtySelection,
+  specialtyBreakdown,
+  specialtyPrice as calcSpecialtyPrice,
+  specialtyTotalLbs,
+} from '@/lib/specialty';
 
 type AnyRec = Record<string, any>;
 
@@ -93,16 +99,6 @@ function suggestedProcessingPrice(proc: any, beef: any, webbs: any): number {
   const webbsAdd = (typeof webbs === 'boolean' ? webbs : String(webbs).toLowerCase() === 'true') ? 20 : 0;
   return base + beefAdd + webbsAdd;
 }
-function hasSpecialty(job: AnyRec | null | undefined): boolean {
-  if (!job) return false;
-  const truthy = truthyFactory(job);
-  const checkbox = truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products');
-  const ss  = asPounds(jget(job, ['Summer Sausage (lb)','summerSausageLbs','summer_sausage_lbs']));
-  const ssc = asPounds(jget(job, ['Summer Sausage + Cheese (lb)','summerSausageCheeseLbs','summer_sausage_cheese_lbs']));
-  const jer = asPounds(jget(job, ['Sliced Jerky (lb)','slicedJerkyLbs','sliced_jerky_lbs']));
-  return checkbox || (ss + ssc + jer) > 0;
-}
-
 /* ---------------- component ---------------- */
 export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -121,10 +117,25 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     jpick(job, ['Webbs Order','webbsOrder','webbs_order'])
   ), [job?.['Process Type'], job?.processType, job?.process_type, job?.['Beef Fat'], job?.beefFat, job?.beef_fat, job?.['Webbs Order'], job?.webbsOrder, job?.webbs_order]);
 
-  const ssN  = useMemo(() => asPounds(jget(job, ['Summer Sausage (lb)','summerSausageLbs','summer_sausage_lbs'])), [job?.['Summer Sausage (lb)'], job?.summerSausageLbs, job?.summer_sausage_lbs]);
-  const sscN = useMemo(() => asPounds(jget(job, ['Summer Sausage + Cheese (lb)','summerSausageCheeseLbs','summer_sausage_cheese_lbs'])), [job?.['Summer Sausage + Cheese (lb)'], job?.summerSausageCheeseLbs, job?.summer_sausage_cheese_lbs]);
-  const jerN = useMemo(() => asPounds(jget(job, ['Sliced Jerky (lb)','slicedJerkyLbs','sliced_jerky_lbs'])), [job?.['Sliced Jerky (lb)'], job?.slicedJerkyLbs, job?.sliced_jerky_lbs]);
-  const specialtyLbs = ssN + sscN + jerN;
+  const specialtyItems = useMemo(() => specialtyBreakdown(job), [
+    job?.originalSummerSausageLbs,
+    job?.original_summer_sausage_lbs,
+    job?.summerSausageLbs,
+    job?.summer_sausage_lbs,
+    job?.summerSausageCheeseLbs,
+    job?.summer_sausage_cheese_lbs,
+    job?.jalapenoSummerSausageCheeseLbs,
+    job?.jalapeno_summer_sausage_cheese_lbs,
+    job?.slicedJerkyLbs,
+    job?.sliced_jerky_lbs,
+    job?.originalSnackSticksLbs,
+    job?.original_snack_sticks_lbs,
+    job?.originalSnackSticksCheeseLbs,
+    job?.original_snack_sticks_cheese_lbs,
+    job?.jalapenoSnackSticksCheeseLbs,
+    job?.jalapeno_snack_sticks_cheese_lbs,
+  ]);
+  const specialtyLbs = useMemo(() => specialtyTotalLbs(job), [specialtyItems]);
 
   const processingOverride = useMemo(
     () => numOrNull(jpick(job, ['processing_price_override', 'processingPriceOverride'])),
@@ -146,7 +157,7 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
 
   const processingPrice = processingOverride ?? processingStored ?? proc;
 
-  const specialtyAuto = useMemo(() => ssN * 4.25 + sscN * 4.60 + jerN * 4.60, [ssN, sscN, jerN]);
+  const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [specialtyItems]);
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
 
   const totalPrice = processingPrice + specialtyPrice;
@@ -475,7 +486,7 @@ pages.forEach(p => {
     <div className="label">Specialty Products</div>
     <div className="val">
       <strong className="check">
-        {truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') ? CHK : BOX}
+        {truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') || hasSpecialtySelection(job) ? CHK : BOX}
       </strong>{' '}Would like specialty products
     </div>
   </div>
@@ -485,9 +496,18 @@ pages.forEach(p => {
     <div className="val">
       <div className="specRow">
         <div className="specLine">
-          <span><b>Plain SS:</b> {ssN || ''}</span>
-          <span> | <b>Plain SS + Ch:</b> {sscN || ''}</span>
-          <span> | <b>Jalapeno SS + Ch:</b> {jerN || ''}</span>
+          {specialtyItems.filter((item) => item.pounds > 0).length > 0 ? (
+            specialtyItems
+              .filter((item) => item.pounds > 0)
+              .map((item, idx) => (
+                <span key={item.key}>
+                  {idx > 0 ? ' | ' : ''}
+                  <b>{item.shortLabel}:</b> {item.pounds || ''}
+                </span>
+              ))
+          ) : (
+            <span>No specialty products selected</span>
+          )}
         </div>
         <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
       </div>

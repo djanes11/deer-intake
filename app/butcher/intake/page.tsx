@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useScanner } from '@/lib/useScanner';
 import { progress, saveJob, getJob } from '@/lib/api';
+import { specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 
 // Ensure this page never gets statically prerendered (depends on URL params & client hooks)
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,7 @@ type Job = {
   hind?: CutsBlock; front?: CutsBlock; hindRoastCount?: string; frontRoastCount?: string;
   steak?: string; steaksPerPackage?: string; burgerSize?: string; beefFat?: boolean;
   backstrapPrep?: string; backstrapThickness?: string;
-  specialtyProducts?: boolean; summerSausageLbs?: string|number; summerSausageCheeseLbs?: string|number; slicedJerkyLbs?: string|number;
+  specialtyProducts?: boolean; originalSummerSausageLbs?: string|number; summerSausageCheeseLbs?: string|number; jalapenoSummerSausageCheeseLbs?: string|number; originalSnackSticksLbs?: string|number; originalSnackSticksCheeseLbs?: string|number; jalapenoSnackSticksCheeseLbs?: string|number;
   webbsOrder?: boolean; webbsFormNumber?: string; webbsPounds?: string;
   notes?: string; price?: number|string; customer?: string;
 };
@@ -40,15 +41,8 @@ const suggestedPrice = (proc?:string, beef?:boolean, webbs?:boolean) => {
   return base ? base + (beef?5:0) + (webbs?20:0) : 0;
 };
 
-const toInt = (val:any) => {
-  const n = parseInt(String(val ?? '').replace(/[^0-9]/g,''), 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-};
 const specialtyPrice = (job: Job) => {
-  const ss  = toInt(job.summerSausageLbs);
-  const ssc = toInt(job.summerSausageCheeseLbs);
-  const jer = toInt(job.slicedJerkyLbs);
-  return ss*4.25 + ssc*4.60 + jer*15.0;
+  return calcSpecialtyPrice(job as any);
 };
 const calcTotal = (job: Job) => suggestedPrice(job.processType, !!job.beefFat, !!job.webbsOrder) + specialtyPrice(job);
 

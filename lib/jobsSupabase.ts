@@ -3,6 +3,7 @@ import { getSupabaseServer } from './supabaseClient';
 import { Job, JobSearchRow } from '@/types/job';
 import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
+import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
 
 /* ---------------- helpers ---------------- */
 
@@ -260,9 +261,12 @@ function mapDbRowToJob(row: any): Job {
     // Specialty
     specialtyProducts: !!row.specialty_products,
     specialtyPounds: Number(row.specialty_pounds ?? 0),
-    summerSausageLbs: Number(row.summer_sausage_lbs ?? 0),
+    originalSummerSausageLbs: Number(row.original_summer_sausage_lbs ?? row.summer_sausage_lbs ?? 0),
     summerSausageCheeseLbs: Number(row.summer_sausage_cheese_lbs ?? 0),
-    slicedJerkyLbs: Number(row.sliced_jerky_lbs ?? 0),
+    jalapenoSummerSausageCheeseLbs: Number(row.jalapeno_summer_sausage_cheese_lbs ?? row.sliced_jerky_lbs ?? 0),
+    originalSnackSticksLbs: Number(row.original_snack_sticks_lbs ?? 0),
+    originalSnackSticksCheeseLbs: Number(row.original_snack_sticks_cheese_lbs ?? 0),
+    jalapenoSnackSticksCheeseLbs: Number(row.jalapeno_snack_sticks_cheese_lbs ?? 0),
 
     notes: row.notes,
 
@@ -355,11 +359,24 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     ...(row.beef_fat != null ? ({ beefFat: !!row.beef_fat } as any) : {}),
     ...(row.webbs_order != null ? ({ webbsOrder: !!row.webbs_order } as any) : {}),
     ...(row.specialty_products != null ? ({ specialtyProducts: !!row.specialty_products } as any) : {}),
-    ...(row.summer_sausage_lbs != null ? ({ summerSausageLbs: Number(row.summer_sausage_lbs ?? 0) } as any) : {}),
+    ...(row.original_summer_sausage_lbs != null || row.summer_sausage_lbs != null
+      ? ({ originalSummerSausageLbs: Number(row.original_summer_sausage_lbs ?? row.summer_sausage_lbs ?? 0) } as any)
+      : {}),
     ...(row.summer_sausage_cheese_lbs != null
       ? ({ summerSausageCheeseLbs: Number(row.summer_sausage_cheese_lbs ?? 0) } as any)
       : {}),
-    ...(row.sliced_jerky_lbs != null ? ({ slicedJerkyLbs: Number(row.sliced_jerky_lbs ?? 0) } as any) : {}),
+    ...(row.jalapeno_summer_sausage_cheese_lbs != null || row.sliced_jerky_lbs != null
+      ? ({ jalapenoSummerSausageCheeseLbs: Number(row.jalapeno_summer_sausage_cheese_lbs ?? row.sliced_jerky_lbs ?? 0) } as any)
+      : {}),
+    ...(row.original_snack_sticks_lbs != null
+      ? ({ originalSnackSticksLbs: Number(row.original_snack_sticks_lbs ?? 0) } as any)
+      : {}),
+    ...(row.original_snack_sticks_cheese_lbs != null
+      ? ({ originalSnackSticksCheeseLbs: Number(row.original_snack_sticks_cheese_lbs ?? 0) } as any)
+      : {}),
+    ...(row.jalapeno_snack_sticks_cheese_lbs != null
+      ? ({ jalapenoSnackSticksCheeseLbs: Number(row.jalapeno_snack_sticks_cheese_lbs ?? 0) } as any)
+      : {}),
     ...(row.picked_up_processing != null ? ({ pickedUpProcessing: !!row.picked_up_processing } as any) : {}),
     ...(row.picked_up_cape != null ? ({ pickedUpCape: !!row.picked_up_cape } as any) : {}),
     ...(row.picked_up_webbs != null ? ({ pickedUpWebbs: !!row.picked_up_webbs } as any) : {}),
@@ -405,9 +422,14 @@ const SEARCH_SELECT = `
   beef_fat,
   webbs_order,
   specialty_products,
+  original_summer_sausage_lbs,
   summer_sausage_lbs,
   summer_sausage_cheese_lbs,
+  jalapeno_summer_sausage_cheese_lbs,
   sliced_jerky_lbs,
+  original_snack_sticks_lbs,
+  original_snack_sticks_cheese_lbs,
+  jalapeno_snack_sticks_cheese_lbs,
   price_processing,
   price_specialty,
   price_total,
@@ -536,12 +558,7 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
 
 
 function calcSpecialtyPriceFromLbs(job: Partial<Job>): number {
-  // Matches the staff intake page preview pricing:
-  // Summer sausage: $4.25/lb, SS+Cheddar: $4.60/lb, Jerky: $4.60/lb
-  const ss = Number(numOrZero((job as any).summerSausageLbs ?? (job as any).summer_sausage_lbs));
-  const ssc = Number(numOrZero((job as any).summerSausageCheeseLbs ?? (job as any).summer_sausage_cheese_lbs));
-  const jer = Number(numOrZero((job as any).slicedJerkyLbs ?? (job as any).sliced_jerky_lbs));
-  return ss * 4.25 + ssc * 4.60 + jer * 4.60;
+  return specialtyPrice(job as Record<string, any>);
 }
 
 export async function saveJob(job: Partial<Job>) {
@@ -670,10 +687,15 @@ let tagToStore: string;
     backstrap_thickness_other: effectiveJob.backstrapThicknessOther ?? null,
 
     specialty_products: effectiveJob.specialtyProducts ?? false,
-    specialty_pounds: numOrZero(effectiveJob.specialtyPounds),
-    summer_sausage_lbs: numOrZero(effectiveJob.summerSausageLbs),
+    specialty_pounds: specialtyTotalLbs(effectiveJob as Record<string, any>),
+    original_summer_sausage_lbs: numOrZero((effectiveJob as any).originalSummerSausageLbs),
+    summer_sausage_lbs: numOrZero((effectiveJob as any).originalSummerSausageLbs),
     summer_sausage_cheese_lbs: numOrZero(effectiveJob.summerSausageCheeseLbs),
-    sliced_jerky_lbs: numOrZero(effectiveJob.slicedJerkyLbs),
+    jalapeno_summer_sausage_cheese_lbs: numOrZero((effectiveJob as any).jalapenoSummerSausageCheeseLbs),
+    sliced_jerky_lbs: numOrZero((effectiveJob as any).jalapenoSummerSausageCheeseLbs),
+    original_snack_sticks_lbs: numOrZero((effectiveJob as any).originalSnackSticksLbs),
+    original_snack_sticks_cheese_lbs: numOrZero((effectiveJob as any).originalSnackSticksCheeseLbs),
+    jalapeno_snack_sticks_cheese_lbs: numOrZero((effectiveJob as any).jalapenoSnackSticksCheeseLbs),
 
     notes: effectiveJob.notes ?? null,
 

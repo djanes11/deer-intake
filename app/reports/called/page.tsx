@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { searchJobs, saveJob } from '@/lib/api';
+import { specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,16 +27,9 @@ function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
-function toInt(val: any) {
-  const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
 function specialtyPrice(row: any) {
   if (!row?.specialtyProducts) return 0;
-  const ss = toInt(row?.summerSausageLbs);
-  const ssc = toInt(row?.summerSausageCheeseLbs);
-  const jer = toInt(row?.slicedJerkyLbs);
-  return ss * 4.25 + ssc * 4.60 + jer * 15.0;
+  return calcSpecialtyPrice(row);
 }
 
 /* ---------- types ---------- */

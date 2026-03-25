@@ -3,15 +3,19 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { tokenHeader } from '@/lib/api';
+import { SPECIALTY_ITEMS } from '@/lib/specialty';
 
 type OrderRow = {
   tag: string;
   customer_name: string | null;
   dropoff_date: string | null;
   specialty_status: string | null;
-  summer_sausage_lbs: number | null;
+  original_summer_sausage_lbs: number | null;
   summer_sausage_cheese_lbs: number | null;
-  sliced_jerky_lbs: number | null;
+  jalapeno_summer_sausage_cheese_lbs: number | null;
+  original_snack_sticks_lbs: number | null;
+  original_snack_sticks_cheese_lbs: number | null;
+  jalapeno_snack_sticks_cheese_lbs: number | null;
 };
 
 function n(v: any) {
@@ -98,13 +102,24 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
   const totals = useMemo(() => {
     return rows.reduce(
       (a, r) => {
-        a.ss += n(r.summer_sausage_lbs);
-        a.ssc += n(r.summer_sausage_cheese_lbs);
-        a.jer += n(r.sliced_jerky_lbs);
+        a.originalSummerSausageLbs += n(r.original_summer_sausage_lbs);
+        a.summerSausageCheeseLbs += n(r.summer_sausage_cheese_lbs);
+        a.jalapenoSummerSausageCheeseLbs += n(r.jalapeno_summer_sausage_cheese_lbs);
+        a.originalSnackSticksLbs += n(r.original_snack_sticks_lbs);
+        a.originalSnackSticksCheeseLbs += n(r.original_snack_sticks_cheese_lbs);
+        a.jalapenoSnackSticksCheeseLbs += n(r.jalapeno_snack_sticks_cheese_lbs);
         a.jobs += 1;
         return a;
       },
-      { ss: 0, ssc: 0, jer: 0, jobs: 0 }
+      {
+        originalSummerSausageLbs: 0,
+        summerSausageCheeseLbs: 0,
+        jalapenoSummerSausageCheeseLbs: 0,
+        originalSnackSticksLbs: 0,
+        originalSnackSticksCheeseLbs: 0,
+        jalapenoSnackSticksCheeseLbs: 0,
+        jobs: 0,
+      }
     );
   }, [rows]);
 
@@ -143,19 +158,13 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
       {err && <div style={styles.err}>{err}</div>}
 
       {/* TOP TILES — now tied to rows state so it auto updates */}
-      <div style={styles.kpiGrid}>
-        <div style={styles.card}>
-          <div style={styles.label}>Summer Sausage</div>
-          <div style={styles.value}>{totals.ss.toFixed(1)} lb</div>
-        </div>
-        <div style={styles.card}>
-          <div style={styles.label}>SS + Cheddar</div>
-          <div style={styles.value}>{totals.ssc.toFixed(1)} lb</div>
-        </div>
-        <div style={styles.card}>
-          <div style={styles.label}>Sliced Jerky</div>
-          <div style={styles.value}>{totals.jer.toFixed(1)} lb</div>
-        </div>
+      <div style={{ ...styles.kpiGrid, gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
+        {SPECIALTY_ITEMS.map((item) => (
+          <div style={styles.card} key={item.key}>
+            <div style={styles.label}>{item.shortLabel}</div>
+            <div style={styles.value}>{n((totals as any)[item.key]).toFixed(1)} lb</div>
+          </div>
+        ))}
         <div style={styles.card}>
           <div style={styles.label}>Open Jobs</div>
           <div style={styles.value}>{totals.jobs}</div>
@@ -170,9 +179,9 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
               <th style={styles.th}>Customer</th>
               <th style={styles.th}>Drop-off</th>
               <th style={styles.th}>Spec Status</th>
-              <th style={{ ...styles.th, ...styles.right }}>SS lb</th>
-              <th style={{ ...styles.th, ...styles.right }}>SS+C lb</th>
-              <th style={{ ...styles.th, ...styles.right }}>Jerky lb</th>
+              {SPECIALTY_ITEMS.map((item) => (
+                <th key={item.key} style={{ ...styles.th, ...styles.right }}>{item.shortLabel} lb</th>
+              ))}
               <th style={styles.th}>Actions</th>
             </tr>
           </thead>
@@ -189,9 +198,11 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                 <td style={styles.td}>{r.customer_name || ''}</td>
                 <td style={styles.td}>{r.dropoff_date || ''}</td>
                 <td style={styles.td}>{r.specialty_status || ''}</td>
-                <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.summer_sausage_lbs)}</td>
-                <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.summer_sausage_cheese_lbs)}</td>
-                <td style={{ ...styles.td, ...styles.right }}>{fmt1(r.sliced_jerky_lbs)}</td>
+                {SPECIALTY_ITEMS.map((item) => (
+                  <td key={item.key} style={{ ...styles.td, ...styles.right }}>
+                    {fmt1((r as any)[item.dbKey])}
+                  </td>
+                ))}
                 <td style={styles.td}>
                   <button
                     type="button"
@@ -211,9 +222,11 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
               <td style={{ ...styles.td, borderBottom: 0 }} colSpan={4}>
                 Totals (open)
               </td>
-              <td style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>{totals.ss.toFixed(1)}</td>
-              <td style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>{totals.ssc.toFixed(1)}</td>
-              <td style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>{totals.jer.toFixed(1)}</td>
+              {SPECIALTY_ITEMS.map((item) => (
+                <td key={item.key} style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>
+                  {n((totals as any)[item.key]).toFixed(1)}
+                </td>
+              ))}
               <td style={{ ...styles.td, borderBottom: 0 }} />
             </tr>
           </tbody>

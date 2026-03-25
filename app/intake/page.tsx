@@ -6,6 +6,7 @@ import { saveJob, getJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
+import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,9 +69,12 @@ type Job = {
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
-  summerSausageLbs?: string | number;
+  originalSummerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
-  slicedJerkyLbs?: string | number;
+  jalapenoSummerSausageCheeseLbs?: string | number;
+  originalSnackSticksLbs?: string | number;
+  originalSnackSticksCheeseLbs?: string | number;
+  jalapenoSnackSticksCheeseLbs?: string | number;
   specialtyPounds?: string;
 
   notes?: string;
@@ -173,9 +177,12 @@ function snapshotJob(j: Job) {
     backstrapThicknessOther: j.backstrapThicknessOther ?? '',
 
     specialtyProducts: !!j.specialtyProducts,
-    summerSausageLbs: String(j.summerSausageLbs ?? ''),
+    originalSummerSausageLbs: String((j as any).originalSummerSausageLbs ?? ''),
     summerSausageCheeseLbs: String(j.summerSausageCheeseLbs ?? ''),
-    slicedJerkyLbs: String(j.slicedJerkyLbs ?? ''),
+    jalapenoSummerSausageCheeseLbs: String((j as any).jalapenoSummerSausageCheeseLbs ?? ''),
+    originalSnackSticksLbs: String((j as any).originalSnackSticksLbs ?? ''),
+    originalSnackSticksCheeseLbs: String((j as any).originalSnackSticksCheeseLbs ?? ''),
+    jalapenoSnackSticksCheeseLbs: String((j as any).jalapenoSnackSticksCheeseLbs ?? ''),
     specialtyPounds: j.specialtyPounds ?? '',
 
     notes: j.notes ?? '',
@@ -496,11 +503,16 @@ useEffect(() => {
 
   const specialtyPriceAuto = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    const ss = toInt(job.summerSausageLbs);
-    const ssc = toInt(job.summerSausageCheeseLbs);
-    const jer = toInt(job.slicedJerkyLbs);
-    return ss * 4.25 + ssc * 4.60 + jer * 4.60;
-  }, [job.specialtyProducts, job.summerSausageLbs, job.summerSausageCheeseLbs, job.slicedJerkyLbs]);
+    return calcSpecialtyPrice(job as any);
+  }, [
+    job.specialtyProducts,
+    job.originalSummerSausageLbs,
+    job.summerSausageCheeseLbs,
+    job.jalapenoSummerSausageCheeseLbs,
+    job.originalSnackSticksLbs,
+    job.originalSnackSticksCheeseLbs,
+    job.jalapenoSnackSticksCheeseLbs,
+  ]);
 
   const processingOverride = toMoneyOrNull((job as any).processing_price_override);
   const specialtyOverride = toMoneyOrNull((job as any).specialty_price_override);
@@ -644,9 +656,12 @@ useEffect(() => {
       paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
       howKilled: job.howKilled || '',
 
-      summerSausageLbs: job.specialtyProducts ? String(toInt(job.summerSausageLbs)) : '',
+      originalSummerSausageLbs: job.specialtyProducts ? String(toInt(job.originalSummerSausageLbs)) : '',
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
-      slicedJerkyLbs: job.specialtyProducts ? String(toInt(job.slicedJerkyLbs)) : '',
+      jalapenoSummerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.jalapenoSummerSausageCheeseLbs)) : '',
+      originalSnackSticksLbs: job.specialtyProducts ? String(toInt(job.originalSnackSticksLbs)) : '',
+      originalSnackSticksCheeseLbs: job.specialtyProducts ? String(toInt(job.originalSnackSticksCheeseLbs)) : '',
+      jalapenoSnackSticksCheeseLbs: job.specialtyProducts ? String(toInt(job.jalapenoSnackSticksCheeseLbs)) : '',
       processing_price_override: toMoneyOrNull((job as any).processing_price_override),
       specialty_price_override: job.specialtyProducts ? toMoneyOrNull((job as any).specialty_price_override) : null,
     };
@@ -768,7 +783,7 @@ if (fresh?.exists && fresh.job) {
             <div className="col price">
               <label>Specialty Price</label>
               <div className="money">{specialtyPriceUsed.toFixed(2)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>Based On Summer Sausage lbs</div>
+              <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Auto: {specialtyPriceAuto.toFixed(2)}{specialtyOverride != null ? ' • override active' : ''}
               </div>
@@ -1324,38 +1339,18 @@ if (fresh?.exists && fresh.job) {
 
             {job.specialtyProducts && (
               <>
-                <div className="c4">
-                  <label>Summer Sausage (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={String(job.summerSausageLbs ?? '')}
-                    onChange={(e) => setVal('summerSausageLbs', e.target.value)}
-                    placeholder="e.g., 10"
-                  />
-                </div>
-
-                <div className="c4">
-                  <label>Plain Summer Sausage + Cheddar (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={String(job.summerSausageCheeseLbs ?? '')}
-                    onChange={(e) => setVal('summerSausageCheeseLbs', e.target.value)}
-                    placeholder="e.g., 5"
-                  />
-                </div>
-
-                <div className="c4">
-                  <label>Jalapeno Summer Sausage + Cheddar (lb)</label>
-                  <input
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={String(job.slicedJerkyLbs ?? '')}
-                    onChange={(e) => setVal('slicedJerkyLbs', e.target.value)}
-                    placeholder="e.g., 3"
-                  />
-                </div>
+                {SPECIALTY_ITEMS.map((item) => (
+                  <div className="c4" key={item.key}>
+                    <label>{item.label}</label>
+                    <input
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={String((job as any)[item.key] ?? '')}
+                      onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                      placeholder="e.g., 5"
+                    />
+                  </div>
+                ))}
               </>
             )}
           </div>

@@ -57,9 +57,12 @@ export interface Job {
   // Specialty
   specialtyProducts: boolean;
   specialtyPounds: number;
-  summerSausageLbs: number;
+  originalSummerSausageLbs: number;
   summerSausageCheeseLbs: number;
-  slicedJerkyLbs: number;
+  jalapenoSummerSausageCheeseLbs: number;
+  originalSnackSticksLbs: number;
+  originalSnackSticksCheeseLbs: number;
+  jalapenoSnackSticksCheeseLbs: number;
 
   notes: string | null;
 

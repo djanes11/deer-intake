@@ -6,6 +6,7 @@ export const revalidate = 0;
 
 import crypto from 'crypto';
 import { getJobByTag } from '@/lib/jobsSupabase';
+import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 
 // ---- Config/env ----
 // Keep legacy compatibility: old links used GAS_TOKEN-derived HMAC.
@@ -66,11 +67,6 @@ const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean
     p === 'Donate' ? 0 : 0;
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-};
-
-const toInt = (val: any) => {
-  const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
-  return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
 // Handle numbers coming back as number/null, or as strings (just in case)
@@ -155,12 +151,7 @@ export default async function IntakeView({
     // --- Pricing (auto vs override) ---
     const processingAuto = suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
 
-    const specialtyAutoRaw =
-      (toInt(job?.summerSausageLbs) * 4.25) +
-      (toInt(job?.summerSausageCheeseLbs) * 4.60) +
-      (toInt(job?.slicedJerkyLbs) * 4.60);
-
-    const specialtyAuto = job?.specialtyProducts ? specialtyAutoRaw : 0;
+    const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job) : 0;
 
     const processingOverride = toNumOrNull(
       (job as any)?.processing_price_override ?? (job as any)?.processingPriceOverride
@@ -224,7 +215,7 @@ export default async function IntakeView({
                 <div className="muted" style={{fontSize:12}}>
                   {specialtyOverride !== null
                     ? `Auto would be: $${specialtyAuto.toFixed(2)}`
-                    : 'Sausage/Jerky lbs'}
+                    : 'Specialty product selections'}
                 </div>
               </div>
             </div>
@@ -374,9 +365,11 @@ export default async function IntakeView({
               </div>
               {job?.specialtyProducts && (
                 <>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Plain Summer Sausage (lb)" value={String(job?.summerSausageLbs ?? '')} /></div>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Plain Summer Sausage + Cheddar (lb)" value={String(job?.summerSausageCheeseLbs ?? '')} /></div>
-                  <div className="c4" style={{gridColumn:'span 4'}}><Field label="Jalapeno Summer Sausage + Cheddar" value={String(job?.slicedJerkyLbs ?? '')} /></div>
+                  {SPECIALTY_ITEMS.map((item) => (
+                    <div className="c4" style={{gridColumn:'span 4'}} key={item.key}>
+                      <Field label={item.label} value={String((job as any)?.[item.key] ?? '')} />
+                    </div>
+                  ))}
                 </>
               )}
             </div>

@@ -17,9 +17,12 @@ type OrderRow = {
   customer_name: string | null;
   dropoff_date: string | null;
   specialty_status: string | null;
-  summer_sausage_lbs: number | null;
+  original_summer_sausage_lbs: number | null;
   summer_sausage_cheese_lbs: number | null;
-  sliced_jerky_lbs: number | null;
+  jalapeno_summer_sausage_cheese_lbs: number | null;
+  original_snack_sticks_lbs: number | null;
+  original_snack_sticks_cheese_lbs: number | null;
+  jalapeno_snack_sticks_cheese_lbs: number | null;
 };
 
 const styles: Record<string, React.CSSProperties> = {
@@ -68,7 +71,7 @@ export default async function SpecialtyReport() {
   const { data, error } = await supabase
     .from('jobs')
     .select(
-      'tag,customer_name,dropoff_date,specialty_status,summer_sausage_lbs,summer_sausage_cheese_lbs,sliced_jerky_lbs'
+      'tag,customer_name,dropoff_date,specialty_status,original_summer_sausage_lbs,summer_sausage_cheese_lbs,jalapeno_summer_sausage_cheese_lbs,original_snack_sticks_lbs,original_snack_sticks_cheese_lbs,jalapeno_snack_sticks_cheese_lbs'
     )
     .eq('specialty_products', true)
     .in('specialty_status', ['Dropped Off', 'In Progress'])
