@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
+import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
@@ -1339,17 +1339,48 @@ if (fresh?.exists && fresh.job) {
 
             {job.specialtyProducts && (
               <>
-                {SPECIALTY_ITEMS.map((item) => (
-                  <div className="c4" key={item.key}>
-                    <label>{item.label}</label>
-                    <input
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={String((job as any)[item.key] ?? '')}
-                      onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
-                      placeholder="e.g., 5"
-                    />
+                <div className="c12">
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
+                    Summer Sausage
                   </div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                    Original is $4.25/lb. Cheese options are $4.60/lb.
+                  </div>
+                </div>
+                {SPECIALTY_ITEMS.map((item) => (
+                  item.key === 'originalSnackSticksLbs' ? (
+                    <Fragment key={item.key}>
+                      <div className="c12">
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
+                          Snack Stix
+                        </div>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>
+                          Original is $7.25/lb. Cheese options are $7.60/lb.
+                        </div>
+                      </div>
+                      <div className="c4">
+                        <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
+                        <input
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={String((job as any)[item.key] ?? '')}
+                          onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                          placeholder="e.g., 5"
+                        />
+                      </div>
+                    </Fragment>
+                  ) : (
+                    <div className="c4" key={item.key}>
+                      <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
+                      <input
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={String((job as any)[item.key] ?? '')}
+                        onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                        placeholder="e.g., 5"
+                      />
+                    </div>
+                  )
                 ))}
               </>
             )}

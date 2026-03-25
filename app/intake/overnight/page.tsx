@@ -1,7 +1,7 @@
 // app/(public)/overnight/page.tsx
 'use client';
 
-import { useEffect, useMemo, useState, Suspense } from 'react';
+import { Fragment, useEffect, useMemo, useState, Suspense } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
@@ -1041,17 +1041,51 @@ function OvernightIntakePage() {
                     <span><strong>Would like specialty products</strong></span>
                   </label>
                 </div>
-                {SPECIALTY_ITEMS.map((item) => (
-                  <div className="c3" key={item.key}>
-                    <label>{item.label}</label>
-                    <input
-                      inputMode="numeric"
-                      value={job.specialtyProducts ? String((job as any)[item.key] ?? '') : ''}
-                      onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
-                      disabled={!job.specialtyProducts || locked}
-                    />
-                  </div>
-                ))}
+                {job.specialtyProducts ? (
+                  <>
+                    <div className="c12">
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
+                        Summer Sausage
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>
+                        Original is $4.25/lb. Cheese options are $4.60/lb.
+                      </div>
+                    </div>
+                    {SPECIALTY_ITEMS.map((item) => (
+                      item.key === 'originalSnackSticksLbs' ? (
+                        <Fragment key={item.key}>
+                          <div className="c12">
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
+                              Snack Stix
+                            </div>
+                            <div style={{ fontSize: 12, color: '#64748b' }}>
+                              Original is $7.25/lb. Cheese options are $7.60/lb.
+                            </div>
+                          </div>
+                          <div className="c3">
+                            <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
+                            <input
+                              inputMode="numeric"
+                              value={String((job as any)[item.key] ?? '')}
+                              onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                              disabled={locked}
+                            />
+                          </div>
+                        </Fragment>
+                      ) : (
+                        <div className="c3" key={item.key}>
+                          <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
+                          <input
+                            inputMode="numeric"
+                            value={String((job as any)[item.key] ?? '')}
+                            onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                            disabled={locked}
+                          />
+                        </div>
+                      )
+                    ))}
+                  </>
+                ) : null}
               </div>
             </section>
 
