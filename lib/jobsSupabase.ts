@@ -93,9 +93,81 @@ function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: b
   };
 }
 
+function buildCapeFinishedEmail(opts: { name: string; tag: string }) {
+  const name = opts.name || 'there';
+  return {
+    subject: `Cape finished & ready for pickup (${opts.tag})`,
+    html: [
+      `<p>Hi ${escapeHtml(name)}</p>`,
+      `<p>Your cape is finished and ready for pickup.</p>`,
+      `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
+      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
+    ].join(''),
+    text:
+      `Hi ${name}\n` +
+      `Your cape is finished and ready for pickup.\n\n` +
+      `Pickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
+      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions.\n`,
+  };
+}
+
+function buildSpecialtyFinishedEmail(opts: {
+  name: string;
+  tag: string;
+  paidSpecialty: boolean;
+  specialtyPrice: number;
+}) {
+  const name = opts.name || 'there';
+  const paid = !!opts.paidSpecialty;
+  const price = Number(opts.specialtyPrice || 0);
+  const payBlock = paid
+    ? `<div style="padding:10px 12px;border:1px solid #16a34a;border-radius:10px;background:#f0fdf4;"><b>Specialty products:</b> PAID</div>`
+    : `<div style="padding:10px 12px;border:1px solid #dc2626;border-radius:10px;background:#fef2f2;"><b>Amount still owed (specialty products):</b> $${price.toFixed(2)}</div>`;
+
+  return {
+    subject: `Specialty products finished (${opts.tag})`,
+    html: [
+      `<p>Hi ${escapeHtml(name)}</p>`,
+      `<p>Your McAfee specialty products are finished and ready for pickup.</p>`,
+      payBlock,
+      `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
+      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
+    ].join(''),
+    text:
+      `Hi ${name}\n` +
+      `Your McAfee specialty products are finished and ready for pickup.\n\n` +
+      (paid ? 'Specialty products: PAID' : `Amount still owed (specialty products): $${price.toFixed(2)}`) +
+      `\n\nPickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
+      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions.\n`,
+  };
+}
+
+function buildWebbsDeliveredEmail(opts: { name: string; tag: string }) {
+  const name = opts.name || 'there';
+  return {
+    subject: `Webbs order delivered (${opts.tag})`,
+    html: [
+      `<p>Hi ${escapeHtml(name)}</p>`,
+      `<p>Your Webbs order has been delivered and is ready for pickup.</p>`,
+      `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
+      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
+    ].join(''),
+    text:
+      `Hi ${name}\n` +
+      `Your Webbs order has been delivered and is ready for pickup.\n\n` +
+      `Pickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
+      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions.\n`,
+  };
+}
+
 function statusIsFinishedLike(v: any) {
   const s = String(v ?? '').trim().toLowerCase();
   return /finish|ready/.test(s);
+}
+
+function processTypeNeedsCape(processType: any) {
+  const p = normProc(processType);
+  return p === 'Caped' || p === 'Cape & Donate';
 }
 
 
@@ -185,6 +257,219 @@ function webbsReady(webbsStatus: any) {
   if (!s) return false;
   if (s === 'called') return false;
   return /deliver|delivered|ready|complete|completed|done/.test(s);
+}
+
+function specialtyReady(specialtyStatus: any) {
+  const s = lower(specialtyStatus);
+  if (!s) return false;
+  if (s === 'called') return false;
+  return /finish|ready|complete|completed|done/.test(s);
+}
+
+async function trySendDropoffEmail(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  const wantsEmail = !!row.pref_email;
+  const email = String(row.email || '').trim();
+  const alreadyStamped = !!row.dropoff_email_sent_at;
+  if (!wantsEmail || !email || alreadyStamped) return;
+
+  const token = String(row.public_token || '').trim() || makePublicToken();
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ dropoff_email_sent_at: nowIso(), public_token: token })
+    .eq('id', row.id)
+    .is('dropoff_email_sent_at', null)
+    .select('tag, email, customer_name, public_token')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const link = intakeFormLink(String(locked.tag || ''), String(locked.public_token || ''));
+  const tpl = buildIntakeEmail({
+    name: String(locked.customer_name || ''),
+    tag: String(locked.tag || ''),
+    link,
+  });
+
+  await sendEmail({
+    to: String(locked.email),
+    subject: tpl.subject,
+    html: tpl.html,
+    text: tpl.text,
+  });
+}
+
+async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag || !statusIsFinishedLike(row.status)) return;
+  const wantsEmail = !!row.pref_email;
+  const email = String(row.email || '').trim();
+  const alreadyStamped = !!row.finished_email_sent_at;
+  if (!wantsEmail || !email || alreadyStamped) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ finished_email_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('finished_email_sent_at', null)
+    .select('tag, email, customer_name, paid_processing, price_processing, process_type, beef_fat, webbs_order')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const computed = calcProcessingPrice(locked.process_type, !!locked.beef_fat, !!locked.webbs_order);
+  const price = Number(locked.price_processing ?? 0) || computed;
+  const tpl = buildFinishedEmail({
+    name: String(locked.customer_name || ''),
+    tag: String(locked.tag || ''),
+    paidProcessing: !!locked.paid_processing,
+    processingPrice: price,
+  });
+
+  await sendEmail({
+    to: String(locked.email),
+    subject: tpl.subject,
+    html: tpl.html,
+    text: tpl.text,
+  });
+
+  if (!Number(locked.price_processing ?? 0) && computed) {
+    await supabaseServer.from('jobs').update({ price_processing: computed }).eq('tag', String(locked.tag));
+  }
+}
+
+async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  if (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status)) return;
+  const wantsEmail = !!row.pref_email;
+  const email = String(row.email || '').trim();
+  const alreadyStamped = !!row.cape_finished_email_sent_at;
+  if (!wantsEmail || !email || alreadyStamped) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ cape_finished_email_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('cape_finished_email_sent_at', null)
+    .select('tag, email, customer_name')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const tpl = buildCapeFinishedEmail({
+    name: String(locked.customer_name || ''),
+    tag: String(locked.tag || ''),
+  });
+
+  await sendEmail({
+    to: String(locked.email),
+    subject: tpl.subject,
+    html: tpl.html,
+    text: tpl.text,
+  });
+}
+
+async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  if (!row.specialty_products || !specialtyReady(row.specialty_status)) return;
+  const wantsEmail = !!row.pref_email;
+  const email = String(row.email || '').trim();
+  const alreadyStamped = !!row.specialty_finished_email_sent_at;
+  if (!wantsEmail || !email || alreadyStamped) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ specialty_finished_email_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('specialty_finished_email_sent_at', null)
+    .select(`
+      tag,
+      email,
+      customer_name,
+      paid_specialty,
+      price_specialty,
+      original_summer_sausage_lbs,
+      summer_sausage_lbs,
+      summer_sausage_cheese_lbs,
+      jalapeno_summer_sausage_cheese_lbs,
+      sliced_jerky_lbs,
+      original_snack_sticks_lbs,
+      original_snack_sticks_cheese_lbs,
+      jalapeno_snack_sticks_cheese_lbs,
+      specialty_price_override
+    `)
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const computed = calcSpecialtyPriceFromLbs(locked);
+  const override = numOrNull(locked.specialty_price_override);
+  const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
+  const tpl = buildSpecialtyFinishedEmail({
+    name: String(locked.customer_name || ''),
+    tag: String(locked.tag || ''),
+    paidSpecialty: !!locked.paid_specialty,
+    specialtyPrice: price,
+  });
+
+  await sendEmail({
+    to: String(locked.email),
+    subject: tpl.subject,
+    html: tpl.html,
+    text: tpl.text,
+  });
+
+  if (!Number(locked.price_specialty ?? 0) && price) {
+    await supabaseServer.from('jobs').update({ price_specialty: price }).eq('tag', String(locked.tag));
+  }
+}
+
+async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  if (!row.webbs_order || !webbsReady(row.webbs_status)) return;
+  const wantsEmail = !!row.pref_email;
+  const email = String(row.email || '').trim();
+  const alreadyStamped = !!row.webbs_delivered_email_sent_at;
+  if (!wantsEmail || !email || alreadyStamped) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ webbs_delivered_email_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('webbs_delivered_email_sent_at', null)
+    .select('tag, email, customer_name')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const tpl = buildWebbsDeliveredEmail({
+    name: String(locked.customer_name || ''),
+    tag: String(locked.tag || ''),
+  });
+
+  await sendEmail({
+    to: String(locked.email),
+    subject: tpl.subject,
+    html: tpl.html,
+    text: tpl.text,
+  });
+}
+
+async function trySendNotificationEmails(supabaseServer: any, row: any) {
+  const steps = [
+    ['drop-off', trySendDropoffEmail],
+    ['meat finished', trySendMeatFinishedEmail],
+    ['cape finished', trySendCapeFinishedEmail],
+    ['specialty finished', trySendSpecialtyFinishedEmail],
+    ['Webbs delivered', trySendWebbsDeliveredEmail],
+  ] as const;
+
+  for (const [label, fn] of steps) {
+    try {
+      await fn(supabaseServer, row);
+    } catch (error) {
+      console.error(`${label} email failed (non-fatal)`, error);
+    }
+  }
 }
 
 function appendStampedLine(existing: string | null | undefined, line: string) {
@@ -290,6 +575,10 @@ function mapDbRowToJob(row: any): Job {
     publicToken: row.public_token,
     publicLinkSentAt: row.public_link_sent_at,
     dropoffEmailSentAt: row.dropoff_email_sent_at,
+    meatFinishedEmailSentAt: row.finished_email_sent_at,
+    capeFinishedEmailSentAt: row.cape_finished_email_sent_at,
+    specialtyFinishedEmailSentAt: row.specialty_finished_email_sent_at,
+    webbsDeliveredEmailSentAt: row.webbs_delivered_email_sent_at,
     paidProcessingAt: row.paid_processing_at,
     paidSpecialtyAt: row.paid_specialty_at,
 
@@ -718,6 +1007,10 @@ let tagToStore: string;
     public_token: effectiveJob.publicToken ? String(effectiveJob.publicToken) : undefined,
     public_link_sent_at: effectiveJob.publicLinkSentAt ?? null,
     dropoff_email_sent_at: effectiveJob.dropoffEmailSentAt ?? null,
+    finished_email_sent_at: (effectiveJob as any).meatFinishedEmailSentAt ?? null,
+    cape_finished_email_sent_at: (effectiveJob as any).capeFinishedEmailSentAt ?? null,
+    specialty_finished_email_sent_at: (effectiveJob as any).specialtyFinishedEmailSentAt ?? null,
+    webbs_delivered_email_sent_at: (effectiveJob as any).webbsDeliveredEmailSentAt ?? null,
     paid_processing_at: effectiveJob.paidProcessingAt ?? null,
     paid_specialty_at: effectiveJob.paidSpecialtyAt ?? null,
 
@@ -769,94 +1062,10 @@ Object.keys(upsertPayload).forEach((k) => {
 
 
 // ---- Emails (best-effort) ----
-// Drop-off email: send on intake save if pref_email=true and not stamped.
 try {
-  if (data) {
-    // Never send intake email for an overnight/no-tag record.
-    if (!hasRealTag(data) || (data as any).requires_tag) {
-      // skip
-    } else {
-    const wantsEmail = !!(data as any).pref_email;
-    const email = String((data as any).email || '').trim();
-    const alreadyStamped = !!(data as any).dropoff_email_sent_at;
-
-    if (wantsEmail && email && !alreadyStamped) {
-      const token = String((data as any).public_token || '').trim() || makePublicToken();
-
-      // Atomic stamp-first (prevents double send)
-      const { data: locked } = await supabaseServer
-        .from('jobs')
-        .update({ dropoff_email_sent_at: nowIso(), public_token: token })
-        .eq('id', (data as any).id)
-        .is('dropoff_email_sent_at', null)
-        .select('tag, email, customer_name, public_token')
-        .maybeSingle();
-
-      if (locked) {
-        const link = intakeFormLink(String((locked as any).tag), String((locked as any).public_token));
-        const tpl = buildIntakeEmail({
-          name: String((locked as any).customer_name || ''),
-          tag: String((locked as any).tag || ''),
-          link,
-        });
-
-        await sendEmail({
-          to: String((locked as any).email),
-          subject: tpl.subject,
-          html: tpl.html,
-          text: tpl.text,
-        });
-      }
-    }
-    }
-  }
+  await trySendNotificationEmails(supabaseServer, data);
 } catch (e) {
-  console.error('Intake email failed (non-fatal)', e);
-}
-
-// Finished email: if status is Finished/Ready-ish and not stamped (covers manual status changes + scan workflow)
-try {
-  if (data && hasRealTag(data) && !(data as any).requires_tag && statusIsFinishedLike((data as any).status)) {
-    const wantsEmail = !!(data as any).pref_email;
-    const email = String((data as any).email || '').trim();
-    const alreadyStamped = !!(data as any).finished_email_sent_at;
-
-    if (wantsEmail && email && !alreadyStamped) {
-      const { data: locked } = await supabaseServer
-        .from('jobs')
-        .update({ finished_email_sent_at: nowIso() })
-        .eq('id', (data as any).id)
-        .is('finished_email_sent_at', null)
-        .select('tag, email, customer_name, paid_processing, price_processing, process_type, beef_fat, webbs_order')
-        .maybeSingle();
-
-      if (locked) {
-        const computed = calcProcessingPrice((locked as any).process_type, !!(locked as any).beef_fat, !!(locked as any).webbs_order);
-        const price = Number((locked as any).price_processing ?? 0) || computed;
-
-        const tpl = buildFinishedEmail({
-          name: String((locked as any).customer_name || ''),
-          tag: String((locked as any).tag || ''),
-          paidProcessing: !!(locked as any).paid_processing,
-          processingPrice: price,
-        });
-
-        await sendEmail({
-          to: String((locked as any).email),
-          subject: tpl.subject,
-          html: tpl.html,
-          text: tpl.text,
-        });
-
-        // backfill price_processing if it was missing/0
-        if (!Number((locked as any).price_processing ?? 0) && computed) {
-          await supabaseServer.from('jobs').update({ price_processing: computed }).eq('tag', String((locked as any).tag));
-        }
-      }
-    }
-  }
-} catch (e) {
-  console.error('Finished email failed (non-fatal)', e);
+  console.error('Notification email failed (non-fatal)', e);
 }
 
 
@@ -1222,43 +1431,11 @@ export async function setJobTag(params: {
 
   const mapped = updated ? mapDbRowToJob(updated) : null;
 
-  // If we just assigned a real tag to an overnight/no-tag record, try to send the intake email now.
-  // This keeps the rule: intake email sends at most once, and only after a real tag exists.
-  if (updated && !stampDropEmail) {
+  if (updated) {
     try {
-      const wantsEmail = !!(updated as any).pref_email;
-      const email = String((updated as any).email || '').trim();
-      const alreadyStamped = !!(updated as any).dropoff_email_sent_at;
-
-      if (hasRealTag(updated) && !(updated as any).requires_tag && wantsEmail && email && !alreadyStamped) {
-        const token = String((updated as any).public_token || '').trim() || makePublicToken();
-
-        const { data: locked } = await supabaseServer
-          .from('jobs')
-          .update({ dropoff_email_sent_at: nowIso(), public_token: token })
-          .eq('id', (updated as any).id)
-          .is('dropoff_email_sent_at', null)
-          .select('tag, email, customer_name, public_token')
-          .maybeSingle();
-
-        if (locked) {
-          const link = intakeFormLink(String((locked as any).tag), String((locked as any).public_token));
-          const tpl = buildIntakeEmail({
-            name: String((locked as any).customer_name || ''),
-            tag: String((locked as any).tag || ''),
-            link,
-          });
-
-          await sendEmail({
-            to: String((locked as any).email),
-            subject: tpl.subject,
-            html: tpl.html,
-            text: tpl.text,
-          });
-        }
-      }
+      await trySendNotificationEmails(supabaseServer, updated);
     } catch (e) {
-      console.error('Intake email after setTag failed (non-fatal)', e);
+      console.error('Notification email after setTag failed (non-fatal)', e);
     }
   }
 

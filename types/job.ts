@@ -86,6 +86,10 @@ export interface Job {
   publicToken: string | null;
   publicLinkSentAt: string | null;
   dropoffEmailSentAt: string | null;
+  meatFinishedEmailSentAt: string | null;
+  capeFinishedEmailSentAt: string | null;
+  specialtyFinishedEmailSentAt: string | null;
+  webbsDeliveredEmailSentAt: string | null;
   paidProcessingAt: string | null;
   paidSpecialtyAt: string | null;
 
