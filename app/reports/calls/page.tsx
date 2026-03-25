@@ -190,7 +190,10 @@ export default function CallReportPage() {
     try {
       setSaving(true);
       await markCalled({ tag, scope, notes: note });
-      if (note) await logCallSimple({ tag, scope, reason: trackLabel(scope), notes: note });
+      setRows(prev => prev.filter(r => !(r.tag === tag && r.__track === scope)));
+      if (selectedKey === key) {
+        setSelectedKey(null);
+      }
       await refreshOne(tag);
       setNote(key, '');
     } catch (e: any) {
