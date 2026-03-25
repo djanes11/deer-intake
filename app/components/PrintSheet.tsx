@@ -151,10 +151,7 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
 
   const totalPrice = processingPrice + specialtyPrice;
 
-  const copies = useMemo(
-    () => (hasSpecialty(job) ? 2 : 1),
-    [job?.['Summer Sausage (lb)'], job?.['Summer Sausage + Cheese (lb)'], job?.['Sliced Jerky (lb)'], job?.['Specialty Products'], job?.summerSausageLbs, job?.summerSausageCheeseLbs, job?.slicedJerkyLbs, job?.specialtyProducts]
-  );
+  const copies = 1;
 
 // add these right before the hind/front derived flags
 const hindObj  = (job && (job as any).hind)  || {};

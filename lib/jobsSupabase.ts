@@ -574,73 +574,112 @@ let tagToStore: string;
     requiresTag = true;
   }
 
+  let effectiveJob: Partial<Job> = job;
+
+  if (hasRealTagInput) {
+    const { data: existingRow, error: existingError } = await supabaseServer
+      .from('jobs')
+      .select('*')
+      .eq('tag', rawTag)
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('saveJob existing lookup error', existingError);
+      throw existingError;
+    }
+
+    if (existingRow) {
+      const existingJob = mapDbRowToJob(existingRow);
+      effectiveJob = {
+        ...existingJob,
+        ...job,
+        hind: {
+          ...(existingJob.hind || {}),
+          ...((job as any).hind || {}),
+        },
+        front: {
+          ...(existingJob.front || {}),
+          ...((job as any).front || {}),
+        },
+      };
+    }
+  }
 
 
-  const computedProcessingPrice = calcProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder);
-  const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(job);
 
-  const processingOverride = numOrNull((job as any).processing_price_override ?? (job as any).processingPriceOverride);
-  const specialtyOverride  = numOrNull((job as any).specialty_price_override  ?? (job as any).specialtyPriceOverride);
+  const computedProcessingPrice = calcProcessingPrice(
+    effectiveJob.processType,
+    !!effectiveJob.beefFat,
+    !!effectiveJob.webbsOrder
+  );
+  const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(effectiveJob);
 
-  const usedProcessingPrice = processingOverride ?? (numOrNull(job.priceProcessing) ?? computedProcessingPrice);
-  const usedSpecialtyPrice  = specialtyOverride  ?? (numOrNull(job.priceSpecialty) ?? computedSpecialtyPrice);
-  const usedTotalPrice      = numOrNull(job.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
+  const processingOverride = numOrNull(
+    (effectiveJob as any).processing_price_override ?? (effectiveJob as any).processingPriceOverride
+  );
+  const specialtyOverride  = numOrNull(
+    (effectiveJob as any).specialty_price_override  ?? (effectiveJob as any).specialtyPriceOverride
+  );
+
+  const usedProcessingPrice = processingOverride ?? (numOrNull(effectiveJob.priceProcessing) ?? computedProcessingPrice);
+  const usedSpecialtyPrice  = specialtyOverride  ?? (numOrNull(effectiveJob.priceSpecialty) ?? computedSpecialtyPrice);
+  const usedTotalPrice      = numOrNull(effectiveJob.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
 
   const upsertPayload: any = {
     tag: tagToStore,
-    confirmation: job.confirmation ?? null,
-    customer_name: job.customer ?? null,
-    phone: job.phone ?? null,
-    email: job.email ?? null,
-    address: job.address ?? null,
-    city: job.city ?? null,
-    state: job.state ?? null,
-    zip: job.zip ?? null,
+    confirmation: effectiveJob.confirmation ?? null,
+    customer_name: effectiveJob.customer ?? null,
+    phone: effectiveJob.phone ?? null,
+    email: effectiveJob.email ?? null,
+    address: effectiveJob.address ?? null,
+    city: effectiveJob.city ?? null,
+    state: effectiveJob.state ?? null,
+    zip: effectiveJob.zip ?? null,
 
-    county_killed: job.county ?? null,
-    deer_sex: job.sex ?? null,
-    process_type: job.processType ?? null,
-    dropoff_date: job.dropoff ?? null,
+    county_killed: effectiveJob.county ?? null,
+    deer_sex: effectiveJob.sex ?? null,
+    process_type: effectiveJob.processType ?? null,
+    dropoff_date: effectiveJob.dropoff ?? null,
 
-    status: job.status ?? null,
-    caping_status: job.capingStatus ?? null,
-    webbs_status: job.webbsStatus ?? null,
-    specialty_status: job.specialtyStatus ?? null,
+    status: effectiveJob.status ?? null,
+    caping_status: effectiveJob.capingStatus ?? null,
+    webbs_status: effectiveJob.webbsStatus ?? null,
+    specialty_status: effectiveJob.specialtyStatus ?? null,
 
-    steak_size: job.steak ?? null,
-    steak_size_other: job.steakOther ?? null,
-    burger_size: job.burgerSize ?? null,
-    steaks_per_package: job.steaksPerPackage ?? null,
-    beef_fat: job.beefFat ?? false,
+    steak_size: effectiveJob.steak ?? null,
+    steak_size_other: effectiveJob.steakOther ?? null,
+    burger_size: effectiveJob.burgerSize ?? null,
+    steaks_per_package: effectiveJob.steaksPerPackage ?? null,
+    beef_fat: effectiveJob.beefFat ?? false,
 
-    hind_roast_count: intOrNull(job.hindRoastCount),
-    front_roast_count: intOrNull(job.frontRoastCount),
+    hind_roast_count: intOrNull(effectiveJob.hindRoastCount),
+    front_roast_count: intOrNull(effectiveJob.frontRoastCount),
 
-    hind_steak: job.hind?.['Hind - Steak'] ?? false,
-    hind_roast: job.hind?.['Hind - Roast'] ?? false,
-    hind_grind: job.hind?.['Hind - Grind'] ?? false,
-    hind_none: job.hind?.['Hind - None'] ?? false,
+    hind_steak: effectiveJob.hind?.['Hind - Steak'] ?? false,
+    hind_roast: effectiveJob.hind?.['Hind - Roast'] ?? false,
+    hind_grind: effectiveJob.hind?.['Hind - Grind'] ?? false,
+    hind_none: effectiveJob.hind?.['Hind - None'] ?? false,
 
-    front_steak: job.front?.['Front - Steak'] ?? false,
-    front_roast: job.front?.['Front - Roast'] ?? false,
-    front_grind: job.front?.['Front - Grind'] ?? false,
-    front_none: job.front?.['Front - None'] ?? false,
+    front_steak: effectiveJob.front?.['Front - Steak'] ?? false,
+    front_roast: effectiveJob.front?.['Front - Roast'] ?? false,
+    front_grind: effectiveJob.front?.['Front - Grind'] ?? false,
+    front_none: effectiveJob.front?.['Front - None'] ?? false,
 
-    backstrap_prep: job.backstrapPrep ?? null,
-    backstrap_thickness: job.backstrapThickness ?? null,
-    backstrap_thickness_other: job.backstrapThicknessOther ?? null,
+    backstrap_prep: effectiveJob.backstrapPrep ?? null,
+    backstrap_thickness: effectiveJob.backstrapThickness ?? null,
+    backstrap_thickness_other: effectiveJob.backstrapThicknessOther ?? null,
 
-    specialty_products: job.specialtyProducts ?? false,
-    specialty_pounds: numOrZero(job.specialtyPounds),
-    summer_sausage_lbs: numOrZero(job.summerSausageLbs),
-    summer_sausage_cheese_lbs: numOrZero(job.summerSausageCheeseLbs),
-    sliced_jerky_lbs: numOrZero(job.slicedJerkyLbs),
+    specialty_products: effectiveJob.specialtyProducts ?? false,
+    specialty_pounds: numOrZero(effectiveJob.specialtyPounds),
+    summer_sausage_lbs: numOrZero(effectiveJob.summerSausageLbs),
+    summer_sausage_cheese_lbs: numOrZero(effectiveJob.summerSausageCheeseLbs),
+    sliced_jerky_lbs: numOrZero(effectiveJob.slicedJerkyLbs),
 
-    notes: job.notes ?? null,
+    notes: effectiveJob.notes ?? null,
 
-    webbs_order: job.webbsOrder ?? false,
-    webbs_order_form_number: job.webbsOrderFormNumber ?? null,
-    webbs_pounds: numOrZero(job.webbsPounds),
+    webbs_order: effectiveJob.webbsOrder ?? false,
+    webbs_order_form_number: effectiveJob.webbsOrderFormNumber ?? null,
+    webbs_pounds: numOrZero(effectiveJob.webbsPounds),
 
     processing_price_override: processingOverride,
     specialty_price_override: specialtyOverride,
@@ -649,40 +688,40 @@ let tagToStore: string;
     price_specialty: usedSpecialtyPrice,
     price_total: usedTotalPrice,
 
-    paid: job.paid ?? false,
-    paid_processing: job.paidProcessing ?? false,
-    paid_specialty: job.paidSpecialty ?? false,
+    paid: effectiveJob.paid ?? false,
+    paid_processing: effectiveJob.paidProcessing ?? false,
+    paid_specialty: effectiveJob.paidSpecialty ?? false,
     requires_tag: requiresTag,
 
-    public_token: job.publicToken ? String(job.publicToken) : undefined,
-    public_link_sent_at: job.publicLinkSentAt ?? null,
-    dropoff_email_sent_at: job.dropoffEmailSentAt ?? null,
-    paid_processing_at: job.paidProcessingAt ?? null,
-    paid_specialty_at: job.paidSpecialtyAt ?? null,
+    public_token: effectiveJob.publicToken ? String(effectiveJob.publicToken) : undefined,
+    public_link_sent_at: effectiveJob.publicLinkSentAt ?? null,
+    dropoff_email_sent_at: effectiveJob.dropoffEmailSentAt ?? null,
+    paid_processing_at: effectiveJob.paidProcessingAt ?? null,
+    paid_specialty_at: effectiveJob.paidSpecialtyAt ?? null,
 
-    picked_up_processing: job.pickedUpProcessing ?? false,
-    picked_up_processing_at: job.pickedUpProcessingAt ?? null,
-    picked_up_cape: job.pickedUpCape ?? false,
-    picked_up_cape_at: job.pickedUpCapeAt ?? null,
-    picked_up_webbs: job.pickedUpWebbs ?? false,
-    picked_up_webbs_at: job.pickedUpWebbsAt ?? null,
+    picked_up_processing: effectiveJob.pickedUpProcessing ?? false,
+    picked_up_processing_at: effectiveJob.pickedUpProcessingAt ?? null,
+    picked_up_cape: effectiveJob.pickedUpCape ?? false,
+    picked_up_cape_at: effectiveJob.pickedUpCapeAt ?? null,
+    picked_up_webbs: effectiveJob.pickedUpWebbs ?? false,
+    picked_up_webbs_at: effectiveJob.pickedUpWebbsAt ?? null,
 
-    call_attempts: job.callAttempts ?? 0,
-    meat_attempts: job.meatAttempts ?? 0,
-    cape_attempts: job.capeAttempts ?? 0,
-    webbs_attempts: job.webbsAttempts ?? 0,
-    last_call_at: job.lastCallAt ?? null,
-    last_called_by: job.lastCalledBy ?? null,
-    last_call_outcome: job.lastCallOutcome ?? null,
-    call_notes: job.callNotes ?? null,
+    call_attempts: effectiveJob.callAttempts ?? 0,
+    meat_attempts: effectiveJob.meatAttempts ?? 0,
+    cape_attempts: effectiveJob.capeAttempts ?? 0,
+    webbs_attempts: effectiveJob.webbsAttempts ?? 0,
+    last_call_at: effectiveJob.lastCallAt ?? null,
+    last_called_by: effectiveJob.lastCalledBy ?? null,
+    last_call_outcome: effectiveJob.lastCallOutcome ?? null,
+    call_notes: effectiveJob.callNotes ?? null,
 
-    pref_email: job.prefEmail ?? false,
-    pref_sms: job.prefSMS ?? false,
-    pref_call: job.prefCall ?? false,
-    sms_consent: job.smsConsent ?? false,
-    auto_call_consent: job.autoCallConsent ?? false,
+    pref_email: effectiveJob.prefEmail ?? false,
+    pref_sms: effectiveJob.prefSMS ?? false,
+    pref_call: effectiveJob.prefCall ?? false,
+    sms_consent: effectiveJob.smsConsent ?? false,
+    auto_call_consent: effectiveJob.autoCallConsent ?? false,
 
-    how_killed: job.howKilled ?? null,
+    how_killed: effectiveJob.howKilled ?? null,
     updated_at: nowIso(),
   };
 
