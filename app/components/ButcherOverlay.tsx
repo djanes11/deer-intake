@@ -60,6 +60,16 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
   const webbsFlag      = get('Webbs Order','webbsOrder');
   const webbsForm      = get('Webbs Order Form Number','webbsFormNumber');
   const webbsLbs       = String(get('Webbs Pounds','webbsPounds') ?? '');
+  const webbsItemsRaw  = get('Webbs Items','webbsItems');
+  const webbsItemsText = (() => {
+    if (Array.isArray(webbsItemsRaw)) {
+      return webbsItemsRaw
+        .map((item: any) => `${item?.label || item?.key || ''}${item?.pounds ? ` (${item.pounds} lb)` : ''}`.trim())
+        .filter(Boolean)
+        .join('\n');
+    }
+    return '';
+  })();
   const showWebbs      = isOn(webbsFlag) || isOn(webbsForm) || Number(webbsLbs) > 0;
 
   const Cell = ({ label, value }: { label: string; value: string }) => (
@@ -111,6 +121,7 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
           <Cell label="Backstrap Thickness (Other)" value={bsThickOther} />
           {showSpecialty ? <Cell label="Specialty Total (lb)" value={specialtyLbs} /> : null}
           {showWebbs      ? <Cell label="Webbs Total (lb)" value={webbsLbs} />         : null}
+          {showWebbs && webbsItemsText ? <Cell label="Webbs Items" value={webbsItemsText} /> : null}
         </div>
 
         <div style={{ padding:'10px 22px', borderTop:'1px solid #1c2228', fontSize:14, color:'#aab4be' }}>

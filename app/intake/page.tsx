@@ -7,6 +7,13 @@ import PrintSheet from '@/app/components/PrintSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import {
+  WEBBS_GROUPS,
+  type WebbsOrderItem,
+  normalizeWebbsOrderItems,
+  webbsOrderSummary,
+  webbsOrderTotalLbs,
+} from '@/lib/webbs';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +91,7 @@ type Job = {
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
+  webbsItems?: WebbsOrderItem[];
 
   price?: number | string; // optional override
 
@@ -188,8 +196,9 @@ function snapshotJob(j: Job) {
     notes: j.notes ?? '',
 
     webbsOrder: !!j.webbsOrder,
-    webbsFormNumber: j.webbsFormNumber ?? '',
+    webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? '',
     webbsPounds: j.webbsPounds ?? '',
+    webbsItems: normalizeWebbsOrderItems(j.webbsItems),
 
     processing_price_override: String((j as any).processing_price_override ?? ''),
     specialty_price_override: String((j as any).specialty_price_override ?? ''),
@@ -313,6 +322,7 @@ function IntakePage() {
     },
     beefFat: false,
     webbsOrder: false,
+    webbsItems: [],
 
     processing_price_override: null,
     specialty_price_override: null,
@@ -412,6 +422,7 @@ useEffect(() => {
             },
             beefFat: false,
             webbsOrder: false,
+            webbsItems: [],
             Paid: false,
             paid: false,
             paidProcessing: false,
@@ -481,6 +492,8 @@ useEffect(() => {
             prefCall: asBool(j.prefCall),
             smsConsent: asBool(j.smsConsent),
             autoCallConsent: asBool(j.autoCallConsent),
+            webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? '',
+            webbsItems: normalizeWebbsOrderItems(j.webbsItems),
           };
 
           const fp = fullPaid(next);
@@ -521,6 +534,9 @@ useEffect(() => {
   const specialtyPriceUsed = specialtyOverride ?? specialtyPriceAuto;
 
   const totalPrice = processingPriceUsed + specialtyPriceUsed;
+  const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
+  const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
+  const webbsItemLines = useMemo(() => webbsOrderSummary(webbsItems), [webbsItems]);
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
@@ -645,6 +661,9 @@ useEffect(() => {
         (job.webbsOrder && pnorm !== 'Donate')
           ? coerce(job.webbsStatus, STATUS_WEBBS)
           : '',
+      webbsFormNumber: job.webbsOrder ? (job.webbsFormNumber || '') : '',
+      webbsPounds: job.webbsOrder ? String(toInt(job.webbsPounds) || webbsItemTotal || '') : '',
+      webbsItems: job.webbsOrder ? webbsItems : [],
 
       specialtyStatus: job.specialtyProducts
         ? coerce(job.specialtyStatus, STATUS_SPECIALTY)
@@ -688,6 +707,7 @@ if (fresh?.exists && fresh.job) {
     ...j,
     confirmation:
       j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
+    webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? job.webbsFormNumber ?? '',
     paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
     paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
 
@@ -696,6 +716,7 @@ if (fresh?.exists && fresh.job) {
     prefCall:   asBool(j.prefCall),
     smsConsent: asBool(j.smsConsent),
     autoCallConsent: asBool(j.autoCallConsent),
+    webbsItems: normalizeWebbsOrderItems(j.webbsItems),
   };
 
   const fp = fullPaid(merged);
@@ -738,6 +759,26 @@ if (fresh?.exists && fresh.job) {
   };
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) => setJob((p) => ({ ...p, [k]: v }));
+
+  const toggleWebbsItem = (key: string, checked: boolean) => {
+    setJob((prev) => {
+      const current = normalizeWebbsOrderItems(prev.webbsItems);
+      if (checked) {
+        if (current.some((item) => item.key === key)) return prev;
+        return { ...prev, webbsItems: [...current, { key, label: '', pounds: 1 }] };
+      }
+      return { ...prev, webbsItems: current.filter((item) => item.key !== key) };
+    });
+  };
+
+  const setWebbsItemPounds = (key: string, value: string) => {
+    setJob((prev) => {
+      const existing = normalizeWebbsOrderItems(prev.webbsItems).filter((item) => item.key !== key);
+      const pounds = toInt(value);
+      if (pounds > 0) existing.push({ key, label: '', pounds });
+      return { ...prev, webbsItems: existing };
+    });
+  };
 
   const setHind = (k: keyof Required<CutsBlock>) =>
     setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
@@ -1427,6 +1468,76 @@ if (fresh?.exists && fresh.job) {
                 onChange={(e) => setVal('webbsPounds', e.target.value)}
               />
             </div>
+            {job.webbsOrder && (
+              <div className="c12">
+                <div style={{ border:'1px solid #dbe3ea', borderRadius:16, padding:16, background:'#f8fafc' }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginBottom:12 }}>
+                    <div>
+                      <div style={{ fontWeight:800, color:'#0f172a' }}>Detailed Webbs Order</div>
+                      <div className="muted" style={{ fontSize:13 }}>
+                        Fill this in when staff have the actual Webbs order. You can still use just the form number and total pounds above if needed.
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                      <span className="badge">Detailed lbs: {webbsItemTotal || 0}</span>
+                      <span className="badge">Entered total: {toInt(job.webbsPounds) || 0}</span>
+                    </div>
+                  </div>
+
+                  {WEBBS_GROUPS.map((group) => (
+                    <div key={group.title} style={{ marginTop: 14 }}>
+                      <div style={{ fontWeight:700, marginBottom:8 }}>{group.title}</div>
+                      <div style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))' }}>
+                        {group.items.map((item) => {
+                          const selected = webbsItems.find((entry) => entry.key === item.key);
+                          return (
+                            <div
+                              key={item.key}
+                              style={{
+                                border:'1px solid #d7dee7',
+                                borderRadius:14,
+                                padding:'10px 12px',
+                                background: selected ? '#fff' : '#f8fafc',
+                              }}
+                            >
+                              <label className="chk" style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!selected}
+                                  onChange={(e) => toggleWebbsItem(item.key, e.target.checked)}
+                                />
+                                <span style={{ fontWeight:600 }}>{item.label}</span>
+                              </label>
+                              {selected && (
+                                <div style={{ marginTop:8 }}>
+                                  <label style={{ fontSize:12 }}>Pounds</label>
+                                  <input
+                                    inputMode="numeric"
+                                    value={selected.pounds || ''}
+                                    onChange={(e) => setWebbsItemPounds(item.key, e.target.value)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {webbsItemLines.length > 0 && (
+                    <div style={{ marginTop:14 }}>
+                      <div style={{ fontWeight:700, marginBottom:6 }}>Saved Items</div>
+                      <div style={{ display:'grid', gap:6, gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                        {webbsItemLines.map((line) => (
+                          <div key={line} style={{ fontSize:13, color:'#334155' }}>{line}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 

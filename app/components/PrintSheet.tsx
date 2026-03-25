@@ -6,6 +6,7 @@ import {
   specialtyPrice as calcSpecialtyPrice,
   specialtyTotalLbs,
 } from '@/lib/specialty';
+import { webbsOrderSummary, webbsOrderTotalLbs } from '@/lib/webbs';
 
 type AnyRec = Record<string, any>;
 
@@ -159,6 +160,8 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
 
   const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [specialtyItems]);
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
+  const webbsItemLines = useMemo(() => webbsOrderSummary(job?.webbsItems), [job?.webbsItems]);
+  const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(job?.webbsItems), [job?.webbsItems]);
 
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -534,6 +537,14 @@ pages.forEach(p => {
               <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
               <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
             </div>
+            {webbsItemLines.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <div><b>Detailed Items ({webbsItemTotal} lb):</b></div>
+                {webbsItemLines.map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

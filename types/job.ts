@@ -70,6 +70,11 @@ export interface Job {
   webbsOrder: boolean;
   webbsOrderFormNumber: string | null;
   webbsPounds: number;
+  webbsItems?: Array<{
+    key: string;
+    label: string;
+    pounds: number;
+  }>;
 
   // Pricing
   priceProcessing: number;

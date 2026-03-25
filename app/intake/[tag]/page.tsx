@@ -7,6 +7,7 @@ export const revalidate = 0;
 import crypto from 'crypto';
 import { getJobByTag } from '@/lib/jobsSupabase';
 import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { webbsOrderSummary, webbsOrderTotalLbs } from '@/lib/webbs';
 
 // ---- Config/env ----
 // Keep legacy compatibility: old links used GAS_TOKEN-derived HMAC.
@@ -152,6 +153,8 @@ export default async function IntakeView({
     const processingAuto = suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
 
     const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job) : 0;
+    const webbsItems = webbsOrderSummary(job?.webbsItems);
+    const webbsItemTotal = webbsOrderTotalLbs(job?.webbsItems);
 
     const processingOverride = toNumOrNull(
       (job as any)?.processing_price_override ?? (job as any)?.processingPriceOverride
@@ -383,8 +386,16 @@ export default async function IntakeView({
                 <div className="c12" style={{gridColumn:'span 12'}}>
                   <Check on={true} text="Webbs Order (+$20 fee)" />
                 </div>
-                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Order Form Number" value={job?.webbsFormNumber || ''} /></div>
-                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
+                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Order Form Number" value={job?.webbsFormNumber || job?.webbsOrderFormNumber || ''} /></div>
+              <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
+                {webbsItems.length > 0 && (
+                  <div className="c12" style={{gridColumn:'span 12'}}>
+                    <Field
+                      label={`Webbs Items (${webbsItemTotal} lb total)`}
+                      value={webbsItems.join('\n')}
+                    />
+                  </div>
+                )}
               </div>
             </section>
           )}

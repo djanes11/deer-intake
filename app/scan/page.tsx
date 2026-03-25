@@ -223,6 +223,7 @@ export default function ScanPage() {
       'Webbs Order': j.webbsOrder ?? false,
       'Webbs Order Form Number': j.webbsOrderFormNumber ?? '',
       'Webbs Pounds': j.webbsPounds ?? '',
+      'Webbs Items': JSON.stringify(j.webbsItems ?? []),
 
       'Processing Price': j.priceProcessing ?? '',
       'Specialty Price': j.priceSpecialty ?? '',
