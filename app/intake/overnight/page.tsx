@@ -225,6 +225,8 @@ function OvernightIntakePage() {
   const [msg, setMsg] = useState<string>('');
   const [locked, setLocked] = useState<boolean>(false);
   const [showThanks, setShowThanks] = useState<boolean>(false);
+  const [intakeEnabled, setIntakeEnabled] = useState(true);
+  const [closureMessage, setClosureMessage] = useState('');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -296,6 +298,17 @@ function OvernightIntakePage() {
       return next;
     });
   }, [capingFlow, webbsOn, procNorm, job.specialtyProducts]);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.ok || !j?.settings) return;
+        setIntakeEnabled(j.settings.public_intake_enabled !== false);
+        setClosureMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
+      })
+      .catch(() => {});
+  }, []);
 
   const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
 
@@ -393,6 +406,10 @@ function OvernightIntakePage() {
   const onSave = async () => {
     if (locked) return;
     setMsg('');
+    if (!intakeEnabled) {
+      setMsg(closureMessage || 'Overnight intake is currently unavailable.');
+      return;
+    }
     const e = validateAll();
     setErrors(e);
     if (Object.keys(e).length) {
@@ -472,6 +489,21 @@ function OvernightIntakePage() {
     <div className={`form-card ${locked ? 'locked' : ''}`}>
       <div className="screen-only">
         <h2>Deer Intake (Overnight)</h2>
+        {!intakeEnabled ? (
+          <div
+            style={{
+              margin: '0 0 12px',
+              border: '1px solid #ef4444',
+              background: '#fff1f2',
+              color: '#991b1b',
+              borderRadius: 10,
+              padding: '10px 12px',
+              fontWeight: 700,
+            }}
+          >
+            {closureMessage || 'Overnight intake is currently unavailable.'}
+          </div>
+        ) : null}
 
         <div className="wizardHead">
           <div className="wizardLeft">

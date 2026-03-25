@@ -160,6 +160,9 @@ export default function StatusPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [publicHours, setPublicHours] = useState<ReadonlyArray<{ label: string; value: string }>>(
+    SITE.hours as ReadonlyArray<{ label: string; value: string }>
+  );
 
   const pollUntilRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,6 +182,22 @@ export default function StatusPage() {
   useEffect(() => {
     latestReadyRef.current = isReady;
   }, [isReady]);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.ok && Array.isArray(j?.settings?.hours) && j.settings.hours.length) {
+          setPublicHours(
+            j.settings.hours.map((h: any) => ({
+              label: String(h?.label || ''),
+              value: String(h?.value || ''),
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const priceProcessing = toNum(res?.priceProcessing);
   const priceSpecialty = toNum(res?.priceSpecialty);
@@ -608,7 +627,7 @@ export default function StatusPage() {
             mapsUrl={mapsUrl}
             phoneHref={phoneHref}
             phoneDisplay={SITE.phone}
-            hours={SITE.hours as ReadonlyArray<{ label: string; value: string }>}
+            hours={publicHours}
             lastUpdatedAt={lastUpdatedAt}
           />
         </section>

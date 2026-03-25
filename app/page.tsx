@@ -1,19 +1,17 @@
 // app/page.tsx
-export const dynamic = 'force-dynamic'; // ensure env is read at request-time
+export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 
-export default function Home() {
-  return IS_PUBLIC ? <PublicLanding /> : <StaffHome />;
+export default async function Home() {
+  const settings = IS_PUBLIC ? await getPublicSiteSettings() : null;
+  return IS_PUBLIC ? <PublicLanding settings={settings} /> : <StaffHome />;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   PUBLIC LANDING (shown when PUBLIC_MODE=1)
-   — Header/Nav removed here to avoid duplicate with layout header
-   ────────────────────────────────────────────────────────────────────────── */
-function PublicLanding() {
+function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPublicSiteSettings>> | null }) {
   const colors = {
     bg: '#0b0f0d',
     panel: 'rgba(18,24,22,.95)',
@@ -33,17 +31,24 @@ function PublicLanding() {
   };
 
   const hero: React.CSSProperties = {
-    marginTop: 10, // slight offset under the layout header
+    marginTop: 10,
     borderRadius: 16,
-    background: `linear-gradient(180deg, rgba(22,28,25,1) 0%, rgba(12,16,14,1) 100%)`,
+    background: 'linear-gradient(180deg, rgba(22,28,25,1) 0%, rgba(12,16,14,1) 100%)',
     border: `1px solid ${colors.panelBorder}`,
     padding: 24,
   };
   const eyebrow: React.CSSProperties = {
-    color: colors.brand, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', fontSize: 12,
+    color: colors.brand,
+    fontWeight: 800,
+    letterSpacing: '.06em',
+    textTransform: 'uppercase',
+    fontSize: 12,
   };
   const title: React.CSSProperties = {
-    margin: '6px 0 8px', fontSize: 40, lineHeight: 1.1, fontWeight: 900,
+    margin: '6px 0 8px',
+    fontSize: 40,
+    lineHeight: 1.1,
+    fontWeight: 900,
   };
   const subtitle: React.CSSProperties = { margin: '0 0 18px', color: colors.sub, maxWidth: 720 };
 
@@ -100,28 +105,28 @@ function PublicLanding() {
 
   return (
     <main style={shell}>
-      {/* Hero */}
       <section style={hero} aria-label="Hero">
         <div style={eyebrow}>Welcome</div>
-        <h1 style={title}>Fast, clean, professional—done right.</h1>
+        <h1 style={title}>Fast, clean, professional-done right.</h1>
         <p style={subtitle}>
           Drop off after-hours, choose your cuts and specialty products, and track progress online.
-          We’ll notify you when it’s ready.
+          We&apos;ll notify you when it&apos;s ready.
         </p>
         <div style={ctas}>
-          <Link href="/overnight" style={cta(true)}>Start Overnight Drop</Link>
+          <Link href={settings?.public_intake_enabled ? '/overnight' : '/hours'} style={cta(true)}>
+            {settings?.public_intake_enabled ? 'Start Overnight Drop' : 'Overnight Drop Closed'}
+          </Link>
           <Link href="/status" style={cta(false)}>Check Your Status</Link>
         </div>
       </section>
 
-      {/* Two-column: How it Works + Hours/Location */}
       <section style={twoCol} aria-label="Info">
         <div style={panel}>
           <div style={h3}>How it Works</div>
           <ol style={{ margin: 0, padding: '0 0 0 18px', lineHeight: 1.6 }}>
             <li>Arrive during business hours or use our 24/7 Overnight Drop.</li>
-            <li>Fill the simple intake form and choose your cuts/specialty items.</li>
-            <li>Track progress on the Status page. We’ll also email updates.</li>
+            <li>Fill the simple intake form and choose your cuts and specialty items.</li>
+            <li>Track progress on the Status page. We&apos;ll also email updates.</li>
             <li>Pick up quickly when notified.</li>
           </ol>
           <div style={{ height: 12 }} />
@@ -131,27 +136,27 @@ function PublicLanding() {
         <aside style={panel} aria-label="Hours & Location">
           <div style={h3}>Pickup Hours</div>
           <div style={list}>
-            <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Mon–Fri: 6:00 PM – 8:00 PM</div></div>
-            <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sat: 9:00 AM – 5:00 PM</div></div>
-            <div style={row}><div style={dot('rgba(51,117,71,.9)')} /><div>Sun: 9:00 AM – 12:00 PM</div></div>
-            <div style={row}><div style={dot('rgba(167,115,18,.9)')} /><div>After Hours: Overnight Drop Available</div></div>
+            {(settings?.hours || []).map((h) => (
+              <div style={row} key={`${h.label}:${h.value}`}>
+                <div style={dot('rgba(51,117,71,.9)')} />
+                <div>{h.label}: {h.value}</div>
+              </div>
+            ))}
           </div>
           <div style={{ height: 10 }} />
         </aside>
       </section>
 
-      {/* Pricing (new) */}
       <section aria-label="Pricing" style={{ marginTop: 12 }}>
         <div style={panel}>
           <div style={h3}>Pricing</div>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
             <li><strong>Standard Processing</strong>: $130</li>
-            <li><strong>Caped (add-on)</strong>: +$20 &nbsp;<span style={{ opacity: 0.8 }}>(i.e., $150 total)</span></li>
+            <li><strong>Caped (add-on)</strong>: +$20 <span style={{ opacity: 0.8 }}>(i.e., $150 total)</span></li>
           </ul>
         </div>
       </section>
 
-      {/* Footer */}
       <footer style={footer} aria-label="Footer">
         <div>© {new Date().getFullYear()} McAfee Custom Deer Processing. All rights reserved.</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -165,9 +170,6 @@ function PublicLanding() {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
-   STAFF HOME (unchanged except for adding State Form link under Reports)
-   ────────────────────────────────────────────────────────────────────────── */
 function StaffHome() {
   const shell: React.CSSProperties = {
     maxWidth: 1100,
@@ -255,7 +257,6 @@ function StaffHome() {
         </p>
       </div>
 
-      {/* Primary actions */}
       <div style={{ ...trio, marginBottom: 16 }}>
         <Link href="/intake" style={linkStyle}>
           <div style={card}>
@@ -294,9 +295,7 @@ function StaffHome() {
         </Link>
       </div>
 
-      {/* Reports & Help */}
       <div style={trio}>
-        {/* Reports (static links; no data calls) */}
         <div style={{ ...card, gridColumn: 'span 2' }}>
           <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>
             Reports
@@ -306,43 +305,40 @@ function StaffHome() {
             <Link href="/reports/calls" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(51,117,71,.9)')} />
-                <div style={{ fontWeight: 800 }}>Call Report — Ready to Call</div>
+                <div style={{ fontWeight: 800 }}>Call Report - Ready to Call</div>
               </div>
             </Link>
 
             <Link href="/reports/specialty" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(200,70,25,.9)')} />
-                <div style={{ fontWeight: 800 }}>Specialty Totals — Open lbs</div>
+                <div style={{ fontWeight: 800 }}>Specialty Totals - Open lbs</div>
               </div>
             </Link>
-
 
             <Link href="/overnight/review" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(167,115,18,.9)')} />
-                <div style={{ fontWeight: 800 }}>Overnight — Missing Tag</div>
+                <div style={{ fontWeight: 800 }}>Overnight - Missing Tag</div>
               </div>
             </Link>
 
             <Link href="/reports/called" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(115,75,170,.95)')} />
-                <div style={{ fontWeight: 800 }}>Called — Pickup Queue</div>
+                <div style={{ fontWeight: 800 }}>Called - Pickup Queue</div>
               </div>
             </Link>
 
-            {/* NEW: State Form report link */}
             <Link href="/reports/state-form" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(25,130,200,.9)')} />
-                <div style={{ fontWeight: 800 }}>State Form — Page Builder</div>
+                <div style={{ fontWeight: 800 }}>State Form - Page Builder</div>
               </div>
             </Link>
           </div>
         </div>
 
-        {/* Help */}
         <div style={card}>
           <div style={mini}>Help</div>
           <Link href="/tips" style={linkStyle}>

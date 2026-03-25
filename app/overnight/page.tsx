@@ -16,6 +16,8 @@ const BUSINESS = {
 };
 
 export default function OvernightInstructionsPage() {
+  const [intakeEnabled, setIntakeEnabled] = useState(true);
+  const [bannerMessage, setBannerMessage] = useState('');
   // Agreement + gating
   const [agree, setAgree] = useState(false);
   const [canAgree, setCanAgree] = useState(false); // becomes true only after user reaches the bottom
@@ -45,6 +47,17 @@ export default function OvernightInstructionsPage() {
       localStorage.setItem('overnight_agree_v1', agree ? '1' : '0');
     } catch {}
   }, [agree]);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.ok || !j?.settings) return;
+        setIntakeEnabled(j.settings.public_intake_enabled !== false);
+        setBannerMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
+      })
+      .catch(() => {});
+  }, []);
 
   // Scroll detection: enable canAgree only after reaching bottom once per visit
   useEffect(() => {
@@ -85,7 +98,7 @@ export default function OvernightInstructionsPage() {
     padding: '14px 14px',
   };
 
-  const startEnabled = canAgree && agree;
+  const startEnabled = intakeEnabled && canAgree && agree;
 
   const WarningCallout = useMemo(
     () => (
@@ -178,6 +191,25 @@ export default function OvernightInstructionsPage() {
             background: '#0b0f12',
           }}
         >
+          {!intakeEnabled ? (
+            <div
+              style={{
+                marginBottom: 14,
+                border: '1px solid #8a2b2b',
+                background: '#2a0e0e',
+                color: '#ffd6d6',
+                borderRadius: 12,
+                padding: '12px 14px',
+                lineHeight: 1.5,
+              }}
+            >
+              <b>Overnight intake is currently unavailable.</b>
+              <div style={{ marginTop: 4 }}>
+                {bannerMessage || 'Please call the shop or check back later for updated availability.'}
+              </div>
+            </div>
+          ) : null}
+
           <h2 style={{ margin: '0 0 10px', fontSize: 20, fontWeight: 900, color: '#f3f4f6' }}>
             Step-by-step instructions
           </h2>
