@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import fs from "fs";
 import path from "path";
+import { fetchStateformPayloadFromSupabase } from '@/lib/stateform/supabase';
 
 // ===== Layout (your tuned values) =====
 const ROW_H = 18;
@@ -36,30 +37,8 @@ const HEADER_Y_OFFSETS: Record<string, number> = {
   street: 75, city: 55, zip: 55, phone: 55,
 };
 
-// GAS config
-const GAS =
-  process.env.API_BASE ||
-  process.env.GAS_BASE ||
-  process.env.NEXT_PUBLIC_API_BASE;
-
-const TOKEN =
-  process.env.API_TOKEN ||
-  process.env.GAS_TOKEN ||
-  process.env.NEXT_PUBLIC_API_TOKEN;
-
-function assertValidBase(url?: string) {
-  if (!url) throw new Error("Missing GAS_BASE / API_BASE / NEXT_PUBLIC_API_BASE");
-}
-
 async function fetchPayloadPreview() {
-  assertValidBase(GAS);
-  const url = `${GAS}?action=stateform_payload&dry=1${
-    TOKEN ? `&token=${encodeURIComponent(TOKEN)}` : ""
-  }`;
-  const res = await fetch(url, { cache: "no-store" });
-  const txt = await res.text();
-  if (!res.ok) throw new Error(`GAS stateform_payload failed: ${res.status} ${txt.slice(0,200)}`);
-  try { return JSON.parse(txt); } catch { throw new Error("GAS returned non-JSON"); }
+  return fetchStateformPayloadFromSupabase();
 }
 
 function drawText(page: any, text: any, x: number, y: number, font: any, size = FONT_SIZE) {
