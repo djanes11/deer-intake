@@ -2,12 +2,41 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabaseClient';
+import { specialtyPrice } from '@/lib/specialty';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 type Row = Record<string, any>;
+
+const PUBLIC_STATUS_SELECT = `
+  id,
+  tag,
+  confirmation,
+  customer_name,
+  status,
+  caping_status,
+  webbs_status,
+  specialty_status,
+  price_processing,
+  price_specialty,
+  price_total,
+  specialty_price_override,
+  specialty_products,
+  original_summer_sausage_lbs,
+  summer_sausage_lbs,
+  summer_sausage_cheese_lbs,
+  jalapeno_summer_sausage_cheese_lbs,
+  sliced_jerky_lbs,
+  original_snack_sticks_lbs,
+  original_snack_sticks_cheese_lbs,
+  jalapeno_snack_sticks_cheese_lbs,
+  paid,
+  paid_processing,
+  paid_specialty,
+  dropoff_date
+`;
 
 function toDigits(s: unknown) {
   return String(s ?? '').replace(/\D+/g, '');
@@ -37,8 +66,23 @@ function toBool(v: unknown): boolean | undefined {
 
 function shapeJob(row: any, debug: boolean) {
   const priceProcessing = toNum(row.price_processing);
-  const priceSpecialty = toNum(row.price_specialty);
-  const priceTotal = toNum(row.price_total);
+  const specialtyOverride = toNum(row.specialty_price_override);
+  const computedSpecialty = specialtyPrice(row);
+  const rawSpecialty = toNum(row.price_specialty);
+  const priceSpecialty =
+    specialtyOverride ??
+    (typeof computedSpecialty === 'number' && computedSpecialty > 0
+      ? Math.max(rawSpecialty ?? 0, computedSpecialty)
+      : rawSpecialty);
+  const rawTotal = toNum(row.price_total);
+  const computedTotal =
+    typeof priceProcessing === 'number' || typeof priceSpecialty === 'number'
+      ? (priceProcessing || 0) + (priceSpecialty || 0)
+      : undefined;
+  const priceTotal =
+    typeof computedTotal === 'number' && (rawTotal === undefined || rawTotal < computedTotal)
+      ? computedTotal
+      : rawTotal;
 
   const paidOverall = toBool(row.paid);
   const paidProcessing = toBool(row.paid_processing);
@@ -89,24 +133,7 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
   if (wantConf) {
     const { data, error } = await supabase
       .from('jobs')
-      .select(
-        `
-        id,
-        tag,
-        confirmation,
-        customer_name,
-        status,
-        caping_status,
-        webbs_status,
-        specialty_status,
-        price_processing,
-        price_specialty,
-        price_total,
-        paid,
-        paid_processing,
-        paid_specialty
-      `
-      )
+      .select(PUBLIC_STATUS_SELECT)
       .in('confirmation', confCandidates)
       .order('dropoff_date', { ascending: false })
       .limit(5);
@@ -122,25 +149,7 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
   if (wantTag && wantLN) {
     const { data, error } = await supabase
       .from('jobs')
-      .select(
-        `
-        id,
-        tag,
-        confirmation,
-        customer_name,
-        status,
-        caping_status,
-        webbs_status,
-        specialty_status,
-        price_processing,
-        price_specialty,
-        price_total,
-        paid,
-        paid_processing,
-        paid_specialty,
-        dropoff_date
-      `
-      )
+      .select(PUBLIC_STATUS_SELECT)
       .eq('tag', wantTag)
       .order('dropoff_date', { ascending: false })
       .limit(5);
