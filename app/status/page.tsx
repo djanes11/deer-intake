@@ -1,4 +1,3 @@
-// app/status/page.tsx
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -9,54 +8,161 @@ type LookupResult = {
   ok?: boolean;
   notFound?: boolean;
   error?: string;
-
-  // identity
   customer?: string;
   tag?: string;
   confirmation?: string;
-
-  // core (meat)
   status?: string;
-
-  // extra tracks
   tracks?: {
     webbsStatus?: string;
     specialtyStatus?: string;
     capeStatus?: string;
   };
-
-  // pricing (optional)
   priceProcessing?: number | string;
   priceSpecialty?: number | string;
   priceTotal?: number | string;
-
-  // paid flags (optional)
   paidProcessing?: boolean | string;
   paidSpecialty?: boolean | string;
   paid?: boolean | string;
 };
 
+type StatusTone = 'ready' | 'progress' | 'hold' | 'unknown';
+
+type TrackSummary = {
+  key: string;
+  label: string;
+  value?: string;
+  tone: StatusTone;
+  message: string;
+};
+
+type PaymentCardProps = {
+  label: string;
+  amount?: number;
+  paid?: boolean;
+  owed?: number;
+};
+
+const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done'];
+const HOLD_WORDS = ['hold', 'waiting', 'pending', 'not started', 'dropped off', 'drop off', 'received'];
+const PROGRESS_WORDS = ['process', 'cut', 'grind', 'smoke', 'cure', 'working', 'started', 'in progress', 'calling'];
+
+const tones: Record<StatusTone, { border: string; background: string; text: string }> = {
+  ready: { border: '#2a5f47', background: '#193b2e', text: '#a7e3ba' },
+  progress: { border: '#6b4f1d', background: 'rgba(146, 108, 40, 0.18)', text: '#f4d08c' },
+  hold: { border: '#334155', background: '#111827', text: '#dbe3ef' },
+  unknown: { border: '#334155', background: '#0f1416', text: '#dbe3ef' },
+};
+
+function text(s?: string) {
+  return String(s || '').toLowerCase();
+}
+
+function toNum(v: unknown) {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function toBool(v: unknown) {
+  if (v === true) return true;
+  if (v === false) return false;
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'paid', 'x', 'on'].includes(s);
+}
+
+function money(n?: number) {
+  return typeof n === 'number' ? `$${n.toFixed(2)}` : '-';
+}
+
+function normalizeName(n?: string) {
+  return (n || '').trim().replace(/[^a-zA-Z'-]/g, '');
+}
+
+function parseQuery(input: string): { confirmation?: string; tag?: string; lastName?: string } {
+  let s = input.trim();
+  if (!s) return {};
+
+  s = s.replace(/[,]+/g, ' ').replace(/\s+/g, ' ');
+
+  if (/^\d{4,}$/.test(s)) return { confirmation: s };
+
+  let m = s.match(/^(\d{2,})\s+([a-zA-Z'-]{2,})$/);
+  if (m) return { tag: m[1], lastName: normalizeName(m[2]) };
+
+  m = s.match(/^([a-zA-Z'-]{2,})\s+(\d{2,})$/);
+  if (m) return { tag: m[2], lastName: normalizeName(m[1]) };
+
+  if (/^[a-zA-Z'-]{2,}$/.test(s)) return { lastName: normalizeName(s) };
+
+  const digits = s.replace(/\D/g, '');
+  if (digits.length >= 4) return { confirmation: digits };
+  return {};
+}
+
+function statusTone(status?: string): StatusTone {
+  const value = text(status);
+  if (!value) return 'unknown';
+  if (READY_WORDS.some((word) => value.includes(word))) return 'ready';
+  if (PROGRESS_WORDS.some((word) => value.includes(word))) return 'progress';
+  if (HOLD_WORDS.some((word) => value.includes(word))) return 'hold';
+  return 'unknown';
+}
+
+function statusMessage(label: string, status?: string) {
+  const tone = statusTone(status);
+  if (tone === 'ready') return `${label} is ready for pickup.`;
+  if (tone === 'progress') return `${label} is being worked on.`;
+  if (tone === 'hold') return `${label} has been received and is waiting for the next step.`;
+  return `${label} status will update here as work moves forward.`;
+}
+
+function trackSummaries(res: LookupResult | null): TrackSummary[] {
+  if (!res) return [];
+  const tracks = res.tracks || {};
+  return [
+    {
+      key: 'meat',
+      label: 'Processing',
+      value: res.status,
+      tone: statusTone(res.status),
+      message: statusMessage('Processing', res.status),
+    },
+    {
+      key: 'cape',
+      label: 'Cape',
+      value: tracks.capeStatus,
+      tone: statusTone(tracks.capeStatus),
+      message: statusMessage('Cape', tracks.capeStatus),
+    },
+    {
+      key: 'webbs',
+      label: 'Webbs',
+      value: tracks.webbsStatus,
+      tone: statusTone(tracks.webbsStatus),
+      message: statusMessage('Webbs', tracks.webbsStatus),
+    },
+    {
+      key: 'specialty',
+      label: 'Specialty',
+      value: tracks.specialtyStatus,
+      tone: statusTone(tracks.specialtyStatus),
+      message: statusMessage('Specialty', tracks.specialtyStatus),
+    },
+  ].filter((item) => item.value);
+}
+
 export default function StatusPage() {
-  // Smart single-input
   const [q, setQ] = useState('');
-  // Advanced (original fields)
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [confirmation, setConfirmation] = useState('');
   const [tag, setTag] = useState('');
   const [lastName, setLastName] = useState('');
-
-  // Result + UX
   const [res, setRes] = useState<LookupResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
 
-  // Polling (backoff timeouts)
   const pollUntilRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const READY_WORDS = useMemo(() => ['ready', 'finished', 'complete', 'completed', 'done'], []);
-  const text = (s?: string) => String(s || '').toLowerCase();
   const latestReadyRef = useRef(false);
 
   const isReady = useMemo(() => {
@@ -68,22 +174,11 @@ export default function StatusPage() {
       READY_WORDS.some((w) => text(t.webbsStatus).includes(w)) ||
       READY_WORDS.some((w) => text(t.specialtyStatus).includes(w))
     );
-  }, [res, READY_WORDS]);
+  }, [res]);
 
   useEffect(() => {
     latestReadyRef.current = isReady;
   }, [isReady]);
-
-  const toNum = (v: unknown) => {
-    const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
-    return Number.isFinite(n) ? n : undefined;
-  };
-  const toBool = (v: unknown) => {
-    if (v === true) return true;
-    const s = String(v ?? '').trim().toLowerCase();
-    return ['1', 'true', 'yes', 'y', 'paid', '✓', '✔', 'x'].includes(s);
-  };
-  const money = (n?: number) => (typeof n === 'number' ? `$${n.toFixed(2)}` : '—');
 
   const priceProcessing = toNum(res?.priceProcessing);
   const priceSpecialty = toNum(res?.priceSpecialty);
@@ -93,129 +188,151 @@ export default function StatusPage() {
       ? (priceProcessing || 0) + (priceSpecialty || 0)
       : undefined);
 
+  const paidOverall = toBool(res?.paid);
+  const paidProc = toBool(res?.paidProcessing);
+  const paidSpec = toBool(res?.paidSpecialty);
+  const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some(
+    (v) => v !== undefined && v !== null && String(v) !== ''
+  );
   const hasAnyPricing =
     typeof priceProcessing === 'number' ||
     typeof priceSpecialty === 'number' ||
     typeof priceTotal === 'number';
 
-  const paidOverall = toBool(res?.paid);
-  const paidProc = toBool(res?.paidProcessing);
-  const paidSpec = toBool(res?.paidSpecialty);
-  const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some(
-    (v) => v !== undefined && v !== null
-  );
+  const owedProcessing =
+    paidOverall || paidProc ? 0 : typeof priceProcessing === 'number' ? priceProcessing : undefined;
+  const owedSpecialty =
+    paidOverall || paidSpec ? 0 : typeof priceSpecialty === 'number' ? priceSpecialty : undefined;
+  const owedTotal = paidOverall
+    ? 0
+    : typeof priceTotal === 'number'
+      ? priceTotal
+      : typeof owedProcessing === 'number' || typeof owedSpecialty === 'number'
+        ? (owedProcessing || 0) + (owedSpecialty || 0)
+        : undefined;
 
-  // -------- Styles (inline to avoid CSS changes) --------
-  const field: React.CSSProperties = { background: '#0f1416', color: '#e6e7eb', border: '1px solid #1f2937', borderRadius: 10, padding: '12px 14px' };
-  const btn: React.CSSProperties = { background: '#2f6f3f', color: '#fff', border: '1px solid transparent', borderRadius: 10, padding: '12px 16px', fontWeight: 800, cursor: 'pointer' };
-  const errBox: React.CSSProperties = { marginTop: 12, border: '1px solid #7f1d1d', background: 'rgba(127,29,29,.15)', color: '#fecaca', borderRadius: 10, padding: 10 };
-  const card: React.CSSProperties = { marginTop: 14, border: '1px solid #1f2937', borderRadius: 12, background: '#0b0f12', padding: 12, color: '#e6e7eb' };
-  const valueBox: React.CSSProperties = { background: '#0f1416', border: '1px solid #1f2937', borderRadius: 10, padding: '8px 10px' };
-  const pill: React.CSSProperties = { display: 'inline-block', border: '1px solid #2a5f47', background: '#193b2e', color: '#a7e3ba', borderRadius: 999, padding: '4px 10px', fontWeight: 800 };
-
+  const summaries = useMemo(() => trackSummaries(res), [res]);
+  const currentStage = summaries[0];
   const mapsUrl = SITE.mapsUrl;
 
-  // -------- Query parsing (keeps your API contract) --------
-  function normalizeName(n?: string) {
-    return (n || '').trim().replace(/[^a-zA-Z'-]/g, '');
-  }
+  const field: React.CSSProperties = {
+    background: '#0f1416',
+    color: '#e6e7eb',
+    border: '1px solid #1f2937',
+    borderRadius: 12,
+    padding: '13px 14px',
+  };
+  const card: React.CSSProperties = {
+    border: '1px solid #1f2937',
+    borderRadius: 18,
+    background: '#0b0f12',
+    color: '#e6e7eb',
+  };
+  const sectionCard: React.CSSProperties = {
+    border: '1px solid #1f2937',
+    borderRadius: 14,
+    background: '#11161b',
+    padding: 14,
+  };
+  const primaryBtn: React.CSSProperties = {
+    background: '#2f6f3f',
+    color: '#fff',
+    border: '1px solid transparent',
+    borderRadius: 12,
+    padding: '12px 16px',
+    fontWeight: 800,
+    cursor: 'pointer',
+  };
+  const secondaryBtn: React.CSSProperties = {
+    background: '#11161b',
+    color: '#e6e7eb',
+    border: '1px solid #1f2937',
+    borderRadius: 12,
+    padding: '12px 16px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  };
+  const helperChip: React.CSSProperties = {
+    border: '1px solid #1f2937',
+    borderRadius: 999,
+    padding: '8px 12px',
+    background: '#11161b',
+    color: '#d4e7db',
+    fontWeight: 700,
+    cursor: 'pointer',
+  };
+  const valueBox: React.CSSProperties = {
+    background: '#0f1416',
+    border: '1px solid #1f2937',
+    borderRadius: 12,
+    padding: '10px 12px',
+  };
+  const errBox: React.CSSProperties = {
+    marginTop: 12,
+    border: '1px solid #7f1d1d',
+    background: 'rgba(127,29,29,.15)',
+    color: '#fecaca',
+    borderRadius: 12,
+    padding: 12,
+  };
 
-  function parseQuery(input: string): { confirmation?: string; tag?: string; lastName?: string } {
-    let s = input.trim();
-    if (!s) return {};
-
-    // Allow comma/extra whitespace
-    s = s.replace(/[,]+/g, ' ').replace(/\s+/g, ' ');
-
-    // "123456" => confirmation (pure digits and length >= 4)
-    if (/^\d{4,}$/.test(s)) return { confirmation: s };
-
-    // "54321 McAfee" => tag + last
-    let m = s.match(/^(\d{2,})\s+([a-zA-Z'-]{2,})$/);
-    if (m) return { tag: m[1], lastName: normalizeName(m[2]) };
-
-    // "McAfee 54321" => last + tag
-    m = s.match(/^([a-zA-Z'-]{2,})\s+(\d{2,})$/);
-    if (m) return { tag: m[2], lastName: normalizeName(m[1]) };
-
-    // "McAfee" => last only
-    if (/^[a-zA-Z'-]{2,}$/.test(s)) return { lastName: normalizeName(s) };
-
-    // Fallback: strip non-digits as confirmation
-    const digits = s.replace(/\D/g, '');
-    if (digits.length >= 4) return { confirmation: digits };
-    return {};
-  }
-
-  // -------- Lookup helpers --------
   async function postStatus(payload: { confirmation?: string; tag?: string; lastName?: string }) {
     const r = await fetch('/api/public-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const j = (await r.json()) as LookupResult;
-    return j;
+    return (await r.json()) as LookupResult;
   }
 
-  const doLookupChain = useCallback(
-    async (payload: { confirmation?: string; tag?: string; lastName?: string }) => {
-      setLoading(true);
-      setErr(null);
-      try {
-        const attempts: Array<{ confirmation?: string; tag?: string; lastName?: string }> = [];
+  const doLookupChain = useCallback(async (payload: { confirmation?: string; tag?: string; lastName?: string }) => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const attempts: Array<{ confirmation?: string; tag?: string; lastName?: string }> = [];
 
-        if (payload.confirmation) {
-          attempts.push({ confirmation: payload.confirmation });
-        } else if (payload.tag && payload.lastName) {
-          attempts.push({ tag: payload.tag, lastName: payload.lastName });
-          attempts.push({ tag: payload.tag });
-          attempts.push({ lastName: payload.lastName });
-        } else if (payload.tag) {
-          attempts.push({ tag: payload.tag });
-        } else if (payload.lastName) {
-          attempts.push({ lastName: payload.lastName });
-        } else {
-          setRes(null);
-          setErr('Enter a Confirmation # or Tag + Last Name.');
-          setLoading(false);
+      if (payload.confirmation) {
+        attempts.push({ confirmation: payload.confirmation });
+      } else if (payload.tag && payload.lastName) {
+        attempts.push({ tag: payload.tag, lastName: payload.lastName });
+        attempts.push({ tag: payload.tag });
+        attempts.push({ lastName: payload.lastName });
+      } else if (payload.tag) {
+        attempts.push({ tag: payload.tag });
+      } else if (payload.lastName) {
+        attempts.push({ lastName: payload.lastName });
+      } else {
+        setRes(null);
+        setErr('Enter your confirmation number or your tag and last name.');
+        return;
+      }
+
+      let lastErr: string | null = null;
+      for (const p of attempts) {
+        const resp = await postStatus(p);
+        if (resp?.ok) {
+          setRes(resp);
+          setLastUpdatedAt(Date.now());
           return;
         }
-
-        let lastErr: string | null = null;
-        for (const p of attempts) {
-          const resp = await postStatus(p);
-          if (resp?.ok) {
-            setRes(resp);
-            setLastUpdatedAt(Date.now());
-            setLoading(false);
-            return;
-          }
-          if (resp?.error && !resp?.notFound) {
-            // real error, bail
-            lastErr = resp.error;
-            break;
-          }
-          // else try next attempt
+        if (resp?.error && !resp?.notFound) {
+          lastErr = resp.error;
+          break;
         }
-
-        setRes(null);
-        setErr(lastErr || 'No match found.');
-      } catch (e: any) {
-        setRes(null);
-        setErr(e?.message || 'Lookup failed.');
-      } finally {
-        setLoading(false);
       }
-    },
-    []
-  );
 
-  // Keep original doLookup signature for reuse
+      setRes(null);
+      setErr(lastErr || 'No deer matched that search. Try your confirmation number first.');
+    } catch (e: any) {
+      setRes(null);
+      setErr(e?.message || 'Lookup failed.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const doLookup = useCallback(
-    async (payload: { confirmation?: string; tag?: string; lastName?: string }) => {
-      return doLookupChain(payload);
-    },
+    async (payload: { confirmation?: string; tag?: string; lastName?: string }) => doLookupChain(payload),
     [doLookupChain]
   );
 
@@ -239,51 +356,42 @@ export default function StatusPage() {
       : base;
 
     if (!payload.confirmation && !payload.tag && !payload.lastName) {
-      setErr('Enter a Confirmation # or Tag + Last Name.');
+      setErr('Enter your confirmation number or your tag and last name.');
       return;
     }
 
-    // Do an immediate lookup
     doLookup(payload);
 
-    // Start a backoff polling cycle: 30s → 60s → 120s, stop after 5 min or when ready
     clearPolling();
-    pollUntilRef.current = Date.now() + 5 * 60 * 1000; // 5 minutes
-    const DELAYS = [30_000, 60_000, 120_000];
+    pollUntilRef.current = Date.now() + 5 * 60 * 1000;
+    const delays = [30_000, 60_000, 120_000];
     let i = 0;
 
     const tick = async () => {
-      // stop conditions
       if (!pollUntilRef.current || Date.now() > pollUntilRef.current) return;
       if (document.hidden) {
-        // If tab hidden, chill a bit and try again
         timeoutRef.current = setTimeout(tick, 15_000);
         return;
       }
 
       await doLookup(payload);
-
-      // If the order is ready, stop polling
       if (latestReadyRef.current) return;
 
-      const nextDelay = DELAYS[Math.min(i++, DELAYS.length - 1)];
+      const nextDelay = delays[Math.min(i++, delays.length - 1)];
       timeoutRef.current = setTimeout(tick, nextDelay);
     };
 
-    timeoutRef.current = setTimeout(tick, DELAYS[0]);
+    timeoutRef.current = setTimeout(tick, delays[0]);
   }
 
   useEffect(() => {
-    // Cleanup on unmount
     return () => {
       clearPolling();
     };
   }, []);
 
-  // -------- Optional barcode/QR scan (progressive enhancement) --------
   async function handleScan() {
     try {
-      // Only show if supported
       // @ts-ignore
       if (!('BarcodeDetector' in window)) return;
       // @ts-ignore
@@ -292,7 +400,6 @@ export default function StatusPage() {
       const video = document.createElement('video');
       video.srcObject = stream;
       await video.play();
-      // Simple single-frame attempt (keep it lightweight)
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
@@ -307,68 +414,87 @@ export default function StatusPage() {
         setQ(/^\d+$/.test(raw) ? raw : raw.replace(/\s+/g, ' '));
       }
     } catch {
-      // Silent fail
+      // ignore scan failures
     }
   }
 
   const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window && 'mediaDevices' in navigator;
 
-  // -------- UI --------
   return (
-    <main style={{ maxWidth: 780, margin: '20px auto', padding: '0 12px' }}>
-      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 6 }}>Check Status</h1>
-      <p style={{ opacity: 0.8, marginBottom: 12 }}>
-        Search by <b>Confirmation #</b> or <b>Tag + Last Name</b>.
-      </p>
-
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g., 123456  •  54321 McAfee  •  McAfee 54321"
-            inputMode="text"
-            enterKeyHint="search"
-            autoCapitalize="none"
-            autoCorrect="off"
-            style={{ ...field, flex: 1 }}
-            aria-label="Search by Confirmation # or Tag and Last Name"
-          />
-          {canScan ? (
-            <button type="button" onClick={handleScan} title="Scan code" style={{ ...btn, whiteSpace: 'nowrap' }}>
-              Scan
-            </button>
-          ) : null}
-        </div>
-
-        <details style={{ marginTop: 2 }}>
-          <summary style={{ cursor: 'pointer' }} onClick={() => setShowAdvanced((v) => !v)}>
-            Advanced (enter fields separately)
-          </summary>
-          <div style={{ display: 'grid', gap: 10, marginTop: 8 }}>
-            <input
-              value={confirmation}
-              onChange={(e) => setConfirmation(e.target.value)}
-              placeholder="Confirmation #"
-              inputMode="numeric"
-              aria-label="Confirmation number"
-              style={field}
-            />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag" aria-label="Tag number" style={field} />
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last Name" aria-label="Customer last name" style={field} />
-            </div>
+    <main style={{ maxWidth: 920, margin: '20px auto', padding: '0 12px 28px' }}>
+      <section style={{ ...card, padding: 18 }}>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div>
+            <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0 }}>Track Your Deer</h1>
+            <p style={{ opacity: 0.86, margin: '8px 0 0' }}>
+              Enter your confirmation number for the fastest search. You can also search by deer tag and last name.
+            </p>
           </div>
-        </details>
 
-        <button disabled={loading} style={btn} aria-busy={loading}>
-          {loading ? 'Checking…' : 'Check status'}
-        </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => setQ('1234567890')} style={helperChip}>
+              Search with confirmation number
+            </button>
+            <button type="button" onClick={() => setQ('54321 McAfee')} style={helperChip}>
+              Search with tag and last name
+            </button>
+          </div>
 
-        <div style={{ fontSize: 12, opacity: 0.8 }}>
-          Tip: Confirmation # is fastest. For Tag search, you can type <code>54321 McAfee</code> or <code>McAfee 54321</code>.
+          <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Confirmation # or Tag + Last Name"
+                inputMode="text"
+                enterKeyHint="search"
+                autoCapitalize="none"
+                autoCorrect="off"
+                style={{ ...field, flex: '1 1 380px' }}
+                aria-label="Search by confirmation number or tag and last name"
+              />
+              {canScan ? (
+                <button type="button" onClick={handleScan} title="Scan code" style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}>
+                  Scan
+                </button>
+              ) : null}
+              <button disabled={loading} style={primaryBtn} aria-busy={loading}>
+                {loading ? 'Checking...' : 'Check Status'}
+              </button>
+            </div>
+
+            <div style={{ fontSize: 13, opacity: 0.82 }}>
+              Examples: <code>1234567890</code>, <code>54321 McAfee</code>, or <code>McAfee 54321</code>
+            </div>
+
+            <details style={{ marginTop: 2 }}>
+              <summary style={{ cursor: 'pointer' }} onClick={() => setShowAdvanced((v) => !v)}>
+                Advanced search
+              </summary>
+              <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+                <input
+                  value={confirmation}
+                  onChange={(e) => setConfirmation(e.target.value)}
+                  placeholder="Confirmation #"
+                  inputMode="numeric"
+                  aria-label="Confirmation number"
+                  style={field}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag" aria-label="Tag number" style={field} />
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last Name"
+                    aria-label="Customer last name"
+                    style={field}
+                  />
+                </div>
+              </div>
+            </details>
+          </form>
         </div>
-      </form>
+      </section>
 
       {err ? (
         <div role="alert" aria-live="polite" style={errBox}>
@@ -377,52 +503,81 @@ export default function StatusPage() {
       ) : null}
 
       {res ? (
-        <div style={card}>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {/* Identity */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Info label="Customer" value={res.customer || '—'} valueBox={valueBox} />
-              <Info label="Confirmation" value={res.confirmation || '—'} valueBox={valueBox} />
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Info label="Tag" value={res.tag || '—'} valueBox={valueBox} />
-              <Info label="Overall Status (Meat)" value={res.status || '—'} valueBox={valueBox} />
-            </div>
-
-            {/* Tracks */}
-            <div style={{ marginTop: 6, display: 'grid', gap: 6 }}>
-              {res.tracks?.capeStatus ? <Track label="Cape" value={res.tracks.capeStatus} pill={pill} /> : null}
-              {res.tracks?.webbsStatus ? <Track label="Webbs" value={res.tracks.webbsStatus} pill={pill} /> : null}
-              {res.tracks?.specialtyStatus ? <Track label="Specialty" value={res.tracks.specialtyStatus} pill={pill} /> : null}
-            </div>
-
-            {/* Payment */}
-            {(hasAnyPricing || hasAnyPaid) && (
-              <section aria-label="Payment" style={{ marginTop: 8, border: '1px solid #1f2937', borderRadius: 10, background: '#0b0f12', padding: 10, display: 'grid', gap: 8 }}>
-                <div style={{ fontWeight: 900, color: '#d4e7db' }}>Payment</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  <Info label="Processing" value={money(priceProcessing)} valueBox={valueBox} />
-                  <Info label="Specialty" value={money(priceSpecialty)} valueBox={valueBox} />
-                  <Info label="Total" value={money(priceTotal)} valueBox={valueBox} />
+        <section style={{ ...card, marginTop: 16, padding: 18, display: 'grid', gap: 16 }}>
+          <div
+            style={{
+              ...sectionCard,
+              borderColor: tones[currentStage?.tone || 'unknown'].border,
+              background: currentStage?.tone === 'ready' ? '#11251c' : sectionCard.background,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 12, opacity: 0.78, marginBottom: 4 }}>Order found</div>
+                <div style={{ fontSize: 26, fontWeight: 900 }}>{res.customer || 'Customer'}</div>
+                <div style={{ opacity: 0.86, marginTop: 4 }}>
+                  Confirmation {res.confirmation || '-'} {res.tag ? `| Tag ${res.tag}` : ''}
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {hasAnyPaid && (
-                    <>
-                      <Badge ok={paidOverall} label={paidOverall ? 'Paid (overall)' : 'Unpaid (overall)'} />
-                      {'paidProcessing' in (res || {}) ? (
-                        <Badge ok={paidProc} label={paidProc ? 'Processing Paid' : 'Processing Unpaid'} />
-                      ) : null}
-                      {'paidSpecialty' in (res || {}) ? (
-                        <Badge ok={paidSpec} label={paidSpec ? 'Specialty Paid' : 'Specialty Unpaid'} />
-                      ) : null}
-                    </>
-                  )}
-                </div>
-              </section>
-            )}
+              </div>
+              {currentStage ? (
+                <StatusPill tone={currentStage.tone} label={currentStage.value || 'Status pending'} />
+              ) : null}
+            </div>
+            {currentStage ? (
+              <p style={{ margin: '12px 0 0', opacity: 0.9 }}>{currentStage.message}</p>
+            ) : null}
           </div>
 
-          {/* Pickup panel */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            <SummaryCard
+              title="What is happening now"
+              value={currentStage?.value || res.status || 'Status pending'}
+              note={currentStage?.message || 'We will keep this page updated as your deer moves through the shop.'}
+            />
+            <SummaryCard
+              title="Amount owed right now"
+              value={money(owedTotal)}
+              note={
+                paidOverall
+                  ? 'This order is marked paid.'
+                  : typeof owedTotal === 'number'
+                    ? 'This is the current balance showing in our system.'
+                    : 'Pricing has not been posted yet.'
+              }
+            />
+            <SummaryCard
+              title="Payment"
+              value={paidOverall ? 'Paid' : hasAnyPaid ? 'Partially paid or unpaid' : 'Not posted yet'}
+              note={
+                paidOverall
+                  ? 'No additional balance is showing.'
+                  : hasAnyPaid
+                    ? 'See the payment breakdown below for processing and specialty items.'
+                    : 'Payment details will appear here once entered.'
+              }
+            />
+          </div>
+
+          <section style={sectionCard} aria-label="Status details">
+            <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Status Details</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+              {summaries.map((item) => (
+                <TrackCard key={item.key} item={item} />
+              ))}
+            </div>
+          </section>
+
+          {(hasAnyPricing || hasAnyPaid) && (
+            <section style={sectionCard} aria-label="Payment details">
+              <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Payment Details</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+                <PaymentCard label="Processing" amount={priceProcessing} paid={paidOverall || paidProc} owed={owedProcessing} />
+                <PaymentCard label="Specialty" amount={priceSpecialty} paid={paidOverall || paidSpec} owed={owedSpecialty} />
+                <PaymentCard label="Total" amount={priceTotal} paid={paidOverall} owed={owedTotal} />
+              </div>
+            </section>
+          )}
+
           <PickupPanel
             ready={isReady}
             addressText={SITE.address}
@@ -432,11 +587,11 @@ export default function StatusPage() {
             hours={SITE.hours as ReadonlyArray<{ label: string; value: string }>}
             lastUpdatedAt={lastUpdatedAt}
           />
-        </div>
+        </section>
       ) : null}
 
-      <div style={{ marginTop: 18, opacity: 0.8, fontSize: 13 }}>
-        Don’t see your order? Try a different query (Confirmation # is best), or{' '}
+      <div style={{ marginTop: 18, opacity: 0.82, fontSize: 13 }}>
+        Not seeing your order? Try your confirmation number first, or{' '}
         <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
           check the FAQ
         </Link>
@@ -446,29 +601,101 @@ export default function StatusPage() {
   );
 }
 
-function Info({ label, value, valueBox }: { label: string; value: string; valueBox: React.CSSProperties }) {
+function SummaryCard({ title, value, note }: { title: string; value: string; note: string }) {
   return (
-    <div>
-      <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 4 }}>{label}</div>
-      <div style={valueBox}>{value}</div>
+    <div
+      style={{
+        border: '1px solid #1f2937',
+        borderRadius: 14,
+        background: '#11161b',
+        padding: 14,
+      }}
+    >
+      <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 6 }}>{value}</div>
+      <div style={{ opacity: 0.84, lineHeight: 1.45 }}>{note}</div>
     </div>
   );
 }
 
-function Track({ label, value, pill }: { label: string; value?: string; pill: React.CSSProperties }) {
-  if (!value) return null;
+function StatusPill({ tone, label }: { tone: StatusTone; label: string }) {
+  const palette = tones[tone];
   return (
-    <div>
-      <b style={{ opacity: 0.85 }}>{label}:</b> <span style={pill}>{value}</span>
+    <span
+      style={{
+        display: 'inline-block',
+        border: `1px solid ${palette.border}`,
+        background: palette.background,
+        color: palette.text,
+        borderRadius: 999,
+        padding: '8px 14px',
+        fontWeight: 800,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
+function TrackCard({ item }: { item: TrackSummary }) {
+  const palette = tones[item.tone];
+  return (
+    <div
+      style={{
+        border: `1px solid ${palette.border}`,
+        background: '#0f1416',
+        borderRadius: 14,
+        padding: 14,
+        display: 'grid',
+        gap: 8,
+      }}
+    >
+      <div style={{ fontSize: 12, opacity: 0.76 }}>{item.label}</div>
+      <StatusPill tone={item.tone} label={item.value || 'Status pending'} />
+      <div style={{ opacity: 0.84, lineHeight: 1.45 }}>{item.message}</div>
+    </div>
+  );
+}
+
+function PaymentCard({ label, amount, paid, owed }: PaymentCardProps) {
+  return (
+    <div
+      style={{
+        border: '1px solid #1f2937',
+        borderRadius: 14,
+        background: '#0f1416',
+        padding: 14,
+        display: 'grid',
+        gap: 8,
+      }}
+    >
+      <div style={{ fontSize: 12, opacity: 0.76 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 900 }}>{money(amount)}</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Badge ok={!!paid} label={paid ? 'Paid' : 'Unpaid'} />
+        {typeof owed === 'number' ? <Badge ok={owed === 0} label={owed === 0 ? 'Balance cleared' : `Owes ${money(owed)}`} /> : null}
+      </div>
     </div>
   );
 }
 
 function Badge({ ok, label }: { ok?: boolean; label: string }) {
-  const style: React.CSSProperties = ok
-    ? { display: 'inline-block', border: '1px solid #2a5f47', background: '#193b2e', color: '#a7e3ba', borderRadius: 999, padding: '4px 10px', fontWeight: 800 }
-    : { display: 'inline-block', border: '1px solid #7f1d1d', background: 'rgba(127,29,29,.15)', color: '#fecaca', borderRadius: 999, padding: '4px 10px', fontWeight: 800 };
-  return <span style={style}>{label}</span>;
+  const palette = ok ? tones.ready : tones.hold;
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        border: `1px solid ${palette.border}`,
+        background: palette.background,
+        color: palette.text,
+        borderRadius: 999,
+        padding: '4px 10px',
+        fontWeight: 800,
+      }}
+    >
+      {label}
+    </span>
+  );
 }
 
 function PickupPanel({
@@ -492,53 +719,56 @@ function PickupPanel({
     <section
       aria-label="Pickup Information"
       style={{
-        marginTop: 12,
         border: '1px solid #1f2937',
-        background: '#0b0f12',
-        borderRadius: 12,
-        padding: 12,
+        background: '#11161b',
+        borderRadius: 14,
+        padding: 14,
         color: '#e6e7eb',
         display: 'grid',
-        gap: 10,
+        gap: 12,
       }}
     >
-      {ready && (
-        <div style={{ background: '#193b2e', border: '1px solid #2a5f47', color: '#a7e3ba', borderRadius: 10, padding: '8px 10px', fontWeight: 800 }}>
-          Ready for pickup
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 18 }}>Pickup Information</div>
+          <div style={{ opacity: 0.84 }}>When your deer is ready, this is where to go and who to call.</div>
         </div>
-      )}
-
-      {lastUpdatedAt ? (
-        <div style={{ fontSize: 12, opacity: 0.8 }}>Last updated: {new Date(lastUpdatedAt).toLocaleTimeString()}</div>
-      ) : null}
-
-      <div>
-        <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Pickup Location</div>
-        <div style={{ opacity: 0.9 }}>
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-            {addressText}
-          </a>
-        </div>
+        {ready ? <StatusPill tone="ready" label="Ready for pickup" /> : null}
       </div>
 
-      {hours?.length ? (
-        <div>
-          <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Hours</div>
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, opacity: 0.9 }}>
-            {hours.map((h, i) => (
-              <li key={i}>
-                {h.label}: {h.value}
-              </li>
-            ))}
-          </ul>
-        </div>
+      {lastUpdatedAt ? (
+        <div style={{ fontSize: 12, opacity: 0.78 }}>Last updated: {new Date(lastUpdatedAt).toLocaleTimeString()}</div>
       ) : null}
 
-      <div>
-        <div style={{ fontWeight: 900, color: '#d4e7db', marginBottom: 2 }}>Call Us</div>
-        <a href={phoneHref} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-          {phoneDisplay}
-        </a>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 5 }}>Location</div>
+          <div>
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+              {addressText}
+            </a>
+          </div>
+        </div>
+
+        {hours?.length ? (
+          <div>
+            <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 5 }}>Hours</div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, opacity: 0.92, display: 'grid', gap: 2 }}>
+              {hours.map((h, i) => (
+                <li key={i}>
+                  {h.label}: {h.value}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 5 }}>Phone</div>
+          <a href={phoneHref} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+            {phoneDisplay}
+          </a>
+        </div>
       </div>
     </section>
   );
