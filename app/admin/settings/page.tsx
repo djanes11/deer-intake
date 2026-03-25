@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { tokenHeader } from '@/lib/api';
 
 type SiteSettings = {
   public_intake_enabled: boolean;
@@ -10,8 +11,6 @@ type SiteSettings = {
   updated_at?: string;
 };
 
-const ADMIN_TOKEN = process.env.NEXT_PUBLIC_ADMIN_SETTINGS_TOKEN || '';
-
 export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
@@ -19,8 +18,8 @@ export default function AdminSettingsPage() {
 
   const headers: Record<string, string> = {
     'content-type': 'application/json',
+    ...tokenHeader(),
   };
-  if (ADMIN_TOKEN) headers['x-admin-token'] = ADMIN_TOKEN;
 
   const load = async () => {
     setMsg('');

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
-import { getJob as fetchJobFromApi } from '@/lib/api';
+import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,19 +64,22 @@ function normRow(r: any): Row {
 }
 
 async function fetchMissing(limit = 500): Promise<Row[]> {
-  const r = await fetch(`${API_MISSING}?limit=${limit}`, { cache: 'no-store' });
+  const r = await fetch(`${API_MISSING}?limit=${limit}`, {
+    cache: 'no-store',
+    headers: tokenHeader(),
+  });
   const data = await parseJsonSafe(r);
   if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
   const rows = Array.isArray(data?.rows) ? data.rows : [];
   return rows.map(normRow);
 }
 
-async function assignTag(pendingTag: string, tag: string) {
+async function assignTag(opts: { pendingTag?: string; jobId?: string; tag: string }) {
   const r = await fetch(API_ASSIGN, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...tokenHeader() },
     cache: 'no-store',
-    body: JSON.stringify({ pendingTag, tag }),
+    body: JSON.stringify(opts),
   });
   const data = await parseJsonSafe(r);
   if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
@@ -126,8 +129,10 @@ export default function MissingTagsPage() {
     }
   };
 
-  const doAssign = async (pendingTag: string) => {
-    const raw = drafts[pendingTag] ?? '';
+  const doAssign = async (row: Row) => {
+    const pendingTag = row.tag || '';
+    const draftKey = pendingTag || row.id || '';
+    const raw = drafts[draftKey] ?? '';
     const newTag = digitsOnly(raw);
 
     if (!/^\d{5,}$/.test(newTag)) {
@@ -136,12 +141,12 @@ export default function MissingTagsPage() {
     }
 
     setErr('');
-    setAssigning(pendingTag);
+    setAssigning(draftKey);
     try {
-      await assignTag(pendingTag, newTag);
+      await assignTag({ pendingTag, jobId: row.id, tag: newTag });
 
       // Remove this row from list immediately
-      setRows((prev) => prev.filter((r) => r.tag !== pendingTag));
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
 
       // Optionally auto-open print sheet
       await openJob(newTag);
@@ -207,7 +212,8 @@ export default function MissingTagsPage() {
             ) : (
               rows.map((r) => {
                 const pendingTag = r.tag || '';
-                const isBusy = assigning === pendingTag;
+                const draftKey = pendingTag || r.id || '';
+                const isBusy = assigning === draftKey;
 
                 return (
                   <div
@@ -230,16 +236,16 @@ export default function MissingTagsPage() {
 
                     <div style={{ display: 'flex', gap: 8 }}>
                       <input
-                        value={drafts[pendingTag] ?? ''}
-                        onChange={(e) => setDrafts((p) => ({ ...p, [pendingTag]: e.target.value }))}
+                        value={drafts[draftKey] ?? ''}
+                        onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: e.target.value }))}
                         placeholder="e.g. 12345"
                         style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #ddd' }}
-                        disabled={isBusy || !pendingTag}
+                        disabled={isBusy || !r.id}
                       />
                       <button
                         className="btn"
-                        onClick={() => doAssign(pendingTag)}
-                        disabled={isBusy || !pendingTag}
+                        onClick={() => doAssign(r)}
+                        disabled={isBusy || !r.id}
                         style={{ whiteSpace: 'nowrap' }}
                       >
                         {isBusy ? 'Saving…' : 'Save'}
@@ -250,10 +256,10 @@ export default function MissingTagsPage() {
                       <button
                         className="btn"
                         onClick={() => {
-                          const draft = digitsOnly(drafts[pendingTag] ?? '');
+                          const draft = digitsOnly(drafts[draftKey] ?? '');
                           if (/^\d{5,}$/.test(draft)) openJob(draft);
                         }}
-                        disabled={!/^\d{5,}$/.test(digitsOnly(drafts[pendingTag] ?? ''))}
+                        disabled={!/^\d{5,}$/.test(digitsOnly(drafts[draftKey] ?? ''))}
                       >
                         Open
                       </button>

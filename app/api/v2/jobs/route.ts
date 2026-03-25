@@ -10,15 +10,8 @@ import {
   listJobsNeedingTag,
   setJobTag,
 } from '@/lib/jobsSupabase';
+import { requireStaffAccess } from '@/lib/staffAuth';
 import { Job } from '@/types/job';
-
-const API_TOKEN = process.env.DEER_API_TOKEN;
-
-function checkAuth(token: string | null): { ok: boolean; error?: string } {
-  if (!API_TOKEN) return { ok: true }; // dev mode if no token set
-  if (token && token === API_TOKEN) return { ok: true };
-  return { ok: false, error: 'Unauthorized' };
-}
 
 function normalizeAction(v: string | null) {
   const s = (v || '').trim().toLowerCase();
@@ -36,12 +29,9 @@ function normalizeAction(v: string | null) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = normalizeAction(searchParams.get('action'));
-  const token = req.headers.get('x-api-token') || searchParams.get('token');
-
-
-  const auth = checkAuth(token);
+  const auth = requireStaffAccess(req);
   if (!auth.ok) {
-    return new Response(JSON.stringify(auth), { status: 401 });
+    return new Response(JSON.stringify(auth), { status: auth.status });
   }
 
   if (action === 'ping') {
@@ -98,13 +88,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const url = new URL(req.url);
-  const { searchParams } = url;
-  const token = req.headers.get('x-api-token') || searchParams.get('token');
-  const auth = checkAuth(token);
+  const { searchParams } = new URL(req.url);
+  const auth = requireStaffAccess(req);
 
   if (!auth.ok) {
-    return new Response(JSON.stringify(auth), { status: 401 });
+    return new Response(JSON.stringify(auth), { status: auth.status });
   }
 
   const body = await req.json().catch(() => ({} as any));

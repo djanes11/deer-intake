@@ -59,7 +59,7 @@ export type SearchParams = {
 };
 
 // ---------- TOKEN HEADER ----------
-function tokenHeader(): Record<string, string> {
+export function tokenHeader(): Record<string, string> {
   // Put this in Vercel for the *facility* deployment only.
   // Do NOT put this in your public app env.
   const t = (process.env.NEXT_PUBLIC_DEER_API_TOKEN || '').trim();

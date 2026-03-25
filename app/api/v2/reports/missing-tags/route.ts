@@ -5,6 +5,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireStaffAccess } from '@/lib/staffAuth';
 
 function supabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,6 +30,11 @@ function supabaseAdmin() {
 
 export async function GET(req: Request) {
   try {
+    const auth = requireStaffAccess(req);
+    if (!auth.ok) {
+      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+    }
+
     const supabase = supabaseAdmin();
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get('limit') || 500) || 500, 2000);

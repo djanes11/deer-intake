@@ -70,6 +70,14 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
   const wantConf = toDigits(confirmation);
   const wantTag = String(tag || '').trim();
   const wantLN = lname(lastName);
+  const confCandidates = wantConf
+    ? Array.from(
+        new Set([
+          wantConf,
+          wantConf.length > 6 ? `${wantConf.slice(0, 6)}-${wantConf.slice(6)}` : '',
+        ].filter(Boolean))
+      )
+    : [];
 
   if (!wantConf && !(wantTag && wantLN)) {
     return { ok: false, error: 'Provide Confirmation # or Tag + Last Name.' };
@@ -99,7 +107,7 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
         paid_specialty
       `
       )
-      .eq('confirmation', wantConf)
+      .in('confirmation', confCandidates)
       .order('dropoff_date', { ascending: false })
       .limit(5);
 

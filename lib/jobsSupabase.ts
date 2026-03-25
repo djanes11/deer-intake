@@ -652,7 +652,7 @@ let tagToStore: string;
     paid: job.paid ?? false,
     paid_processing: job.paidProcessing ?? false,
     paid_specialty: job.paidSpecialty ?? false,
-    requires_tag: job.requiresTag ?? false,
+    requires_tag: requiresTag,
 
     public_token: job.publicToken ? String(job.publicToken) : undefined,
     public_link_sent_at: job.publicLinkSentAt ?? null,

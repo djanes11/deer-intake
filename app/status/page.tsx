@@ -57,6 +57,7 @@ export default function StatusPage() {
 
   const READY_WORDS = useMemo(() => ['ready', 'finished', 'complete', 'completed', 'done'], []);
   const text = (s?: string) => String(s || '').toLowerCase();
+  const latestReadyRef = useRef(false);
 
   const isReady = useMemo(() => {
     if (!res) return false;
@@ -68,6 +69,10 @@ export default function StatusPage() {
       READY_WORDS.some((w) => text(t.specialtyStatus).includes(w))
     );
   }, [res, READY_WORDS]);
+
+  useEffect(() => {
+    latestReadyRef.current = isReady;
+  }, [isReady]);
 
   const toNum = (v: unknown) => {
     const n = typeof v === 'number' ? v : parseFloat(String(v ?? '').replace(/[^0-9.]/g, ''));
@@ -259,7 +264,7 @@ export default function StatusPage() {
       await doLookup(payload);
 
       // If the order is ready, stop polling
-      if (isReady) return;
+      if (latestReadyRef.current) return;
 
       const nextDelay = DELAYS[Math.min(i++, DELAYS.length - 1)];
       timeoutRef.current = setTimeout(tick, nextDelay);

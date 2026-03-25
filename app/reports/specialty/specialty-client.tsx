@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { tokenHeader } from '@/lib/api';
 
 type OrderRow = {
   tag: string;
@@ -115,7 +116,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
     try {
       const res = await fetch('/api/specialty/mark-finished', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...tokenHeader() },
         body: JSON.stringify({ tag }),
       });
 
