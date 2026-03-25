@@ -160,6 +160,21 @@ const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
 const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(s);
 const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
 
+const REQUIRED_LABELS: Record<string, string> = {
+  confirmation: 'Confirmation #',
+  customer: 'Customer Name',
+  phone: 'Phone',
+  address: 'Address',
+  city: 'City',
+  state: 'State',
+  zip: 'Zip',
+  county: 'County Killed',
+  dropoff: 'Drop-off Date',
+  sex: 'Deer Sex',
+  howKilled: 'How Killed',
+  processType: 'Process Type',
+};
+
 /* ===== Suspense wrapper ===== */
 
 export default function Page() {
@@ -312,6 +327,18 @@ function OvernightIntakePage() {
 
   const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
 
+  const focusFirstError = (nextErrors: Record<string, string>) => {
+    const firstKey = Object.keys(nextErrors)[0];
+    if (!firstKey) return;
+    window.requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-err="${firstKey}"]`) as HTMLElement | null;
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
+        el.focus();
+      }
+    });
+  };
+
   const clearErr = (k: string) =>
     setErrors((prev) => {
       if (!prev[k]) return prev;
@@ -383,6 +410,10 @@ function OvernightIntakePage() {
     return e;
   };
 
+  const currentStepErrors = validateStep(step.key);
+  const currentStepMissing = Object.keys(currentStepErrors).map((key) => REQUIRED_LABELS[key] || key);
+  const requiredDone = currentStepMissing.length === 0;
+
   const goNext = () => {
     if (locked) return;
     setMsg('');
@@ -390,6 +421,7 @@ function OvernightIntakePage() {
     setErrors(e);
     if (Object.keys(e).length) {
       setMsg('Fix the highlighted required fields.');
+      focusFirstError(e);
       return;
     }
     setStepIdx((i) => Math.min(i + 1, steps.length - 1));
@@ -414,6 +446,7 @@ function OvernightIntakePage() {
     setErrors(e);
     if (Object.keys(e).length) {
       setMsg('Fix the highlighted required fields.');
+      focusFirstError(e);
       return;
     }
 
@@ -488,7 +521,24 @@ function OvernightIntakePage() {
   return (
     <div className={`form-card ${locked ? 'locked' : ''}`}>
       <div className="screen-only">
-        <h2>Deer Intake (Overnight)</h2>
+        <div className="hero">
+          <div className="hero-copy">
+            <div className="hero-kicker">Overnight Drop-Off</div>
+            <h2>Deer Intake Form</h2>
+            <p>
+              We&apos;ll walk you through this one step at a time. Required items are checked before you move on so
+              your deer can be processed without delays.
+            </p>
+          </div>
+          <div className="hero-card">
+            <div className="hero-card-title">Before you submit</div>
+            <ul>
+              <li>Use your 13-digit GoOutdoorsIN confirmation number</li>
+              <li>Leave a note with your name, phone, and confirmation digits</li>
+              <li>Front desk will assign the real deer tag in the morning</li>
+            </ul>
+          </div>
+        </div>
         {!intakeEnabled ? (
           <div
             style={{
@@ -510,7 +560,45 @@ function OvernightIntakePage() {
             <div className="wizardStep">Step {stepIdx + 1} of {steps.length}</div>
             <div className="wizardTitle">{step.title}</div>
           </div>
+          <div className="wizardRight">
+            <span className={`stepState ${requiredDone ? 'good' : ''}`}>
+              {requiredDone ? 'Required fields complete' : `${currentStepMissing.length} required item${currentStepMissing.length === 1 ? '' : 's'} left`}
+            </span>
+          </div>
         </div>
+
+        <div className="stepChips" aria-label="Progress">
+          {steps.map((s, idx) => {
+            const state = idx < stepIdx ? 'done' : idx === stepIdx ? 'current' : 'upcoming';
+            return (
+              <button
+                key={s.key}
+                type="button"
+                className={`stepChip ${state}`}
+                onClick={() => {
+                  if (locked || idx > stepIdx) return;
+                  setStepIdx(idx);
+                  setMsg('');
+                }}
+                disabled={locked || idx > stepIdx}
+              >
+                <span className="stepChipNum">{idx + 1}</span>
+                <span>{s.title}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {!requiredDone ? (
+          <div className="requiredBox" role="status" aria-live="polite">
+            <div className="requiredTitle">Finish these before moving on:</div>
+            <div className="requiredList">
+              {currentStepMissing.map((item) => (
+                <span key={item} className="requiredPill">{item}</span>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="summary">
           <div className="row">
@@ -1204,7 +1292,16 @@ function OvernightIntakePage() {
 
         {/* Actions */}
         <div className="actions">
-          <div className={`status ${msg.startsWith('Save') || msg.startsWith('Saved') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
+          <div className="statusWrap">
+            <div className={`status ${msg.startsWith('Save') || msg.startsWith('Saved') ? 'ok' : msg ? 'err' : ''}`}>{msg}</div>
+            {!locked ? (
+              <div className="statusHint">
+                {requiredDone
+                  ? `Step ${stepIdx + 1} is ready`
+                  : `${currentStepMissing.length} required item${currentStepMissing.length === 1 ? '' : 's'} still missing`}
+              </div>
+            ) : null}
+          </div>
 
           <button className="btn secondary" onClick={goBack} disabled={busy || locked || stepIdx === 0}>
             Back
@@ -1253,7 +1350,7 @@ function OvernightIntakePage() {
       )}
 
       <style jsx>{`
-                .form-card{
+        .form-card{
           max-width: 980px;
           margin: 18px auto;
           padding: 16px 18px;
@@ -1263,15 +1360,27 @@ function OvernightIntakePage() {
           box-shadow: 0 10px 28px rgba(0,0,0,.10);
         }
 
-h2 { margin: 8px 0; }
+        h2 { margin: 8px 0; font-size: 32px; line-height: 1.05; }
         h3 { margin: 16px 0 8px; }
+        section {
+          background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+          border: 1px solid #e7eef9;
+          border-radius: 16px;
+          padding: 14px;
+          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+        }
 
         label { font-size: 12px; font-weight: 700; color: #0b0f12; display: block; margin-bottom: 4px; }
         input, select, textarea {
-          width: 100%; padding: 6px 8px; border: 1px solid #d8e3f5; border-radius: 8px; background: #fbfdff; box-sizing: border-box;
+          width: 100%; padding: 10px 12px; border: 1px solid #d8e3f5; border-radius: 10px; background: #fbfdff; box-sizing: border-box;
         }
         textarea { resize: vertical; }
         input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
+        input:focus, select:focus, textarea:focus {
+          outline: none;
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+        }
 
         .grid { display: grid; gap: 8px; grid-template-columns: repeat(12, 1fr); }
         .c3{grid-column: span 3} .c4{grid-column: span 4} .c6{grid-column: span 6} .c8{grid-column: span 8}
@@ -1280,6 +1389,46 @@ h2 { margin: 8px 0; }
         .checks { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .chk { display: inline-flex; align-items: center; gap: 6px; }
         .muted { color: #6b7280; font-size: 12px; }
+        .hero {
+          display: grid;
+          grid-template-columns: 1.6fr 1fr;
+          gap: 14px;
+          margin-bottom: 14px;
+          padding: 16px;
+          border-radius: 18px;
+          background: linear-gradient(135deg, #0f172a 0%, #17324f 100%);
+          color: #f8fafc;
+        }
+        .hero p {
+          margin: 8px 0 0;
+          color: rgba(248, 250, 252, 0.86);
+          line-height: 1.55;
+          max-width: 60ch;
+        }
+        .hero-kicker {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+          font-weight: 800;
+          color: #c7d2fe;
+        }
+        .hero-card {
+          border: 1px solid rgba(255,255,255,.14);
+          border-radius: 16px;
+          background: rgba(255,255,255,.08);
+          padding: 14px;
+          align-self: stretch;
+        }
+        .hero-card-title {
+          font-weight: 900;
+          margin-bottom: 8px;
+        }
+        .hero-card ul {
+          margin: 0;
+          padding-left: 18px;
+          line-height: 1.55;
+          color: rgba(248, 250, 252, 0.9);
+        }
 
         /* Wizard header */
         .wizardHead{
@@ -1294,6 +1443,94 @@ h2 { margin: 8px 0; }
         .wizardLeft{ display:flex; flex-direction:column; gap:2px; }
         .wizardStep{ font-size:12px; color:#64748b; font-weight:700; }
         .wizardTitle{ font-size:16px; font-weight:900; color:#0b0f12; }
+        .wizardRight { display:flex; align-items:center; }
+        .stepState {
+          display:inline-flex;
+          align-items:center;
+          border-radius:999px;
+          padding: 7px 12px;
+          background:#fff7ed;
+          color:#9a3412;
+          border:1px solid #fed7aa;
+          font-size:12px;
+          font-weight:800;
+          text-align:center;
+        }
+        .stepState.good {
+          background:#ecfdf5;
+          color:#166534;
+          border-color:#bbf7d0;
+        }
+        .stepChips {
+          display:flex;
+          gap:8px;
+          flex-wrap:wrap;
+          margin: 0 0 10px;
+        }
+        .stepChip {
+          border:1px solid #d8e3f5;
+          border-radius:999px;
+          background:#fff;
+          color:#334155;
+          font-weight:800;
+          padding:8px 12px;
+          display:inline-flex;
+          align-items:center;
+          gap:8px;
+          cursor:pointer;
+        }
+        .stepChip:disabled {
+          opacity:.65;
+          cursor:not-allowed;
+        }
+        .stepChip.current {
+          background:#eff6ff;
+          color:#1d4ed8;
+          border-color:#bfdbfe;
+        }
+        .stepChip.done {
+          background:#ecfdf5;
+          color:#166534;
+          border-color:#bbf7d0;
+        }
+        .stepChipNum {
+          width:22px;
+          height:22px;
+          border-radius:999px;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          background:rgba(15,23,42,.08);
+          font-size:12px;
+        }
+        .requiredBox {
+          border:1px solid #fecaca;
+          background:#fff7f7;
+          color:#7f1d1d;
+          border-radius:12px;
+          padding:10px 12px;
+          margin-bottom:10px;
+        }
+        .requiredTitle {
+          font-size:12px;
+          font-weight:900;
+          margin-bottom:8px;
+        }
+        .requiredList {
+          display:flex;
+          gap:8px;
+          flex-wrap:wrap;
+        }
+        .requiredPill {
+          display:inline-flex;
+          align-items:center;
+          padding:5px 10px;
+          border-radius:999px;
+          background:#fff;
+          border:1px solid #fecaca;
+          font-size:12px;
+          font-weight:800;
+        }
 
         .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
@@ -1306,7 +1543,9 @@ h2 { margin: 8px 0; }
         .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
         .btn.secondary{ background:#e2e8f0; color:#0b0f12; border-color:#cbd5e1; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
-        .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
+        .statusWrap { margin-right:auto; display:grid; gap:2px; }
+        .status { min-height: 20px; font-size: 12px; color: #334155; }
+        .statusHint { font-size: 12px; color: #64748b; font-weight: 700; }
         .status.ok { color: #065f46; }
         .status.err { color: #b91c1c; }
 
@@ -1321,10 +1560,15 @@ h2 { margin: 8px 0; }
           .summary .row.small { grid-template-columns: 1fr; }
         }
         @media (max-width: 720px) {
+          .hero {
+            grid-template-columns: 1fr;
+          }
           .grid { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
           .summary .checks { gap: 8px; }
           .wizardHead{ align-items:flex-start; }
+          .wizardRight { width: 100%; }
+          .stepState { width: 100%; justify-content: center; }
         }
 
         /* Packaging layout */
