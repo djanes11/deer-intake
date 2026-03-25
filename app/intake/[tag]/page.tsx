@@ -155,6 +155,7 @@ export default async function IntakeView({
     const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job) : 0;
     const webbsItems = webbsOrderSummary(job?.webbsItems);
     const webbsItemTotal = webbsOrderTotalLbs(job?.webbsItems);
+    const webbsOrderMode = String(job?.webbsOrderMode || job?.webbs_order_mode || '').trim();
 
     const processingOverride = toNumOrNull(
       (job as any)?.processing_price_override ?? (job as any)?.processingPriceOverride
@@ -387,7 +388,15 @@ export default async function IntakeView({
                   <Check on={true} text="Webbs Order (+$20 fee)" />
                 </div>
                 <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Order Form Number" value={job?.webbsFormNumber || job?.webbsOrderFormNumber || ''} /></div>
-              <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
+                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
+                {webbsOrderMode ? (
+                  <div className="c12" style={{gridColumn:'span 12'}}>
+                    <Field
+                      label="Public Webbs Choice"
+                      value={webbsOrderMode === 'online' ? 'Order entered online' : 'Have staff call later'}
+                    />
+                  </div>
+                ) : null}
                 {webbsItems.length > 0 && (
                   <div className="c12" style={{gridColumn:'span 12'}}>
                     <Field

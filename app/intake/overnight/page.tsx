@@ -6,6 +6,13 @@ import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import {
+  WEBBS_GROUPS,
+  type WebbsOrderItem,
+  normalizeWebbsOrderItems,
+  webbsOrderSummary,
+  webbsOrderTotalLbs,
+} from '@/lib/webbs';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +91,8 @@ type Job = {
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
+  webbsOrderMode?: 'needs_call' | 'online';
+  webbsItems?: WebbsOrderItem[];
 
   Paid?: boolean;
   paid?: boolean;
@@ -173,6 +182,8 @@ const REQUIRED_LABELS: Record<string, string> = {
   sex: 'Deer Sex',
   howKilled: 'How Killed',
   processType: 'Process Type',
+  webbsPounds: 'Estimated Webbs Pounds',
+  webbsItems: 'Webbs Items',
 };
 
 /* ===== Suspense wrapper ===== */
@@ -210,6 +221,8 @@ function OvernightIntakePage() {
 
     beefFat: false,
     webbsOrder: false,
+    webbsOrderMode: 'needs_call',
+    webbsItems: [],
     Paid: false,
     paid: false,
     paidProcessing: false,
@@ -276,6 +289,9 @@ function OvernightIntakePage() {
   ]);
 
   const totalPrice = processingPrice + specialtyPrice;
+  const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
+  const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
+  const webbsItemLines = useMemo(() => webbsOrderSummary(webbsItems), [webbsItems]);
 
   const procNorm = normProc(job.processType);
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
@@ -285,6 +301,12 @@ function OvernightIntakePage() {
   useEffect(() => {
     setJob((prev) => {
       const next = { ...prev };
+      if (!next.webbsOrder) {
+        next.webbsOrderMode = 'needs_call';
+        next.webbsItems = [];
+      } else if (!next.webbsOrderMode) {
+        next.webbsOrderMode = 'needs_call';
+      }
       const p = normProc(next.processType);
       if (p === 'Donate') {
         next.status = '';
@@ -394,6 +416,14 @@ function OvernightIntakePage() {
     if (!job.howKilled) e.howKilled = 'How Killed is required';
     if (!job.processType) e.processType = 'Process Type is required';
 
+    if (job.webbsOrder) {
+      const enteredPounds = toInt(job.webbsPounds);
+      if (!enteredPounds) e.webbsPounds = 'Estimated Webbs pounds are required';
+      if ((job.webbsOrderMode || 'needs_call') === 'online' && !webbsItems.length) {
+        e.webbsItems = 'Choose at least one Webbs item or switch to have staff call later';
+      }
+    }
+
     return e;
   };
 
@@ -406,6 +436,7 @@ function OvernightIntakePage() {
 
     if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
+    if (k === 'extras') ['webbsPounds', 'webbsItems'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
   };
@@ -463,6 +494,9 @@ function OvernightIntakePage() {
       capingStatus: (pnorm === 'Caped' || pnorm === 'Cape & Donate') ? (job.capingStatus || 'Dropped Off') : '',
 
       webbsStatus: (job.webbsOrder && pnorm !== 'Donate') ? (job.webbsStatus || 'Dropped Off') : '',
+      webbsOrderMode: job.webbsOrder ? (job.webbsOrderMode || 'needs_call') : 'needs_call',
+      webbsItems: job.webbsOrder ? webbsItems : [],
+      webbsPounds: job.webbsOrder ? String(toInt(job.webbsPounds) || webbsItemTotal || '') : '',
 
       specialtyStatus: job.specialtyProducts ? (job.specialtyStatus || 'Dropped Off') : '',
 
@@ -511,6 +545,28 @@ function OvernightIntakePage() {
   };
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) => !locked && setJob((p) => ({ ...p, [k]: v }));
+
+  const toggleWebbsItem = (key: string, checked: boolean) => {
+    if (locked) return;
+    setJob((prev) => {
+      const current = normalizeWebbsOrderItems(prev.webbsItems);
+      if (checked) {
+        if (current.some((item) => item.key === key)) return prev;
+        return { ...prev, webbsItems: [...current, { key, label: '', pounds: 1 }] };
+      }
+      return { ...prev, webbsItems: current.filter((item) => item.key !== key) };
+    });
+  };
+
+  const setWebbsItemPounds = (key: string, value: string) => {
+    if (locked) return;
+    setJob((prev) => {
+      const next = normalizeWebbsOrderItems(prev.webbsItems).filter((item) => item.key !== key);
+      const pounds = toInt(value);
+      if (pounds > 0) next.push({ key, label: '', pounds });
+      return { ...prev, webbsItems: next };
+    });
+  };
 
   const setHind = (k: keyof Required<CutsBlock>) =>
     !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
@@ -1226,17 +1282,128 @@ function OvernightIntakePage() {
                   </label>
                 </div>
 
-                <div className="c4">
-                  <label>Webbs Order Form Number</label>
-                  <Hint>Enter the form number from the Webb's Order Form.</Hint>
-                  <input value={job.webbsFormNumber || ''} onChange={(e) => setVal('webbsFormNumber', e.target.value)} disabled={locked} />
-                </div>
+                {job.webbsOrder && (
+                  <>
+                    <div className="c12">
+                      <label>Estimated Webbs Pounds (lb)</label>
+                      <Hint>Tell us how many pounds you want to send to Webbs. If you build the order below, this will auto-fill from your selections if left blank.</Hint>
+                      <input
+                        inputMode="numeric"
+                        value={job.webbsPounds || ''}
+                        onChange={(e) => setVal('webbsPounds', e.target.value)}
+                        className={errors.webbsPounds ? 'err' : ''}
+                        data-err="webbsPounds"
+                        disabled={locked}
+                      />
+                      {errors.webbsPounds ? <div className="errText">{errors.webbsPounds}</div> : null}
+                    </div>
 
-                <div className="c3">
-                  <label>Webbs Pounds (lb)</label>
-                  <Hint>If unsure, leave blank and we will enter it during processing.</Hint>
-                  <input inputMode="numeric" value={job.webbsPounds || ''} onChange={(e) => setVal('webbsPounds', e.target.value)} disabled={locked} />
-                </div>
+                    <div className="c12">
+                      <label>How would you like to handle your Webbs order?</label>
+                      <Hint>Most customers will pick one of these two options. Staff will still assign the actual Webbs form number later.</Hint>
+                      <div className="checks" style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))' }}>
+                        <label className="chk" style={{ border:'1px solid #d7dee7', borderRadius:14, padding:'12px 14px', background: job.webbsOrderMode !== 'online' ? '#fff' : '#f8fafc' }}>
+                          <input
+                            type="radio"
+                            name="webbs-order-mode"
+                            checked={(job.webbsOrderMode || 'needs_call') === 'needs_call'}
+                            onChange={() => setVal('webbsOrderMode', 'needs_call')}
+                            disabled={locked}
+                          />
+                          <span>
+                            <strong>Have staff call me later</strong><br />
+                            <span className="muted">We will contact you and finish the Webbs order with you later.</span>
+                          </span>
+                        </label>
+                        <label className="chk" style={{ border:'1px solid #d7dee7', borderRadius:14, padding:'12px 14px', background: job.webbsOrderMode === 'online' ? '#fff' : '#f8fafc' }}>
+                          <input
+                            type="radio"
+                            name="webbs-order-mode"
+                            checked={job.webbsOrderMode === 'online'}
+                            onChange={() => setVal('webbsOrderMode', 'online')}
+                            disabled={locked}
+                          />
+                          <span>
+                            <strong>Build my Webbs order now</strong><br />
+                            <span className="muted">Choose the products below and how many pounds you want of each one.</span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {job.webbsOrderMode === 'online' && (
+                      <div className="c12">
+                        <div style={{ border:'1px solid #dbe3ea', borderRadius:16, padding:16, background:'#f8fafc' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginBottom:10 }}>
+                            <div>
+                              <div style={{ fontWeight:800, color:'#0f172a' }}>Build Your Webbs Order</div>
+                              <div className="muted" style={{ fontSize:13 }}>
+                                Pick only the items you want. A pounds box will appear for each selected item.
+                              </div>
+                            </div>
+                            <span className="badge">Detailed item lbs: {webbsItemTotal || 0}</span>
+                          </div>
+
+                          {WEBBS_GROUPS.map((group) => (
+                            <div key={group.title} style={{ marginTop: 14 }}>
+                              <div style={{ fontWeight:700, marginBottom:8 }}>{group.title}</div>
+                              <div style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                                {group.items.map((item) => {
+                                  const selected = webbsItems.find((entry) => entry.key === item.key);
+                                  return (
+                                    <div
+                                      key={item.key}
+                                      style={{
+                                        border:'1px solid #d7dee7',
+                                        borderRadius:14,
+                                        padding:'10px 12px',
+                                        background: selected ? '#fff' : '#f8fafc',
+                                      }}
+                                    >
+                                      <label className="chk" style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={!!selected}
+                                          onChange={(e) => toggleWebbsItem(item.key, e.target.checked)}
+                                          disabled={locked}
+                                        />
+                                        <span style={{ fontWeight:600 }}>{item.label}</span>
+                                      </label>
+                                      {selected && (
+                                        <div style={{ marginTop:8 }}>
+                                          <label style={{ fontSize:12 }}>Pounds</label>
+                                          <input
+                                            inputMode="numeric"
+                                            value={selected.pounds || ''}
+                                            onChange={(e) => setWebbsItemPounds(item.key, e.target.value)}
+                                            disabled={locked}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+
+                          {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
+
+                          {webbsItemLines.length > 0 && (
+                            <div style={{ marginTop:14 }}>
+                              <div style={{ fontWeight:700, marginBottom:6 }}>Selected Items</div>
+                              <div style={{ display:'grid', gap:6 }}>
+                                {webbsItemLines.map((line) => (
+                                  <div key={line} style={{ fontSize:13, color:'#334155' }}>{line}</div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </section>
 

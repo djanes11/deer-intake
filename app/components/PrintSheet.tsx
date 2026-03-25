@@ -162,6 +162,10 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
   const webbsItemLines = useMemo(() => webbsOrderSummary(job?.webbsItems), [job?.webbsItems]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(job?.webbsItems), [job?.webbsItems]);
+  const webbsOrderMode = useMemo(
+    () => textVal('webbsOrderMode', 'webbs_order_mode'),
+    [job?.webbsOrderMode, job?.webbs_order_mode]
+  );
 
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -537,6 +541,11 @@ pages.forEach(p => {
               <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
               <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
             </div>
+            {webbsOrderMode ? (
+              <div style={{ marginTop: 6 }}>
+                <b>Public Webbs Choice:</b> {webbsOrderMode === 'online' ? 'Order entered online' : 'Have staff call later'}
+              </div>
+            ) : null}
             {webbsItemLines.length > 0 && (
               <div style={{ marginTop: 6 }}>
                 <div><b>Detailed Items ({webbsItemTotal} lb):</b></div>

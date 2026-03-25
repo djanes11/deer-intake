@@ -560,6 +560,7 @@ function mapDbRowToJob(row: any): Job {
     webbsOrder: !!row.webbs_order,
     webbsOrderFormNumber: row.webbs_order_form_number,
     webbsPounds: Number(row.webbs_pounds ?? 0),
+    webbsOrderMode: row.webbs_order_mode ?? null,
     webbsItems: normalizeWebbsOrderItems(row.webbs_items),
 
     // Pricing
@@ -993,6 +994,7 @@ let tagToStore: string;
     webbs_order: effectiveJob.webbsOrder ?? false,
     webbs_order_form_number: effectiveJob.webbsOrderFormNumber ?? (effectiveJob as any).webbsFormNumber ?? null,
     webbs_pounds: numOrZero(effectiveJob.webbsPounds),
+    webbs_order_mode: (effectiveJob as any).webbsOrderMode ?? null,
     webbs_items: normalizeWebbsOrderItems((effectiveJob as any).webbsItems),
 
     processing_price_override: processingOverride,

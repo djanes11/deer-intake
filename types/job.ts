@@ -70,6 +70,7 @@ export interface Job {
   webbsOrder: boolean;
   webbsOrderFormNumber: string | null;
   webbsPounds: number;
+  webbsOrderMode?: 'needs_call' | 'online' | null;
   webbsItems?: Array<{
     key: string;
     label: string;
