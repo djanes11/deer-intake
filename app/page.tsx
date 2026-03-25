@@ -46,7 +46,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   };
   const title: React.CSSProperties = {
     margin: '6px 0 8px',
-    fontSize: 40,
+    fontSize: 'clamp(30px, 7vw, 40px)',
     lineHeight: 1.1,
     fontWeight: 900,
   };
@@ -55,7 +55,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const ctas: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 10 };
   const cta = (primary = false): React.CSSProperties => ({
     display: 'inline-block',
-    padding: '10px 14px',
+    padding: '12px 14px',
     borderRadius: 12,
     textDecoration: 'none',
     color: primary ? '#0b0f0d' : colors.text,
@@ -63,11 +63,12 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
     border: primary ? '1px solid transparent' : `1px solid ${colors.panelBorder}`,
     fontWeight: 900,
     fontSize: 16,
+    minHeight: 46,
   });
 
   const twoCol: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: '2fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: 12,
     marginTop: 16,
   };

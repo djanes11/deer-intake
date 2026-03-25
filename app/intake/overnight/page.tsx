@@ -1382,12 +1382,13 @@ function OvernightIntakePage() {
           box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
         }
 
-        .grid { display: grid; gap: 8px; grid-template-columns: repeat(12, 1fr); }
+        .grid { display: grid; gap: 10px; grid-template-columns: repeat(12, 1fr); }
         .c3{grid-column: span 3} .c4{grid-column: span 4} .c6{grid-column: span 6} .c8{grid-column: span 8}
 
         .rowInline { display: flex; align-items: center; padding-top: 22px; gap: 8px; }
         .checks { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .chk { display: inline-flex; align-items: center; gap: 6px; }
+        .chk { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; }
+        .chk input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 auto; }
         .muted { color: #6b7280; font-size: 12px; }
         .hero {
           display: grid;
@@ -1539,8 +1540,8 @@ function OvernightIntakePage() {
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
-        .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
-        .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
+        .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
+        .btn { padding: 12px 14px; min-height: 46px; border: 1px solid #cbd5e1; border-radius: 10px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
         .btn.secondary{ background:#e2e8f0; color:#0b0f12; border-color:#cbd5e1; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
         .statusWrap { margin-right:auto; display:grid; gap:2px; }
@@ -1562,15 +1563,75 @@ function OvernightIntakePage() {
         @media (max-width: 720px) {
           .hero {
             grid-template-columns: 1fr;
+            padding: 14px;
           }
-          .grid { grid-template-columns: 1fr; }
-          .rowInline { padding-top: 0; }
+          .form-card {
+            margin: 0;
+            padding: 12px;
+            border-radius: 0;
+            box-shadow: none;
+            border-left: none;
+            border-right: none;
+          }
+          h2 {
+            font-size: 28px;
+          }
+          section {
+            padding: 12px;
+            border-radius: 14px;
+          }
+          .grid { grid-template-columns: 1fr; gap: 12px; }
+          .c3, .c4, .c6, .c8 { grid-column: span 1; }
+          .rowInline { padding-top: 0; align-items: flex-start; }
           .summary .checks { gap: 8px; }
           .wizardHead{ align-items:flex-start; }
           .wizardRight { width: 100%; }
           .stepState { width: 100%; justify-content: center; }
+          .stepChips {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            scrollbar-width: none;
+          }
+          .stepChips::-webkit-scrollbar {
+            display: none;
+          }
+          .stepChip {
+            white-space: nowrap;
+          }
+          .summary {
+            position: static !important;
+            padding: 10px;
+          }
+          .summary .price .money,
+          .summary .total .money.total {
+            text-align: left;
+            font-size: 18px;
+          }
+          .checks {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+          }
+          .chk {
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid #d8e3f5;
+            background: #fbfdff;
+          }
+          .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding-top: 12px;
+          }
+          .statusWrap {
+            grid-column: 1 / -1;
+          }
+          .btn {
+            width: 100%;
+          }
         }
-
         /* Packaging layout */
         .pkgGrid { display: grid; gap: 16px; }
         @media (min-width: 960px) {
