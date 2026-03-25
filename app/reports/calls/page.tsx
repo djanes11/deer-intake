@@ -41,9 +41,9 @@ function readyTracks(j: Partial<Job>): Track[] {
 
 function attemptsFor(r: FlatRow) {
   const a = r as any;
-  if (r.__track === 'meat') return Number(a.callAttemptsMeat ?? a.callAttempts ?? 0);
-  if (r.__track === 'cape') return Number(a.callAttemptsCape ?? a.callAttempts ?? 0);
-  return Number(a.callAttemptsWebbs ?? a.callAttempts ?? 0);
+  if (r.__track === 'meat') return Number(a.callAttemptsMeat ?? a.meatAttempts ?? a.callAttempts ?? 0);
+  if (r.__track === 'cape') return Number(a.callAttemptsCape ?? a.capeAttempts ?? a.callAttempts ?? 0);
+  return Number(a.callAttemptsWebbs ?? a.webbsAttempts ?? a.callAttempts ?? 0);
 }
 
 // show only processing price for meat track
@@ -120,9 +120,9 @@ export default function CallReportPage() {
           flat.push({
             ...j,
             __track: t,
-            callAttemptsMeat: Number((j as any).callAttemptsMeat ?? 0),
-            callAttemptsCape: Number((j as any).callAttemptsCape ?? 0),
-            callAttemptsWebbs: Number((j as any).callAttemptsWebbs ?? 0),
+            callAttemptsMeat: Number((j as any).callAttemptsMeat ?? (j as any).meatAttempts ?? 0),
+            callAttemptsCape: Number((j as any).callAttemptsCape ?? (j as any).capeAttempts ?? 0),
+            callAttemptsWebbs: Number((j as any).callAttemptsWebbs ?? (j as any).webbsAttempts ?? 0),
           });
         }
       }
@@ -161,9 +161,9 @@ export default function CallReportPage() {
           const flat: FlatRow[] = readyTracks(jobWithPrice).map(t => ({
             ...jobWithPrice,
             __track: t,
-            callAttemptsMeat: Number((jobWithPrice as any).callAttemptsMeat ?? 0),
-            callAttemptsCape: Number((jobWithPrice as any).callAttemptsCape ?? 0),
-            callAttemptsWebbs: Number((jobWithPrice as any).callAttemptsWebbs ?? 0),
+            callAttemptsMeat: Number((jobWithPrice as any).callAttemptsMeat ?? (jobWithPrice as any).meatAttempts ?? 0),
+            callAttemptsCape: Number((jobWithPrice as any).callAttemptsCape ?? (jobWithPrice as any).capeAttempts ?? 0),
+            callAttemptsWebbs: Number((jobWithPrice as any).callAttemptsWebbs ?? (jobWithPrice as any).webbsAttempts ?? 0),
           }));
           return [...others, ...flat].sort(
             (a, b) =>
