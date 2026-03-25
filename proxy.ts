@@ -44,6 +44,23 @@ function isReadOnlyIntake(req: NextRequest, path: string) {
   return false;
 }
 
+function isPublicPath(path: string) {
+  return (
+    path === '/' ||
+    path === '/drop' ||
+    path === '/overnight' ||
+    path === '/status' ||
+    path === '/contact' ||
+    path === '/hours' ||
+    path === '/faq-public' ||
+    path === '/help/overnight-qr' ||
+    path === '/tips' ||
+    path === '/intake/overnight' ||
+    path.startsWith('/api/public-') ||
+    path === '/api/public/site-settings'
+  );
+}
+
 export function proxy(req: NextRequest) {
   const url = new URL(req.url);
   const path = url.pathname;
@@ -54,6 +71,10 @@ export function proxy(req: NextRequest) {
   }
 
   if (isAsset(path)) return NextResponse.next();
+
+  if (isPublicPath(path)) {
+    return NextResponse.next();
+  }
 
   if (isReadOnlyIntake(req, path)) {
     return NextResponse.next();
