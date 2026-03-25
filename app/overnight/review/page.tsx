@@ -123,7 +123,11 @@ export default function MissingTagsPage() {
     setSelectedJob(null);
     setJobErr('');
     try {
-      const job = (await fetchJobFromApi(normalized)) as AnyRec;
+      const resp = await fetchJobFromApi(normalized);
+      const job = (resp?.job || null) as AnyRec | null;
+      if (!job) {
+        throw new Error('Could not load intake sheet for that tag.');
+      }
       setSelectedJob(job);
       return job;
     } catch (e: any) {
