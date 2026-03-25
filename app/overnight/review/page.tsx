@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 type Row = {
   id?: string;
-  tag?: string; // will be PENDING-....
+  tag?: string;
   confirmation?: string;
   customer_name?: string;
   phone?: string;
@@ -87,14 +87,15 @@ async function assignTag(opts: { pendingTag?: string; jobId?: string; tag: strin
 export default function MissingTagsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string>('');
+  const [err, setErr] = useState('');
 
-  const [assigning, setAssigning] = useState<string>(''); // pendingTag being updated
-  const [drafts, setDrafts] = useState<Record<string, string>>({}); // pendingTag -> newTag draft
+  const [assigning, setAssigning] = useState('');
+  const [printing, setPrinting] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  const [selectedTag, setSelectedTag] = useState<string>(''); // real tag after assignment
+  const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<AnyRec | null>(null);
-  const [jobErr, setJobErr] = useState<string>('');
+  const [jobErr, setJobErr] = useState('');
 
   const refresh = async () => {
     setErr('');
@@ -115,23 +116,51 @@ export default function MissingTagsPage() {
 
   const count = rows.length;
 
-  const openJob = async (tag: string) => {
-    setSelectedTag(tag);
+  const loadJob = async (tag: string) => {
+    const normalized = digitsOnly(tag);
+    if (!normalized) return null;
+    setSelectedTag(normalized);
     setSelectedJob(null);
     setJobErr('');
     try {
-      const j = await fetchJobFromApi(tag);
-      setSelectedJob(j as AnyRec);
+      const job = (await fetchJobFromApi(normalized)) as AnyRec;
+      setSelectedJob(job);
+      return job;
     } catch (e: any) {
       setJobErr(String(e?.message || e));
+      return null;
+    }
+  };
+
+  const printAssignedSheet = async (tag: string) => {
+    const normalized = digitsOnly(tag);
+    if (!normalized) return;
+
+    setErr('');
+    setPrinting(normalized);
+
+    try {
+      let job = selectedJob;
+      const currentTag = digitsOnly(String(selectedJob?.tag ?? selectedJob?.Tag ?? ''));
+      if (!job || currentTag !== normalized) {
+        job = await loadJob(normalized);
+      }
+      if (!job) return;
+
+      setTimeout(() => {
+        window.print();
+        setPrinting('');
+      }, 150);
+    } catch (e: any) {
+      setJobErr(String(e?.message || e));
+      setPrinting('');
     }
   };
 
   const doAssign = async (row: Row) => {
     const pendingTag = row.tag || '';
     const draftKey = pendingTag || row.id || '';
-    const raw = drafts[draftKey] ?? '';
-    const newTag = digitsOnly(raw);
+    const newTag = digitsOnly(drafts[draftKey] ?? '');
 
     if (!/^\d{5,}$/.test(newTag)) {
       setErr('Enter a valid tag number (digits only).');
@@ -142,12 +171,8 @@ export default function MissingTagsPage() {
     setAssigning(draftKey);
     try {
       await assignTag({ pendingTag, jobId: row.id, tag: newTag });
-
-      // Remove this row from list immediately
       setRows((prev) => prev.filter((r) => r.id !== row.id));
-
-      // Optionally auto-open print sheet
-      await openJob(newTag);
+      await loadJob(newTag);
     } catch (e: any) {
       setErr(String(e?.message || e));
     } finally {
@@ -157,8 +182,13 @@ export default function MissingTagsPage() {
 
   const header = useMemo(() => {
     return (
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>Missing Tag Report</div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>Overnight Intake Queue</div>
+          <div style={{ marginTop: 4, fontSize: 13, opacity: 0.72 }}>
+            Assign the real deer tag, then print the full intake sheet with the barcode.
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ opacity: 0.75 }}>{count} pending</div>
           <button onClick={refresh} disabled={loading} className="btn">
@@ -170,9 +200,45 @@ export default function MissingTagsPage() {
   }, [count, loading]);
 
   return (
-    <div className="form-card">
+    <div className="form-card overnight-review">
       <div style={{ padding: 16, display: 'grid', gap: 12 }}>
         {header}
+
+        {selectedTag ? (
+          <div
+            style={{
+              display: 'grid',
+              gap: 10,
+              padding: 14,
+              border: '1px solid #d7eadb',
+              borderRadius: 12,
+              background: '#f4fbf4',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>Last Assigned Tag</div>
+                <div style={{ marginTop: 4, fontSize: 15 }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{selectedTag}</span>
+                  {selectedJob?.customer || selectedJob?.customer_name ? (
+                    <span style={{ opacity: 0.75 }}> for {selectedJob.customer || selectedJob.customer_name}</span>
+                  ) : null}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="btn" onClick={() => loadJob(selectedTag)} disabled={!!printing}>
+                  Refresh Sheet
+                </button>
+                <button className="btn" onClick={() => printAssignedSheet(selectedTag)} disabled={!!printing}>
+                  {printing === selectedTag ? 'Preparing Print...' : 'Print Full Sheet'}
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: 13, opacity: 0.72 }}>
+              This prints the same intake sheet used at the counter, including the assigned tag and barcode.
+            </div>
+          </div>
+        ) : null}
 
         {err ? (
           <div style={{ background: '#fff3cd', border: '1px solid #ffeeba', padding: 10, borderRadius: 8 }}>
@@ -180,114 +246,150 @@ export default function MissingTagsPage() {
           </div>
         ) : null}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.3fr) minmax(320px, 0.9fr)', gap: 12 }}>
-          {/* Left: queue */}
-          <div style={{ border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 14px', background: '#f7f7f7', borderBottom: '1px solid #e5e5e5' }}>
-              <div style={{ fontWeight: 700 }}>Overnight Deer Waiting For Tags</div>
-              <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
-                Assign the real tag number, then preview and print the intake sheet.
-              </div>
+        {jobErr ? (
+          <div style={{ background: '#f8d7da', border: '1px solid #f5c2c7', padding: 10, borderRadius: 8 }}>
+            {jobErr}
+          </div>
+        ) : null}
+
+        <div style={{ border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px', background: '#f7f7f7', borderBottom: '1px solid #e5e5e5' }}>
+            <div style={{ fontWeight: 700 }}>Deer Waiting For Real Tags</div>
+            <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
+              This layout stays readable with a longer queue and keeps the action on one line per deer.
             </div>
+          </div>
 
-            {loading ? (
-              <div style={{ padding: 12 }}>Loading…</div>
-            ) : rows.length === 0 ? (
-              <div style={{ padding: 12 }}>No missing tags 🎯</div>
-            ) : (
-              rows.map((r) => {
-                const pendingTag = r.tag || '';
-                const draftKey = pendingTag || r.id || '';
-                const isBusy = assigning === draftKey;
+          {loading ? (
+            <div style={{ padding: 16 }}>Loading...</div>
+          ) : rows.length === 0 ? (
+            <div style={{ padding: 16 }}>
+              <div style={{ fontWeight: 700 }}>No overnight deer are waiting for tags.</div>
+              <div style={{ marginTop: 4, opacity: 0.72 }}>You are caught up for now.</div>
+            </div>
+          ) : (
+            rows.map((r) => {
+              const pendingTag = r.tag || '';
+              const draftKey = pendingTag || r.id || '';
+              const isBusy = assigning === draftKey;
+              const draft = digitsOnly(drafts[draftKey] ?? '');
+              const canUseDraft = /^\d{5,}$/.test(draft);
+              const isPrintingDraft = printing === draft;
 
-                return (
-                  <div
-                    key={pendingTag || r.id || Math.random()}
-                    style={{
-                      display: 'grid',
-                      gap: 12,
-                      padding: '14px 16px',
-                      borderTop: '1px solid #eee',
-                      background: isBusy ? '#fafaf9' : '#fff',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.15 }}>
-                          {r.customer_name || 'Unnamed Customer'}
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
-                            Conf {r.confirmation || '-'}
-                          </span>
-                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
-                            {r.phone || 'No phone'}
-                          </span>
-                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontSize: 13 }}>
-                            Dropped off {displayDate(r.dropoff_date)}
-                          </span>
-                          <span style={{ padding: '4px 8px', borderRadius: 999, background: '#eef6ee', color: '#2f6f3f', fontSize: 13, fontWeight: 600 }}>
-                            {r.status || 'Dropped Off'}
-                          </span>
-                        </div>
+              return (
+                <div
+                  key={pendingTag || r.id || Math.random()}
+                  style={{
+                    display: 'grid',
+                    gap: 12,
+                    padding: '16px',
+                    borderTop: '1px solid #eee',
+                    background: isBusy ? '#fafaf9' : '#fff',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.15 }}>
+                        {r.customer_name || 'Unnamed Customer'}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
+                          Conf {r.confirmation || '-'}
+                        </span>
+                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
+                          {r.phone || 'No phone'}
+                        </span>
+                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontSize: 13 }}>
+                          Dropped off {displayDate(r.dropoff_date)}
+                        </span>
+                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#eef6ee', color: '#2f6f3f', fontSize: 13, fontWeight: 600 }}>
+                          {r.status || 'Dropped Off'}
+                        </span>
                       </div>
                     </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 220px) auto auto', gap: 10, alignItems: 'center' }}>
-                      <input
-                        value={drafts[draftKey] ?? ''}
-                        onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: e.target.value }))}
-                        placeholder="Enter actual deer tag"
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
-                        disabled={isBusy || !r.id}
-                      />
-                      <button
-                        className="btn"
-                        onClick={() => doAssign(r)}
-                        disabled={isBusy || !r.id}
-                        style={{ whiteSpace: 'nowrap', minWidth: 94 }}
-                      >
-                        {isBusy ? 'Saving…' : 'Save'}
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          const draft = digitsOnly(drafts[draftKey] ?? '');
-                          if (/^\d{5,}$/.test(draft)) openJob(draft);
-                        }}
-                        disabled={!/^\d{5,}$/.test(digitsOnly(drafts[draftKey] ?? ''))}
-                        style={{ whiteSpace: 'nowrap', minWidth: 94 }}
-                      >
-                        Preview
-                      </button>
-                    </div>
                   </div>
-                );
-              })
-            )}
-          </div>
 
-          {/* Right: preview */}
-          <div style={{ border: '1px solid #e5e5e5', borderRadius: 10, padding: 12 }}>
-            <div style={{ fontWeight: 700, marginBottom: 10 }}>Job Preview</div>
-            {selectedTag ? (
-              <div style={{ marginBottom: 10, opacity: 0.8 }}>
-                Tag: <span style={{ fontFamily: 'monospace' }}>{selectedTag}</span>
-              </div>
-            ) : (
-              <div style={{ marginBottom: 10, opacity: 0.8 }}>Assign a tag to preview/print.</div>
-            )}
-
-            {jobErr ? (
-              <div style={{ background: '#f8d7da', border: '1px solid #f5c2c7', padding: 10, borderRadius: 8 }}>
-                {jobErr}
-              </div>
-            ) : null}
-
-            {selectedJob ? <PrintSheet job={selectedJob} /> : null}
-          </div>
+                  <div className="queue-actions">
+                    <input
+                      value={drafts[draftKey] ?? ''}
+                      onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: e.target.value }))}
+                      placeholder="Enter actual deer tag"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
+                      disabled={isBusy || !r.id}
+                    />
+                    <button className="btn" onClick={() => doAssign(r)} disabled={isBusy || !r.id}>
+                      {isBusy ? 'Saving...' : 'Assign Tag'}
+                    </button>
+                    <button className="btn" onClick={() => canUseDraft && loadJob(draft)} disabled={!canUseDraft || !!printing}>
+                      Load Sheet
+                    </button>
+                    <button className="btn" onClick={() => canUseDraft && printAssignedSheet(draft)} disabled={!canUseDraft || !!printing}>
+                      {isPrintingDraft ? 'Preparing Print...' : 'Print'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
+
+      <div className="print-only">{selectedJob ? <PrintSheet job={selectedJob} /> : null}</div>
+
+      <style jsx>{`
+        .btn {
+          padding: 10px 14px;
+          border: 0;
+          border-radius: 10px;
+          background: #367d45;
+          color: #fff;
+          font-weight: 800;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .queue-actions {
+          display: grid;
+          grid-template-columns: minmax(240px, 320px) repeat(3, auto);
+          gap: 10px;
+          align-items: center;
+        }
+
+        .print-only {
+          display: none;
+        }
+
+        @media (max-width: 900px) {
+          .queue-actions {
+            grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+          }
+        }
+
+        @media (max-width: 720px) {
+          .queue-actions {
+            grid-template-columns: 1fr;
+          }
+
+          .btn {
+            width: 100%;
+          }
+        }
+
+        @media print {
+          .overnight-review > :not(.print-only) {
+            display: none !important;
+          }
+
+          .print-only {
+            display: block !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
