@@ -14,9 +14,11 @@ function closeMobileAndDropdown(el?: HTMLElement | null) {
   // Close mobile checkbox menu
   const cb = document.getElementById('nav-check') as HTMLInputElement | null;
   if (cb) cb.checked = false;
-  // Close nearest <details> (dropdown) if present
-  const d = el?.closest('details') as HTMLDetailsElement | null;
-  if (d) d.open = false;
+  // Close all nav dropdowns so one click fully resets the menu state.
+  document.querySelectorAll('nav details').forEach((node) => {
+    (node as HTMLDetailsElement).open = false;
+  });
+  if (el) el.blur();
 }
 
 export default function Nav() {
@@ -82,6 +84,9 @@ export default function Nav() {
               </Link>
               <Link href="/reports/called" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                 Called / Pickups
+              </Link>
+              <Link href="/reports/specialty" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                Specialty
               </Link>
               {/* NEW: State Form */}
               <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>

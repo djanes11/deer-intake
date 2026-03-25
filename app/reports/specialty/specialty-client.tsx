@@ -67,6 +67,9 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#0f172a',
     verticalAlign: 'top',
   },
+  orderCell: { display: 'grid', gap: 4, minWidth: 260 },
+  orderLine: { display: 'flex', justifyContent: 'space-between', gap: 12, fontWeight: 700, color: '#334155' },
+  orderTotal: { display: 'flex', justifyContent: 'space-between', gap: 12, paddingTop: 6, borderTop: '1px solid #e5e7eb', fontWeight: 900, color: '#0f172a' },
   right: { textAlign: 'right' },
   link: { color: '#155acb', fontWeight: 900, textDecoration: 'none' },
 
@@ -123,6 +126,18 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
     );
   }, [rows]);
 
+  const summerSausageTotal =
+    totals.originalSummerSausageLbs +
+    totals.summerSausageCheeseLbs +
+    totals.jalapenoSummerSausageCheeseLbs;
+
+  const snackStixTotal =
+    totals.originalSnackSticksLbs +
+    totals.originalSnackSticksCheeseLbs +
+    totals.jalapenoSnackSticksCheeseLbs;
+
+  const allSpecialtyTotal = summerSausageTotal + snackStixTotal;
+
   const markFinished = async (tag: string) => {
     setErr('');
     setMsg('');
@@ -158,16 +173,49 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
       {err && <div style={styles.err}>{err}</div>}
 
       {/* TOP TILES — now tied to rows state so it auto updates */}
-      <div style={{ ...styles.kpiGrid, gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
-        {SPECIALTY_ITEMS.map((item) => (
-          <div style={styles.card} key={item.key}>
-            <div style={styles.label}>{item.shortLabel}</div>
-            <div style={styles.value}>{n((totals as any)[item.key]).toFixed(1)} lb</div>
-          </div>
-        ))}
+      <div style={styles.kpiGrid}>
+        <div style={styles.card}>
+          <div style={styles.label}>Summer Sausage Total</div>
+          <div style={styles.value}>{summerSausageTotal.toFixed(1)} lb</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Snack Stix Total</div>
+          <div style={styles.value}>{snackStixTotal.toFixed(1)} lb</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>All Specialty</div>
+          <div style={styles.value}>{allSpecialtyTotal.toFixed(1)} lb</div>
+        </div>
         <div style={styles.card}>
           <div style={styles.label}>Open Jobs</div>
           <div style={styles.value}>{totals.jobs}</div>
+        </div>
+      </div>
+
+      <div style={{ ...styles.kpiGrid, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        <div style={styles.card}>
+          <div style={styles.label}>Summer Sausage Breakdown</div>
+          {SPECIALTY_ITEMS.slice(0, 3).map((item) => (
+            <div key={item.key} style={styles.orderLine}>
+              <span>{item.shortLabel}</span>
+              <span>{n((totals as any)[item.key]).toFixed(1)} lb</span>
+            </div>
+          ))}
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Snack Stix Breakdown</div>
+          {SPECIALTY_ITEMS.slice(3).map((item) => (
+            <div key={item.key} style={styles.orderLine}>
+              <span>{item.shortLabel}</span>
+              <span>{n((totals as any)[item.key]).toFixed(1)} lb</span>
+            </div>
+          ))}
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Report Notes</div>
+          <div style={{ color: '#475569', lineHeight: 1.5 }}>
+            Each row now shows one compact specialty summary instead of six separate pound columns.
+          </div>
         </div>
       </div>
 
@@ -179,9 +227,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
               <th style={styles.th}>Customer</th>
               <th style={styles.th}>Drop-off</th>
               <th style={styles.th}>Spec Status</th>
-              {SPECIALTY_ITEMS.map((item) => (
-                <th key={item.key} style={{ ...styles.th, ...styles.right }}>{item.shortLabel} lb</th>
-              ))}
+              <th style={styles.th}>Order</th>
               <th style={styles.th}>Actions</th>
             </tr>
           </thead>
@@ -198,11 +244,22 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                 <td style={styles.td}>{r.customer_name || ''}</td>
                 <td style={styles.td}>{r.dropoff_date || ''}</td>
                 <td style={styles.td}>{r.specialty_status || ''}</td>
-                {SPECIALTY_ITEMS.map((item) => (
-                  <td key={item.key} style={{ ...styles.td, ...styles.right }}>
-                    {fmt1((r as any)[item.dbKey])}
-                  </td>
-                ))}
+                <td style={styles.td}>
+                  <div style={styles.orderCell}>
+                    {SPECIALTY_ITEMS.filter((item) => n((r as any)[item.dbKey]) > 0).map((item) => (
+                      <div key={item.key} style={styles.orderLine}>
+                        <span>{item.shortLabel}</span>
+                        <span>{fmt1((r as any)[item.dbKey])} lb</span>
+                      </div>
+                    ))}
+                    <div style={styles.orderTotal}>
+                      <span>Total</span>
+                      <span>
+                        {SPECIALTY_ITEMS.reduce((sum, item) => sum + n((r as any)[item.dbKey]), 0).toFixed(1)} lb
+                      </span>
+                    </div>
+                  </div>
+                </td>
                 <td style={styles.td}>
                   <button
                     type="button"
@@ -222,11 +279,20 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
               <td style={{ ...styles.td, borderBottom: 0 }} colSpan={4}>
                 Totals (open)
               </td>
-              {SPECIALTY_ITEMS.map((item) => (
-                <td key={item.key} style={{ ...styles.td, ...styles.right, borderBottom: 0 }}>
-                  {n((totals as any)[item.key]).toFixed(1)}
-                </td>
-              ))}
+              <td style={{ ...styles.td, borderBottom: 0 }}>
+                <div style={styles.orderCell}>
+                  {SPECIALTY_ITEMS.map((item) => (
+                    <div key={item.key} style={styles.orderLine}>
+                      <span>{item.shortLabel}</span>
+                      <span>{n((totals as any)[item.key]).toFixed(1)} lb</span>
+                    </div>
+                  ))}
+                  <div style={styles.orderTotal}>
+                    <span>Total</span>
+                    <span>{allSpecialtyTotal.toFixed(1)} lb</span>
+                  </div>
+                </div>
+              </td>
               <td style={{ ...styles.td, borderBottom: 0 }} />
             </tr>
           </tbody>
