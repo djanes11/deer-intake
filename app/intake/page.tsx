@@ -1344,7 +1344,7 @@ if (fresh?.exists && fresh.job) {
                     Summer Sausage
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b' }}>
-                    Original is $4.25/lb. Cheese options are $4.60/lb.
+                    All summer sausage options are $5.00/lb.
                   </div>
                 </div>
                 {SPECIALTY_ITEMS.map((item) => (
@@ -1355,7 +1355,7 @@ if (fresh?.exists && fresh.job) {
                           Snack Stix
                         </div>
                         <div style={{ fontSize: 12, color: '#64748b' }}>
-                          Original is $7.25/lb. Cheese options are $7.60/lb.
+                          All snack stix options are $8.00/lb.
                         </div>
                       </div>
                       <div className="c4">

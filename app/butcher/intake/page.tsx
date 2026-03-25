@@ -14,7 +14,7 @@ type CutsBlock = {
   'Front - Steak'?: boolean; 'Front - Roast'?: boolean; 'Front - Grind'?: boolean; 'Front - None'?: boolean;
 };
 type Job = {
-  tag?: string | null; status?: string; Paid?: boolean; paid?: boolean; processType?: string; sex?: string;
+  tag?: string | null; status?: string; Paid?: boolean; paid?: boolean; paidProcessing?: boolean; paidSpecialty?: boolean; processType?: string; sex?: string;
   hind?: CutsBlock; front?: CutsBlock; hindRoastCount?: string; frontRoastCount?: string;
   steak?: string; steaksPerPackage?: string; burgerSize?: string; beefFat?: boolean;
   backstrapPrep?: string; backstrapThickness?: string;
@@ -111,7 +111,11 @@ function ButcherIntakeInner() {
       } else if (path in p) {
         // @ts-ignore
         next[path] = !p[path];
-        if (path === 'Paid') next.paid = !!next.Paid;
+        if (path === 'Paid') {
+          next.paid = !!next.Paid;
+          next.paidProcessing = !!next.Paid;
+          next.paidSpecialty = next.specialtyProducts ? !!next.Paid : false;
+        }
       }
       return next;
     });

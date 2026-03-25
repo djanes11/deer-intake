@@ -62,11 +62,10 @@ function displayProcessingPrice(r: any): string {
 
 const paidText = (j: Row) => {
   const a = j as any;
-  const paidProcessing = !!(a.paidProcessing ?? a['Paid Processing'] ?? a.paid);
+  const paidProcessing = !!(a.paidProcessing ?? a['Paid Processing']);
   const paidSpecialty = !!(a.paidSpecialty ?? a['Paid Specialty']);
   const hasSpecialty = !!(a.specialtyProducts ?? a['Specialty Products'] ?? a.specialty);
-  const genericPaid = !!(a.Paid ?? a['Paid'] ?? a.paid);
-  const resolved = genericPaid || (paidProcessing && (!hasSpecialty || paidSpecialty));
+  const resolved = paidProcessing && (!hasSpecialty || paidSpecialty);
   return resolved ? 'Yes' : 'No';
 };
 

@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { rateLimit } from '@/lib/ratelimit';
 import { saveJob } from '@/lib/jobsSupabase';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -38,6 +39,17 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit(ip, 'public-drop', 15, 60_000);
   if (!rl.allowed) {
     return new Response(JSON.stringify({ ok: false, error: 'Rate limited' }), { status: 429 });
+  }
+
+  const settings = await getPublicSiteSettings();
+  if (!settings.public_intake_enabled) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: settings.banner_message || 'Overnight intake is currently unavailable.',
+      }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const body = await req.json().catch(() => ({}));
