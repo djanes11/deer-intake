@@ -22,7 +22,7 @@ export const SPECIALTY_ITEMS: SpecialtyItemDef[] = [
     legacyDbKey: 'summer_sausage_lbs',
     label: 'Original Summer Sausage (lb)',
     shortLabel: 'Original SS',
-    pricePerLb: 4.25,
+    pricePerLb: 5,
   },
   {
     key: 'summerSausageCheeseLbs',
@@ -30,7 +30,7 @@ export const SPECIALTY_ITEMS: SpecialtyItemDef[] = [
     legacyDbKey: 'summer_sausage_cheese_lbs',
     label: 'Summer Sausage + Cheese (lb)',
     shortLabel: 'SS + Cheese',
-    pricePerLb: 4.6,
+    pricePerLb: 5,
   },
   {
     key: 'jalapenoSummerSausageCheeseLbs',
@@ -38,28 +38,28 @@ export const SPECIALTY_ITEMS: SpecialtyItemDef[] = [
     legacyDbKey: 'sliced_jerky_lbs',
     label: 'Jalapeno Summer Sausage + Cheddar (lb)',
     shortLabel: 'Jalapeno SS + Cheddar',
-    pricePerLb: 4.6,
+    pricePerLb: 5,
   },
   {
     key: 'originalSnackSticksLbs',
     dbKey: 'original_snack_sticks_lbs',
     label: 'Original Snack Stix (lb)',
     shortLabel: 'Original Stix',
-    pricePerLb: 7.25,
+    pricePerLb: 8,
   },
   {
     key: 'originalSnackSticksCheeseLbs',
     dbKey: 'original_snack_sticks_cheese_lbs',
     label: 'Original Snack Stix + Cheddar (lb)',
     shortLabel: 'Stix + Cheddar',
-    pricePerLb: 7.6,
+    pricePerLb: 8,
   },
   {
     key: 'jalapenoSnackSticksCheeseLbs',
     dbKey: 'jalapeno_snack_sticks_cheese_lbs',
     label: 'Jalapeno Snack Stix + Cheddar (lb)',
     shortLabel: 'Jalapeno Stix + Cheddar',
-    pricePerLb: 7.6,
+    pricePerLb: 8,
   },
 ];
 
