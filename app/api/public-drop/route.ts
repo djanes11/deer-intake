@@ -1,7 +1,7 @@
 // app/api/public-drop/route.ts
 import { NextRequest } from 'next/server';
 import { rateLimit } from '@/lib/ratelimit';
-import { getSupabaseServer } from '@/lib/supabaseClient';
+import { saveJob } from '@/lib/jobsSupabase';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -41,11 +41,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const customer = String(body.customer || '').trim();
-  const phone = String(body.phone || '').trim();
-  const email = String(body.email || '').trim();
-  const processType = String(body.processType || '').trim();
-  const notes = String(body.notes || '').trim();
+  const rawJob = (body?.job && typeof body.job === 'object' ? body.job : body) as Record<string, any>;
+  const customer = String(rawJob.customer || '').trim();
+  const phone = String(rawJob.phone || '').trim();
+  const email = String(rawJob.email || '').trim();
+  const processType = String(rawJob.processType || '').trim();
+  const notes = String(rawJob.notes || '').trim();
 
   if (!customer || (!phone && !email)) {
     return new Response(
@@ -54,46 +55,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const supabase = getSupabaseServer();
+  const confirmation = String(rawJob.confirmation || '').trim() || genConfirmation();
+  const publicToken = String(rawJob.publicToken || '').trim() || genPublicToken();
 
-  // Generate confirmation + token here so the response can show it immediately
-  const confirmation = genConfirmation();
-  const publicToken = genPublicToken();
+  try {
+    const result = await saveJob({
+      ...rawJob,
+      tag: '',
+      confirmation,
+      customer,
+      phone,
+      email: email || '',
+      processType: processType || '',
+      notes: notes || '',
+      requiresTag: true,
+      status: rawJob.status || 'Dropped Off',
+      dropoff: rawJob.dropoff || new Date().toISOString().slice(0, 10),
+      publicToken,
+    });
 
-  const insertPayload = {
-    tag: null,
-    confirmation,
-    customer_name: customer,
-    phone: phone || null,
-    email: email || null,
-    process_type: processType || null,
-    notes: notes || null,
-
-    requires_tag: true,
-    dropoff_date: new Date().toISOString(),
-    status: 'Dropped Off',
-
-    public_token: publicToken,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from('jobs')
-    .insert(insertPayload)
-    .select('id, confirmation, public_token')
-    .maybeSingle();
-
-  if (error) {
-    console.error('public-drop insert error', error);
-    return new Response(JSON.stringify({ ok: false, error: 'Submit failed' }), { status: 500 });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        confirmation: result?.job?.confirmation || confirmation,
+        publicToken: result?.job?.publicToken || publicToken,
+        job: result?.job || null,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (error: any) {
+    console.error('public-drop save error', error);
+    return new Response(
+      JSON.stringify({ ok: false, error: String(error?.message || error || 'Submit failed') }),
+      { status: 500 }
+    );
   }
-
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      confirmation: data?.confirmation || confirmation,
-      publicToken: data?.public_token || publicToken,
-    }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } }
-  );
 }

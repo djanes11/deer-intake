@@ -2,7 +2,6 @@
 'use client';
 
 import { useEffect, useMemo, useState, Suspense } from 'react';
-import { saveJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
@@ -426,7 +425,13 @@ function OvernightIntakePage() {
 
     try {
       setBusy(true);
-      const res = await saveJob(payload);
+      const r = await fetch('/api/public-drop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ job: payload }),
+      });
+      const res = await r.json().catch(() => ({} as any));
       if (!res?.ok) {
         setMsg(res?.error || 'Save failed');
         return;
