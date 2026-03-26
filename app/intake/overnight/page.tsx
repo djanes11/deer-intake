@@ -1720,10 +1720,19 @@ function OvernightIntakePage() {
         .webbsSummaryList { margin-top:12px; display:grid; gap:6px; }
         .webbsSummaryLine { font-size:13px; color:#334155; }
         .webbsSummaryMore { font-size:13px; font-weight:700; color:#475569; }
-        .webbsModalCard { max-width: 980px; }
-        .webbsModalHead { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px; }
+        .webbsModalCard {
+          width: min(980px, 100%);
+          max-width: 980px;
+          max-height: min(88vh, 920px);
+          overflow: auto;
+          padding: 18px;
+        }
+        .webbsModalHead {
+          display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px;
+          position: sticky; top: -18px; z-index: 2; background: #fff; padding: 2px 0 12px;
+        }
         .modalKicker { font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.06em; }
-        .webbsModalBody { display:grid; gap:16px; }
+        .webbsModalBody { display:grid; gap:16px; min-width:0; }
         .webbsGroupTitle { font-weight:800; color:#0f172a; margin-bottom:8px; }
         .webbsWorksheet { border:1px solid #d7dee7; border-radius:14px; overflow:hidden; background:#fff; }
         .webbsWorksheetHead,
@@ -1848,9 +1857,16 @@ function OvernightIntakePage() {
           .btn {
             width: 100%;
           }
+          .webbsModalCard {
+            max-height: calc(100vh - 20px);
+            padding: 14px;
+          }
           .webbsWorksheetHead,
           .webbsWorksheetRow { grid-template-columns:minmax(0,1fr) 96px; }
-          .webbsModalHead { display:grid; gap:10px; }
+          .webbsModalHead {
+            display:grid; gap:10px;
+            top: -14px;
+          }
         }
         /* Packaging layout */
         .pkgGrid { display: grid; gap: 16px; }
@@ -1888,6 +1904,7 @@ function OvernightIntakePage() {
         .modal {
           position: fixed; inset: 0; background: rgba(11, 15, 18, 0.6);
           display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 9999;
+          overflow-y: auto;
         }
         .modal-card {
           width: 100%; max-width: 520px; background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 12px 30px rgba(0,0,0,.25);
