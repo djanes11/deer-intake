@@ -5,7 +5,7 @@ import { Fragment, useEffect, useMemo, useState, Suspense } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
-import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { SPECIALTY_ITEMS, specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import {
   WEBBS_GROUPS,
   type WebbsOrderItem,
@@ -256,6 +256,7 @@ function OvernightIntakePage() {
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [closureMessage, setClosureMessage] = useState('');
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
+  const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -288,6 +289,20 @@ function OvernightIntakePage() {
     job.originalSnackSticksCheeseLbs,
     job.jalapenoSnackSticksCheeseLbs,
   ]);
+  const specialtyItems = useMemo(
+    () => specialtyBreakdown(job as Record<string, any>).filter((item) => item.pounds > 0),
+    [job]
+  );
+  const specialtySummaryText = useMemo(() => {
+    if (!job.specialtyProducts) return 'No specialty products selected';
+    const parts: string[] = [];
+    if (specialtyItems.length) parts.push(`${specialtyItems.length} products`);
+    if (specialtyItems.length) {
+      parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} lb total`);
+    }
+    if (specialtyPrice) parts.push(`$${specialtyPrice.toFixed(2)}`);
+    return parts.length ? parts.join(' • ') : 'Specialty products selected';
+  }, [job.specialtyProducts, specialtyItems, specialtyPrice]);
 
   const totalPrice = processingPrice + specialtyPrice;
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
@@ -339,6 +354,12 @@ function OvernightIntakePage() {
       setWebbsModalOpen(false);
     }
   }, [job.webbsOrder, webbsModalOpen]);
+
+  useEffect(() => {
+    if (!job.specialtyProducts && specialtyModalOpen) {
+      setSpecialtyModalOpen(false);
+    }
+  }, [job.specialtyProducts, specialtyModalOpen]);
 
   useEffect(() => {
     setJob((p) => {
@@ -1214,54 +1235,50 @@ function OvernightIntakePage() {
               <div className="grid">
                 <div className="c3 rowInline">
                   <label className="chk tight pkg-beef">
-                    <input type="checkbox" checked={!!job.specialtyProducts} onChange={(e) => setVal('specialtyProducts', e.target.checked)} disabled={locked} />
+                    <input
+                      type="checkbox"
+                      checked={!!job.specialtyProducts}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setVal('specialtyProducts', checked);
+                        if (checked) setSpecialtyModalOpen(true);
+                      }}
+                      disabled={locked}
+                    />
                     <span><strong>Would like specialty products</strong></span>
                   </label>
                 </div>
                 {job.specialtyProducts ? (
-                  <>
-                    <div className="c12">
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
-                        Summer Sausage
+                  <div className="c12">
+                    <div className="webbsSummaryCard">
+                      <div className="webbsSummaryHead">
+                        <div>
+                          <div className="webbsSummaryTitle">Specialty Order</div>
+                          <div className="muted" style={{ fontSize: 13 }}>{specialtySummaryText}</div>
+                        </div>
+                        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                          <span className="badge">Products: {specialtyItems.length || 0}</span>
+                          <span className="badge">Total lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>
-                        All summer sausage options are $5.00/lb.
+                      {specialtyItems.length > 0 ? (
+                        <div className="webbsSummaryList">
+                          {specialtyItems.map((item) => (
+                            <div key={item.key} className="webbsSummaryLine">
+                              {item.label.replace(' (lb)', '')}: {item.pounds} lb
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="muted" style={{ fontSize: 13 }}>No specialty items entered yet.</div>
+                      )}
+                      <div style={{ marginTop: 12 }}>
+                        <button type="button" className="btn secondary" onClick={() => setSpecialtyModalOpen(true)} disabled={locked}>
+                          Fill Out Specialty Order
+                        </button>
                       </div>
                     </div>
-                    {SPECIALTY_ITEMS.map((item) => (
-                      item.key === 'originalSnackSticksLbs' ? (
-                        <Fragment key={item.key}>
-                          <div className="c12">
-                            <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
-                              Snack Stix
-                            </div>
-                            <div style={{ fontSize: 12, color: '#64748b' }}>
-                              All snack stix options are $8.00/lb.
-                            </div>
-                          </div>
-                          <div className="c3">
-                            <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
-                            <input
-                              inputMode="numeric"
-                              value={String((job as any)[item.key] ?? '')}
-                              onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
-                              disabled={locked}
-                            />
-                          </div>
-                        </Fragment>
-                      ) : (
-                        <div className="c3" key={item.key}>
-                          <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
-                          <input
-                            inputMode="numeric"
-                            value={String((job as any)[item.key] ?? '')}
-                            onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
-                            disabled={locked}
-                          />
-                        </div>
-                      )
-                    ))}
-                  </>
+                  </div>
                 ) : null}
               </div>
             </section>
@@ -1425,6 +1442,73 @@ function OvernightIntakePage() {
       <div className="print-only">
         <PrintSheet job={job} />
       </div>
+
+      {specialtyModalOpen && job.specialtyProducts && !locked ? (
+        <div className="modal" onClick={() => setSpecialtyModalOpen(false)}>
+          <div className="modal-card webbsModalCard" onClick={(e) => e.stopPropagation()}>
+            <div className="webbsModalHead">
+              <div>
+                <div className="modalKicker">McAfee Specialty</div>
+                <h3>Fill Out Your Specialty Order</h3>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  Enter how many pounds you want for each specialty item. Leave a box blank if you do not want that item.
+                </div>
+              </div>
+              <button className="btn secondary" type="button" onClick={() => setSpecialtyModalOpen(false)}>
+                Done
+              </button>
+            </div>
+
+            <div className="webbsModalBody">
+              <div>
+                <div className="webbsGroupTitle">Summer Sausage</div>
+                <div className="webbsWorksheet">
+                  <div className="webbsWorksheetHead">
+                    <div>Product</div>
+                    <div>Lb</div>
+                  </div>
+                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 5).map((item) => (
+                    <div key={item.key} className="webbsWorksheetRow">
+                      <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
+                      <div>
+                        <input
+                          inputMode="numeric"
+                          value={String((job as any)[item.key] ?? '')}
+                          onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                          placeholder="lb"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="webbsGroupTitle">Snack Stix</div>
+                <div className="webbsWorksheet">
+                  <div className="webbsWorksheetHead">
+                    <div>Product</div>
+                    <div>Lb</div>
+                  </div>
+                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 8).map((item) => (
+                    <div key={item.key} className="webbsWorksheetRow">
+                      <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
+                      <div>
+                        <input
+                          inputMode="numeric"
+                          value={String((job as any)[item.key] ?? '')}
+                          onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                          placeholder="lb"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {webbsModalOpen && job.webbsOrder && !locked ? (
         <div className="modal" onClick={() => setWebbsModalOpen(false)}>

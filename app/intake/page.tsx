@@ -6,7 +6,7 @@ import { saveJob, getJob } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
-import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { SPECIALTY_ITEMS, specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import {
   WEBBS_GROUPS,
   type WebbsOrderItem,
@@ -361,6 +361,7 @@ function IntakePage() {
   const [msg, setMsg] = useState<string>('');
   const tagRef = useRef<HTMLInputElement | null>(null);
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
+  const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
 
   // ---- UNSAVED CHANGES GUARD ----
   const [lastSavedJson, setLastSavedJson] = useState<string>('');
@@ -535,6 +536,20 @@ useEffect(() => {
   const specialtyPriceUsed = specialtyOverride ?? specialtyPriceAuto;
 
   const totalPrice = processingPriceUsed + specialtyPriceUsed;
+  const specialtyItems = useMemo(
+    () => specialtyBreakdown(job as Record<string, any>).filter((item) => item.pounds > 0),
+    [job]
+  );
+  const specialtySummaryText = useMemo(() => {
+    if (!job.specialtyProducts) return 'No specialty products selected';
+    const parts: string[] = [];
+    if (specialtyItems.length) parts.push(`${specialtyItems.length} products`);
+    if (specialtyItems.length) {
+      parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} lb total`);
+    }
+    if (specialtyPriceUsed) parts.push(`$${specialtyPriceUsed.toFixed(2)}`);
+    return parts.length ? parts.join(' • ') : 'Specialty products selected';
+  }, [job.specialtyProducts, specialtyItems, specialtyPriceUsed]);
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
   const webbsItemLines = useMemo(() => webbsOrderSummary(webbsItems), [webbsItems]);
@@ -597,6 +612,12 @@ useEffect(() => {
       setWebbsModalOpen(false);
     }
   }, [job.webbsOrder, webbsModalOpen]);
+
+  useEffect(() => {
+    if (!job.specialtyProducts && specialtyModalOpen) {
+      setSpecialtyModalOpen(false);
+    }
+  }, [job.specialtyProducts, specialtyModalOpen]);
 
   useEffect(() => {
     setJob((prev) => {
@@ -1377,58 +1398,47 @@ if (fresh?.exists && fresh.job) {
                 <input
                   type="checkbox"
                   checked={!!job.specialtyProducts}
-                  onChange={(e) => setVal('specialtyProducts', e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setVal('specialtyProducts', checked);
+                    if (checked) setSpecialtyModalOpen(true);
+                  }}
                 />
                 <span><strong>Would like specialty products</strong></span>
               </label>
             </div>
 
             {job.specialtyProducts && (
-              <>
-                <div className="c12">
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
-                    Summer Sausage
+              <div className="c9">
+                <div className="webbsSummaryCard">
+                  <div className="webbsSummaryHead">
+                    <div>
+                      <div className="webbsSummaryTitle">Specialty Order Summary</div>
+                      <div className="muted" style={{ fontSize: 13 }}>{specialtySummaryText}</div>
+                    </div>
+                    <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                      <span className="badge">Products: {specialtyItems.length || 0}</span>
+                      <span className="badge">Total lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>
-                    All summer sausage options are $5.00/lb.
+                  {specialtyItems.length > 0 ? (
+                    <div className="webbsSummaryList">
+                      {specialtyItems.map((item) => (
+                        <div key={item.key} className="webbsSummaryLine">
+                          {item.label.replace(' (lb)', '')}: {item.pounds} lb
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="muted" style={{ fontSize: 13 }}>No specialty items entered yet.</div>
+                  )}
+                  <div style={{ marginTop: 12 }}>
+                    <button type="button" className="btn secondaryBtn" onClick={() => setSpecialtyModalOpen(true)}>
+                      Edit Specialty Order
+                    </button>
                   </div>
                 </div>
-                {SPECIALTY_ITEMS.map((item) => (
-                  item.key === 'originalSnackSticksLbs' ? (
-                    <Fragment key={item.key}>
-                      <div className="c12">
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 2 }}>
-                          Snack Stix
-                        </div>
-                        <div style={{ fontSize: 12, color: '#64748b' }}>
-                          All snack stix options are $8.00/lb.
-                        </div>
-                      </div>
-                      <div className="c4">
-                        <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
-                        <input
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={String((job as any)[item.key] ?? '')}
-                          onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
-                          placeholder="e.g., 5"
-                        />
-                      </div>
-                    </Fragment>
-                  ) : (
-                    <div className="c4" key={item.key}>
-                      <label>{item.label.replace(' (lb)', '')} <span className="muted">(${item.pricePerLb.toFixed(2)}/lb)</span></label>
-                      <input
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={String((job as any)[item.key] ?? '')}
-                        onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
-                        placeholder="e.g., 5"
-                      />
-                    </div>
-                  )
-                ))}
-              </>
+              </div>
             )}
           </div>
         </section>
@@ -1600,6 +1610,74 @@ if (fresh?.exists && fresh.job) {
       <div className="print-only">
         <PrintSheet job={job} />
       </div>
+
+      {specialtyModalOpen && job.specialtyProducts ? (
+        <div className="modal" onClick={() => setSpecialtyModalOpen(false)}>
+          <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+            <div className="modalHead">
+              <div>
+                <div className="modalKicker">McAfee Specialty</div>
+                <h3 style={{ margin: '4px 0 0' }}>Specialty Order</h3>
+              </div>
+              <button type="button" className="btn secondaryBtn" onClick={() => setSpecialtyModalOpen(false)}>
+                Done
+              </button>
+            </div>
+
+            <div className="webbsModalInfo">
+              <span className="badge">Summer Sausage: $5.00/lb</span>
+              <span className="badge">Snack Stix: $8.00/lb</span>
+              <span className="badge">Current Total: ${specialtyPriceUsed.toFixed(2)}</span>
+            </div>
+
+            <div className="webbsModalBody">
+              <div>
+                <div className="webbsGroupTitle">Summer Sausage</div>
+                <div className="webbsWorksheet">
+                  <div className="webbsWorksheetHead">
+                    <div>Product</div>
+                    <div>Lb</div>
+                  </div>
+                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 5).map((item) => (
+                    <div key={item.key} className="webbsWorksheetRow">
+                      <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
+                      <input
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={String((job as any)[item.key] ?? '')}
+                        onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="webbsGroupTitle">Snack Stix</div>
+                <div className="webbsWorksheet">
+                  <div className="webbsWorksheetHead">
+                    <div>Product</div>
+                    <div>Lb</div>
+                  </div>
+                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 8).map((item) => (
+                    <div key={item.key} className="webbsWorksheetRow">
+                      <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
+                      <input
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={String((job as any)[item.key] ?? '')}
+                        onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {webbsModalOpen && job.webbsOrder ? (
         <div className="modal" onClick={() => setWebbsModalOpen(false)}>
