@@ -110,6 +110,13 @@ export default function MissingTagsPage() {
     }
   };
 
+  const setSelectedFromJob = (job: AnyRec | null, fallbackTag = '') => {
+    const normalized = digitsOnly(String(job?.tag ?? job?.Tag ?? fallbackTag));
+    setSelectedTag(normalized);
+    setSelectedJob(job);
+    setJobErr('');
+  };
+
   useEffect(() => {
     refresh();
   }, []);
@@ -128,7 +135,7 @@ export default function MissingTagsPage() {
       if (!job) {
         throw new Error('Could not load intake sheet for that tag.');
       }
-      setSelectedJob(job);
+      setSelectedFromJob(job, normalized);
       return job;
     } catch (e: any) {
       setJobErr(String(e?.message || e));
@@ -174,9 +181,13 @@ export default function MissingTagsPage() {
     setErr('');
     setAssigning(draftKey);
     try {
-      await assignTag({ pendingTag, jobId: row.id, tag: newTag });
+      const result = await assignTag({ pendingTag, jobId: row.id, tag: newTag });
       setRows((prev) => prev.filter((r) => r.id !== row.id));
-      await loadJob(newTag);
+      if (result?.job) {
+        setSelectedFromJob(result.job as AnyRec, newTag);
+      } else {
+        await loadJob(newTag);
+      }
     } catch (e: any) {
       setErr(String(e?.message || e));
     } finally {
@@ -278,8 +289,6 @@ export default function MissingTagsPage() {
               const isBusy = assigning === draftKey;
               const draft = digitsOnly(drafts[draftKey] ?? '');
               const canUseDraft = /^\d{5,}$/.test(draft);
-              const isPrintingDraft = printing === draft;
-
               return (
                 <div
                   key={pendingTag || r.id || Math.random()}
@@ -324,12 +333,6 @@ export default function MissingTagsPage() {
                     <button className="btn" onClick={() => doAssign(r)} disabled={isBusy || !r.id}>
                       {isBusy ? 'Saving...' : 'Assign Tag'}
                     </button>
-                    <button className="btn" onClick={() => canUseDraft && loadJob(draft)} disabled={!canUseDraft || !!printing}>
-                      Load Sheet
-                    </button>
-                    <button className="btn" onClick={() => canUseDraft && printAssignedSheet(draft)} disabled={!canUseDraft || !!printing}>
-                      {isPrintingDraft ? 'Preparing Print...' : 'Print'}
-                    </button>
                   </div>
                 </div>
               );
@@ -359,7 +362,7 @@ export default function MissingTagsPage() {
 
         .queue-actions {
           display: grid;
-          grid-template-columns: minmax(240px, 320px) repeat(3, auto);
+          grid-template-columns: minmax(240px, 320px) auto;
           gap: 10px;
           align-items: center;
         }
@@ -370,7 +373,7 @@ export default function MissingTagsPage() {
 
         @media (max-width: 900px) {
           .queue-actions {
-            grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+            grid-template-columns: minmax(0, 1fr) auto;
           }
         }
 

@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const result = await setJobTag({
       jobId: resolvedJobId,
       newTag,
-      returnRow: false,
+      returnRow: true,
     });
 
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
