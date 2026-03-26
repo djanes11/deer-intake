@@ -1554,8 +1554,9 @@ function OvernightIntakePage() {
 
         .rowInline { display: flex; align-items: center; padding-top: 22px; gap: 8px; }
         .checks { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .chk { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; }
-        .chk input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 auto; }
+        .chk { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; min-width: 0; max-width: 100%; }
+        .chk input[type="checkbox"], .chk input[type="radio"] { width: 18px; height: 18px; flex: 0 0 auto; }
+        .chk span { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
         .muted { color: #6b7280; font-size: 12px; }
         .hero {
           display: grid;
@@ -1781,10 +1782,35 @@ function OvernightIntakePage() {
             gap: 8px;
           }
           .chk {
+            width: 100%;
+            max-width: 100%;
+            align-items: flex-start;
             padding: 10px 12px;
             border-radius: 12px;
             border: 1px solid #d8e3f5;
             background: #fbfdff;
+          }
+          .chk input[type="checkbox"],
+          .chk input[type="radio"] {
+            margin-top: 2px;
+          }
+          .rowInline,
+          .requiredList,
+          .wizardHead,
+          .hero,
+          section,
+          .grid,
+          .pkgGrid,
+          .summary {
+            min-width: 0;
+          }
+          .grid > *,
+          .pkgGrid > * {
+            min-width: 0;
+          }
+          .pkgGrid .pkg-beef,
+          .pkgGrid .pkg-beef span {
+            white-space: normal;
           }
           .actions {
             display: grid;
