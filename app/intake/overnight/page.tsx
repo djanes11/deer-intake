@@ -91,7 +91,7 @@ type Job = {
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
-  webbsOrderMode?: 'needs_call' | 'online';
+  webbsOrderMode?: 'online';
   webbsItems?: WebbsOrderItem[];
 
   Paid?: boolean;
@@ -221,7 +221,7 @@ function OvernightIntakePage() {
 
     beefFat: false,
     webbsOrder: false,
-    webbsOrderMode: 'needs_call',
+    webbsOrderMode: 'online',
     webbsItems: [],
     Paid: false,
     paid: false,
@@ -255,6 +255,7 @@ function OvernightIntakePage() {
   const [showThanks, setShowThanks] = useState<boolean>(false);
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [closureMessage, setClosureMessage] = useState('');
+  const [webbsModalOpen, setWebbsModalOpen] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -292,6 +293,14 @@ function OvernightIntakePage() {
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
   const webbsItemLines = useMemo(() => webbsOrderSummary(webbsItems), [webbsItems]);
+  const webbsSummaryText = useMemo(() => {
+    if (!job.webbsOrder) return 'No Webbs order';
+    const parts: string[] = [];
+    if (toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
+    if (webbsItems.length) parts.push(`${webbsItems.length} items`);
+    if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
+    return parts.length ? parts.join(' • ') : 'Fill out the Webbs order';
+  }, [job.webbsOrder, job.webbsPounds, webbsItems.length, webbsItemTotal]);
 
   const procNorm = normProc(job.processType);
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
@@ -302,10 +311,10 @@ function OvernightIntakePage() {
     setJob((prev) => {
       const next = { ...prev };
       if (!next.webbsOrder) {
-        next.webbsOrderMode = 'needs_call';
+        next.webbsOrderMode = 'online';
         next.webbsItems = [];
-      } else if (!next.webbsOrderMode) {
-        next.webbsOrderMode = 'needs_call';
+      } else if (!next.webbsOrderMode || next.webbsOrderMode !== 'online') {
+        next.webbsOrderMode = 'online';
       }
       const p = normProc(next.processType);
       if (p === 'Donate') {
@@ -324,6 +333,12 @@ function OvernightIntakePage() {
       return next;
     });
   }, [job.processType]);
+
+  useEffect(() => {
+    if (!job.webbsOrder && webbsModalOpen) {
+      setWebbsModalOpen(false);
+    }
+  }, [job.webbsOrder, webbsModalOpen]);
 
   useEffect(() => {
     setJob((p) => {
@@ -419,9 +434,7 @@ function OvernightIntakePage() {
     if (job.webbsOrder) {
       const enteredPounds = toInt(job.webbsPounds);
       if (!enteredPounds) e.webbsPounds = 'Estimated Webbs pounds are required';
-      if ((job.webbsOrderMode || 'needs_call') === 'online' && !webbsItems.length) {
-        e.webbsItems = 'Choose at least one Webbs item or switch to have staff call later';
-      }
+      if (!webbsItems.length) e.webbsItems = 'Enter at least one Webbs item and pounds';
     }
 
     return e;
@@ -494,7 +507,7 @@ function OvernightIntakePage() {
       capingStatus: (pnorm === 'Caped' || pnorm === 'Cape & Donate') ? (job.capingStatus || 'Dropped Off') : '',
 
       webbsStatus: (job.webbsOrder && pnorm !== 'Donate') ? (job.webbsStatus || 'Dropped Off') : '',
-      webbsOrderMode: job.webbsOrder ? (job.webbsOrderMode || 'needs_call') : 'needs_call',
+      webbsOrderMode: job.webbsOrder ? 'online' : 'online',
       webbsItems: job.webbsOrder ? webbsItems : [],
       webbsPounds: job.webbsOrder ? String(toInt(job.webbsPounds) || webbsItemTotal || '') : '',
 
@@ -545,18 +558,6 @@ function OvernightIntakePage() {
   };
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) => !locked && setJob((p) => ({ ...p, [k]: v }));
-
-  const toggleWebbsItem = (key: string, checked: boolean) => {
-    if (locked) return;
-    setJob((prev) => {
-      const current = normalizeWebbsOrderItems(prev.webbsItems);
-      if (checked) {
-        if (current.some((item) => item.key === key)) return prev;
-        return { ...prev, webbsItems: [...current, { key, label: '', pounds: 1 }] };
-      }
-      return { ...prev, webbsItems: current.filter((item) => item.key !== key) };
-    });
-  };
 
   const setWebbsItemPounds = (key: string, value: string) => {
     if (locked) return;
@@ -1276,7 +1277,16 @@ function OvernightIntakePage() {
               <div className="grid">
                 <div className="c3 rowInline">
                   <label className="chk tight pkg-beef">
-                    <input type="checkbox" checked={!!job.webbsOrder} onChange={(e) => setVal('webbsOrder', e.target.checked)} disabled={locked} />
+                    <input
+                      type="checkbox"
+                      checked={!!job.webbsOrder}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setVal('webbsOrder', e.target.checked);
+                        if (checked) setWebbsModalOpen(true);
+                      }}
+                      disabled={locked}
+                    />
                     <span><strong>Webbs Order</strong></span>
                     <span className="muted"> (+$20 fee)</span>
                   </label>
@@ -1286,7 +1296,7 @@ function OvernightIntakePage() {
                   <>
                     <div className="c12">
                       <label>Estimated Webbs Pounds (lb)</label>
-                      <Hint>Tell us how many pounds you want to send to Webbs. If you build the order below, this will auto-fill from your selections if left blank.</Hint>
+                      <Hint>Tell us how many pounds you want to send to Webbs. Fill out the Webbs order below so we know what products you want.</Hint>
                       <input
                         inputMode="numeric"
                         value={job.webbsPounds || ''}
@@ -1299,109 +1309,35 @@ function OvernightIntakePage() {
                     </div>
 
                     <div className="c12">
-                      <label>How would you like to handle your Webbs order?</label>
-                      <Hint>Most customers will pick one of these two options. Staff will still assign the actual Webbs form number later.</Hint>
-                      <div className="checks" style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 240px), 1fr))' }}>
-                        <label className="chk" style={{ border:'1px solid #d7dee7', borderRadius:14, padding:'12px 14px', background: job.webbsOrderMode !== 'online' ? '#fff' : '#f8fafc' }}>
-                          <input
-                            type="radio"
-                            name="webbs-order-mode"
-                            checked={(job.webbsOrderMode || 'needs_call') === 'needs_call'}
-                            onChange={() => setVal('webbsOrderMode', 'needs_call')}
-                            disabled={locked}
-                          />
-                          <span>
-                            <strong>Have staff call me later</strong><br />
-                            <span className="muted">We will contact you and finish the Webbs order with you later.</span>
-                          </span>
-                        </label>
-                        <label className="chk" style={{ border:'1px solid #d7dee7', borderRadius:14, padding:'12px 14px', background: job.webbsOrderMode === 'online' ? '#fff' : '#f8fafc' }}>
-                          <input
-                            type="radio"
-                            name="webbs-order-mode"
-                            checked={job.webbsOrderMode === 'online'}
-                            onChange={() => setVal('webbsOrderMode', 'online')}
-                            disabled={locked}
-                          />
-                          <span>
-                            <strong>Build my Webbs order now</strong><br />
-                            <span className="muted">Choose the products below and how many pounds you want of each one.</span>
-                          </span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {job.webbsOrderMode === 'online' && (
-                      <div className="c12">
-                        <div style={{ border:'1px solid #dbe3ea', borderRadius:16, padding:16, background:'#f8fafc' }}>
-                          <div style={{ display:'flex', justifyContent:'space-between', gap:12, flexWrap:'wrap', marginBottom:10 }}>
-                            <div>
-                              <div style={{ fontWeight:800, color:'#0f172a' }}>Build Your Webbs Order</div>
-                              <div className="muted" style={{ fontSize:13 }}>
-                                Pick only the items you want. A pounds box will appear for each selected item.
-                              </div>
-                            </div>
-                            <span className="badge">Detailed item lbs: {webbsItemTotal || 0}</span>
+                      <div className="webbsSummaryCard">
+                        <div className="webbsSummaryHead">
+                          <div>
+                            <div className="webbsSummaryTitle">Webbs Order</div>
+                            <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
                           </div>
-
-                          {WEBBS_GROUPS.map((group) => (
-                            <div key={group.title} style={{ marginTop: 14 }}>
-                              <div style={{ fontWeight:700, marginBottom:8 }}>{group.title}</div>
-                              <div style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 220px), 1fr))' }}>
-                                {group.items.map((item) => {
-                                  const selected = webbsItems.find((entry) => entry.key === item.key);
-                                  return (
-                                    <div
-                                      key={item.key}
-                                      style={{
-                                        border:'1px solid #d7dee7',
-                                        borderRadius:14,
-                                        padding:'10px 12px',
-                                        background: selected ? '#fff' : '#f8fafc',
-                                      }}
-                                    >
-                                      <label className="chk" style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
-                                        <input
-                                          type="checkbox"
-                                          checked={!!selected}
-                                          onChange={(e) => toggleWebbsItem(item.key, e.target.checked)}
-                                          disabled={locked}
-                                        />
-                                        <span style={{ fontWeight:600 }}>{item.label}</span>
-                                      </label>
-                                      {selected && (
-                                        <div style={{ marginTop:8 }}>
-                                          <label style={{ fontSize:12 }}>Pounds</label>
-                                          <input
-                                            inputMode="numeric"
-                                            value={selected.pounds || ''}
-                                            onChange={(e) => setWebbsItemPounds(item.key, e.target.value)}
-                                            disabled={locked}
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-
-                          {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
-
-                          {webbsItemLines.length > 0 && (
-                            <div style={{ marginTop:14 }}>
-                              <div style={{ fontWeight:700, marginBottom:6 }}>Selected Items</div>
-                              <div style={{ display:'grid', gap:6 }}>
-                                {webbsItemLines.map((line) => (
-                                  <div key={line} style={{ fontSize:13, color:'#334155' }}>{line}</div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                            <span className="badge">Entered lbs: {toInt(job.webbsPounds) || 0}</span>
+                            <span className="badge">Detailed lbs: {webbsItemTotal || 0}</span>
+                          </div>
+                        </div>
+                        {webbsItemLines.length > 0 ? (
+                          <div className="webbsSummaryList">
+                            {webbsItemLines.slice(0, 6).map((line) => (
+                              <div key={line} className="webbsSummaryLine">{line}</div>
+                            ))}
+                            {webbsItemLines.length > 6 ? <div className="webbsSummaryMore">+{webbsItemLines.length - 6} more items</div> : null}
+                          </div>
+                        ) : (
+                          <div className="muted" style={{ fontSize: 13 }}>No Webbs items entered yet.</div>
+                        )}
+                        {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
+                        <div style={{ marginTop: 12 }}>
+                          <button type="button" className="btn secondary" onClick={() => setWebbsModalOpen(true)} disabled={locked}>
+                            Fill Out Webbs Order
+                          </button>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </>
                 )}
               </div>
@@ -1489,6 +1425,55 @@ function OvernightIntakePage() {
       <div className="print-only">
         <PrintSheet job={job} />
       </div>
+
+      {webbsModalOpen && job.webbsOrder && !locked ? (
+        <div className="modal" onClick={() => setWebbsModalOpen(false)}>
+          <div className="modal-card webbsModalCard" onClick={(e) => e.stopPropagation()}>
+            <div className="webbsModalHead">
+              <div>
+                <div className="modalKicker">Webbs Order</div>
+                <h3>Fill Out Your Webbs Order</h3>
+                <div className="muted" style={{ marginTop: 6 }}>
+                  Enter how many pounds you want for each item you want made. Leave a box blank if you do not want that item.
+                </div>
+              </div>
+              <button className="btn secondary" type="button" onClick={() => setWebbsModalOpen(false)}>
+                Done
+              </button>
+            </div>
+
+            <div className="webbsModalBody">
+              {WEBBS_GROUPS.map((group) => (
+                <div key={group.title}>
+                  <div className="webbsGroupTitle">{group.title}</div>
+                  <div className="webbsWorksheet">
+                    <div className="webbsWorksheetHead">
+                      <div>Product</div>
+                      <div>Lb going into product</div>
+                    </div>
+                    {group.items.map((item) => {
+                      const selected = webbsItems.find((entry) => entry.key === item.key);
+                      return (
+                        <div key={item.key} className="webbsWorksheetRow">
+                          <div className="webbsWorksheetLabel">{item.label}</div>
+                          <div>
+                            <input
+                              inputMode="numeric"
+                              value={selected?.pounds || ''}
+                              onChange={(e) => setWebbsItemPounds(item.key, e.target.value)}
+                              placeholder="lb"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Thank-you modal */}
       {showThanks && (
@@ -1729,6 +1714,24 @@ function OvernightIntakePage() {
 
         .err{ border-color:#ef4444 !important; background:#fff1f2; }
         .errText{ color:#b91c1c; font-size:12px; margin-top:4px; font-weight:700; }
+        .webbsSummaryCard { border:1px solid #dbe3ea; border-radius:16px; padding:16px; background:#f8fafc; }
+        .webbsSummaryHead { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+        .webbsSummaryTitle { font-weight:800; color:#0f172a; }
+        .webbsSummaryList { margin-top:12px; display:grid; gap:6px; }
+        .webbsSummaryLine { font-size:13px; color:#334155; }
+        .webbsSummaryMore { font-size:13px; font-weight:700; color:#475569; }
+        .webbsModalCard { max-width: 980px; }
+        .webbsModalHead { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px; }
+        .modalKicker { font-size:12px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:.06em; }
+        .webbsModalBody { display:grid; gap:16px; }
+        .webbsGroupTitle { font-weight:800; color:#0f172a; margin-bottom:8px; }
+        .webbsWorksheet { border:1px solid #d7dee7; border-radius:14px; overflow:hidden; background:#fff; }
+        .webbsWorksheetHead,
+        .webbsWorksheetRow { display:grid; grid-template-columns:minmax(0,1fr) 140px; gap:10px; align-items:center; }
+        .webbsWorksheetHead { padding:10px 12px; background:#f8fafc; font-size:12px; font-weight:800; color:#475569; border-bottom:1px solid #d7dee7; }
+        .webbsWorksheetRow { padding:8px 12px; border-top:1px solid #eef2f7; }
+        .webbsWorksheetRow:first-of-type { border-top:0; }
+        .webbsWorksheetLabel { font-size:13px; font-weight:700; color:#0f172a; }
 
         .print-only { display: none; }
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
@@ -1845,6 +1848,9 @@ function OvernightIntakePage() {
           .btn {
             width: 100%;
           }
+          .webbsWorksheetHead,
+          .webbsWorksheetRow { grid-template-columns:minmax(0,1fr) 96px; }
+          .webbsModalHead { display:grid; gap:10px; }
         }
         /* Packaging layout */
         .pkgGrid { display: grid; gap: 16px; }
