@@ -1577,6 +1577,28 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 .printsheet .specLine { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
 .printsheet .specLine span { font-size: 0.95em; }
 .printsheet .specTotal { font-weight: 700; }
+.printsheet .webbsMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: baseline;
+}
+.printsheet .webbsItemsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 12px;
+  margin-top: 3px;
+}
+.printsheet .webbsItemsGrid.dense {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px 10px;
+}
+.printsheet .webbsItemLine {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* Print behavior */
 @media print {
   @page { margin: 8mm; } /* can drop to 7mm if still 2 pages */
@@ -1727,6 +1749,18 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   .printsheet .meat-row .box { padding: 3px 5px !important; }
   .printsheet .meat-row .val { padding-top: 2px !important; padding-bottom: 2px !important; }
   .printsheet .meat-row      { margin-bottom: 3px !important; }
+  .printsheet .webbsMetaRow {
+    gap: 6px 12px !important;
+  }
+  .printsheet .webbsItemsGrid {
+    gap: 1px 10px !important;
+  }
+  .printsheet .page[data-overflow="1"] .webbsItemsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .printsheet .page[data-overflow="1"] .webbsItemLine {
+    letter-spacing: -0.01em;
+  }
 
   /* Leave global page margin as-is; you've already tuned this */
   @page { margin: 6.5mm; }
@@ -1743,4 +1777,3 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 
   @page { margin: 6.5mm; } /* your current safe margin */
 }
-

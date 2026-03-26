@@ -6,7 +6,7 @@ import {
   specialtyPrice as calcSpecialtyPrice,
   specialtyTotalLbs,
 } from '@/lib/specialty';
-import { webbsOrderSummary, webbsOrderTotalLbs } from '@/lib/webbs';
+import { normalizeWebbsOrderItems, webbsOrderTotalLbs } from '@/lib/webbs';
 
 type AnyRec = Record<string, any>;
 
@@ -49,6 +49,24 @@ function asPounds(x: any): number {
 }
 function money(n: number): string {
   return '$' + (Number.isFinite(n) ? n.toFixed(2) : '0.00');
+}
+
+function shortWebbsLabel(label: string): string {
+  return label
+    .replace(/^Venison\s+/i, 'V. ')
+    .replace(/\bwith\b/gi, 'w')
+    .replace(/\bCheddar\b/gi, 'Chedd')
+    .replace(/\bJalapeno\b/gi, 'Jal.')
+    .replace(/\bChipotle\b/gi, 'Chip.')
+    .replace(/\bSummer Sausage\b/gi, 'Summer')
+    .replace(/\bHot & Spicy\b/gi, 'Hot/Spicy')
+    .replace(/\bGreen Pepper Onions\b/gi, 'G. Pepper/Onion')
+    .replace(/\bSausage Link\b/gi, 'Link')
+    .replace(/\bSnack Links\b/gi, 'Snack Links')
+    .replace(/\bSnack Sticks\b/gi, 'Snack Sticks')
+    .replace(/\bSkinless Weiners\b/gi, 'Skinless Wieners')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /* ALWAYS treat strings as KEYS when reading */
@@ -160,12 +178,17 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
 
   const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [specialtyItems]);
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
-  const webbsItemLines = useMemo(() => webbsOrderSummary(job?.webbsItems), [job?.webbsItems]);
+  const webbsItems = useMemo(() => normalizeWebbsOrderItems(job?.webbsItems), [job?.webbsItems]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(job?.webbsItems), [job?.webbsItems]);
+  const webbsItemLines = useMemo(
+    () => webbsItems.map((item) => `${shortWebbsLabel(item.label)} ${item.pounds} lb`),
+    [webbsItems]
+  );
   const webbsOrderMode = useMemo(
     () => textVal('webbsOrderMode', 'webbs_order_mode'),
     [job?.webbsOrderMode, job?.webbs_order_mode]
   );
+  const hasDenseWebbsList = webbsItemLines.length > 10;
 
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -276,13 +299,8 @@ return () => {
 const printable = Math.round(11 * DPI - 2 * MARGIN_MM * (DPI / MM_PER_IN));
 pages.forEach(p => {
   const h = p.scrollHeight;
-  let sc = 1;
-  // Only shrink if we truly overflow. Keep it near 1 so text doesn't get visibly smaller.
-  if (h > printable) {
-    const target = (printable - 2) / h;   // shrink just enough
-    sc = Math.max(0.985, Math.min(1, target));  // NEVER below 98.5%
-  }
-  (p as HTMLElement).style.setProperty('--print-scale', sc.toFixed(3));
+  (p as HTMLElement).style.setProperty('--print-scale', '1');
+  (p as HTMLElement).dataset.overflow = h > printable ? '1' : '0';
 });
 
     };
@@ -537,21 +555,21 @@ pages.forEach(p => {
         <div className="col-9 box">
           <div className="label">Webbs Details</div>
           <div className="val">
-            <div className="webbsRow">
+            <div className="webbsMetaRow">
               <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
               <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
+              {webbsOrderMode ? (
+                <div><b>Choice:</b> {webbsOrderMode === 'online' ? 'Entered online' : 'Staff call later'}</div>
+              ) : null}
             </div>
-            {webbsOrderMode ? (
-              <div style={{ marginTop: 6 }}>
-                <b>Public Webbs Choice:</b> {webbsOrderMode === 'online' ? 'Order entered online' : 'Have staff call later'}
-              </div>
-            ) : null}
             {webbsItemLines.length > 0 && (
               <div style={{ marginTop: 6 }}>
                 <div><b>Detailed Items ({webbsItemTotal} lb):</b></div>
-                {webbsItemLines.map((line) => (
-                  <div key={line}>{line}</div>
-                ))}
+                <div className={`webbsItemsGrid ${hasDenseWebbsList ? 'dense' : ''}`}>
+                  {webbsItemLines.map((line) => (
+                    <div key={line} className="webbsItemLine">{line}</div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
