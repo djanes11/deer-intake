@@ -1301,7 +1301,7 @@ function OvernightIntakePage() {
                     <div className="c12">
                       <label>How would you like to handle your Webbs order?</label>
                       <Hint>Most customers will pick one of these two options. Staff will still assign the actual Webbs form number later.</Hint>
-                      <div className="checks" style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))' }}>
+                      <div className="checks" style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 240px), 1fr))' }}>
                         <label className="chk" style={{ border:'1px solid #d7dee7', borderRadius:14, padding:'12px 14px', background: job.webbsOrderMode !== 'online' ? '#fff' : '#f8fafc' }}>
                           <input
                             type="radio"
@@ -1347,7 +1347,7 @@ function OvernightIntakePage() {
                           {WEBBS_GROUPS.map((group) => (
                             <div key={group.title} style={{ marginTop: 14 }}>
                               <div style={{ fontWeight:700, marginBottom:8 }}>{group.title}</div>
-                              <div style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                              <div style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 220px), 1fr))' }}>
                                 {group.items.map((item) => {
                                   const selected = webbsItems.find((entry) => entry.key === item.key);
                                   return (
@@ -1557,6 +1557,15 @@ function OvernightIntakePage() {
         .chk { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; min-width: 0; max-width: 100%; }
         .chk input[type="checkbox"], .chk input[type="radio"] { width: 18px; height: 18px; flex: 0 0 auto; }
         .chk span { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+        .count {
+          display: grid;
+          gap: 4px;
+          min-width: 0;
+        }
+        .countInp {
+          width: 100%;
+          max-width: 100%;
+        }
         .muted { color: #6b7280; font-size: 12px; }
         .hero {
           display: grid;
@@ -1784,6 +1793,10 @@ function OvernightIntakePage() {
           .chk {
             width: 100%;
             max-width: 100%;
+            display: grid;
+            grid-template-columns: 18px minmax(0, 1fr);
+            column-gap: 10px;
+            row-gap: 4px;
             align-items: flex-start;
             padding: 10px 12px;
             border-radius: 12px;
@@ -1792,7 +1805,12 @@ function OvernightIntakePage() {
           }
           .chk input[type="checkbox"],
           .chk input[type="radio"] {
+            grid-column: 1;
+            grid-row: 1;
             margin-top: 2px;
+          }
+          .chk > span {
+            grid-column: 2;
           }
           .rowInline,
           .requiredList,
@@ -1811,6 +1829,9 @@ function OvernightIntakePage() {
           .pkgGrid .pkg-beef,
           .pkgGrid .pkg-beef span {
             white-space: normal;
+          }
+          .count {
+            width: 100%;
           }
           .actions {
             display: grid;

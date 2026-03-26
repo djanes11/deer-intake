@@ -95,25 +95,66 @@ export default function AdminSettingsPage() {
     setS({ ...s, hours: nextHours });
   };
 
-  if (!s) return <div style={{ padding: 16 }}>Loading... {msg ? <div>{msg}</div> : null}</div>;
+  if (!s) {
+    return (
+      <div
+        style={{
+          maxWidth: 960,
+          margin: '24px auto',
+          padding: 16,
+          color: '#0f172a',
+          background: '#f8fafc',
+          border: '1px solid #dbe4ee',
+          borderRadius: 16,
+        }}
+      >
+        Loading... {msg ? <div style={{ marginTop: 8, color: '#991b1b', fontWeight: 700 }}>{msg}</div> : null}
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 960, margin: '24px auto', padding: 16 }}>
-      <h2 style={{ margin: '0 0 10px' }}>Public Site Settings</h2>
+    <div
+      style={{
+        maxWidth: 960,
+        margin: '24px auto',
+        padding: 16,
+        color: '#0f172a',
+      }}
+    >
+      <div
+        style={{
+          marginBottom: 16,
+          padding: '18px 20px',
+          borderRadius: 18,
+          background: 'linear-gradient(135deg, #0f172a 0%, #17324f 100%)',
+          color: '#f8fafc',
+          border: '1px solid #1e3a5f',
+        }}
+      >
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#bfdbfe' }}>
+          Staff Controls
+        </div>
+        <h2 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05, color: '#ffffff' }}>Public Site Settings</h2>
+        <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 700, lineHeight: 1.5 }}>
+          Update the public intake status, banner message, and customer-facing pickup hours from one place.
+        </div>
+      </div>
 
       <div style={{ display: 'grid', gap: 14 }}>
         <div
           style={{
-            border: '1px solid #cbd5e1',
-            borderRadius: 12,
-            padding: 14,
-            background: '#f8fafc',
+            border: '1px solid #d6dee8',
+            borderRadius: 16,
+            padding: 18,
+            background: '#ffffff',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
             display: 'grid',
             gap: 12,
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 18 }}>Public Intake</div>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 }}>
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Public Intake</div>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900, color: '#0f172a' }}>
             <input
               type="checkbox"
               checked={!!s.public_intake_enabled}
@@ -121,23 +162,39 @@ export default function AdminSettingsPage() {
             />
             Public overnight intake enabled
           </label>
-          <div style={{ fontSize: 12, color: '#475569' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              width: 'fit-content',
+              padding: '6px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 800,
+              background: s.public_intake_enabled ? '#ecfdf5' : '#fff7ed',
+              color: s.public_intake_enabled ? '#166534' : '#9a3412',
+              border: `1px solid ${s.public_intake_enabled ? '#bbf7d0' : '#fed7aa'}`,
+            }}
+          >
+            {s.public_intake_enabled ? 'Public intake is live' : 'Public intake is off'}
+          </div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Turn this off when you are at capacity or temporarily closed. The public pages will show the intake as unavailable.
           </div>
         </div>
 
         <div
           style={{
-            border: '1px solid #cbd5e1',
-            borderRadius: 12,
-            padding: 14,
-            background: '#f8fafc',
+            border: '1px solid #d6dee8',
+            borderRadius: 16,
+            padding: 18,
+            background: '#ffffff',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
             display: 'grid',
             gap: 12,
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 18 }}>Banner</div>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900 }}>
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Banner</div>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900, color: '#0f172a' }}>
             <input
               type="checkbox"
               checked={!!s.banner_enabled}
@@ -147,45 +204,89 @@ export default function AdminSettingsPage() {
           </label>
 
           <div>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Banner message</div>
+            <div style={{ fontWeight: 900, marginBottom: 6, color: '#0f172a' }}>Banner message</div>
             <textarea
               rows={3}
               value={s.banner_message || ''}
               onChange={(e) => setS({ ...s, banner_message: e.target.value })}
-              style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid #cbd5e1' }}
+              style={{
+                width: '100%',
+                padding: 12,
+                borderRadius: 12,
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#0f172a',
+              }}
               placeholder="Example: We are currently full and not accepting overnight drop-offs."
             />
+          </div>
+
+          <div
+            style={{
+              border: '1px solid #e2e8f0',
+              borderRadius: 14,
+              padding: 14,
+              background: s.banner_enabled ? '#fff7ed' : '#f8fafc',
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 900, color: '#475569', marginBottom: 6 }}>Banner Preview</div>
+            <div
+              style={{
+                borderRadius: 10,
+                padding: '10px 12px',
+                background: s.banner_enabled ? '#7c2d12' : '#e2e8f0',
+                color: s.banner_enabled ? '#fff7ed' : '#475569',
+                fontWeight: 800,
+                lineHeight: 1.45,
+              }}
+            >
+              {s.banner_enabled
+                ? s.banner_message?.trim() || 'Your banner message will appear here.'
+                : 'Banner is currently hidden on the public site.'}
+            </div>
           </div>
         </div>
 
         <div
           style={{
-            border: '1px solid #cbd5e1',
-            borderRadius: 12,
-            padding: 14,
-            background: '#f8fafc',
+            border: '1px solid #d6dee8',
+            borderRadius: 16,
+            padding: 18,
+            background: '#ffffff',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
             display: 'grid',
             gap: 12,
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 18 }}>Pickup Hours</div>
-          <div style={{ fontSize: 12, color: '#475569' }}>
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Pickup Hours</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             These rows show on the public Hours page and any public page that uses the public hours feed.
           </div>
 
           {normalizeHours(s.hours).map((row, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
+            <div
+              key={idx}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(140px, 1fr) minmax(0, 2fr)',
+                gap: 10,
+                padding: 10,
+                borderRadius: 12,
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+              }}
+            >
               <input
                 value={row.label}
                 onChange={(e) => updateHour(idx, 'label', e.target.value)}
                 placeholder="Label"
-                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1' }}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
               />
               <input
                 value={row.value}
                 onChange={(e) => updateHour(idx, 'value', e.target.value)}
                 placeholder="Hours"
-                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1' }}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
               />
             </div>
           ))}
@@ -195,10 +296,11 @@ export default function AdminSettingsPage() {
               type="button"
               onClick={() => setS({ ...s, hours: [...normalizeHours(s.hours), { label: '', value: '' }] })}
               style={{
-                padding: '8px 12px',
+                padding: '10px 14px',
                 borderRadius: 10,
                 border: '1px solid #cbd5e1',
-                background: '#fff',
+                background: '#f8fafc',
+                color: '#0f172a',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -209,10 +311,11 @@ export default function AdminSettingsPage() {
               type="button"
               onClick={() => setS({ ...s, hours: DEFAULT_HOURS })}
               style={{
-                padding: '8px 12px',
+                padding: '10px 14px',
                 borderRadius: 10,
                 border: '1px solid #cbd5e1',
-                background: '#fff',
+                background: '#f8fafc',
+                color: '#0f172a',
                 fontWeight: 800,
                 cursor: 'pointer',
               }}
@@ -222,14 +325,22 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            padding: '8px 4px 0',
+          }}
+        >
           <button
             onClick={save}
             disabled={busy}
             style={{
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: '1px solid #cbd5e1',
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid #0f4aa8',
               background: '#155acb',
               color: '#fff',
               fontWeight: 900,
@@ -239,7 +350,15 @@ export default function AdminSettingsPage() {
           >
             {busy ? 'Saving...' : 'Save'}
           </button>
-          <div style={{ fontSize: 12, fontWeight: 900 }}>{msg}</div>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 900,
+              color: msg === 'Saved' ? '#166534' : '#334155',
+            }}
+          >
+            {msg}
+          </div>
         </div>
       </div>
     </div>
