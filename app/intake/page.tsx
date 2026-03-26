@@ -776,17 +776,6 @@ if (fresh?.exists && fresh.job) {
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) => setJob((p) => ({ ...p, [k]: v }));
 
-  const toggleWebbsItem = (key: string, checked: boolean) => {
-    setJob((prev) => {
-      const current = normalizeWebbsOrderItems(prev.webbsItems);
-      if (checked) {
-        if (current.some((item) => item.key === key)) return prev;
-        return { ...prev, webbsItems: [...current, { key, label: '', pounds: 1 }] };
-      }
-      return { ...prev, webbsItems: current.filter((item) => item.key !== key) };
-    });
-  };
-
   const setWebbsItemPounds = (key: string, value: string) => {
     setJob((prev) => {
       const existing = normalizeWebbsOrderItems(prev.webbsItems).filter((item) => item.key !== key);
@@ -1652,29 +1641,24 @@ if (fresh?.exists && fresh.job) {
               {WEBBS_GROUPS.map((group) => (
                 <div key={group.title}>
                   <div className="webbsGroupTitle">{group.title}</div>
-                  <div className="webbsGroupGrid">
+                  <div className="webbsWorksheet">
+                    <div className="webbsWorksheetHead">
+                      <div>Product</div>
+                      <div>Lb going into product</div>
+                    </div>
                     {group.items.map((item) => {
                       const selected = webbsItems.find((entry) => entry.key === item.key);
                       return (
-                        <div key={item.key} className={`webbsItemCard ${selected ? 'on' : ''}`}>
-                          <label className="chk webbsItemCheck">
+                        <div key={item.key} className="webbsWorksheetRow">
+                          <div className="webbsWorksheetLabel">{item.label}</div>
+                          <div>
                             <input
-                              type="checkbox"
-                              checked={!!selected}
-                              onChange={(e) => toggleWebbsItem(item.key, e.target.checked)}
+                              inputMode="numeric"
+                              value={selected?.pounds || ''}
+                              onChange={(e) => setWebbsItemPounds(item.key, e.target.value)}
+                              placeholder="lb"
                             />
-                            <span style={{ fontWeight: 600 }}>{item.label}</span>
-                          </label>
-                          {selected ? (
-                            <div style={{ marginTop: 8 }}>
-                              <label style={{ fontSize: 12 }}>Pounds</label>
-                              <input
-                                inputMode="numeric"
-                                value={selected.pounds || ''}
-                                onChange={(e) => setWebbsItemPounds(item.key, e.target.value)}
-                              />
-                            </div>
-                          ) : null}
+                          </div>
                         </div>
                       );
                     })}
@@ -1748,10 +1732,13 @@ if (fresh?.exists && fresh.job) {
         .webbsModalInfo { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
         .webbsModalBody { display: grid; gap: 16px; }
         .webbsGroupTitle { font-weight: 800; color: #0f172a; margin-bottom: 8px; }
-        .webbsGroupGrid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-        .webbsItemCard { border: 1px solid #d7dee7; border-radius: 14px; padding: 10px 12px; background: #f8fafc; }
-        .webbsItemCard.on { background: #fff; border-color: #bfd2f6; }
-        .webbsItemCheck { align-items: flex-start; }
+        .webbsWorksheet { border: 1px solid #d7dee7; border-radius: 14px; overflow: hidden; background: #fff; }
+        .webbsWorksheetHead,
+        .webbsWorksheetRow { display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 10px; align-items: center; }
+        .webbsWorksheetHead { padding: 10px 12px; background: #f8fafc; font-size: 12px; font-weight: 800; color: #475569; border-bottom: 1px solid #d7dee7; }
+        .webbsWorksheetRow { padding: 8px 12px; border-top: 1px solid #eef2f7; }
+        .webbsWorksheetRow:first-of-type { border-top: 0; }
+        .webbsWorksheetLabel { font-size: 13px; font-weight: 700; color: #0f172a; }
         .modalActions { display: flex; justify-content: flex-end; margin-top: 16px; }
 
         .print-only { display: none; }
@@ -1764,7 +1751,8 @@ if (fresh?.exists && fresh.job) {
           .rowInline { padding-top: 0; }
           .summary .pillrow { flex-wrap: wrap; }
           .webbsModalGrid { grid-template-columns: 1fr; }
-          .webbsGroupGrid { grid-template-columns: 1fr; }
+          .webbsWorksheetHead,
+          .webbsWorksheetRow { grid-template-columns: minmax(0, 1fr) 110px; }
           .modal { padding: 10px; }
           .modalCard { padding: 14px; max-height: 92vh; }
         }
