@@ -70,7 +70,7 @@ export default function TipsPage() {
       <section className="form-card" style={{padding:14, borderRadius:12}}>
         <h2 style={{margin:'0 0 8px'}}>Troubleshooting</h2>
         <ul style={{paddingLeft:18, margin:'6px 0'}}>
-          <li><b>“Failed to fetch” on Save</b>: Check the Apps Script URL in env (<code>NEXT_PUBLIC_GAS_BASE</code>) and your network.</li>
+          <li><b>“Failed to fetch” on Save</b>: Check your Vercel env vars, staff auth setup, and network connection.</li>
           <li><b>Picker shows no rows</b>: Make sure you searched exact <i>name</i> or <i>tag</i>; try phone last-4.</li>
           <li><b>Ready email didn’t send</b>: Verify the status really hit <i>Finished &amp; Ready</i> and that the email is present.</li>
         </ul>

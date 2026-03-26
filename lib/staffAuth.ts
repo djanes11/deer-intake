@@ -29,6 +29,18 @@ export function requireStaffAccess(req: Request): StaffAccessResult {
     return { ok: true };
   }
 
+  if (hasApiToken) {
+    try {
+      const url = new URL(req.url);
+      const queryToken = String(url.searchParams.get('token') || '').trim();
+      if (queryToken && queryToken === apiToken) {
+        return { ok: true };
+      }
+    } catch {
+      // Ignore malformed URLs and continue with other auth checks.
+    }
+  }
+
   if (hasBasicAuth) {
     const creds = parseBasicAuth(req.headers.get('authorization'));
     if (creds && creds.user === basicUser && creds.pass === basicPass) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
+import { requireStaffAccess } from '@/lib/staffAuth';
 
 function base() {
   const b = process.env.GAS_BASE || "";
@@ -31,12 +32,18 @@ async function gasPost(action: string, body: any) {
 }
 
 export async function GET(req: NextRequest) {
-  try { return NextResponse.json(await gasGet(req.nextUrl.searchParams)); }
+  try {
+    const auth = requireStaffAccess(req);
+    if (!auth.ok) return NextResponse.json({ ok:false, error: auth.error }, { status: auth.status });
+    return NextResponse.json(await gasGet(req.nextUrl.searchParams));
+  }
   catch (e: any) { return NextResponse.json({ ok:false, error:String(e?.message||e) }, { status:500 }); }
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = requireStaffAccess(req);
+    if (!auth.ok) return NextResponse.json({ ok:false, error: auth.error }, { status: auth.status });
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "");
     if (!action) return NextResponse.json({ ok:false, error:"Missing action" }, { status:400 });

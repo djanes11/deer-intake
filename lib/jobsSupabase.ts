@@ -1184,6 +1184,27 @@ export async function logCall(params: {
   const supabaseServer = getSupabaseServer();
   const { tag, scope, reason, notes, outcome } = params;
 
+  try {
+    const { data, error } = await supabaseServer.rpc('mcafee_log_call', {
+      p_tag: tag,
+      p_scope: scope ?? null,
+      p_reason: reason ?? null,
+      p_notes: notes ?? null,
+      p_outcome: outcome ?? null,
+    });
+
+    if (!error && data && data.ok !== false) {
+      return { ok: true };
+    }
+    if (error && error.code !== '42883') {
+      throw error;
+    }
+  } catch (rpcError: any) {
+    if (rpcError?.code !== '42883') {
+      throw rpcError;
+    }
+  }
+
   const { data: job, error: jobError } = await supabaseServer
     .from('jobs')
     .select('*')
@@ -1243,6 +1264,29 @@ export async function markCalled(params: {
 }) {
   const supabaseServer = getSupabaseServer();
   const { tag, scope: rawScope, notes } = params;
+
+  try {
+    const { data, error } = await supabaseServer.rpc('mcafee_mark_called', {
+      p_tag: tag,
+      p_scope: rawScope ?? 'auto',
+      p_notes: notes ?? null,
+    });
+
+    if (!error && data && data.ok !== false) {
+      return {
+        ok: true,
+        tag: String(data.tag || tag),
+        scope: String(data.scope || rawScope || 'auto'),
+      };
+    }
+    if (error && error.code !== '42883') {
+      throw error;
+    }
+  } catch (rpcError: any) {
+    if (rpcError?.code !== '42883') {
+      throw rpcError;
+    }
+  }
 
   const { data: job, error: jobError } = await supabaseServer
     .from('jobs')

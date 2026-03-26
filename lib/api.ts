@@ -14,15 +14,7 @@ export type AnyRec = Record<string, any>;
 type Json = Record<string, any>;
 
 // ---------- CONFIG ----------
-/**
- * Optional kill-switch:
- * Set NEXT_PUBLIC_USE_SUPABASE=1 to use Supabase API, otherwise fallback to legacy /api/gas2.
- * If you don't need fallback, you can hardcode '/api/v2/jobs'.
- */
-const USE_SUPABASE =
-  (process.env.NEXT_PUBLIC_USE_SUPABASE || '1').trim() === '1';
-
-const API_BASE = USE_SUPABASE ? '/api/v2/jobs' : '/api/gas2';
+const API_BASE = '/api/v2/jobs';
 
 // Keep Job super loose to avoid cross-file literal-union collisions.
 export type Job = AnyRec & { tag?: string | null };
@@ -64,6 +56,11 @@ export function tokenHeader(): Record<string, string> {
   // Do NOT put this in your public app env.
   const t = (process.env.NEXT_PUBLIC_DEER_API_TOKEN || '').trim();
   return t ? { 'x-api-token': t } : {};
+}
+
+export function tokenQuery(): string {
+  const t = (process.env.NEXT_PUBLIC_DEER_API_TOKEN || '').trim();
+  return t ? `token=${encodeURIComponent(t)}` : '';
 }
 
 // ----------- low-level fetch helpers (no-cache, JSON-safe) -----------

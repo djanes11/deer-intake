@@ -32,7 +32,10 @@ export type StateformPayload = {
  */
 export async function fetchStateformPayload(dry: boolean = true): Promise<StateformPayload> {
   const url = `/api/stateform/payload?dry=${dry ? '1' : '0'}`;
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetch(url, {
+    cache: 'no-store',
+    headers: tokenHeader(),
+  });
   const txt = await res.text();
 
   if (!res.ok) {
@@ -51,7 +54,7 @@ export async function setStateformPageNumber(page: number): Promise<{ ok: true; 
   const res = await fetch('/api/stateform/set-page', {
     method: 'POST',
     cache: 'no-store',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...tokenHeader() },
     body: JSON.stringify({ page }),
   });
   const txt = await res.text();
@@ -61,4 +64,4 @@ export async function setStateformPageNumber(page: number): Promise<{ ok: true; 
   if (!json?.ok) throw new Error(json?.error || 'stateform_set_page returned not ok');
   return json as { ok: true; pageNumber: number };
 }
-
+import { tokenHeader } from '@/lib/api';

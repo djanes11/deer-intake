@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchStateformPayload, setStateformPageNumber } from '@/lib/stateform-data';
+import { tokenHeader, tokenQuery } from '@/lib/api';
 
 const CAPACITY = 43;
 
@@ -10,6 +11,12 @@ type ZoomPreset = 'fit' | '110' | '125' | '150';
 function pdfHash(zoom: ZoomPreset) {
   if (zoom === 'fit') return '#page=1&zoom=page-fit';
   return `#page=1&zoom=${zoom}`;
+}
+
+function withToken(url: string) {
+  const query = tokenQuery();
+  if (!query) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}${query}`;
 }
 
 export default function StateFormReportPage() {
@@ -21,7 +28,7 @@ export default function StateFormReportPage() {
   // viewer
   const [zoom, setZoom] = useState<ZoomPreset>('fit');
   const [refreshKey, setRefreshKey] = useState(0); // forces iframe reload
-  const [src, setSrc] = useState('/api/stateform/render?dry=1');
+  const [src, setSrc] = useState(withToken('/api/stateform/render?dry=1'));
 
   // auto refresh
   const [auto, setAuto] = useState(true);
@@ -68,7 +75,7 @@ export default function StateFormReportPage() {
 
   // rebuild iframe src when zoom or refreshKey changes
   useEffect(() => {
-    setSrc(`/api/stateform/render?dry=1&_=${Date.now()}-${refreshKey}${pdfHash(zoom)}`);
+    setSrc(withToken(`/api/stateform/render?dry=1&_=${Date.now()}-${refreshKey}`) + pdfHash(zoom));
   }, [zoom, refreshKey]);
 
   // ----- actions
@@ -84,7 +91,10 @@ export default function StateFormReportPage() {
     );
     if (!ok) return;
     try {
-      const res = await fetch('/api/stateform/commit', { method: 'POST' });
+      const res = await fetch('/api/stateform/commit', {
+        method: 'POST',
+        headers: tokenHeader(),
+      });
       if (!res.ok) throw new Error(`Commit failed: ${res.status}`);
       await refresh();
     } catch (e: any) {
@@ -230,4 +240,3 @@ export default function StateFormReportPage() {
     </div>
   );
 }
-

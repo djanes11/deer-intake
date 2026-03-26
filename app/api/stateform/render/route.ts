@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import fs from "fs";
 import path from "path";
 import { fetchStateformPayloadFromSupabase } from '@/lib/stateform/supabase';
+import { requireStaffAccess } from '@/lib/staffAuth';
 
 // ===== Layout (your tuned values) =====
 const ROW_H = 18;
@@ -83,6 +84,13 @@ export async function GET(req: Request) {
   const debug = searchParams.get("debug") || "";
 
   try {
+    const auth = requireStaffAccess(req);
+    if (!auth.ok) {
+      return new NextResponse(auth.error, {
+        status: auth.status,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
     // PREVIEW ONLY — never clears
     const payload = await fetchPayloadPreview();
 
