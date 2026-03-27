@@ -14,6 +14,9 @@ type SettingsRow = {
   stateform_printed_job_ids?: string[] | null;
 };
 
+const SHOP_TIME_ZONE = 'America/New_York';
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 function getSupabase() {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
@@ -48,12 +51,19 @@ function stateformKey(row: any) {
 function formatDateMMDDYY(v: any) {
   const s = String(v || '').trim();
   if (!s) return '';
+  const dateOnly = s.match(DATE_ONLY_RE);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    return `${month}/${day}/${year.slice(-2)}`;
+  }
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return '';
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${mm}/${dd}/${yy}`;
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: SHOP_TIME_ZONE,
+    month: '2-digit',
+    day: '2-digit',
+    year: '2-digit',
+  }).format(d);
 }
 
 function stateformDateOut(row: any) {
