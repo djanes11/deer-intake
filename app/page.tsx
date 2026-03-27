@@ -3,12 +3,14 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
+import { getDashboardSummary } from '@/lib/jobsSupabase';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 
 export default async function Home() {
   const settings = IS_PUBLIC ? await getPublicSiteSettings() : null;
-  return IS_PUBLIC ? <PublicLanding settings={settings} /> : <StaffHome />;
+  const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
+  return IS_PUBLIC ? <PublicLanding settings={settings} /> : <StaffHome dashboard={dashboard} />;
 }
 
 function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPublicSiteSettings>> | null }) {
@@ -175,7 +177,11 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   );
 }
 
-function StaffHome() {
+function StaffHome({
+  dashboard,
+}: {
+  dashboard: Awaited<ReturnType<typeof getDashboardSummary>> | null;
+}) {
   const shell: React.CSSProperties = {
     maxWidth: 1100,
     margin: '26px auto',
@@ -195,6 +201,12 @@ function StaffHome() {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr 1fr',
     gap: 16,
+  };
+  const statsGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+    gap: 12,
+    marginBottom: 16,
   };
 
   const card: React.CSSProperties = {
@@ -300,6 +312,24 @@ function StaffHome() {
         </Link>
       </div>
 
+      <div style={statsGrid}>
+        {[
+          { label: 'Overnight Queue', value: dashboard?.pendingTags ?? 0, href: '/overnight/review' },
+          { label: 'Print Queue', value: dashboard?.printQueue ?? 0, href: '/reports/print-queue' },
+          { label: 'Called Pickup', value: dashboard?.calledQueue ?? 0, href: '/reports/called' },
+          { label: 'Specialty Open', value: dashboard?.specialtyOpen ?? 0, href: '/reports/specialty' },
+          { label: 'Today Drop-Offs', value: dashboard?.todayDropoffs ?? 0, href: '/search' },
+          { label: 'State Form Entries', value: dashboard?.seasonEntries ?? 0, href: '/reports/state-form' },
+        ].map((item) => (
+          <Link key={item.label} href={item.href} style={linkStyle}>
+            <div style={{ ...card, padding: 14 }}>
+              <div style={mini}>{item.label}</div>
+              <div style={{ fontSize: 30, fontWeight: 950, marginTop: 6 }}>{item.value}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
       <div style={trio}>
         <div style={{ ...card, gridColumn: 'span 2' }}>
           <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>
@@ -310,7 +340,7 @@ function StaffHome() {
             <Link href="/reports/calls" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(51,117,71,.9)')} />
-                <div style={{ fontWeight: 800 }}>Call Report - Ready to Call</div>
+                <div style={{ fontWeight: 800 }}>Call Report - Ready to Call {dashboard ? `(${dashboard.calledQueue})` : ''}</div>
               </div>
             </Link>
 
@@ -324,7 +354,7 @@ function StaffHome() {
             <Link href="/overnight/review" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(167,115,18,.9)')} />
-                <div style={{ fontWeight: 800 }}>Overnight - Missing Tag</div>
+                <div style={{ fontWeight: 800 }}>Overnight - Missing Tag {dashboard ? `(${dashboard.pendingTags})` : ''}</div>
               </div>
             </Link>
 
@@ -337,8 +367,8 @@ function StaffHome() {
 
             <Link href="/reports/state-form" style={linkStyle}>
               <div style={row}>
-                <div style={dot('rgba(25,130,200,.9)')} />
-                <div style={{ fontWeight: 800 }}>State Form - Page Builder</div>
+                <div style={dot('rgba(79,126,91,.9)')} />
+                <div style={{ fontWeight: 800 }}>State Form - Season PDF {dashboard ? `(${dashboard.seasonEntries})` : ''}</div>
               </div>
             </Link>
           </div>

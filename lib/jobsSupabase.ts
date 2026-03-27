@@ -1624,6 +1624,86 @@ export async function lookupCustomerByName(name: string) {
   };
 }
 
+function currentSeasonStartIso() {
+  const now = new Date();
+  const year = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
+  return `${year}-07-01`;
+}
+
+export async function getDashboardSummary() {
+  const supabaseServer = getSupabaseServer();
+
+  const [
+    pendingTagsRes,
+    printQueueRes,
+    seasonEntriesRes,
+    todayDropoffsRes,
+    calledQueueRes,
+    specialtyOpenRes,
+  ] = await Promise.all([
+    supabaseServer
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('requires_tag', true),
+    supabaseServer
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('requires_tag', false)
+      .not('tag', 'is', null)
+      .neq('tag', '')
+      .is('intake_sheet_printed_at', null),
+    supabaseServer
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .not('confirmation', 'is', null)
+      .gte('dropoff_date', currentSeasonStartIso()),
+    supabaseServer
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('dropoff_date', new Date().toISOString().slice(0, 10)),
+    supabaseServer
+      .from('jobs')
+      .select('id,status,caping_status,webbs_status,picked_up_processing,picked_up_cape,picked_up_webbs')
+      .or('status.eq.Called,caping_status.eq.Called,webbs_status.eq.Called')
+      .limit(1000),
+    supabaseServer
+      .from('jobs')
+      .select('id', { count: 'exact', head: true })
+      .eq('specialty_products', true)
+      .neq('specialty_status', 'Picked Up'),
+  ]);
+
+  const countOrThrow = (label: string, res: any) => {
+    if (res.error) {
+      console.error(`${label} dashboard count error`, res.error);
+      throw res.error;
+    }
+    return Number(res.count || 0);
+  };
+
+  const calledRows = calledQueueRes.data || [];
+  if (calledQueueRes.error) {
+    console.error('called queue dashboard error', calledQueueRes.error);
+    throw calledQueueRes.error;
+  }
+
+  const calledQueue = calledRows.filter((r: any) => {
+    const meatInQueue = isCalled(r.status) && !r.picked_up_processing;
+    const capeInQueue = isCalled(r.caping_status) && !r.picked_up_cape;
+    const webbsInQueue = isCalled(r.webbs_status) && !r.picked_up_webbs;
+    return meatInQueue || capeInQueue || webbsInQueue;
+  }).length;
+
+  return {
+    pendingTags: countOrThrow('pendingTags', pendingTagsRes),
+    printQueue: countOrThrow('printQueue', printQueueRes),
+    seasonEntries: countOrThrow('seasonEntries', seasonEntriesRes),
+    todayDropoffs: countOrThrow('todayDropoffs', todayDropoffsRes),
+    specialtyOpen: countOrThrow('specialtyOpen', specialtyOpenRes),
+    calledQueue,
+  };
+}
+
 export async function setJobTag(params: {
   jobId: string;
   newTag: string;

@@ -1257,6 +1257,33 @@ if (fresh?.exists && fresh.job) {
               />
             </div>
           </div>
+
+          {customerMatches.length > 0 ? (
+            <div className="historyPanel">
+              <div className="historyPanelTitle">Recent customer history</div>
+              <div className="historyPanelList">
+                {customerMatches.slice(0, 4).map((match, idx) => (
+                  <div key={`${match.tag || 'no-tag'}:${match.dropoff || idx}`} className="historyCard">
+                    <div className="historyTop">
+                      <div className="historyName">{match.customer || 'Saved customer'}</div>
+                      <button type="button" className="miniFillBtn" onClick={() => applyCustomerCandidate(match)}>
+                        Use This
+                      </button>
+                    </div>
+                    <div className="historyMeta">
+                      {[match.tag ? `Tag ${match.tag}` : '', match.dropoff || '', match.phone || '']
+                        .filter(Boolean)
+                        .join(' • ')}
+                    </div>
+                    <div className="historyMeta">
+                      {[match.address, match.city, match.state, match.zip].filter(Boolean).join(', ') || 'No saved address'}
+                    </div>
+                    {match.email ? <div className="historyMeta">{match.email}</div> : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </section>
 
         <section>
@@ -2006,6 +2033,50 @@ if (fresh?.exists && fresh.job) {
           font-size: 12px;
           color: #567061;
           font-weight: 700;
+        }
+        .historyPanel {
+          margin-top: 14px;
+          border: 1px solid #dce7df;
+          background: #f8fbf9;
+          border-radius: 14px;
+          padding: 12px;
+        }
+        .historyPanelTitle {
+          font-size: 12px;
+          font-weight: 900;
+          color: #406c4d;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+          margin-bottom: 10px;
+        }
+        .historyPanelList {
+          display: grid;
+          gap: 10px;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+        .historyCard {
+          border: 1px solid #d7e4d9;
+          background: #fff;
+          border-radius: 12px;
+          padding: 10px 12px;
+          display: grid;
+          gap: 6px;
+        }
+        .historyTop {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .historyName {
+          font-weight: 900;
+          color: #173321;
+        }
+        .historyMeta {
+          font-size: 12px;
+          color: #567061;
+          line-height: 1.4;
+          overflow-wrap: anywhere;
         }
         .miniFillBtn {
           padding: 6px 10px;
