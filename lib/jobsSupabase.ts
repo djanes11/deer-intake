@@ -1583,6 +1583,45 @@ export async function listJobsNeedingPrint(): Promise<{ ok: boolean; rows: JobSe
   return { ok: true, rows: (data || []).map(mapDbRowToSearchRow) };
 }
 
+export async function lookupCustomerByName(name: string) {
+  const supabaseServer = getSupabaseServer();
+  const q = String(name || '').trim();
+  if (!q) return { ok: true, match: null };
+
+  const { data, error } = await supabaseServer
+    .from('jobs')
+    .select('customer_name,phone,email,address,city,state,zip,dropoff_date,created_at,tag')
+    .ilike('customer_name', q)
+    .order('dropoff_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    console.error('lookupCustomerByName error', error);
+    throw error;
+  }
+
+  const norm = q.toLowerCase();
+  const exact = (data || []).find((row: any) => String(row.customer_name || '').trim().toLowerCase() === norm);
+  const match = exact || (data || [])[0];
+  if (!match) return { ok: true, match: null };
+
+  return {
+    ok: true,
+    match: {
+      customer: String(match.customer_name || ''),
+      phone: String(match.phone || ''),
+      email: String(match.email || ''),
+      address: String(match.address || ''),
+      city: String(match.city || ''),
+      state: String(match.state || ''),
+      zip: String(match.zip || ''),
+      dropoff: match.dropoff_date || null,
+      tag: String(match.tag || ''),
+    },
+  };
+}
+
 export async function setJobTag(params: {
   jobId: string;
   newTag: string;

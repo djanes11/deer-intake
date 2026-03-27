@@ -17,6 +17,7 @@ import {
 } from '@/lib/webbs';
 
 const API_MARK_PRINTED = '/api/v2/reports/mark-printed';
+const API_CUSTOMER_LOOKUP = '/api/v2/customers/lookup';
 
 export const dynamic = 'force-dynamic';
 
@@ -241,6 +242,18 @@ const toMoneyOrNull = (v: any): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+type CustomerLookupMatch = {
+  customer: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  dropoff?: string | null;
+  tag?: string;
+};
+
 async function markPrinted(tag: string) {
   const r = await fetch(API_MARK_PRINTED, {
     method: 'POST',
@@ -356,6 +369,8 @@ function IntakePage() {
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
+  const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
+  const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
 
   // ---- UNSAVED CHANGES GUARD ----
   const [lastSavedJson, setLastSavedJson] = useState<string>('');
@@ -382,6 +397,60 @@ function IntakePage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const name = String(job.customer || '').trim();
+    if (name.length < 3) {
+      setCustomerMatch(null);
+      return;
+    }
+
+    const t = window.setTimeout(async () => {
+      try {
+        setCustomerLookupBusy(true);
+        const qs = new URLSearchParams({ name });
+        const res = await fetch(`${API_CUSTOMER_LOOKUP}?${qs.toString()}`, {
+          cache: 'no-store',
+          headers: { ...tokenHeader() },
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+        const match = (j?.match || null) as CustomerLookupMatch | null;
+        setCustomerMatch(match);
+
+        if (match) {
+          setJob((prev) => ({
+            ...prev,
+            phone: prev.phone || match.phone || '',
+            email: prev.email || match.email || '',
+            address: prev.address || match.address || '',
+            city: prev.city || match.city || '',
+            state: prev.state || (match.state as any) || '',
+            zip: prev.zip || match.zip || '',
+          }));
+        }
+      } catch {
+        setCustomerMatch(null);
+      } finally {
+        setCustomerLookupBusy(false);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(t);
+  }, [job.customer]);
+
+  const applyCustomerMatch = () => {
+    if (!customerMatch) return;
+    setJob((prev) => ({
+      ...prev,
+      phone: customerMatch.phone || prev.phone || '',
+      email: customerMatch.email || prev.email || '',
+      address: customerMatch.address || prev.address || '',
+      city: customerMatch.city || prev.city || '',
+      state: (customerMatch.state as any) || prev.state || '',
+      zip: customerMatch.zip || prev.zip || '',
+    }));
+  };
 
   // Establish baseline for a brand new job (or when tag query changes)
 useEffect(() => {
@@ -1034,6 +1103,20 @@ if (fresh?.exists && fresh.job) {
                 value={job.customer || ''}
                 onChange={(e) => setVal('customer', e.target.value)}
               />
+              {customerLookupBusy ? (
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer info…</div>
+              ) : customerMatch ? (
+                <div className="customerMatch">
+                  <div>
+                    Previous intake found
+                    {customerMatch.tag ? ` • tag ${customerMatch.tag}` : ''}
+                    {customerMatch.dropoff ? ` • ${customerMatch.dropoff}` : ''}
+                  </div>
+                  <button type="button" className="miniFillBtn" onClick={applyCustomerMatch}>
+                    Use Saved Info
+                  </button>
+                </div>
+              ) : null}
             </div>
             <div className="c3">
               <label>Phone</label>
@@ -1837,6 +1920,30 @@ if (fresh?.exists && fresh.job) {
         .webbsSummaryList { margin-top: 12px; display: grid; gap: 6px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
         .webbsSummaryLine { font-size: 13px; color: #334155; }
         .webbsSummaryMore { font-size: 13px; font-weight: 700; color: #475569; }
+        .customerMatch {
+          margin-top: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+          padding: 8px 10px;
+          border-radius: 10px;
+          border: 1px solid #bfd2c2;
+          background: #eef8f0;
+          color: #235532;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .miniFillBtn {
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid #235532;
+          background: #2f6f3f;
+          color: #fff;
+          font-weight: 800;
+          cursor: pointer;
+        }
         .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
         .modalCard { width: min(1040px, 100%); max-height: 88vh; overflow: auto; background: #fff; border-radius: 18px; border: 1px solid #dce7df; box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24); padding: 18px; }
         .modalHead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
