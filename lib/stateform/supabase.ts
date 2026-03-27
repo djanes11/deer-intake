@@ -53,7 +53,17 @@ function formatDateMMDDYY(v: any) {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const yy = String(d.getFullYear()).slice(-2);
-  return `${mm}${dd}${yy}`;
+  return `${mm}/${dd}/${yy}`;
+}
+
+function stateformDateOut(row: any) {
+  if (row?.picked_up_processing_at) {
+    return formatDateMMDDYY(row.picked_up_processing_at);
+  }
+  if (row?.picked_up_processing && row?.updated_at) {
+    return formatDateMMDDYY(row.updated_at);
+  }
+  return '';
 }
 
 function buildAddress(row: any) {
@@ -113,7 +123,7 @@ export async function fetchStateformPayloadFromSupabase() {
 
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,dropoff_date,picked_up_processing_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at')
+    .select('id,dropoff_date,picked_up_processing,picked_up_processing_at,updated_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at')
     .not('confirmation', 'is', null)
     .gte('dropoff_date', currentSeasonStart())
     .order('dropoff_date', { ascending: true })
@@ -145,7 +155,7 @@ export async function fetchStateformPayloadFromSupabase() {
     entries: allRows.map((row) => ({
       jobId: row.id,
       dateIn: formatDateMMDDYY(row.dropoff_date),
-      dateOut: formatDateMMDDYY(row.picked_up_processing_at),
+      dateOut: stateformDateOut(row),
       name: String(row.customer_name || ''),
       address: buildAddress(row),
       phone: digitsOnly(row.phone).slice(-10),
