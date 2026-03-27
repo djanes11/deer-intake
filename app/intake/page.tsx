@@ -373,6 +373,7 @@ function IntakePage() {
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
   const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
+  const [customerLookupCollapsedFor, setCustomerLookupCollapsedFor] = useState('');
 
   // ---- UNSAVED CHANGES GUARD ----
   const [lastSavedJson, setLastSavedJson] = useState<string>('');
@@ -405,6 +406,7 @@ function IntakePage() {
     if (name.length < 3) {
       setCustomerMatch(null);
       setCustomerMatches([]);
+      setCustomerLookupCollapsedFor('');
       return;
     }
 
@@ -451,6 +453,7 @@ function IntakePage() {
   };
 
   const applyCustomerCandidate = (match: CustomerLookupMatch) => {
+    const currentName = String(job.customer || '').trim().toLowerCase();
     setJob((prev) => ({
       ...prev,
       phone: match.phone || prev.phone || '',
@@ -460,7 +463,11 @@ function IntakePage() {
       state: (match.state as any) || prev.state || '',
       zip: match.zip || prev.zip || '',
     }));
+    setCustomerLookupCollapsedFor(currentName);
   };
+
+  const customerLookupVisible =
+    customerLookupCollapsedFor !== String(job.customer || '').trim().toLowerCase();
 
   // Establish baseline for a brand new job (or when tag query changes)
 useEffect(() => {
@@ -1113,9 +1120,9 @@ if (fresh?.exists && fresh.job) {
                 value={job.customer || ''}
                 onChange={(e) => setVal('customer', e.target.value)}
               />
-              {customerLookupBusy ? (
+              {customerLookupBusy && customerLookupVisible ? (
                 <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer info…</div>
-              ) : customerMatches.length > 1 ? (
+              ) : customerLookupVisible && customerMatches.length > 1 ? (
                 <div className="customerMatchList">
                   <div className="customerMatchTitle">Possible previous customers</div>
                   {customerMatches.slice(0, 4).map((match, idx) => (
@@ -1134,7 +1141,7 @@ if (fresh?.exists && fresh.job) {
                     </button>
                   ))}
                 </div>
-              ) : customerMatch ? (
+              ) : customerLookupVisible && customerMatch ? (
                 <div className="customerMatch">
                   <div>
                     Previous intake found
