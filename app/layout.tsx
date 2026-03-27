@@ -11,12 +11,12 @@ export const dynamic = 'force-dynamic';
 export const metadata = {
   title: 'McAfee Deer Processing - Palmyra, IN',
   description:
-    'Fast, clean, professional deer processing. Overnight drop, specialty products, and online status tracking.',
+    'Fast, clean, professional deer processing. Public intake, specialty products, and online status tracking.',
   icons: [{ rel: 'icon', url: '/favicon.ico' }],
   openGraph: {
     title: 'McAfee Deer Processing',
     description:
-      'Overnight drop, specialty products, and online status tracking. Palmyra, IN.',
+      'Public intake, specialty products, and online status tracking. Palmyra, IN.',
     url: 'https://deer-intake-public.vercel.app',
     siteName: 'McAfee Deer Processing',
     type: 'website',

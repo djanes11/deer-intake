@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
     return new Response(
       JSON.stringify({
         ok: false,
-        error: settings.banner_message || 'Overnight intake is currently unavailable.',
+        error: settings.banner_message || 'Public intake is currently unavailable.',
       }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     );

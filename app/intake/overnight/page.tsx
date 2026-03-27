@@ -129,7 +129,7 @@ const toInt = (val: any) => {
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ', 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â'].includes(s);
 };
 
 const fullPaid = (j: Job): boolean => {
@@ -164,7 +164,7 @@ const REQUIRED_LABELS: Record<string, string> = {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>Loading…</div></div>}>
+    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>LoadingÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦</div></div>}>
       <OvernightIntakePage />
     </Suspense>
   );
@@ -292,7 +292,7 @@ function OvernightIntakePage() {
       parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} lb total`);
     }
     if (specialtyPrice) parts.push(`$${specialtyPrice.toFixed(2)}`);
-    return parts.length ? parts.join(' • ') : 'Specialty products selected';
+    return parts.length ? parts.join(' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ') : 'Specialty products selected';
   }, [job.specialtyProducts, specialtyItems, specialtyPrice]);
 
   const totalPrice = processingPrice + specialtyPrice;
@@ -305,7 +305,7 @@ function OvernightIntakePage() {
     if (toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
     if (webbsItems.length) parts.push(`${webbsItems.length} items`);
     if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
-    return parts.length ? parts.join(' • ') : 'Fill out the Webbs order';
+    return parts.length ? parts.join(' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ') : 'Fill out the Webbs order';
   }, [job.webbsOrder, job.webbsPounds, webbsItems.length, webbsItemTotal]);
 
   const procNorm = normProc(job.processType);
@@ -495,7 +495,7 @@ function OvernightIntakePage() {
     if (locked) return;
     setMsg('');
     if (!intakeEnabled) {
-      setMsg(closureMessage || 'Overnight intake is currently unavailable.');
+      setMsg(closureMessage || 'Public intake is currently unavailable.');
       return;
     }
     const e = validateAll();
@@ -559,7 +559,7 @@ function OvernightIntakePage() {
       }
       setLocked(true);
       setShowThanks(true);
-      setMsg('Saved ✓');
+      setMsg('Saved ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e: any) {
       setMsg(e?.message || String(e));
@@ -592,7 +592,7 @@ function OvernightIntakePage() {
       <div className="screen-only">
         <div className="hero">
           <div className="hero-copy">
-            <div className="hero-kicker">Overnight Drop-Off</div>
+            <div className="hero-kicker">Public Intake</div>
             <h2>Deer Intake Form</h2>
             <p>
               We&apos;ll walk you through this one step at a time. Required items are checked before you move on so
@@ -620,7 +620,7 @@ function OvernightIntakePage() {
               fontWeight: 700,
             }}
           >
-            {closureMessage || 'Overnight intake is currently unavailable.'}
+            {closureMessage || 'Public intake is currently unavailable.'}
           </div>
         ) : null}
 
@@ -827,7 +827,7 @@ function OvernightIntakePage() {
                   data-err="state"
                   disabled={locked}
                 >
-                  <option value="">—</option>
+                  <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                   <option value="IN">IN</option>
                   <option value="KY">KY</option>
                   <option value="IL">IL</option>
@@ -979,7 +979,7 @@ function OvernightIntakePage() {
                   data-err="sex"
                   disabled={locked}
                 >
-                  <option value="">—</option>
+                  <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                   <option value="Buck">Buck</option>
                   <option value="Doe">Doe</option>
                   <option value="Antlerless">Antlerless</option>
@@ -1006,7 +1006,7 @@ function OvernightIntakePage() {
                   data-err="howKilled"
                   disabled={locked}
                 >
-                  <option value="">—</option>
+                  <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                   <option value="Gun">Gun</option>
                   <option value="Archery">Archery</option>
                   <option value="Vehicle">Vehicle</option>
@@ -1034,7 +1034,7 @@ function OvernightIntakePage() {
                   data-err="processType"
                   disabled={locked}
                 >
-                  <option value="">—</option>
+                  <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                   <option>Standard Processing</option>
                   <option>Caped</option>
                   <option>Skull-Cap</option>
@@ -1128,7 +1128,7 @@ function OvernightIntakePage() {
                 <div className="pkg steak">
                   <label>Steak Size</label>
                   <select value={job.steak || ''} onChange={(e) => setVal('steak', e.target.value)} disabled={locked}>
-                    <option value="">—</option>
+                    <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                     <option>1/2"</option>
                     <option>3/4"</option>
                     <option>Other</option>
@@ -1149,7 +1149,7 @@ function OvernightIntakePage() {
                 <div className="pkg steaksPer">
                   <label>Steaks per Package</label>
                   <select value={job.steaksPerPackage || ''} onChange={(e) => setVal('steaksPerPackage', e.target.value)} disabled={locked}>
-                    <option value="">—</option>
+                    <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                     <option>4</option>
                     <option>6</option>
                     <option>8</option>
@@ -1159,7 +1159,7 @@ function OvernightIntakePage() {
                 <div className="pkg burgerSize">
                   <label>Burger Size</label>
                   <select value={job.burgerSize || ''} onChange={(e) => setVal('burgerSize', e.target.value)} disabled={locked}>
-                    <option value="">—</option>
+                    <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                     <option>1 lb</option>
                     <option>2 lb</option>
                   </select>
@@ -1182,7 +1182,7 @@ function OvernightIntakePage() {
                 <div className="c4">
                   <label>Prep</label>
                   <select value={job.backstrapPrep || ''} onChange={(e) => setVal('backstrapPrep', e.target.value as any)} disabled={locked}>
-                    <option value="">—</option>
+                    <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                     <option>Whole</option>
                     <option>Sliced</option>
                     <option>Butterflied</option>
@@ -1197,7 +1197,7 @@ function OvernightIntakePage() {
                     onChange={(e) => setVal('backstrapThickness', e.target.value as any)}
                     disabled={job.backstrapPrep === 'Whole' || locked}
                   >
-                    <option value="">—</option>
+                    <option value="">ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â</option>
                     <option>1/2"</option>
                     <option>3/4"</option>
                     <option>Other</option>
@@ -1420,7 +1420,7 @@ function OvernightIntakePage() {
 
           {step.key === 'review' ? (
             <button className="btn" onClick={onSave} disabled={busy || locked}>
-              {busy ? 'Saving…' : locked ? 'Saved' : 'Submit'}
+              {busy ? 'SavingÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦' : locked ? 'Saved' : 'Submit'}
             </button>
           ) : (
             <button className="btn" onClick={goNext} disabled={busy || locked}>
@@ -1555,7 +1555,7 @@ function OvernightIntakePage() {
         <div className="modal">
           <div className="modal-card">
             <div className="thanksKicker">Form Submitted</div>
-            <h3>Overnight drop recorded</h3>
+            <h3>Public intake recorded</h3>
             <div className="thanksConf">
               <div className="thanksConfLabel">Your confirmation number</div>
               <div className="thanksConfValue">{job.confirmation || 'Saved'}</div>
@@ -1568,7 +1568,7 @@ function OvernightIntakePage() {
             <div className="thanksList">
               <div>1. Staff will assign your deer tag after check-in.</div>
               <div>2. Use this confirmation number to check status later.</div>
-              <div>3. If you selected email updates, we’ll email when your deer is tagged and when it is ready.</div>
+              <div>3. If you selected email updates, weÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ll email when your deer is tagged and when it is ready.</div>
             </div>
             <p className="muted" style={{ marginTop: 10 }}>
               Save or screenshot this confirmation number before you close this page.

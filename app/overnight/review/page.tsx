@@ -230,8 +230,8 @@ export default function MissingTagsPage() {
       return;
     }
 
-    const label = row.customer_name || row.confirmation || 'this overnight intake';
-    const confirmed = window.confirm(`Delete ${label} from the overnight queue? This cannot be undone.`);
+    const label = row.customer_name || row.confirmation || 'this public intake';
+    const confirmed = window.confirm(`Delete ${label} from the public intake queue? This cannot be undone.`);
     if (!confirmed) return;
 
     setErr('');

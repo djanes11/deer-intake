@@ -10,7 +10,7 @@ type NavItem = { href: string; label: string; exact?: boolean };
 const NAV: NavItem[] = [
   { href: '/', label: 'Home', exact: true },
   { href: '/status', label: 'Check Status' },
-  { href: '/overnight', label: 'Overnight Drop' },
+  { href: '/overnight', label: 'Public Intake' },
   { href: '/faq-public', label: 'FAQ' },
   { href: '/hours', label: 'Hours' },
   { href: '/contact', label: 'Contact' },

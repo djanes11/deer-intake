@@ -23,8 +23,8 @@ export default function FAQPublic() {
 
         <div style={{ display:'grid', gap:12 }}>
           <section>
-            <h3 style={{ fontSize:18, fontWeight:800 }}>How do I use Overnight Drop?</h3>
-            <p>See our <Link href="/drop-instructions">step-by-step overnight drop guide</Link>. It also links to the online intake form.</p>
+            <h3 style={{ fontSize:18, fontWeight:800 }}>How do I use the Public Intake Form?</h3>
+            <p>See our <Link href="/drop-instructions">step-by-step public intake guide</Link>. It also explains after-hours drop-off.</p>
           </section>
 
           <section>

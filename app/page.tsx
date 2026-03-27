@@ -118,7 +118,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
         </p>
         <div style={ctas}>
           <Link href={settings?.public_intake_enabled ? '/overnight' : '/hours'} style={cta(true)}>
-            {settings?.public_intake_enabled ? 'Start Overnight Drop' : 'Overnight Drop Closed'}
+            {settings?.public_intake_enabled ? 'Start Public Intake' : 'Public Intake Closed'}
           </Link>
           <Link href="/status" style={cta(false)}>Check Your Status</Link>
         </div>
@@ -128,8 +128,8 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
         <div style={panel}>
           <div style={h3}>How it Works</div>
           <ol style={{ margin: 0, padding: '0 0 0 18px', lineHeight: 1.6 }}>
-            <li>Arrive during business hours or use our 24/7 Overnight Drop.</li>
-            <li>Fill the simple intake form and choose your cuts and specialty items.</li>
+            <li>Arrive during business hours or use our public intake form for after-hours drop-off.</li>
+            <li>Fill out the intake form and choose your cuts and specialty items.</li>
             <li>Track progress on the Status page. We&apos;ll also email updates.</li>
             <li>Pick up quickly when notified.</li>
           </ol>
@@ -314,7 +314,7 @@ function StaffHome({
 
       <div style={statsGrid}>
         {[
-          { label: 'Overnight Queue', value: dashboard?.pendingTags ?? 0, href: '/overnight/review' },
+          { label: 'Public Intake Queue', value: dashboard?.pendingTags ?? 0, href: '/overnight/review' },
           { label: 'Print Queue', value: dashboard?.printQueue ?? 0, href: '/reports/print-queue' },
           { label: 'Called Pickup', value: dashboard?.calledQueue ?? 0, href: '/reports/called' },
           { label: 'Specialty Open', value: dashboard?.specialtyOpen ?? 0, href: '/reports/specialty' },
@@ -354,7 +354,7 @@ function StaffHome({
             <Link href="/overnight/review" style={linkStyle}>
               <div style={row}>
                 <div style={dot('rgba(167,115,18,.9)')} />
-                <div style={{ fontWeight: 800 }}>Overnight - Missing Tag {dashboard ? `(${dashboard.pendingTags})` : ''}</div>
+                <div style={{ fontWeight: 800 }}>Public Intake - Needs Tag {dashboard ? `(${dashboard.pendingTags})` : ''}</div>
               </div>
             </Link>
 

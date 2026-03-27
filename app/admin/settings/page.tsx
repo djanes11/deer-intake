@@ -176,7 +176,7 @@ export default function AdminSettingsPage() {
               checked={!!s.public_intake_enabled}
               onChange={(e) => setS({ ...s, public_intake_enabled: e.target.checked })}
             />
-            Public overnight intake enabled
+            Public intake enabled
           </label>
           <div
             style={{
@@ -233,7 +233,7 @@ export default function AdminSettingsPage() {
                 background: '#f8fafc',
                 color: '#0f172a',
               }}
-              placeholder="Example: We are currently full and not accepting overnight drop-offs."
+              placeholder="Example: We are currently full and not accepting public intake submissions."
             />
           </div>
 
