@@ -113,7 +113,7 @@ export async function fetchStateformPayloadFromSupabase() {
 
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,dropoff_date,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at')
+    .select('id,dropoff_date,picked_up_processing_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at')
     .not('confirmation', 'is', null)
     .gte('dropoff_date', currentSeasonStart())
     .order('dropoff_date', { ascending: true })
@@ -145,7 +145,7 @@ export async function fetchStateformPayloadFromSupabase() {
     entries: allRows.map((row) => ({
       jobId: row.id,
       dateIn: formatDateMMDDYY(row.dropoff_date),
-      dateOut: '',
+      dateOut: formatDateMMDDYY(row.picked_up_processing_at),
       name: String(row.customer_name || ''),
       address: buildAddress(row),
       phone: digitsOnly(row.phone).slice(-10),
