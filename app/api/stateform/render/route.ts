@@ -5,38 +5,65 @@ import fs from "fs";
 import path from "path";
 import { fetchStateformPayloadFromSupabase } from '@/lib/stateform/supabase';
 import { requireStaffAccess } from '@/lib/staffAuth';
+import { headerFields, pdfFieldMap } from '@/lib/stateform/map';
 
-// ===== Layout (your tuned values) =====
-const ROW_H = 18;
 const FONT_SIZE = 9;
-const FIRST_PAGE_ROWS = 18;
-const SECOND_PAGE_ROWS = 25;
-const STATEFORM_CAPACITY = FIRST_PAGE_ROWS + SECOND_PAGE_ROWS; // 43
+const ROW_FIELD_ORDER = Array.from({ length: 44 }, (_, i) => i + 1).filter((i) => i !== 23);
+const HEADER_PADDING_X = 2;
+const ROW_PADDING_X = 2;
 
-const TOP_MARGIN_FIRST = 245;
-const TOP_MARGIN_NEXT  = 123;
-
-const COLS = {
-  dateIn: 35,
-  dateOut: 75,
-  name: 120,
-  address: 230,
-  phone: 493,
-  sex: 590,
-  whereKilled: 690,
-  howKilled: 790,
-  donated: 880,
-  confirmation: 923,
+type Rect = { x: number; y: number; width: number; height: number };
+type RowFieldRects = Record<
+  "dateIn" | "dateOut" | "name" | "address" | "phone" | "sex" | "whereKilled" | "howKilled" | "donated" | "confirmation",
+  Rect
+>;
+type RowSlot = {
+  pageOffset: 0 | 1;
+  rects: RowFieldRects;
 };
 
-const HEADER_X: Record<string, number> = {
-  year: 66, page: 300, name: 58, loc: 58, county: 325,
-  street: 58, city: 52, zip: 175, phone: 275,
-};
-const HEADER_Y_OFFSETS: Record<string, number> = {
-  year: 150, page: 150, name: 125, loc: 100, county: 100,
-  street: 75, city: 55, zip: 55, phone: 55,
-};
+function getFieldRect(form: any, name: string): Rect | null {
+  const field = form.getFieldMaybe(name);
+  const widget = field?.acroField?.getWidgets?.()?.[0];
+  const rect = widget?.getRectangle?.();
+  if (!rect) return null;
+  return {
+    x: Number(rect.x ?? 0),
+    y: Number(rect.y ?? 0),
+    width: Number(rect.width ?? 0),
+    height: Number(rect.height ?? 0),
+  };
+}
+
+function requireFieldRect(form: any, name: string): Rect {
+  const rect = getFieldRect(form, name);
+  if (!rect) {
+    throw new Error(`Missing PDF field rectangle for "${name}"`);
+  }
+  return rect;
+}
+
+function buildRowSlots(template: PDFDocument): RowSlot[] {
+  const form = template.getForm();
+  return ROW_FIELD_ORDER.map((rowNumber) => {
+    const fieldNames = pdfFieldMap(rowNumber);
+    return {
+      pageOffset: rowNumber <= 18 ? 0 : 1,
+      rects: {
+        dateIn: requireFieldRect(form, fieldNames.dateIn),
+        dateOut: requireFieldRect(form, fieldNames.dateOut),
+        name: requireFieldRect(form, fieldNames.name),
+        address: requireFieldRect(form, fieldNames.address),
+        phone: requireFieldRect(form, fieldNames.phone),
+        sex: requireFieldRect(form, fieldNames.sex),
+        whereKilled: requireFieldRect(form, fieldNames.whereKilled),
+        howKilled: requireFieldRect(form, fieldNames.howKilled),
+        donated: requireFieldRect(form, fieldNames.donated),
+        confirmation: requireFieldRect(form, fieldNames.confirmation),
+      },
+    };
+  });
+}
 
 async function fetchPayloadPreview() {
   return fetchStateformPayloadFromSupabase();
@@ -55,36 +82,43 @@ function drawText(page: any, text: any, x: number, y: number, font: any, size = 
   page.drawText(String(text), { x, y, size, font, color: rgb(0, 0, 0) });
 }
 
-function drawPage1Header(
-  pdf: PDFDocument,
-  helv: any,
-  helvBold: any,
-  headerVals: Record<string, string>,
-  debug: string
-) {
-  const page = pdf.getPage(0);
-  const { height: h } = page.getSize();
-  const baselineY = h - TOP_MARGIN_FIRST;
-  const HY: Record<string, number> = {
-    year:   baselineY + HEADER_Y_OFFSETS.year,
-    page:   baselineY + HEADER_Y_OFFSETS.page,
-    name:   baselineY + HEADER_Y_OFFSETS.name,
-    loc:    baselineY + HEADER_Y_OFFSETS.loc,
-    county: baselineY + HEADER_Y_OFFSETS.county,
-    street: baselineY + HEADER_Y_OFFSETS.street,
-    city:   baselineY + HEADER_Y_OFFSETS.city,
-    zip:    baselineY + HEADER_Y_OFFSETS.zip,
-    phone:  baselineY + HEADER_Y_OFFSETS.phone,
+function drawTextInRect(page: any, text: any, rect: Rect, font: any, size = FONT_SIZE, paddingX = ROW_PADDING_X) {
+  if (text === undefined || text === null || text === "") return;
+  const baselineOffset = Math.max((rect.height - size) / 2, 1);
+  page.drawText(String(text), {
+    x: rect.x + paddingX,
+    y: rect.y + baselineOffset,
+    size,
+    font,
+    color: rgb(0, 0, 0),
+  });
+}
+
+function drawPage1Header(page: any, template: PDFDocument, helvBold: any, headerVals: Record<string, string>) {
+  const form = template.getForm();
+  const areaCode = String(headerVals.phoneAreaCode || "").trim();
+  const phoneNumber = String(headerVals.phoneNumber || "").trim();
+
+  drawTextInRect(page, headerVals.year, requireFieldRect(form, headerFields.year), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, headerVals.page, requireFieldRect(form, headerFields.pageNumber), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, headerVals.name, requireFieldRect(form, headerFields.processorName), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, headerVals.loc, requireFieldRect(form, headerFields.processorLocation), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, headerVals.county, requireFieldRect(form, headerFields.processorCounty), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, headerVals.street, requireFieldRect(form, headerFields.processorStreet), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, headerVals.city, requireFieldRect(form, headerFields.processorCity), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, headerVals.zip, requireFieldRect(form, headerFields.processorZip), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, areaCode, requireFieldRect(form, headerFields.processorAreaCode), helvBold, 10, HEADER_PADDING_X);
+  drawTextInRect(page, phoneNumber, requireFieldRect(form, headerFields.processorPhoneNumber), helvBold, 10, HEADER_PADDING_X);
+}
+
+function splitPhoneForHeader(phone: string | undefined) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return { areaCode: "", phoneNumber: "" };
+  if (digits.length <= 3) return { areaCode: digits, phoneNumber: "" };
+  return {
+    areaCode: digits.slice(0, 3),
+    phoneNumber: digits.slice(3, 10),
   };
-  for (const key of Object.keys(HEADER_X)) {
-    const x = HEADER_X[key];
-    const y = HY[key];
-    drawText(page, headerVals[key] || "", x, y, helvBold, 10);
-    if (debug === "header") {
-      page.drawCircle({ x, y, size: 3, color: rgb(0, 0.6, 0) });
-      page.drawText(key, { x: x + 5, y: y + 3, size: 8, font: helv, color: rgb(0,0.6,0) });
-    }
-  }
 }
 
 export async function GET(req: Request) {
@@ -111,6 +145,10 @@ export async function GET(req: Request) {
 
     const helv = await pdf.embedFont(StandardFonts.Helvetica);
     const helvBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const rowSlots = buildRowSlots(template);
+    const page1Rows = rowSlots.filter((slot) => slot.pageOffset === 0);
+    const page2Rows = rowSlots.filter((slot) => slot.pageOffset === 1);
+    const STATEFORM_CAPACITY = rowSlots.length;
     const entries = Array.isArray(payload.entries) ? payload.entries : [];
     const sheetGroups = chunks(entries, STATEFORM_CAPACITY);
     if (!sheetGroups.length) sheetGroups.push([]);
@@ -146,50 +184,42 @@ export async function GET(req: Request) {
         street: payload.processorStreet ?? "",
         city: payload.processorCity ?? "",
         zip: payload.processorZip ?? "",
-        phone: payload.processorPhone ?? "",
+        ...splitPhoneForHeader(payload.processorPhone),
       };
-
-      const pairPdf = {
-        getPage: (idx: number) => pdf.getPage(page1Index + idx),
-      } as unknown as PDFDocument;
-      drawPage1Header(pairPdf, helv, helvBold, headerVals, debug);
+      drawPage1Header(pdf.getPage(page1Index), template, helvBold, headerVals);
 
       const p0 = pdf.getPage(page1Index);
-      const { height: h0 } = p0.getSize();
-      const startY = h0 - TOP_MARGIN_FIRST;
-      const firstPageEntries = sheetEntries.slice(0, FIRST_PAGE_ROWS);
+      const firstPageEntries = sheetEntries.slice(0, page1Rows.length);
       for (let i = 0; i < firstPageEntries.length; i++) {
         const e = firstPageEntries[i] || {};
-        const y = startY - i * ROW_H;
-        drawText(p0, e.dateIn,       COLS.dateIn,       y, helv);
-        drawText(p0, e.dateOut,      COLS.dateOut,      y, helv);
-        drawText(p0, e.name,         COLS.name,         y, helv);
-        drawText(p0, e.address,      COLS.address,      y, helv);
-        drawText(p0, e.phone,        COLS.phone,        y, helv);
-        drawText(p0, e.sex,          COLS.sex,          y, helv);
-        drawText(p0, e.whereKilled,  COLS.whereKilled,  y, helv);
-        drawText(p0, e.howKilled,    COLS.howKilled,    y, helv);
-        drawText(p0, e.donated,      COLS.donated,      y, helv);
-        drawText(p0, e.confirmation, COLS.confirmation, y, helv);
+        const rects = page1Rows[i].rects;
+        drawTextInRect(p0, e.dateIn, rects.dateIn, helv);
+        drawTextInRect(p0, e.dateOut, rects.dateOut, helv);
+        drawTextInRect(p0, e.name, rects.name, helv);
+        drawTextInRect(p0, e.address, rects.address, helv);
+        drawTextInRect(p0, e.phone, rects.phone, helv);
+        drawTextInRect(p0, e.sex, rects.sex, helv);
+        drawTextInRect(p0, e.whereKilled, rects.whereKilled, helv);
+        drawTextInRect(p0, e.howKilled, rects.howKilled, helv);
+        drawTextInRect(p0, e.donated, rects.donated, helv);
+        drawTextInRect(p0, e.confirmation, rects.confirmation, helv);
       }
 
       const p1 = pdf.getPage(page2Index);
-      const { height: h1 } = p1.getSize();
-      const startY2 = h1 - TOP_MARGIN_NEXT;
-      const secondPageEntries = sheetEntries.slice(FIRST_PAGE_ROWS, STATEFORM_CAPACITY);
+      const secondPageEntries = sheetEntries.slice(page1Rows.length, STATEFORM_CAPACITY);
       for (let j = 0; j < secondPageEntries.length; j++) {
         const e = secondPageEntries[j] || {};
-        const y = startY2 - j * ROW_H;
-        drawText(p1, e.dateIn,       COLS.dateIn,       y, helv);
-        drawText(p1, e.dateOut,      COLS.dateOut,      y, helv);
-        drawText(p1, e.name,         COLS.name,         y, helv);
-        drawText(p1, e.address,      COLS.address,      y, helv);
-        drawText(p1, e.phone,        COLS.phone,        y, helv);
-        drawText(p1, e.sex,          COLS.sex,          y, helv);
-        drawText(p1, e.whereKilled,  COLS.whereKilled,  y, helv);
-        drawText(p1, e.howKilled,    COLS.howKilled,    y, helv);
-        drawText(p1, e.donated,      COLS.donated,      y, helv);
-        drawText(p1, e.confirmation, COLS.confirmation, y, helv);
+        const rects = page2Rows[j].rects;
+        drawTextInRect(p1, e.dateIn, rects.dateIn, helv);
+        drawTextInRect(p1, e.dateOut, rects.dateOut, helv);
+        drawTextInRect(p1, e.name, rects.name, helv);
+        drawTextInRect(p1, e.address, rects.address, helv);
+        drawTextInRect(p1, e.phone, rects.phone, helv);
+        drawTextInRect(p1, e.sex, rects.sex, helv);
+        drawTextInRect(p1, e.whereKilled, rects.whereKilled, helv);
+        drawTextInRect(p1, e.howKilled, rects.howKilled, helv);
+        drawTextInRect(p1, e.donated, rects.donated, helv);
+        drawTextInRect(p1, e.confirmation, rects.confirmation, helv);
       }
     }
 
