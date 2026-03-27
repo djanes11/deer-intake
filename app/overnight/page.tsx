@@ -233,6 +233,9 @@ export default function OvernightInstructionsPage() {
                 GoOutdoorsIN confirmation number
               </a>{' '}
               from your check-in.
+              <div style={{ marginTop: 8, color: '#d1fae5' }}>
+                You do <b>not</b> need a McAfee deer tag number yet. Staff will assign that after your deer is checked in the next day.
+              </div>
               {WarningCallout}
             </li>
 
@@ -256,6 +259,9 @@ export default function OvernightInstructionsPage() {
 
             <li style={stepBox}>
               <b>5) Save the intake form.</b> After you tap <b>Save</b>, we’ll record your drop-off.
+              <div style={{ marginTop: 8, color: '#d1fae5' }}>
+                Save or screenshot your confirmation number. That is the fastest way to check your deer status later.
+              </div>
             </li>
 
             <li style={stepBox}>

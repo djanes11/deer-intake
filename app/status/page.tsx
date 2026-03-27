@@ -109,10 +109,24 @@ function statusTone(status?: string): StatusTone {
 
 function statusMessage(label: string, status?: string) {
   const tone = statusTone(status);
+  const value = text(status);
+  if (value.includes('called')) return `We have tried to reach you about ${label.toLowerCase()}.`;
+  if (value.includes('picked up')) return `${label} has been picked up.`;
   if (tone === 'ready') return `${label} is ready for pickup.`;
-  if (tone === 'progress') return `${label} is being worked on.`;
+  if (tone === 'progress') return `${label} is currently being worked on.`;
   if (tone === 'hold') return `${label} has been received and is waiting for the next step.`;
   return `${label} status will update here as work moves forward.`;
+}
+
+function customerFacingStatus(status?: string) {
+  const value = text(status);
+  if (!value) return 'Status pending';
+  if (value.includes('called')) return 'Please contact the shop';
+  if (value.includes('picked up')) return 'Picked up';
+  if (READY_WORDS.some((w) => value.includes(w))) return 'Ready for pickup';
+  if (PROGRESS_WORDS.some((w) => value.includes(w))) return 'In progress';
+  if (HOLD_WORDS.some((w) => value.includes(w))) return 'Received';
+  return status || 'Status pending';
 }
 
 function trackSummaries(res: LookupResult | null): TrackSummary[] {
@@ -563,7 +577,7 @@ export default function StatusPage() {
                 </div>
               </div>
               {currentStage ? (
-                <StatusPill tone={currentStage.tone} label={currentStage.value || 'Status pending'} />
+              <StatusPill tone={currentStage.tone} label={customerFacingStatus(currentStage.value) || 'Status pending'} />
               ) : null}
             </div>
             {currentStage ? (
@@ -574,7 +588,7 @@ export default function StatusPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <SummaryCard
               title="What is happening now"
-              value={currentStage?.value || res.status || 'Status pending'}
+              value={customerFacingStatus(currentStage?.value || res.status) || 'Status pending'}
               note={currentStage?.message || 'We will keep this page updated as your deer moves through the shop.'}
             />
             <SummaryCard
@@ -584,7 +598,7 @@ export default function StatusPage() {
                 paidOverall
                   ? 'This order is marked paid.'
                   : typeof owedTotal === 'number'
-                    ? 'This is the current balance showing in our system.'
+                    ? 'This is the current balance showing in our system for processing and specialty items.'
                     : 'Pricing has not been posted yet.'
               }
             />
@@ -595,7 +609,7 @@ export default function StatusPage() {
                 paidOverall
                   ? 'No additional balance is showing.'
                   : hasAnyPaid
-                    ? 'See the payment breakdown below for processing and specialty items.'
+                    ? 'See the payment breakdown below for what is paid and what is still owed.'
                     : 'Payment details will appear here once entered.'
               }
             />

@@ -1554,24 +1554,42 @@ function OvernightIntakePage() {
       {showThanks && (
         <div className="modal">
           <div className="modal-card">
-            <h3>Thank you!</h3>
-            <p style={{ marginTop: 8 }}>
-              Please leave a note with your Full Name, Phone Number, and the <b>last 5 digits</b> of your confirmation number
+            <div className="thanksKicker">Form Submitted</div>
+            <h3>Overnight drop recorded</h3>
+            <div className="thanksConf">
+              <div className="thanksConfLabel">Your confirmation number</div>
+              <div className="thanksConfValue">{job.confirmation || 'Saved'}</div>
+            </div>
+            <p style={{ marginTop: 10 }}>
+              Please leave a note with your <b>full name</b>, <b>phone number</b>, and the <b>last 5 digits</b> of your confirmation number
               {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
               {' '}with your deer.
             </p>
-            <p className="muted" style={{ marginTop: 8 }}>
-              Your form has been submitted and locked. Our front desk will assign your tag.
+            <div className="thanksList">
+              <div>1. Staff will assign your deer tag after check-in.</div>
+              <div>2. Use this confirmation number to check status later.</div>
+              <div>3. If you selected email updates, we’ll email when your deer is tagged and when it is ready.</div>
+            </div>
+            <p className="muted" style={{ marginTop: 10 }}>
+              Save or screenshot this confirmation number before you close this page.
             </p>
-            <button
-              className="btn wide"
-              onClick={() => {
-                if (window.history.length > 1) window.location.replace('/');
-                else window.close();
-              }}
-            >
-              Done
-            </button>
+            <div className="thanksActions">
+              <button
+                className="btn secondary"
+                onClick={() => window.location.assign('/status')}
+              >
+                Check Status
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  if (window.history.length > 1) window.location.replace('/');
+                  else window.close();
+                }}
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1627,6 +1645,29 @@ function OvernightIntakePage() {
           max-width: 100%;
         }
         .muted { color: #6b7280; font-size: 12px; }
+        .thanksKicker { font-size: 12px; font-weight: 900; color: #406c4d; text-transform: uppercase; letter-spacing: .08em; }
+        .thanksConf {
+          margin-top: 12px;
+          border: 1px solid #bfd2c2;
+          background: #eef8f0;
+          border-radius: 14px;
+          padding: 12px;
+        }
+        .thanksConfLabel { font-size: 12px; font-weight: 800; color: #406c4d; margin-bottom: 6px; }
+        .thanksConfValue { font-size: 28px; font-weight: 950; letter-spacing: .04em; color: #173321; overflow-wrap: anywhere; }
+        .thanksList {
+          margin-top: 12px;
+          display: grid;
+          gap: 8px;
+          padding: 12px;
+          border-radius: 12px;
+          background: #f7faf8;
+          border: 1px solid #dce7df;
+          color: #173321;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .thanksActions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
         .hero {
           display: grid;
           grid-template-columns: 1.6fr 1fr;
