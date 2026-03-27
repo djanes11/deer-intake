@@ -378,7 +378,7 @@ function IntakePage() {
     fetch('/api/public/site-settings', { cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => {
-        if (j?.ok) setPricing(normalizePricing(j?.settings));
+        if (j?.ok) setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
       })
       .catch(() => {});
   }, []);

@@ -252,7 +252,7 @@ function OvernightIntakePage() {
       .then((r) => r.json())
       .then((j) => {
         if (j?.ok) {
-          setPricing(normalizePricing(j?.settings));
+          setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
           setIntakeEnabled(!!j?.settings?.public_intake_enabled);
           if (j?.settings?.banner_enabled && j?.settings?.banner_message) {
             setClosureMessage(String(j.settings.banner_message));
