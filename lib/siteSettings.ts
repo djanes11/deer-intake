@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import { SITE } from '@/lib/config';
+import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
 
 export type PublicHourRow = {
   label: string;
@@ -13,6 +14,7 @@ export type PublicSiteSettings = {
   banner_enabled: boolean;
   banner_message: string;
   hours: PublicHourRow[];
+  pricing: SitePricing;
   updated_at?: string | null;
 };
 
@@ -39,6 +41,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
     banner_enabled: false,
     banner_message: '',
     hours: fallbackHours(),
+    pricing: DEFAULT_SITE_PRICING,
     updated_at: null,
   };
 }
@@ -55,7 +58,7 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const { data, error } = await supabase
       .from('site_settings')
-      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at')
+      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb')
       .eq('id', 1)
       .single();
 
@@ -66,6 +69,7 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
       banner_enabled: !!data.banner_enabled,
       banner_message: String(data.banner_message || ''),
       hours: normalizeHours(data.hours),
+      pricing: normalizePricing(data),
       updated_at: data.updated_at ?? null,
     };
   } catch {

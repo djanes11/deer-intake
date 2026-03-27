@@ -7,6 +7,7 @@ import PrintSheet from '@/app/components/PrintSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { SPECIALTY_ITEMS, specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
 import {
   WEBBS_GROUPS,
   type WebbsOrderItem,
@@ -228,28 +229,6 @@ const todayISO = () => {
 const digitsOnly = (s: string) => String(s || '').replace(/\D+/g, '');
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) : s);
 
-const normProc = (s?: string) => {
-  const v = String(s || '').toLowerCase();
-  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
-  if (v.includes('donate')) return 'Donate';
-  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
-  if (v.includes('skull')) return 'Skull-Cap';
-  if (v.includes('euro')) return 'European';
-  if (v.includes('standard')) return 'Standard Processing';
-  return '';
-};
-
-const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
-  const p = normProc(proc);
-  const base =
-    p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 20 :
-    ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
-    p === 'Donate' ? 0 : 0;
-  if (!base) return 0;
-  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-};
-
 const toInt = (val: any) => {
   const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -376,6 +355,7 @@ function IntakePage() {
   const tagRef = useRef<HTMLInputElement | null>(null);
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
+  const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
 
   // ---- UNSAVED CHANGES GUARD ----
   const [lastSavedJson, setLastSavedJson] = useState<string>('');
@@ -392,6 +372,15 @@ function IntakePage() {
 
   useEffect(() => {
     tagRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.ok) setPricing(normalizePricing(j?.settings));
+      })
+      .catch(() => {});
   }, []);
 
   // Establish baseline for a brand new job (or when tag query changes)
@@ -526,13 +515,13 @@ useEffect(() => {
   }, [tagFromUrl]);
 
   const processingPriceAuto = useMemo(
-    () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
-    [job.processType, job.beefFat, job.webbsOrder]
+    () => calcProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder, pricing),
+    [job.processType, job.beefFat, job.webbsOrder, pricing]
   );
 
   const specialtyPriceAuto = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    return calcSpecialtyPrice(job as any);
+    return calcSpecialtyPrice(job as any, pricing);
   }, [
     job.specialtyProducts,
     job.originalSummerSausageLbs,
@@ -541,6 +530,7 @@ useEffect(() => {
     job.originalSnackSticksLbs,
     job.originalSnackSticksCheeseLbs,
     job.jalapenoSnackSticksCheeseLbs,
+    pricing,
   ]);
 
   const processingOverride = toMoneyOrNull((job as any).processing_price_override);
@@ -551,8 +541,8 @@ useEffect(() => {
 
   const totalPrice = processingPriceUsed + specialtyPriceUsed;
   const specialtyItems = useMemo(
-    () => specialtyBreakdown(job as Record<string, any>).filter((item) => item.pounds > 0),
-    [job]
+    () => specialtyBreakdown(job as Record<string, any>, pricing).filter((item) => item.pounds > 0),
+    [job, pricing]
   );
   const specialtySummaryText = useMemo(() => {
     if (!job.specialtyProducts) return 'No specialty products selected';
@@ -1650,8 +1640,8 @@ if (fresh?.exists && fresh.job) {
             </div>
 
             <div className="webbsModalInfo">
-              <span className="badge">Summer Sausage: $5.00/lb</span>
-              <span className="badge">Snack Stix: $8.00/lb</span>
+              <span className="badge">Summer Sausage: ${pricing.summer_sausage_price_per_lb.toFixed(2)}/lb</span>
+              <span className="badge">Snack Stix: ${pricing.snack_stix_price_per_lb.toFixed(2)}/lb</span>
               <span className="badge">Current Total: ${specialtyPriceUsed.toFixed(2)}</span>
             </div>
 
@@ -1663,7 +1653,7 @@ if (fresh?.exists && fresh.job) {
                     <div>Product</div>
                     <div>Lb</div>
                   </div>
-                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 5).map((item) => (
+                  {SPECIALTY_ITEMS.filter((item) => item.category === 'summer').map((item) => (
                     <div key={item.key} className="webbsWorksheetRow">
                       <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
                       <input
@@ -1685,7 +1675,7 @@ if (fresh?.exists && fresh.job) {
                     <div>Product</div>
                     <div>Lb</div>
                   </div>
-                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 8).map((item) => (
+                  {SPECIALTY_ITEMS.filter((item) => item.category === 'snack').map((item) => (
                     <div key={item.key} className="webbsWorksheetRow">
                       <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
                       <input

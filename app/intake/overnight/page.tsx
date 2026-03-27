@@ -6,6 +6,7 @@ import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { SPECIALTY_ITEMS, specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
 import {
   WEBBS_GROUPS,
   type WebbsOrderItem,
@@ -120,33 +121,6 @@ const todayISO = () => {
   return d.toISOString().slice(0, 10);
 };
 
-const normProc = (s?: string) => {
-  const v = String(s || '').toLowerCase();
-  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
-  if (v.includes('donate')) return 'Donate';
-  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
-  if (v.includes('skull')) return 'Skull-Cap';
-  if (v.includes('euro')) return 'European';
-  if (v.includes('standard')) return 'Standard Processing';
-  return '';
-};
-
-const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
-  const p = normProc(proc);
-  const base =
-    p === 'Caped'
-      ? 150
-      : p === 'Cape & Donate'
-        ? 50
-        : ['Standard Processing', 'Skull-Cap', 'European'].includes(p)
-          ? 130
-          : p === 'Donate'
-            ? 0
-            : 0;
-  if (!base) return 0;
-  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-};
-
 const toInt = (val: any) => {
   const n = parseInt(String(val ?? '').replace(/[^0-9]/g, ''), 10);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -257,6 +231,7 @@ function OvernightIntakePage() {
   const [closureMessage, setClosureMessage] = useState('');
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
+  const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -272,14 +247,29 @@ function OvernightIntakePage() {
   type StepKey = (typeof steps)[number]['key'];
   const step = steps[stepIdx];
 
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j?.ok) {
+          setPricing(normalizePricing(j?.settings));
+          setIntakeEnabled(!!j?.settings?.public_intake_enabled);
+          if (j?.settings?.banner_enabled && j?.settings?.banner_message) {
+            setClosureMessage(String(j.settings.banner_message));
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const processingPrice = useMemo(
-    () => suggestedProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder),
-    [job.processType, job.beefFat, job.webbsOrder]
+    () => calcProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder, pricing),
+    [job.processType, job.beefFat, job.webbsOrder, pricing]
   );
 
   const specialtyPrice = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    return calcSpecialtyPrice(job as any);
+    return calcSpecialtyPrice(job as any, pricing);
   }, [
     job.specialtyProducts,
     job.originalSummerSausageLbs,
@@ -288,10 +278,11 @@ function OvernightIntakePage() {
     job.originalSnackSticksLbs,
     job.originalSnackSticksCheeseLbs,
     job.jalapenoSnackSticksCheeseLbs,
+    pricing,
   ]);
   const specialtyItems = useMemo(
-    () => specialtyBreakdown(job as Record<string, any>).filter((item) => item.pounds > 0),
-    [job]
+    () => specialtyBreakdown(job as Record<string, any>, pricing).filter((item) => item.pounds > 0),
+    [job, pricing]
   );
   const specialtySummaryText = useMemo(() => {
     if (!job.specialtyProducts) return 'No specialty products selected';
@@ -1467,7 +1458,7 @@ function OvernightIntakePage() {
                     <div>Product</div>
                     <div>Lb</div>
                   </div>
-                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 5).map((item) => (
+                  {SPECIALTY_ITEMS.filter((item) => item.category === 'summer').map((item) => (
                     <div key={item.key} className="webbsWorksheetRow">
                       <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
                       <div>
@@ -1490,7 +1481,7 @@ function OvernightIntakePage() {
                     <div>Product</div>
                     <div>Lb</div>
                   </div>
-                  {SPECIALTY_ITEMS.filter((item) => item.pricePerLb === 8).map((item) => (
+                  {SPECIALTY_ITEMS.filter((item) => item.category === 'snack').map((item) => (
                     <div key={item.key} className="webbsWorksheetRow">
                       <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
                       <div>

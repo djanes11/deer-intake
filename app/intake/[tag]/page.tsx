@@ -8,6 +8,8 @@ import crypto from 'crypto';
 import { getJobByTag } from '@/lib/jobsSupabase';
 import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import { webbsOrderSummary, webbsOrderTotalLbs } from '@/lib/webbs';
+import { calcProcessingPrice } from '@/lib/pricing';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 // ---- Config/env ----
 // Keep legacy compatibility: old links used GAS_TOKEN-derived HMAC.
@@ -48,28 +50,6 @@ async function getJob(tag: string) {
 }
 
 // ---- Simple pricing helpers to show the summary numbers like the intake page ----
-const normProc = (s?: string) => {
-  const v = String(s || '').toLowerCase();
-  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
-  if (v.includes('donate')) return 'Donate';
-  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
-  if (v.includes('skull')) return 'Skull-Cap';
-  if (v.includes('euro')) return 'European';
-  if (v.includes('standard')) return 'Standard Processing';
-  return '';
-};
-
-const suggestedProcessingPrice = (proc?: string, beef?: boolean, webbs?: boolean) => {
-  const p = normProc(proc);
-  const base =
-    p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 50 :
-    ['Standard Processing','Skull-Cap','European'].includes(p) ? 130 :
-    p === 'Donate' ? 0 : 0;
-  if (!base) return 0;
-  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-};
-
 // Handle numbers coming back as number/null, or as strings (just in case)
 const toNumOrNull = (v: any): number | null => {
   if (v === null || v === undefined) return null;
@@ -132,6 +112,7 @@ export default async function IntakeView({
   searchParams?: Promise<SP>;
 }) {
   try {
+    const settings = await getPublicSiteSettings();
     // Promise props (Next 15)
     const { tag } = await params;
     const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
@@ -150,9 +131,14 @@ export default async function IntakeView({
     }
 
     // --- Pricing (auto vs override) ---
-    const processingAuto = suggestedProcessingPrice(job?.processType, !!job?.beefFat, !!job?.webbsOrder);
+    const processingAuto = calcProcessingPrice(
+      job?.processType,
+      !!job?.beefFat,
+      !!job?.webbsOrder,
+      settings.pricing,
+    );
 
-    const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job) : 0;
+    const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job, settings.pricing) : 0;
     const webbsItems = webbsOrderSummary(job?.webbsItems);
     const webbsItemTotal = webbsOrderTotalLbs(job?.webbsItems);
     const webbsOrderMode = String(job?.webbsOrderMode || job?.webbs_order_mode || '').trim();

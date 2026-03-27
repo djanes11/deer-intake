@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaffAccess } from '@/lib/staffAuth';
 import { normalizeHours } from '@/lib/siteSettings';
+import { normalizePricing } from '@/lib/pricing';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
       banner_enabled: !!body.banner_enabled,
       banner_message: String(body.banner_message || ''),
       hours: normalizeHours(body.hours),
+      ...normalizePricing(body),
     };
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });

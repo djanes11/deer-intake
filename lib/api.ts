@@ -237,15 +237,7 @@ export function normProc(s?: string): string {
 }
 
 export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean): number {
-  const p = normProc(proc) || '';
-  const base =
-    p === 'Caped' ? 150
-    : p === 'Cape & Donate' ? 20
-    : p === 'Donate' ? 0
-    : (['Standard Processing', 'Skull-Cap', 'European'] as string[]).includes(p) ? 130
-    : 0;
-  if (!base) return 0;
-  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
+  return calcProcessingPrice(proc, beef, webbs);
 }
 
 /**
@@ -258,3 +250,4 @@ export async function getJobFull(tag: string) {
   const r = await getJob(tag);
   return (r as any)?.job ?? null;
 }
+import { calcProcessingPrice } from '@/lib/pricing';

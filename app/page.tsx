@@ -12,6 +12,7 @@ export default async function Home() {
 }
 
 function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPublicSiteSettings>> | null }) {
+  const pricing = settings?.pricing;
   const colors = {
     bg: '#0b0f0d',
     panel: 'rgba(18,24,22,.95)',
@@ -152,8 +153,11 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
         <div style={panel}>
           <div style={h3}>Pricing</div>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            <li><strong>Standard Processing</strong>: $130</li>
-            <li><strong>Caped (add-on)</strong>: +$20 <span style={{ opacity: 0.8 }}>(i.e., $150 total)</span></li>
+            <li><strong>Standard Processing</strong>: ${pricing?.standard_processing_price.toFixed(2) ?? '130.00'}</li>
+            <li><strong>Caped</strong>: ${pricing?.caped_price.toFixed(2) ?? '150.00'}</li>
+            <li><strong>Cape &amp; Donate</strong>: ${pricing?.cape_donate_price.toFixed(2) ?? '50.00'}</li>
+            <li><strong>Beef Fat Add-On</strong>: +${pricing?.beef_fat_add_on.toFixed(2) ?? '5.00'}</li>
+            <li><strong>Webbs Add-On</strong>: +${pricing?.webbs_add_on.toFixed(2) ?? '20.00'}</li>
           </ul>
         </div>
       </section>

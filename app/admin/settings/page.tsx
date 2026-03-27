@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { tokenHeader } from '@/lib/api';
+import { DEFAULT_SITE_PRICING, SitePricing, formatMoney, normalizePricing } from '@/lib/pricing';
 
 type HourRow = {
   label: string;
@@ -13,6 +14,7 @@ type SiteSettings = {
   banner_enabled: boolean;
   banner_message: string;
   hours: HourRow[];
+  pricing: SitePricing;
   updated_at?: string;
 };
 
@@ -53,6 +55,7 @@ export default function AdminSettingsPage() {
     setS({
       ...(j.settings as SiteSettings),
       hours: normalizeHours(j?.settings?.hours),
+      pricing: normalizePricing(j?.settings),
     });
   };
 
@@ -68,6 +71,7 @@ export default function AdminSettingsPage() {
       const payload = {
         ...s,
         hours: normalizeHours(s.hours).filter((row) => row.label.trim() || row.value.trim()),
+        ...normalizePricing(s.pricing),
       };
       const res = await fetch('/api/admin/site-settings', {
         method: 'POST',
@@ -79,6 +83,7 @@ export default function AdminSettingsPage() {
       setS({
         ...(j.settings as SiteSettings),
         hours: normalizeHours(j?.settings?.hours),
+        pricing: normalizePricing(j?.settings),
       });
       setMsg('Saved');
       setTimeout(() => setMsg(''), 1500);
@@ -87,6 +92,17 @@ export default function AdminSettingsPage() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const updatePricing = (key: keyof SitePricing, value: string) => {
+    if (!s) return;
+    setS({
+      ...s,
+      pricing: {
+        ...normalizePricing(s.pricing),
+        [key]: value,
+      } as SitePricing,
+    });
   };
 
   const updateHour = (index: number, key: keyof HourRow, value: string) => {
@@ -321,6 +337,76 @@ export default function AdminSettingsPage() {
               }}
             >
               Reset Defaults
+            </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid #d6dee8',
+            borderRadius: 16,
+            padding: 18,
+            background: '#ffffff',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+            display: 'grid',
+            gap: 12,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Pricing</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+            These values drive the intake totals, specialty totals, print sheet pricing, and customer-facing pricing copy.
+          </div>
+
+          {[
+            ['standard_processing_price', 'Standard Processing'],
+            ['caped_price', 'Caped'],
+            ['cape_donate_price', 'Cape & Donate'],
+            ['beef_fat_add_on', 'Beef Fat Add-On'],
+            ['webbs_add_on', 'Webbs Add-On'],
+            ['summer_sausage_price_per_lb', 'Summer Sausage Price / lb'],
+            ['snack_stix_price_per_lb', 'Snack Stix Price / lb'],
+          ].map(([key, label]) => (
+            <div
+              key={key}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(220px, 1.5fr) minmax(120px, 0.7fr) auto',
+                gap: 10,
+                alignItems: 'center',
+                padding: 10,
+                borderRadius: 12,
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <div style={{ fontWeight: 800, color: '#0f172a' }}>{label}</div>
+              <input
+                inputMode="decimal"
+                value={String((s.pricing as any)?.[key] ?? '')}
+                onChange={(e) => updatePricing(key as keyof SitePricing, e.target.value)}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#475569', minWidth: 72 }}>
+                {formatMoney(Number((s.pricing as any)?.[key] ?? 0))}
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setS({ ...s, pricing: DEFAULT_SITE_PRICING })}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#0f172a',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Reset Pricing Defaults
             </button>
           </div>
         </div>

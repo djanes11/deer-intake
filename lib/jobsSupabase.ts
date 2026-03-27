@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
 import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
 import { normalizeWebbsOrderItems } from '@/lib/webbs';
+import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 /* ---------------- helpers ---------------- */
 
@@ -210,19 +212,20 @@ function normProc(s?: string) {
   return '';
 }
 
-function calcProcessingPrice(procType: any, beefFat: any, webbsOrder: any) {
-  const p = normProc(procType);
-  const base =
-    p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 50 :
-    (p === 'Standard Processing' || p === 'Skull-Cap' || p === 'European') ? 130 :
-    p === 'Donate' ? 0 : 0;
+let cachedPricing: { value: SitePricing; expiresAt: number } | null = null;
 
-  if (!base) return 0;
-  return base + (beefFat ? 5 : 0) + (webbsOrder ? 20 : 0);
+async function getCurrentPricing(): Promise<SitePricing> {
+  const now = Date.now();
+  if (cachedPricing && cachedPricing.expiresAt > now) {
+    return cachedPricing.value;
+  }
+  const settings = await getPublicSiteSettings();
+  cachedPricing = {
+    value: settings.pricing,
+    expiresAt: now + 30_000,
+  };
+  return settings.pricing;
 }
-
-
 
 function lower(v: any) {
   return String(v ?? '').trim().toLowerCase();
@@ -317,7 +320,12 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const computed = calcProcessingPrice(locked.process_type, !!locked.beef_fat, !!locked.webbs_order);
+  const computed = calcProcessingPrice(
+    locked.process_type,
+    !!locked.beef_fat,
+    !!locked.webbs_order,
+    await getCurrentPricing(),
+  );
   const price = Number(locked.price_processing ?? 0) || computed;
   const tpl = buildFinishedEmail({
     name: String(locked.customer_name || ''),
@@ -402,7 +410,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const computed = calcSpecialtyPriceFromLbs(locked);
+  const computed = calcSpecialtyPriceFromLbs(locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
   const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
   const tpl = buildSpecialtyFinishedEmail({
@@ -856,12 +864,13 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
 /* ---------------- save ---------------- */
 
 
-function calcSpecialtyPriceFromLbs(job: Partial<Job>): number {
-  return specialtyPrice(job as Record<string, any>);
+function calcSpecialtyPriceFromLbs(job: Partial<Job>, pricing?: Partial<SitePricing> | null): number {
+  return specialtyPrice(job as Record<string, any>, pricing);
 }
 
 export async function saveJob(job: Partial<Job>) {
   const supabaseServer = getSupabaseServer();
+  const pricing = await getCurrentPricing();
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
   // Overnight/public submission has no tag yet: store a unique placeholder tag and mark requires_tag=true.
@@ -981,9 +990,10 @@ let tagToStore: string;
   const computedProcessingPrice = calcProcessingPrice(
     effectiveJob.processType,
     !!effectiveJob.beefFat,
-    !!effectiveJob.webbsOrder
+    !!effectiveJob.webbsOrder,
+    pricing,
   );
-  const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(effectiveJob);
+  const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(effectiveJob, pricing);
 
   const processingOverride = numOrNull(
     (effectiveJob as any).processing_price_override ?? (effectiveJob as any).processingPriceOverride
