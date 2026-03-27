@@ -42,6 +42,14 @@ async function fetchPayloadPreview() {
   return fetchStateformPayloadFromSupabase();
 }
 
+function chunks<T>(items: T[], size: number) {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
+
 function drawText(page: any, text: any, x: number, y: number, font: any, size = FONT_SIZE) {
   if (text === undefined || text === null || text === "") return;
   page.drawText(String(text), { x, y, size, font, color: rgb(0, 0, 0) });
@@ -82,6 +90,7 @@ function drawPage1Header(
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const debug = searchParams.get("debug") || "";
+  const download = searchParams.get("download") === "1";
 
   try {
     const auth = requireStaffAccess(req);
@@ -97,18 +106,26 @@ export async function GET(req: Request) {
     // load the official form
     const formPath = path.join(process.cwd(), "public/forms/19433.pdf");
     const bytes = fs.readFileSync(formPath);
-    const pdf = await PDFDocument.load(bytes);
+    const template = await PDFDocument.load(bytes);
+    const pdf = await PDFDocument.create();
 
     const helv = await pdf.embedFont(StandardFonts.Helvetica);
     const helvBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const entries = Array.isArray(payload.entries) ? payload.entries : [];
+    const sheetGroups = chunks(entries, STATEFORM_CAPACITY);
+    if (!sheetGroups.length) sheetGroups.push([]);
+    const sheets = sheetGroups.length;
+    const startPageNumber = Number(payload.pageNumberStart ?? payload.pageNumber ?? 1) || 1;
 
-    // ensure two pages
-    while (pdf.getPageCount() < 2) pdf.addPage([612, 792]);
-    while (pdf.getPageCount() > 2) pdf.removePage(pdf.getPageCount() - 1);
+    for (let sheetIndex = 0; sheetIndex < sheets; sheetIndex += 1) {
+      const [page1, page2] = await pdf.copyPages(template, [0, 1]);
+      pdf.addPage(page1);
+      pdf.addPage(page2);
+    }
 
     // debug axes
     if (debug) {
-      for (const p of [0,1]) {
+      for (let p = 0; p < pdf.getPageCount(); p += 1) {
         const page = pdf.getPage(p);
         const { width:w, height:h } = page.getSize();
         page.drawLine({ start:{x:0,y:0}, end:{x:0,y:h}, thickness:0.5, color: rgb(1,0,0) });
@@ -117,31 +134,32 @@ export async function GET(req: Request) {
       }
     }
 
-    // page-1 header
-    const headerVals = {
-      year: payload.pageYear ?? "",
-      page: String(payload.pageNumber ?? 1),
-      name: payload.processorName ?? "",
-      loc: payload.processorLocation ?? "",
-      county: payload.processorCounty ?? "",
-      street: payload.processorStreet ?? "",
-      city: payload.processorCity ?? "",
-      zip: payload.processorZip ?? "",
-      phone: payload.processorPhone ?? "",
-    };
-    drawPage1Header(pdf, helv, helvBold, headerVals, debug);
+    for (const [sheetIndex, sheetEntries] of sheetGroups.entries()) {
+      const page1Index = sheetIndex * 2;
+      const page2Index = page1Index + 1;
+      const headerVals = {
+        year: payload.pageYear ?? "",
+        page: String(startPageNumber + sheetIndex),
+        name: payload.processorName ?? "",
+        loc: payload.processorLocation ?? "",
+        county: payload.processorCounty ?? "",
+        street: payload.processorStreet ?? "",
+        city: payload.processorCity ?? "",
+        zip: payload.processorZip ?? "",
+        phone: payload.processorPhone ?? "",
+      };
 
-    // rows
-    const entries = Array.isArray(payload.entries) ? payload.entries.slice(0, STATEFORM_CAPACITY) : [];
+      const pairPdf = {
+        getPage: (idx: number) => pdf.getPage(page1Index + idx),
+      } as unknown as PDFDocument;
+      drawPage1Header(pairPdf, helv, helvBold, headerVals, debug);
 
-    // page 1
-    {
-      const p0 = pdf.getPage(0);
+      const p0 = pdf.getPage(page1Index);
       const { height: h0 } = p0.getSize();
       const startY = h0 - TOP_MARGIN_FIRST;
-      const n = Math.min(entries.length, FIRST_PAGE_ROWS);
-      for (let i = 0; i < n; i++) {
-        const e = entries[i] || {};
+      const firstPageEntries = sheetEntries.slice(0, FIRST_PAGE_ROWS);
+      for (let i = 0; i < firstPageEntries.length; i++) {
+        const e = firstPageEntries[i] || {};
         const y = startY - i * ROW_H;
         drawText(p0, e.dateIn,       COLS.dateIn,       y, helv);
         drawText(p0, e.dateOut,      COLS.dateOut,      y, helv);
@@ -154,16 +172,13 @@ export async function GET(req: Request) {
         drawText(p0, e.donated,      COLS.donated,      y, helv);
         drawText(p0, e.confirmation, COLS.confirmation, y, helv);
       }
-    }
 
-    // page 2
-    if (entries.length > FIRST_PAGE_ROWS) {
-      const p1 = pdf.getPage(1);
+      const p1 = pdf.getPage(page2Index);
       const { height: h1 } = p1.getSize();
       const startY2 = h1 - TOP_MARGIN_NEXT;
-      const count2 = Math.min(entries.length - FIRST_PAGE_ROWS, SECOND_PAGE_ROWS);
-      for (let j = 0; j < count2; j++) {
-        const e = entries[FIRST_PAGE_ROWS + j] || {};
+      const secondPageEntries = sheetEntries.slice(FIRST_PAGE_ROWS, STATEFORM_CAPACITY);
+      for (let j = 0; j < secondPageEntries.length; j++) {
+        const e = secondPageEntries[j] || {};
         const y = startY2 - j * ROW_H;
         drawText(p1, e.dateIn,       COLS.dateIn,       y, helv);
         drawText(p1, e.dateOut,      COLS.dateOut,      y, helv);
@@ -180,7 +195,10 @@ export async function GET(req: Request) {
 
     const out = await pdf.save();
     return new NextResponse(Buffer.from(out), {
-      headers: { "Content-Type": "application/pdf" },
+      headers: {
+        "Content-Type": "application/pdf",
+        ...(download ? { "Content-Disposition": `attachment; filename="state-form-${payload.pageYear || 'season'}.pdf"` } : {}),
+      },
     });
   } catch (err: any) {
     return new NextResponse(`Stateform render error: ${err?.message || err}`, {

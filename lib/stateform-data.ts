@@ -17,6 +17,9 @@ export type StateformPayload = {
   ok: boolean;
   pageYear?: string;
   pageNumber?: number;
+  pageNumberStart?: number;
+  totalEntries?: number;
+  totalSheets?: number;
   processorName?: string;
   processorLocation?: string;
   processorCounty?: string;

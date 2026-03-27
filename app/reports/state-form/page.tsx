@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchStateformPayload, setStateformPageNumber } from '@/lib/stateform-data';
-import { tokenHeader, tokenQuery } from '@/lib/api';
+import { tokenQuery } from '@/lib/api';
 
 const CAPACITY = 43;
 
@@ -34,9 +34,10 @@ export default function StateFormReportPage() {
   const [auto, setAuto] = useState(true);
   const timer = useRef<NodeJS.Timeout | null>(null);
 
-  const used = payload?.entries?.length ?? 0;
-  const left = Math.max(0, CAPACITY - used);
-  const pageNumber = Number(payload?.pageNumber || 1);
+  const totalEntries = payload?.totalEntries ?? payload?.entries?.length ?? 0;
+  const totalSheets = payload?.totalSheets ?? Math.max(1, Math.ceil(totalEntries / CAPACITY));
+  const pageNumber = Number((payload?.pageNumberStart ?? payload?.pageNumber) || 1);
+  const endPageNumber = pageNumber + Math.max(0, totalSheets - 1);
 
   // ----- fetch
   const load = useCallback(async () => {
@@ -84,24 +85,6 @@ export default function StateFormReportPage() {
     setRefreshKey((k) => k + 1);
   }
 
-  async function commitPage() {
-    if (!used) return;
-    const ok = window.confirm(
-      `Commit this page?\n\nThis will remove up to ${Math.min(used, CAPACITY)} staged row(s), bump the page number, and print.`
-    );
-    if (!ok) return;
-    try {
-      const res = await fetch('/api/stateform/commit', {
-        method: 'POST',
-        headers: tokenHeader(),
-      });
-      if (!res.ok) throw new Error(`Commit failed: ${res.status}`);
-      await refresh();
-    } catch (e: any) {
-      setErr(e?.message || String(e));
-    }
-  }
-
   async function stepPage(delta: number) {
     const next = Math.max(1, pageNumber + delta);
     try {
@@ -139,7 +122,8 @@ export default function StateFormReportPage() {
       <div className="mb-3 text-zinc-300">
         <div className="text-lg font-semibold">Page {pageNumber}</div>
         <div className="text-sm text-zinc-400">
-          Staged {used}/{CAPACITY} <span className="text-zinc-500">({left} left)</span>
+          {totalEntries} season entries across {totalSheets} sheet{totalSheets === 1 ? '' : 's'}
+          <span className="text-zinc-500"> Pages {pageNumber}-{endPageNumber}</span>
           {loading && <span className="ml-3 text-zinc-400">Loading…</span>}
           {err && <span className="ml-3 text-red-400">Error: {err}</span>}
         </div>
@@ -153,13 +137,20 @@ export default function StateFormReportPage() {
         >
           Refresh
         </button>
-        <button
-          onClick={commitPage}
-          disabled={!used}
-          className="px-3 py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-sm"
+        <a
+          href={withToken('/api/stateform/render?download=1')}
+          className="px-3 py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 text-sm"
         >
-          Commit Page
-        </button>
+          Download PDF
+        </a>
+        <a
+          href={withToken('/api/stateform/render')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-sm"
+        >
+          Open PDF
+        </a>
 
         <div className="h-6 w-px bg-zinc-700/60 mx-1" />
 

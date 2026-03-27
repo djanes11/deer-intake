@@ -45,11 +45,6 @@ function stateformKey(row: any) {
   return String(row?.id || '').trim();
 }
 
-function isPrinted(row: any, printedIds: string[]) {
-  const key = stateformKey(row);
-  return !!key && printedIds.includes(key);
-}
-
 function formatDateMMDDYY(v: any) {
   const s = String(v || '').trim();
   if (!s) return '';
@@ -115,7 +110,6 @@ export async function setStateformPageNumberInSupabase(page: number) {
 export async function fetchStateformPayloadFromSupabase() {
   const supabase = getSupabase();
   const settings = await getStateformSettings();
-  const printedIds = Array.isArray(settings.stateform_printed_job_ids) ? settings.stateform_printed_job_ids : [];
 
   const { data, error } = await supabase
     .from('jobs')
@@ -124,17 +118,23 @@ export async function fetchStateformPayloadFromSupabase() {
     .gte('dropoff_date', currentSeasonStart())
     .order('dropoff_date', { ascending: true })
     .order('created_at', { ascending: true })
-    .limit(500);
+    .limit(5000);
 
   if (error) throw error;
 
-  const pending = (data || []).filter((row) => !isPrinted(row, printedIds)).slice(0, CAPACITY);
+  const allRows = data || [];
   const addr = splitAddress(SITE.address);
+  const startPage = Number(settings.stateform_page_number || 1);
+  const totalEntries = allRows.length;
+  const totalSheets = Math.max(1, Math.ceil(totalEntries / CAPACITY));
 
   return {
     ok: true,
     pageYear: String(new Date().getFullYear()),
-    pageNumber: Number(settings.stateform_page_number || 1),
+    pageNumber: startPage,
+    pageNumberStart: startPage,
+    totalEntries,
+    totalSheets,
     processorName: SITE.name,
     processorLocation: 'Palmyra, IN',
     processorCounty: process.env.NEXT_PUBLIC_COUNTY || 'Harrison',
@@ -142,7 +142,7 @@ export async function fetchStateformPayloadFromSupabase() {
     processorCity: addr.city,
     processorZip: addr.zip,
     processorPhone: digitsOnly(SITE.phone).slice(-10),
-    entries: pending.map((row) => ({
+    entries: allRows.map((row) => ({
       jobId: row.id,
       dateIn: formatDateMMDDYY(row.dropoff_date),
       dateOut: '',
@@ -159,52 +159,16 @@ export async function fetchStateformPayloadFromSupabase() {
 }
 
 export async function commitStateformPageInSupabase() {
-  const supabase = getSupabase();
-  const settings = await getStateformSettings();
   const payload = await fetchStateformPayloadFromSupabase();
-  const currentPrinted = Array.isArray(settings.stateform_printed_job_ids) ? settings.stateform_printed_job_ids : [];
-  const nextPrinted = Array.from(
-    new Set([
-      ...currentPrinted,
-      ...payload.entries.map((entry: any) => String(entry.jobId || '')).filter(Boolean),
-    ])
-  );
-
-  const nextPage = Number(settings.stateform_page_number || 1) + (payload.entries.length ? 1 : 0);
-
-  const { error } = await supabase
-    .from('site_settings')
-    .update({
-      stateform_page_number: nextPage,
-      stateform_printed_job_ids: nextPrinted,
-    })
-    .eq('id', 1);
-
-  if (error) throw error;
-
-  return { ok: true, pageNumber: nextPage, committed: payload.entries.length };
+  return {
+    ok: true,
+    pageNumber: Number(payload.pageNumberStart || 1),
+    committed: 0,
+    totalEntries: Number(payload.totalEntries || 0),
+    totalSheets: Number(payload.totalSheets || 1),
+  };
 }
 
 export async function restageStateformJobByTag(tag: string) {
-  const supabase = getSupabase();
-  const settings = await getStateformSettings();
-  const { data: job, error } = await supabase
-    .from('jobs')
-    .select('id,tag')
-    .eq('tag', tag)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!job?.id) return { ok: false, error: 'Job not found' };
-
-  const printed = Array.isArray(settings.stateform_printed_job_ids) ? settings.stateform_printed_job_ids : [];
-  const nextPrinted = printed.filter((id) => id !== job.id);
-
-  const { error: updErr } = await supabase
-    .from('site_settings')
-    .update({ stateform_printed_job_ids: nextPrinted })
-    .eq('id', 1);
-
-  if (updErr) throw updErr;
-  return { ok: true, tag, restaged: true };
+  return { ok: true, tag, restaged: false, message: 'Cumulative state-form PDF now includes all season entries automatically.' };
 }
