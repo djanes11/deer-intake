@@ -672,8 +672,11 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
       ? ({ jalapenoSnackSticksCheeseLbs: Number(row.jalapeno_snack_sticks_cheese_lbs ?? 0) } as any)
       : {}),
     ...(row.picked_up_processing != null ? ({ pickedUpProcessing: !!row.picked_up_processing } as any) : {}),
+    ...(row.picked_up_processing_at != null ? ({ pickedUpProcessingAt: row.picked_up_processing_at } as any) : {}),
     ...(row.picked_up_cape != null ? ({ pickedUpCape: !!row.picked_up_cape } as any) : {}),
+    ...(row.picked_up_cape_at != null ? ({ pickedUpCapeAt: row.picked_up_cape_at } as any) : {}),
     ...(row.picked_up_webbs != null ? ({ pickedUpWebbs: !!row.picked_up_webbs } as any) : {}),
+    ...(row.picked_up_webbs_at != null ? ({ pickedUpWebbsAt: row.picked_up_webbs_at } as any) : {}),
     ...(row.intake_sheet_printed_at != null ? ({ intakeSheetPrintedAt: row.intake_sheet_printed_at } as any) : {}),
     ...(row.intake_sheet_print_count != null ? ({ intakeSheetPrintCount: Number(row.intake_sheet_print_count ?? 0) } as any) : {}),
   } as JobSearchRow;
@@ -888,6 +891,7 @@ let tagToStore: string;
   }
 
   let effectiveJob: Partial<Job> = job;
+  let existingJob: Job | null = null;
 
   if (hasRealTagInput) {
     const { data: existingRow, error: existingError } = await supabaseServer
@@ -902,7 +906,7 @@ let tagToStore: string;
     }
 
     if (existingRow) {
-      const existingJob = mapDbRowToJob(existingRow);
+      existingJob = mapDbRowToJob(existingRow);
       effectiveJob = {
         ...existingJob,
         ...job,
@@ -917,6 +921,60 @@ let tagToStore: string;
       };
     }
   }
+
+  const saveStamp = nowIso();
+  const normalizePickedUpTrack = (
+    statusValue: any,
+    pickedUpValue: any,
+    pickedUpAtValue: any,
+    existingPickedUp: any,
+    existingPickedUpAt: any,
+  ) => {
+    const statusPickedUp = String(statusValue || '').trim().toLowerCase() === 'picked up';
+    const flagPickedUp = pickedUpValue === true;
+    if (!statusPickedUp && !flagPickedUp) {
+      return {
+        pickedUp: pickedUpValue,
+        pickedUpAt: pickedUpAtValue,
+      };
+    }
+    return {
+      pickedUp: true,
+      pickedUpAt: pickedUpAtValue ?? existingPickedUpAt ?? (existingPickedUp ? existingPickedUpAt : null) ?? saveStamp,
+    };
+  };
+
+  const procPickup = normalizePickedUpTrack(
+    effectiveJob.status,
+    effectiveJob.pickedUpProcessing,
+    effectiveJob.pickedUpProcessingAt,
+    existingJob?.pickedUpProcessing,
+    existingJob?.pickedUpProcessingAt,
+  );
+  const capePickup = normalizePickedUpTrack(
+    effectiveJob.capingStatus,
+    effectiveJob.pickedUpCape,
+    effectiveJob.pickedUpCapeAt,
+    existingJob?.pickedUpCape,
+    existingJob?.pickedUpCapeAt,
+  );
+  const webbsPickup = normalizePickedUpTrack(
+    effectiveJob.webbsStatus,
+    effectiveJob.pickedUpWebbs,
+    effectiveJob.pickedUpWebbsAt,
+    existingJob?.pickedUpWebbs,
+    existingJob?.pickedUpWebbsAt,
+  );
+
+  effectiveJob = {
+    ...effectiveJob,
+    pickedUpProcessing: procPickup.pickedUp as any,
+    pickedUpProcessingAt: procPickup.pickedUpAt as any,
+    pickedUpCape: capePickup.pickedUp as any,
+    pickedUpCapeAt: capePickup.pickedUpAt as any,
+    pickedUpWebbs: webbsPickup.pickedUp as any,
+    pickedUpWebbsAt: webbsPickup.pickedUpAt as any,
+  };
 
 
 
@@ -1046,7 +1104,7 @@ let tagToStore: string;
     auto_call_consent: effectiveJob.autoCallConsent ?? false,
 
     how_killed: effectiveJob.howKilled ?? null,
-    updated_at: nowIso(),
+    updated_at: saveStamp,
   };
 
 
