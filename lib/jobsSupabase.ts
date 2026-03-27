@@ -1586,7 +1586,7 @@ export async function listJobsNeedingPrint(): Promise<{ ok: boolean; rows: JobSe
 export async function lookupCustomerByName(name: string) {
   const supabaseServer = getSupabaseServer();
   const q = String(name || '').trim();
-  if (!q) return { ok: true, match: null };
+  if (!q) return { ok: true, match: null, matches: [] };
 
   const { data, error } = await supabaseServer
     .from('jobs')
@@ -1602,23 +1602,25 @@ export async function lookupCustomerByName(name: string) {
   }
 
   const norm = q.toLowerCase();
-  const exact = (data || []).find((row: any) => String(row.customer_name || '').trim().toLowerCase() === norm);
-  const match = exact || (data || [])[0];
-  if (!match) return { ok: true, match: null };
+  const matches = (data || []).map((row: any) => ({
+    customer: String(row.customer_name || ''),
+    phone: String(row.phone || ''),
+    email: String(row.email || ''),
+    address: String(row.address || ''),
+    city: String(row.city || ''),
+    state: String(row.state || ''),
+    zip: String(row.zip || ''),
+    dropoff: row.dropoff_date || null,
+    tag: String(row.tag || ''),
+    exact: String(row.customer_name || '').trim().toLowerCase() === norm,
+  }));
+  const match = matches.find((row) => row.exact) || matches[0] || null;
+  if (!match) return { ok: true, match: null, matches: [] };
 
   return {
     ok: true,
-    match: {
-      customer: String(match.customer_name || ''),
-      phone: String(match.phone || ''),
-      email: String(match.email || ''),
-      address: String(match.address || ''),
-      city: String(match.city || ''),
-      state: String(match.state || ''),
-      zip: String(match.zip || ''),
-      dropoff: match.dropoff_date || null,
-      tag: String(match.tag || ''),
-    },
+    match,
+    matches,
   };
 }
 

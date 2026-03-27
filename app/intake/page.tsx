@@ -252,6 +252,7 @@ type CustomerLookupMatch = {
   zip: string;
   dropoff?: string | null;
   tag?: string;
+  exact?: boolean;
 };
 
 async function markPrinted(tag: string) {
@@ -370,6 +371,7 @@ function IntakePage() {
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
+  const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
 
   // ---- UNSAVED CHANGES GUARD ----
@@ -402,6 +404,7 @@ function IntakePage() {
     const name = String(job.customer || '').trim();
     if (name.length < 3) {
       setCustomerMatch(null);
+      setCustomerMatches([]);
       return;
     }
 
@@ -416,9 +419,11 @@ function IntakePage() {
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
         const match = (j?.match || null) as CustomerLookupMatch | null;
+        const matches = (Array.isArray(j?.matches) ? j.matches : []) as CustomerLookupMatch[];
         setCustomerMatch(match);
+        setCustomerMatches(matches);
 
-        if (match) {
+        if (match && matches.length === 1) {
           setJob((prev) => ({
             ...prev,
             phone: prev.phone || match.phone || '',
@@ -431,6 +436,7 @@ function IntakePage() {
         }
       } catch {
         setCustomerMatch(null);
+        setCustomerMatches([]);
       } finally {
         setCustomerLookupBusy(false);
       }
@@ -441,14 +447,18 @@ function IntakePage() {
 
   const applyCustomerMatch = () => {
     if (!customerMatch) return;
+    applyCustomerCandidate(customerMatch);
+  };
+
+  const applyCustomerCandidate = (match: CustomerLookupMatch) => {
     setJob((prev) => ({
       ...prev,
-      phone: customerMatch.phone || prev.phone || '',
-      email: customerMatch.email || prev.email || '',
-      address: customerMatch.address || prev.address || '',
-      city: customerMatch.city || prev.city || '',
-      state: (customerMatch.state as any) || prev.state || '',
-      zip: customerMatch.zip || prev.zip || '',
+      phone: match.phone || prev.phone || '',
+      email: match.email || prev.email || '',
+      address: match.address || prev.address || '',
+      city: match.city || prev.city || '',
+      state: (match.state as any) || prev.state || '',
+      zip: match.zip || prev.zip || '',
     }));
   };
 
@@ -1105,6 +1115,25 @@ if (fresh?.exists && fresh.job) {
               />
               {customerLookupBusy ? (
                 <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer info…</div>
+              ) : customerMatches.length > 1 ? (
+                <div className="customerMatchList">
+                  <div className="customerMatchTitle">Possible previous customers</div>
+                  {customerMatches.slice(0, 4).map((match, idx) => (
+                    <button
+                      key={`${match.tag || 'no-tag'}:${match.dropoff || idx}`}
+                      type="button"
+                      className="customerMatchOption"
+                      onClick={() => applyCustomerCandidate(match)}
+                    >
+                      <span>
+                        <strong>{match.customer || 'Saved customer'}</strong>
+                        {match.tag ? ` • tag ${match.tag}` : ''}
+                        {match.dropoff ? ` • ${match.dropoff}` : ''}
+                      </span>
+                      <span>{[match.phone, match.city, match.state].filter(Boolean).join(' • ') || 'Use saved contact info'}</span>
+                    </button>
+                  ))}
+                </div>
               ) : customerMatch ? (
                 <div className="customerMatch">
                   <div>
@@ -1933,6 +1962,42 @@ if (fresh?.exists && fresh.job) {
           background: #eef8f0;
           color: #235532;
           font-size: 12px;
+          font-weight: 700;
+        }
+        .customerMatchList {
+          margin-top: 8px;
+          display: grid;
+          gap: 8px;
+          padding: 10px;
+          border-radius: 12px;
+          border: 1px solid #bfd2c2;
+          background: #f7fbf8;
+        }
+        .customerMatchTitle {
+          font-size: 12px;
+          font-weight: 800;
+          color: #406c4d;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+        }
+        .customerMatchOption {
+          display: grid;
+          gap: 4px;
+          text-align: left;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid #d6e6d8;
+          background: #fff;
+          color: #173321;
+          cursor: pointer;
+        }
+        .customerMatchOption:hover {
+          border-color: #89c096;
+          background: #f3f8f4;
+        }
+        .customerMatchOption span:last-child {
+          font-size: 12px;
+          color: #567061;
           font-weight: 700;
         }
         .miniFillBtn {
