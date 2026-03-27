@@ -1405,6 +1405,41 @@ export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSear
 
 /* ---------------- setTag ---------------- */
 
+export async function deletePendingJob(params: { jobId: string }) {
+  const supabaseServer = getSupabaseServer();
+  const jobId = String(params.jobId || '').trim();
+  if (!jobId) {
+    return { ok: false, error: 'Missing jobId' };
+  }
+
+  const { data: deleted, error } = await supabaseServer
+    .from('jobs')
+    .delete()
+    .eq('id', jobId)
+    .eq('requires_tag', true)
+    .select('id, tag, confirmation, customer_name')
+    .maybeSingle();
+
+  if (error) {
+    console.error('deletePendingJob error', error);
+    throw error;
+  }
+
+  if (!deleted) {
+    return { ok: false, error: 'Pending overnight job not found' };
+  }
+
+  return {
+    ok: true,
+    deleted: {
+      id: String(deleted.id || ''),
+      tag: String(deleted.tag || ''),
+      confirmation: String(deleted.confirmation || ''),
+      customer: String(deleted.customer_name || ''),
+    },
+  };
+}
+
 export async function setJobTag(params: {
   jobId: string;
   newTag: string;

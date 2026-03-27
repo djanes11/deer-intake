@@ -25,6 +25,7 @@ type AnyRec = Record<string, any>;
 
 const API_MISSING = '/api/v2/reports/missing-tags';
 const API_ASSIGN = '/api/v2/reports/assign-tag';
+const API_DELETE = '/api/v2/reports/delete-pending';
 
 async function parseJsonSafe(r: Response) {
   const t = await r.text();
@@ -84,12 +85,25 @@ async function assignTag(opts: { pendingTag?: string; jobId?: string; tag: strin
   return data;
 }
 
+async function deletePending(jobId: string) {
+  const r = await fetch(API_DELETE, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...tokenHeader() },
+    cache: 'no-store',
+    body: JSON.stringify({ jobId }),
+  });
+  const data = await parseJsonSafe(r);
+  if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
+}
+
 export default function MissingTagsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
   const [assigning, setAssigning] = useState('');
+  const [deleting, setDeleting] = useState('');
   const [printing, setPrinting] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
@@ -195,6 +209,28 @@ export default function MissingTagsPage() {
     }
   };
 
+  const doDelete = async (row: Row) => {
+    if (!row.id) {
+      setErr('Missing job id for this overnight record.');
+      return;
+    }
+
+    const label = row.customer_name || row.confirmation || 'this overnight intake';
+    const confirmed = window.confirm(`Delete ${label} from the overnight queue? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setErr('');
+    setDeleting(row.id);
+    try {
+      await deletePending(row.id);
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setDeleting('');
+    }
+  };
+
   const header = useMemo(() => {
     return (
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
@@ -287,6 +323,7 @@ export default function MissingTagsPage() {
               const pendingTag = r.tag || '';
               const draftKey = pendingTag || r.id || '';
               const isBusy = assigning === draftKey;
+              const isDeleting = deleting === r.id;
               const draft = digitsOnly(drafts[draftKey] ?? '');
               const canUseDraft = /^\d{5,}$/.test(draft);
               return (
@@ -328,10 +365,18 @@ export default function MissingTagsPage() {
                       onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: e.target.value }))}
                       placeholder="Enter actual deer tag"
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
-                      disabled={isBusy || !r.id}
+                      disabled={isBusy || isDeleting || !r.id}
                     />
-                    <button className="btn" onClick={() => doAssign(r)} disabled={isBusy || !r.id}>
+                    <button className="btn" onClick={() => doAssign(r)} disabled={isBusy || isDeleting || !r.id}>
                       {isBusy ? 'Saving...' : 'Assign Tag'}
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => doDelete(r)}
+                      disabled={isBusy || isDeleting || !r.id}
+                      style={{ background: '#7f1d1d' }}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </div>
