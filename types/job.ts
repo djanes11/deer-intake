@@ -92,6 +92,8 @@ export interface Job {
   publicToken: string | null;
   publicLinkSentAt: string | null;
   dropoffEmailSentAt: string | null;
+  intakeSheetPrintedAt: string | null;
+  intakeSheetPrintCount: number;
   meatFinishedEmailSentAt: string | null;
   capeFinishedEmailSentAt: string | null;
   specialtyFinishedEmailSentAt: string | null;
@@ -155,4 +157,6 @@ export interface JobSearchRow {
   webbsAttempts: number;
 
   dropoff: string | null;
+  intakeSheetPrintedAt?: string | null;
+  intakeSheetPrintCount?: number;
 }

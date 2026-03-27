@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { saveJob, getJob } from '@/lib/api';
+import { saveJob, getJob, tokenHeader } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
@@ -14,6 +14,8 @@ import {
   webbsOrderSummary,
   webbsOrderTotalLbs,
 } from '@/lib/webbs';
+
+const API_MARK_PRINTED = '/api/v2/reports/mark-printed';
 
 export const dynamic = 'force-dynamic';
 
@@ -259,6 +261,18 @@ const toMoneyOrNull = (v: any): number | null => {
   const n = Number(s.replace(/[^0-9.]/g, ''));
   return Number.isFinite(n) ? n : null;
 };
+
+async function markPrinted(tag: string) {
+  const r = await fetch(API_MARK_PRINTED, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...tokenHeader() },
+    cache: 'no-store',
+    body: JSON.stringify({ tag }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j?.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+  return j;
+}
 
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
@@ -1580,6 +1594,17 @@ if (fresh?.exists && fresh.job) {
               if (dirty) {
                 const ok = await onSave();
                 if (!ok) return;
+              }
+              const tagToPrint = digitsOnly(job.tag || '');
+              if (!tagToPrint) {
+                setMsg('Tag Number is required before printing');
+                return;
+              }
+              try {
+                await markPrinted(tagToPrint);
+              } catch (e: any) {
+                setMsg(e?.message || 'Could not mark intake sheet as printed');
+                return;
               }
               window.print();
             }}

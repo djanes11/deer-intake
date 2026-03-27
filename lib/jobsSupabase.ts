@@ -578,6 +578,8 @@ function mapDbRowToJob(row: any): Job {
     publicToken: row.public_token,
     publicLinkSentAt: row.public_link_sent_at,
     dropoffEmailSentAt: row.dropoff_email_sent_at,
+    intakeSheetPrintedAt: row.intake_sheet_printed_at,
+    intakeSheetPrintCount: Number(row.intake_sheet_print_count ?? 0),
     meatFinishedEmailSentAt: row.finished_email_sent_at,
     capeFinishedEmailSentAt: row.cape_finished_email_sent_at,
     specialtyFinishedEmailSentAt: row.specialty_finished_email_sent_at,
@@ -672,6 +674,8 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     ...(row.picked_up_processing != null ? ({ pickedUpProcessing: !!row.picked_up_processing } as any) : {}),
     ...(row.picked_up_cape != null ? ({ pickedUpCape: !!row.picked_up_cape } as any) : {}),
     ...(row.picked_up_webbs != null ? ({ pickedUpWebbs: !!row.picked_up_webbs } as any) : {}),
+    ...(row.intake_sheet_printed_at != null ? ({ intakeSheetPrintedAt: row.intake_sheet_printed_at } as any) : {}),
+    ...(row.intake_sheet_print_count != null ? ({ intakeSheetPrintCount: Number(row.intake_sheet_print_count ?? 0) } as any) : {}),
   } as JobSearchRow;
 }
 
@@ -1438,6 +1442,77 @@ export async function deletePendingJob(params: { jobId: string }) {
       customer: String(deleted.customer_name || ''),
     },
   };
+}
+
+export async function markIntakeSheetPrinted(params: { tag: string }) {
+  const supabaseServer = getSupabaseServer();
+  const tag = String(params.tag || '').trim();
+  if (!tag) {
+    return { ok: false, error: 'Missing tag' };
+  }
+
+  const { data: updated, error } = await supabaseServer
+    .from('jobs')
+    .update({
+      intake_sheet_printed_at: nowIso(),
+      updated_at: nowIso(),
+    })
+    .eq('tag', tag)
+    .select('tag, intake_sheet_printed_at, intake_sheet_print_count')
+    .maybeSingle();
+
+  if (error) {
+    console.error('markIntakeSheetPrinted error', error);
+    throw error;
+  }
+
+  if (!updated) {
+    return { ok: false, error: 'Job not found' };
+  }
+
+  const nextCount = Number(updated.intake_sheet_print_count ?? 0) + 1;
+  const { data: counted, error: countError } = await supabaseServer
+    .from('jobs')
+    .update({
+      intake_sheet_print_count: nextCount,
+      updated_at: nowIso(),
+    })
+    .eq('tag', tag)
+    .select('tag, intake_sheet_printed_at, intake_sheet_print_count')
+    .maybeSingle();
+
+  if (countError) {
+    console.error('markIntakeSheetPrinted count error', countError);
+    throw countError;
+  }
+
+  return {
+    ok: true,
+    tag: String((counted || updated).tag || tag),
+    intakeSheetPrintedAt: (counted || updated).intake_sheet_printed_at,
+    intakeSheetPrintCount: Number((counted || updated).intake_sheet_print_count ?? nextCount),
+  };
+}
+
+export async function listJobsNeedingPrint(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+  const supabaseServer = getSupabaseServer();
+
+  const { data, error } = await supabaseServer
+    .from('jobs')
+    .select(SEARCH_SELECT + ',intake_sheet_printed_at,intake_sheet_print_count')
+    .eq('requires_tag', false)
+    .not('tag', 'is', null)
+    .neq('tag', '')
+    .is('intake_sheet_printed_at', null)
+    .order('dropoff_date', { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error('listJobsNeedingPrint error', error);
+    throw error;
+  }
+
+  return { ok: true, rows: (data || []).map(mapDbRowToSearchRow) };
 }
 
 export async function setJobTag(params: {

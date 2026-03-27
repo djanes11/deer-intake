@@ -26,6 +26,7 @@ type AnyRec = Record<string, any>;
 const API_MISSING = '/api/v2/reports/missing-tags';
 const API_ASSIGN = '/api/v2/reports/assign-tag';
 const API_DELETE = '/api/v2/reports/delete-pending';
+const API_MARK = '/api/v2/reports/mark-printed';
 
 async function parseJsonSafe(r: Response) {
   const t = await r.text();
@@ -91,6 +92,18 @@ async function deletePending(jobId: string) {
     headers: { 'content-type': 'application/json', ...tokenHeader() },
     cache: 'no-store',
     body: JSON.stringify({ jobId }),
+  });
+  const data = await parseJsonSafe(r);
+  if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
+}
+
+async function markPrinted(tag: string) {
+  const r = await fetch(API_MARK, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...tokenHeader() },
+    cache: 'no-store',
+    body: JSON.stringify({ tag }),
   });
   const data = await parseJsonSafe(r);
   if (!r.ok || data?.ok === false) throw new Error(data?.error || `HTTP ${r.status}`);
@@ -171,6 +184,8 @@ export default function MissingTagsPage() {
         job = await loadJob(normalized);
       }
       if (!job) return;
+
+      await markPrinted(normalized);
 
       setTimeout(() => {
         window.print();
