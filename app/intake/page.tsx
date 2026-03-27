@@ -799,7 +799,28 @@ if (fresh?.exists && fresh.job) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const setVal = <K extends keyof Job>(k: K, v: Job[K]) => setJob((p) => ({ ...p, [k]: v }));
+  const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
+    setJob((p) => {
+      const next: Job = { ...p, [k]: v };
+
+      if (k === 'processType' || k === 'beefFat' || k === 'webbsOrder') {
+        next.processing_price_override = null;
+      }
+
+      if (
+        k === 'specialtyProducts' ||
+        k === 'originalSummerSausageLbs' ||
+        k === 'summerSausageCheeseLbs' ||
+        k === 'jalapenoSummerSausageCheeseLbs' ||
+        k === 'originalSnackSticksLbs' ||
+        k === 'originalSnackSticksCheeseLbs' ||
+        k === 'jalapenoSnackSticksCheeseLbs'
+      ) {
+        next.specialty_price_override = null;
+      }
+
+      return next;
+    });
 
   const setWebbsItemPounds = (key: string, value: string) => {
     setJob((prev) => {
