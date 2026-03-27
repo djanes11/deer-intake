@@ -1029,7 +1029,7 @@ body.light-page.watermark {
     padding: 8px 10px;
     border-radius: 999px;
     border: 1px solid var(--border, #d8e3f5);
-    background: var(--accent, #f5f8ff);
+    background: var(--accent, #f3f8f4);
     font-weight: 600;
   }
 
@@ -1048,7 +1048,7 @@ body.light-page.watermark {
   .ro .price-card, .ro .mini-card {
     border-radius: 12px;
     padding: 10px 12px;
-    background: var(--accent, #f5f8ff);
+    background: var(--accent, #f3f8f4);
   }
 }
 
@@ -1353,7 +1353,7 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   border: 1px solid #cbd5e1 !important;
   background: #fff !important;
   vertical-align: middle !important;
-  accent-color: #155acb; /* iOS/modern browsers */
+  accent-color: #2f6f3f; /* iOS/modern browsers */
 }
 
 /* If your globals style all inputs together (e.g., .form-card input, select, textarea {...}),

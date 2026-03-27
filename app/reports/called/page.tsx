@@ -132,10 +132,10 @@ function TrackBadge({ track }: { track: Track | string }) {
   const label = t === 'webbs' ? 'Webbs' : t === 'cape' ? 'Cape' : 'Meat';
   const styles: React.CSSProperties =
     t === 'webbs'
-      ? { background: '#5b21b6', color: '#fff' }
+      ? { background: '#5f7f57', color: '#fff' }
       : t === 'cape'
-      ? { background: '#92400e', color: '#fff' }
-      : { background: '#065f46', color: '#fff' };
+      ? { background: '#406c4d', color: '#fff' }
+      : { background: '#235532', color: '#fff' };
 
   return (
     <span
@@ -315,19 +315,19 @@ export default function CalledPickupQueue() {
       </div>
 
       <style jsx>{`
-        .table { background:#0f172a; border:1px solid #111827; border-radius:12px; overflow:hidden; color:#e5e7eb; }
-        .thead { display:grid; gap:8px; font-weight:800; padding:12px 12px; border-bottom:1px solid #111827; background:#0b1220; font-size:15px; }
-        .trow { display:grid; gap:8px; align-items:center; padding:12px 12px; border-bottom:1px solid #0b1220; background:#0f172a; cursor:pointer; }
-        .trow.odd { background:#0e1627; }
+        .table { background:#101715; border:1px solid #1f2c24; border-radius:12px; overflow:hidden; color:#e5e7eb; }
+        .thead { display:grid; gap:8px; font-weight:800; padding:12px 12px; border-bottom:1px solid #1f2c24; background:#0c120f; font-size:15px; }
+        .trow { display:grid; gap:8px; align-items:center; padding:12px 12px; border-bottom:1px solid #152019; background:#101715; cursor:pointer; }
+        .trow.odd { background:#122019; }
         .trow.selected { outline:2px solid #1f6f3e; outline-offset:-2px; background:#062d25 !important; }
         a { color:#9fe3b4; font-weight:800; text-decoration:underline; }
         .num { font-variant-numeric: tabular-nums; text-align:right; }
         .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#1f2937; color:#fff; font-weight:800; font-size:12px; }
-        .badge.ok { background:#065f46; }
+        .badge.ok { background:#235532; }
         .muted { color:#9ca3af; }
-        .empty { background:#0f172a; border:1px solid #111827; color:#e5e7eb; border-radius:12px; padding:12px; }
-        .btn { padding:8px 12px; border:1px solid #2b3a55; border-radius:10px; background:#155acb; color:#fff; font-weight:800; cursor:pointer; }
-        .btn.secondary { background:#0f172a; color:#e5e7eb; }
+        .empty { background:#101715; border:1px solid #1f2c24; color:#e5e7eb; border-radius:12px; padding:12px; }
+        .btn { padding:8px 12px; border:1px solid #235532; border-radius:10px; background:#2f6f3f; color:#fff; font-weight:800; cursor:pointer; }
+        .btn.secondary { background:#101715; color:#e5e7eb; border-color:#304336; }
         .btn.small { padding:6px 10px; font-size:14px; }
         .btn:disabled { opacity:.6; cursor:not-allowed; }
         .toolbar { position: sticky; bottom: 0; z-index: 15; margin-top: 10px; background: #0b0f12; border-top: 1px solid #111827; box-shadow: 0 -8px 30px rgba(0,0,0,.25); }

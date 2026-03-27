@@ -1634,7 +1634,7 @@ function OvernightIntakePage() {
           margin-bottom: 14px;
           padding: 16px;
           border-radius: 18px;
-          background: linear-gradient(135deg, #0f172a 0%, #17324f 100%);
+          background: linear-gradient(135deg, #122217 0%, #22412d 100%);
           color: #f8fafc;
         }
         .hero p {
@@ -1648,7 +1648,7 @@ function OvernightIntakePage() {
           text-transform: uppercase;
           letter-spacing: .08em;
           font-weight: 800;
-          color: #c7d2fe;
+          color: #b9ddc2;
         }
         .hero-card {
           border: 1px solid rgba(255,255,255,.14);
@@ -1675,7 +1675,7 @@ function OvernightIntakePage() {
           align-items:flex-end;
           gap:12px;
           padding: 8px 0 12px;
-          border-bottom: 1px solid #eef2f7;
+          border-bottom: 1px solid #dce7df;
           margin-bottom: 10px;
         }
         .wizardLeft{ display:flex; flex-direction:column; gap:2px; }
@@ -1687,9 +1687,9 @@ function OvernightIntakePage() {
           align-items:center;
           border-radius:999px;
           padding: 7px 12px;
-          background:#fff7ed;
-          color:#9a3412;
-          border:1px solid #fed7aa;
+          background:#eef8f0;
+          color:#235532;
+          border:1px solid #bfd2c2;
           font-size:12px;
           font-weight:800;
           text-align:center;
@@ -1706,7 +1706,7 @@ function OvernightIntakePage() {
           margin: 0 0 10px;
         }
         .stepChip {
-          border:1px solid #d8e3f5;
+          border:1px solid #dce7df;
           border-radius:999px;
           background:#fff;
           color:#334155;
@@ -1722,9 +1722,9 @@ function OvernightIntakePage() {
           cursor:not-allowed;
         }
         .stepChip.current {
-          background:#eff6ff;
-          color:#1d4ed8;
-          border-color:#bfdbfe;
+          background:#eef8f0;
+          color:#235532;
+          border-color:#bfd2c2;
         }
         .stepChip.done {
           background:#ecfdf5;
@@ -1770,16 +1770,16 @@ function OvernightIntakePage() {
           font-weight:800;
         }
 
-        .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
+        .summary { position: sticky; top: 0; background: #f3f8f4; border: 1px solid #dce7df; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
         .summary .row.small { margin-top: 6px; grid-template-columns: 1fr; }
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
-        .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
+        .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #dce7df; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
-        .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
-        .btn { padding: 12px 14px; min-height: 46px; border: 1px solid #cbd5e1; border-radius: 10px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
-        .btn.secondary{ background:#e2e8f0; color:#0b0f12; border-color:#cbd5e1; }
+        .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #dce7df; }
+        .btn { padding: 12px 14px; min-height: 46px; border: 1px solid #235532; border-radius: 10px; background: #2f6f3f; color: #fff; font-weight: 800; cursor: pointer; }
+        .btn.secondary{ background:#f3f8f4; color:#173321; border-color:#bfd2c2; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
         .statusWrap { margin-right:auto; display:grid; gap:2px; }
         .status { min-height: 20px; font-size: 12px; color: #334155; }

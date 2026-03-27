@@ -408,9 +408,9 @@ export default function CallReportPage() {
         .call-table th, .call-table td { vertical-align: top; padding: 8px 10px; }
         tr.selected td { outline: 2px solid var(--brand-2, #89c096); outline-offset: -2px; background: rgba(137, 192, 150, 0.08); }
         .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; background:#1f2937; }
-        .green { background: #065f46; }
-        .blue { background: #1e3a8a; }
-        .purple { background: #4c1d95; }
+        .green { background: #235532; }
+        .blue { background: #406c4d; }
+        .purple { background: #5f7f57; }
         .table tr:hover td { background: var(--bg-elev-2, rgba(255,255,255,0.03)); }
         .toolbar { position: sticky; bottom: 0; z-index: 15; margin-top: 12px; background: var(--bg, #0b0f12); border-top: 1px solid var(--border, #1f2937); box-shadow: 0 -8px 30px rgba(0,0,0,.25); }
         .toolbari { max-width: 1100px; margin: 0 auto; }
@@ -419,12 +419,12 @@ export default function CallReportPage() {
         .pill.small { font-size: 12px; background: #374151; }
         .toolbar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .toolbar-notes { width: 360px; max-width: 45vw; background: #ffffff; color: #0b0f12; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px 10px; }
-        .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
-        .btn.secondary { background: transparent; color: #e5e7eb; }
+        .btn { padding: 8px 12px; border: 1px solid #235532; border-radius: 8px; background: #2f6f3f; color: #fff; font-weight: 800; cursor: pointer; }
+        .btn.secondary { background: transparent; color: #e5e7eb; border-color: #304336; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
         .notes-cell { display: flex; flex-direction: column; gap: 6px; }
         .notes-pre { margin: 0; white-space: pre-wrap; word-break: break-word; max-height: 7.5em; overflow: hidden; font-size: 12px; line-height: 1.25; }
-        .linkish { background: transparent; border: none; padding: 0; color: #93c5fd; cursor: pointer; font-size: 12px; text-align: left; }
+        .linkish { background: transparent; border: none; padding: 0; color: #9ed2aa; cursor: pointer; font-size: 12px; text-align: left; }
         .linkish:hover { text-decoration: underline; }
         .muted { color: #9ca3af; }
       `}</style>

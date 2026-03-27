@@ -143,12 +143,12 @@ export default function AdminSettingsPage() {
           marginBottom: 16,
           padding: '18px 20px',
           borderRadius: 18,
-          background: 'linear-gradient(135deg, #0f172a 0%, #17324f 100%)',
+          background: 'linear-gradient(135deg, #122217 0%, #22412d 100%)',
           color: '#f8fafc',
-          border: '1px solid #1e3a5f',
+          border: '1px solid #2f6f3f',
         }}
       >
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#bfdbfe' }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#b9ddc2' }}>
           Staff Controls
         </div>
         <h2 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05, color: '#ffffff' }}>Public Site Settings</h2>
@@ -426,8 +426,8 @@ export default function AdminSettingsPage() {
             style={{
               padding: '12px 16px',
               borderRadius: 12,
-              border: '1px solid #0f4aa8',
-              background: '#155acb',
+              border: '1px solid #235532',
+              background: '#2f6f3f',
               color: '#fff',
               fontWeight: 900,
               cursor: 'pointer',

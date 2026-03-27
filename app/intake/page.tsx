@@ -1803,9 +1803,9 @@ if (fresh?.exists && fresh.job) {
         .count { display: inline-flex; align-items: center; gap: 6px; }
         .countInp { width: 70px; text-align: center; }
 
-        .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #eef2f7; }
-        .btn { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #155acb; color: #fff; font-weight: 800; cursor: pointer; }
-        .secondaryBtn { background: #f8fafc; color: #0f172a; }
+        .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #dce7df; }
+        .btn { padding: 8px 12px; border: 1px solid #235532; border-radius: 8px; background: #2f6f3f; color: #fff; font-weight: 800; cursor: pointer; }
+        .secondaryBtn { background: #f3f8f4; color: #173321; border-color:#bfd2c2; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
         .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
         .status.ok { color: #065f46; }
@@ -1817,10 +1817,10 @@ if (fresh?.exists && fresh.job) {
         .webbsSummaryLine { font-size: 13px; color: #334155; }
         .webbsSummaryMore { font-size: 13px; font-weight: 700; color: #475569; }
         .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
-        .modalCard { width: min(1040px, 100%); max-height: 88vh; overflow: auto; background: #fff; border-radius: 18px; border: 1px solid #d8e3f5; box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24); padding: 18px; }
+        .modalCard { width: min(1040px, 100%); max-height: 88vh; overflow: auto; background: #fff; border-radius: 18px; border: 1px solid #dce7df; box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24); padding: 18px; }
         .modalHead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
-        .modalKicker { font-size: 12px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .06em; }
-        .iconBtn { padding: 8px 12px; border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #0f172a; font-weight: 700; cursor: pointer; }
+        .modalKicker { font-size: 12px; font-weight: 800; color: #4e6a58; text-transform: uppercase; letter-spacing: .06em; }
+        .iconBtn { padding: 8px 12px; border-radius: 10px; border: 1px solid #bfd2c2; background: #f3f8f4; color: #173321; font-weight: 700; cursor: pointer; }
         .webbsModalGrid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-bottom: 12px; }
         .webbsModalInfo { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
         .webbsModalBody { display: grid; gap: 16px; }
