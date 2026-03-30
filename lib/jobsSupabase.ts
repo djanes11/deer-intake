@@ -11,7 +11,7 @@ import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 /* ---------------- helpers ---------------- */
 
-const SITE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || '')
+const SITE_URL = (process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || '')
   .trim()
   .replace(/^['"]|['"]$/g, '')
   .replace(/\/$/, '');
@@ -111,6 +111,42 @@ function buildIntakeSms(opts: { tag: string; statusUrl: string }) {
     'Reply STOP to opt out.',
   ].filter(Boolean);
   return parts.join(' ');
+}
+
+function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string }) {
+  const dueText = opts.paidProcessing ? 'Regular processing is marked paid.' : `Amount still owed for regular processing: $${opts.processingPrice.toFixed(2)}.`;
+  return [
+    `McAfee Deer Processing: Your meat processing for ${opts.tag} is finished and ready for pickup.`,
+    dueText,
+    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
+    'Reply STOP to opt out.',
+  ].filter(Boolean).join(' ');
+}
+
+function buildCapeFinishedSms(opts: { tag: string; statusUrl: string }) {
+  return [
+    `McAfee Deer Processing: The cape for ${opts.tag} is finished and ready for pickup.`,
+    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
+    'Reply STOP to opt out.',
+  ].filter(Boolean).join(' ');
+}
+
+function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string }) {
+  const dueText = opts.paidSpecialty ? 'Specialty products are marked paid.' : `Amount still owed for specialty products: $${opts.specialtyPrice.toFixed(2)}.`;
+  return [
+    `McAfee Deer Processing: Your specialty products for ${opts.tag} are finished and ready for pickup.`,
+    dueText,
+    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
+    'Reply STOP to opt out.',
+  ].filter(Boolean).join(' ');
+}
+
+function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string }) {
+  return [
+    `McAfee Deer Processing: Your Webbs order for ${opts.tag} has been delivered and is ready for pickup.`,
+    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
+    'Reply STOP to opt out.',
+  ].filter(Boolean).join(' ');
 }
 
 function buildCapeFinishedEmail(opts: { name: string; tag: string }) {
@@ -395,6 +431,31 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
   }
 }
 
+async function logSmsResult(supabaseServer: any, opts: {
+  jobId: string;
+  phone: string;
+  template: string;
+  body: string;
+  result: Awaited<ReturnType<typeof sendSms>>;
+}) {
+  try {
+    await supabaseServer.from('sms_logs').insert({
+      job_id: opts.jobId,
+      phone: opts.phone,
+      template: opts.template,
+      body: opts.body,
+      channel: 'sms',
+      provider: 'twilio',
+      status: opts.result.ok ? opts.result.status || 'queued' : opts.result.code,
+      provider_message_sid: opts.result.ok ? opts.result.sid : null,
+      error_code: opts.result.ok ? null : opts.result.code,
+      error_message: opts.result.ok ? null : opts.result.error,
+    });
+  } catch (logError) {
+    console.error(`${opts.template} SMS log failed (non-fatal)`, logError);
+  }
+}
+
 async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag || !statusIsFinishedLike(row.status)) return;
   const alreadyStamped = !!row.finished_email_sent_at;
@@ -436,6 +497,49 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
   }
 }
 
+async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag || !statusIsFinishedLike(row.status)) return;
+  if (preferredNotificationChannel(row) !== 'sms') return;
+  const alreadyStamped = !!row.meat_finished_sms_sent_at;
+  if (alreadyStamped) return;
+
+  const phone = normalizeUsPhone(String(row.phone || ''));
+  if (!phone) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ meat_finished_sms_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('meat_finished_sms_sent_at', null)
+    .select('id, tag, phone, paid_processing, price_processing, process_type, beef_fat, webbs_order')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const computed = calcProcessingPrice(
+    locked.process_type,
+    !!locked.beef_fat,
+    !!locked.webbs_order,
+    await getCurrentPricing(),
+  );
+  const price = Number(locked.price_processing ?? 0) || computed;
+  const body = buildMeatFinishedSms({
+    tag: String(locked.tag || ''),
+    paidProcessing: !!locked.paid_processing,
+    processingPrice: price,
+    statusUrl: statusPageLink(),
+  });
+
+  const result = await sendSms({ to: String(locked.phone || ''), body });
+  await logSmsResult(supabaseServer, {
+    jobId: String(locked.id),
+    phone,
+    template: 'meat_finished',
+    body,
+    result,
+  });
+}
+
 async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
   if (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status)) return;
@@ -462,6 +566,41 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
     subject: tpl.subject,
     html: tpl.html,
     text: tpl.text,
+  });
+}
+
+async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  if (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status)) return;
+  if (preferredNotificationChannel(row) !== 'sms') return;
+  const alreadyStamped = !!row.cape_finished_sms_sent_at;
+  if (alreadyStamped) return;
+
+  const phone = normalizeUsPhone(String(row.phone || ''));
+  if (!phone) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ cape_finished_sms_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('cape_finished_sms_sent_at', null)
+    .select('id, tag, phone')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const body = buildCapeFinishedSms({
+    tag: String(locked.tag || ''),
+    statusUrl: statusPageLink(),
+  });
+
+  const result = await sendSms({ to: String(locked.phone || ''), body });
+  await logSmsResult(supabaseServer, {
+    jobId: String(locked.id),
+    phone,
+    template: 'cape_finished',
+    body,
+    result,
   });
 }
 
@@ -518,6 +657,61 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
   }
 }
 
+async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  if (!row.specialty_products || !specialtyReady(row.specialty_status)) return;
+  if (preferredNotificationChannel(row) !== 'sms') return;
+  const alreadyStamped = !!row.specialty_finished_sms_sent_at;
+  if (alreadyStamped) return;
+
+  const phone = normalizeUsPhone(String(row.phone || ''));
+  if (!phone) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ specialty_finished_sms_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('specialty_finished_sms_sent_at', null)
+    .select(`
+      id,
+      tag,
+      phone,
+      paid_specialty,
+      price_specialty,
+      original_summer_sausage_lbs,
+      summer_sausage_lbs,
+      summer_sausage_cheese_lbs,
+      jalapeno_summer_sausage_cheese_lbs,
+      sliced_jerky_lbs,
+      original_snack_sticks_lbs,
+      original_snack_sticks_cheese_lbs,
+      jalapeno_snack_sticks_cheese_lbs,
+      specialty_price_override
+    `)
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const computed = calcSpecialtyPriceFromLbs(locked, await getCurrentPricing());
+  const override = numOrNull(locked.specialty_price_override);
+  const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
+  const body = buildSpecialtyFinishedSms({
+    tag: String(locked.tag || ''),
+    paidSpecialty: !!locked.paid_specialty,
+    specialtyPrice: price,
+    statusUrl: statusPageLink(),
+  });
+
+  const result = await sendSms({ to: String(locked.phone || ''), body });
+  await logSmsResult(supabaseServer, {
+    jobId: String(locked.id),
+    phone,
+    template: 'specialty_finished',
+    body,
+    result,
+  });
+}
+
 async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
   if (!row.webbs_order || !webbsReady(row.webbs_status)) return;
@@ -547,6 +741,41 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
   });
 }
 
+async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  if (!row.webbs_order || !webbsReady(row.webbs_status)) return;
+  if (preferredNotificationChannel(row) !== 'sms') return;
+  const alreadyStamped = !!row.webbs_delivered_sms_sent_at;
+  if (alreadyStamped) return;
+
+  const phone = normalizeUsPhone(String(row.phone || ''));
+  if (!phone) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ webbs_delivered_sms_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('webbs_delivered_sms_sent_at', null)
+    .select('id, tag, phone')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const body = buildWebbsDeliveredSms({
+    tag: String(locked.tag || ''),
+    statusUrl: statusPageLink(),
+  });
+
+  const result = await sendSms({ to: String(locked.phone || ''), body });
+  await logSmsResult(supabaseServer, {
+    jobId: String(locked.id),
+    phone,
+    template: 'webbs_delivered',
+    body,
+    result,
+  });
+}
+
 async function trySendNotificationEmails(supabaseServer: any, row: any) {
   if (preferredNotificationChannel(row) !== 'email') return;
 
@@ -570,10 +799,20 @@ async function trySendNotificationEmails(supabaseServer: any, row: any) {
 async function trySendNotificationSms(supabaseServer: any, row: any) {
   if (preferredNotificationChannel(row) !== 'sms') return;
 
-  try {
-    await trySendDropoffSms(supabaseServer, row);
-  } catch (error) {
-    console.error('drop-off sms failed (non-fatal)', error);
+  const steps = [
+    ['drop-off', trySendDropoffSms],
+    ['meat finished', trySendMeatFinishedSms],
+    ['cape finished', trySendCapeFinishedSms],
+    ['specialty finished', trySendSpecialtyFinishedSms],
+    ['Webbs delivered', trySendWebbsDeliveredSms],
+  ] as const;
+
+  for (const [label, fn] of steps) {
+    try {
+      await fn(supabaseServer, row);
+    } catch (error) {
+      console.error(`${label} sms failed (non-fatal)`, error);
+    }
   }
 }
 
@@ -688,9 +927,13 @@ function mapDbRowToJob(row: any): Job {
     intakeSheetPrintedAt: row.intake_sheet_printed_at,
     intakeSheetPrintCount: Number(row.intake_sheet_print_count ?? 0),
     meatFinishedEmailSentAt: row.finished_email_sent_at,
+    meatFinishedSmsSentAt: row.meat_finished_sms_sent_at,
     capeFinishedEmailSentAt: row.cape_finished_email_sent_at,
+    capeFinishedSmsSentAt: row.cape_finished_sms_sent_at,
     specialtyFinishedEmailSentAt: row.specialty_finished_email_sent_at,
+    specialtyFinishedSmsSentAt: row.specialty_finished_sms_sent_at,
     webbsDeliveredEmailSentAt: row.webbs_delivered_email_sent_at,
+    webbsDeliveredSmsSentAt: row.webbs_delivered_sms_sent_at,
     paidProcessingAt: row.paid_processing_at,
     paidSpecialtyAt: row.paid_specialty_at,
 
@@ -1189,9 +1432,13 @@ let tagToStore: string;
     dropoff_email_sent_at: effectiveJob.dropoffEmailSentAt ?? null,
     dropoff_sms_sent_at: (effectiveJob as any).dropoffSmsSentAt ?? null,
     finished_email_sent_at: (effectiveJob as any).meatFinishedEmailSentAt ?? null,
+    meat_finished_sms_sent_at: (effectiveJob as any).meatFinishedSmsSentAt ?? null,
     cape_finished_email_sent_at: (effectiveJob as any).capeFinishedEmailSentAt ?? null,
+    cape_finished_sms_sent_at: (effectiveJob as any).capeFinishedSmsSentAt ?? null,
     specialty_finished_email_sent_at: (effectiveJob as any).specialtyFinishedEmailSentAt ?? null,
+    specialty_finished_sms_sent_at: (effectiveJob as any).specialtyFinishedSmsSentAt ?? null,
     webbs_delivered_email_sent_at: (effectiveJob as any).webbsDeliveredEmailSentAt ?? null,
+    webbs_delivered_sms_sent_at: (effectiveJob as any).webbsDeliveredSmsSentAt ?? null,
     paid_processing_at: effectiveJob.paidProcessingAt ?? null,
     paid_specialty_at: effectiveJob.paidSpecialtyAt ?? null,
 

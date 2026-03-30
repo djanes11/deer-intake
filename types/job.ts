@@ -102,9 +102,13 @@ export interface Job {
   intakeSheetPrintedAt: string | null;
   intakeSheetPrintCount: number;
   meatFinishedEmailSentAt: string | null;
+  meatFinishedSmsSentAt: string | null;
   capeFinishedEmailSentAt: string | null;
+  capeFinishedSmsSentAt: string | null;
   specialtyFinishedEmailSentAt: string | null;
+  specialtyFinishedSmsSentAt: string | null;
   webbsDeliveredEmailSentAt: string | null;
+  webbsDeliveredSmsSentAt: string | null;
   paidProcessingAt: string | null;
   paidSpecialtyAt: string | null;
 
