@@ -270,12 +270,40 @@ function specialtyReady(specialtyStatus: any) {
   return /finish|ready|complete|completed|done/.test(s);
 }
 
+type NotificationChannel = 'sms' | 'email' | 'call' | 'none';
+
+function hasUsableEmail(row: any) {
+  return /\S+@\S+\.\S+/.test(String(row?.email || '').trim());
+}
+
+function hasUsablePhone(row: any) {
+  const digits = String(row?.phone || '').replace(/\D/g, '');
+  return digits.length >= 10;
+}
+
+function preferredNotificationChannel(row: any): NotificationChannel {
+  if (!row) return 'none';
+
+  const wantsSms = !!row.pref_sms && !!row.sms_consent && hasUsablePhone(row);
+  if (wantsSms) return 'sms';
+
+  const wantsEmail = !!row.pref_email && hasUsableEmail(row);
+  if (wantsEmail) return 'email';
+
+  const wantsCall = !!row.pref_call && hasUsablePhone(row);
+  if (wantsCall) return 'call';
+
+  return 'none';
+}
+
+function shouldSendEmailNotification(row: any) {
+  return preferredNotificationChannel(row) === 'email';
+}
+
 async function trySendDropoffEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
-  const wantsEmail = !!row.pref_email;
-  const email = String(row.email || '').trim();
   const alreadyStamped = !!row.dropoff_email_sent_at;
-  if (!wantsEmail || !email || alreadyStamped) return;
+  if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
   const token = String(row.public_token || '').trim() || makePublicToken();
   const { data: locked } = await supabaseServer
@@ -305,10 +333,8 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
 
 async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag || !statusIsFinishedLike(row.status)) return;
-  const wantsEmail = !!row.pref_email;
-  const email = String(row.email || '').trim();
   const alreadyStamped = !!row.finished_email_sent_at;
-  if (!wantsEmail || !email || alreadyStamped) return;
+  if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
   const { data: locked } = await supabaseServer
     .from('jobs')
@@ -349,10 +375,8 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
 async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
   if (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status)) return;
-  const wantsEmail = !!row.pref_email;
-  const email = String(row.email || '').trim();
   const alreadyStamped = !!row.cape_finished_email_sent_at;
-  if (!wantsEmail || !email || alreadyStamped) return;
+  if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
   const { data: locked } = await supabaseServer
     .from('jobs')
@@ -380,10 +404,8 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
 async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
   if (!row.specialty_products || !specialtyReady(row.specialty_status)) return;
-  const wantsEmail = !!row.pref_email;
-  const email = String(row.email || '').trim();
   const alreadyStamped = !!row.specialty_finished_email_sent_at;
-  if (!wantsEmail || !email || alreadyStamped) return;
+  if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
   const { data: locked } = await supabaseServer
     .from('jobs')
@@ -435,10 +457,8 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
 async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
   if (!row.webbs_order || !webbsReady(row.webbs_status)) return;
-  const wantsEmail = !!row.pref_email;
-  const email = String(row.email || '').trim();
   const alreadyStamped = !!row.webbs_delivered_email_sent_at;
-  if (!wantsEmail || !email || alreadyStamped) return;
+  if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
   const { data: locked } = await supabaseServer
     .from('jobs')
@@ -464,6 +484,8 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
 }
 
 async function trySendNotificationEmails(supabaseServer: any, row: any) {
+  if (preferredNotificationChannel(row) !== 'email') return;
+
   const steps = [
     ['drop-off', trySendDropoffEmail],
     ['meat finished', trySendMeatFinishedEmail],

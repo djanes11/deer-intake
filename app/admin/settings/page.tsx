@@ -38,6 +38,10 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [smsTo, setSmsTo] = useState('');
+  const [smsBody, setSmsBody] = useState('McAfee Deer Processing test SMS. If you got this, Twilio is wired correctly.');
+  const [smsBusy, setSmsBusy] = useState(false);
+  const [smsMsg, setSmsMsg] = useState('');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -109,6 +113,26 @@ export default function AdminSettingsPage() {
     if (!s) return;
     const nextHours = normalizeHours(s.hours).map((row, i) => (i === index ? { ...row, [key]: value } : row));
     setS({ ...s, hours: nextHours });
+  };
+
+  const sendTestSms = async () => {
+    setSmsBusy(true);
+    setSmsMsg('');
+    try {
+      const res = await fetch('/api/admin/test-sms', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ to: smsTo, message: smsBody }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
+      const status = j?.status ? ` (${j.status})` : '';
+      setSmsMsg(`SMS sent to ${j.to}${status}`);
+    } catch (e: any) {
+      setSmsMsg(String(e?.message || e));
+    } finally {
+      setSmsBusy(false);
+    }
   };
 
   if (!s) {
@@ -408,6 +432,70 @@ export default function AdminSettingsPage() {
             >
               Reset Pricing Defaults
             </button>
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid #d6dee8',
+            borderRadius: 16,
+            padding: 18,
+            background: '#ffffff',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+            display: 'grid',
+            gap: 12,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>SMS Testing</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+            This is a staff-only Twilio test tool. It still respects your SMS env guard and allowlist, so it is safe to
+            wire before turning live texting on.
+          </div>
+
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div>
+              <div style={{ fontWeight: 900, marginBottom: 6, color: '#0f172a' }}>Test phone number</div>
+              <input
+                value={smsTo}
+                onChange={(e) => setSmsTo(e.target.value)}
+                placeholder="+15024092686"
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', width: '100%' }}
+              />
+            </div>
+
+            <div>
+              <div style={{ fontWeight: 900, marginBottom: 6, color: '#0f172a' }}>Test message</div>
+              <textarea
+                rows={3}
+                value={smsBody}
+                onChange={(e) => setSmsBody(e.target.value)}
+                style={{ padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', width: '100%' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={sendTestSms}
+              disabled={smsBusy}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid #235532',
+                background: smsBusy ? '#94a3b8' : '#2f6f3f',
+                color: '#fff',
+                fontWeight: 800,
+                cursor: smsBusy ? 'wait' : 'pointer',
+              }}
+            >
+              {smsBusy ? 'Sending...' : 'Send Test SMS'}
+            </button>
+            {smsMsg ? (
+              <div style={{ fontSize: 13, fontWeight: 900, color: smsMsg.toLowerCase().includes('sent') ? '#166534' : '#991b1b' }}>
+                {smsMsg}
+              </div>
+            ) : null}
           </div>
         </div>
 
