@@ -250,6 +250,19 @@ const frontRoast = truthy('Front - Roast','frontRoast', (frontObj as any)['Front
 const frontGrind = truthy('Front - Grind','frontGrind', (frontObj as any)['Front - Grind'], (frontObj as any).grind);
 const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front - None'],  (frontObj as any).none);
 
+const hindSelections = [
+  hindSteak ? 'Steak' : '',
+  hindRoast ? `Roast${hindRoastCnt ? ` (${hindRoastCnt})` : ''}` : '',
+  hindGrind ? 'Grind' : '',
+  hindNone ? 'None' : '',
+].filter(Boolean);
+
+const frontSelections = [
+  frontRoast ? `Roast${frontRoastCnt ? ` (${frontRoastCnt})` : ''}` : '',
+  frontGrind ? 'Grind' : '',
+  frontNone ? 'None' : '',
+].filter(Boolean);
+
   /* -------- barcode on every copy -------- */
   useEffect(() => {
     const container = rootRef.current;
@@ -427,22 +440,15 @@ pages.forEach(p => {
       <div className="row grid12 meat-row">
         <div className="col-6 box">
           <div className="label">Hind Quarter</div>
-          <div className="val"><strong className="check">{hindSteak ? CHK : BOX}</strong> Steak</div>
-          <div className="val">
-            <strong className="check">{hindRoast ? CHK : BOX}</strong> Roast
-            &nbsp; Count: <span id="ph_rc">{hindRoastCnt || ''}</span>
+          <div className="val cutSummary">
+            {hindSelections.length ? hindSelections.join(' | ') : '—'}
           </div>
-          <div className="val"><strong className="check">{hindGrind ? CHK : BOX}</strong> Grind</div>
-          <div className="val"><strong className="check">{hindNone  ? CHK : BOX}</strong> None</div>
         </div>
         <div className="col-6 box">
           <div className="label">Front Shoulder</div>
-          <div className="val">
-            <strong className="check">{frontRoast ? CHK : BOX}</strong> Roast
-            &nbsp; Count: <span id="pf_rc">{frontRoastCnt || ''}</span>
+          <div className="val cutSummary">
+            {frontSelections.length ? frontSelections.join(' | ') : '—'}
           </div>
-          <div className="val"><strong className="check">{frontGrind ? CHK : BOX}</strong> Grind</div>
-          <div className="val"><strong className="check">{frontNone  ? CHK : BOX}</strong> None</div>
         </div>
       </div>
 
