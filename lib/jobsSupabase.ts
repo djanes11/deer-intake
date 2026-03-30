@@ -3,6 +3,7 @@ import { getSupabaseServer } from './supabaseClient';
 import { Job, JobSearchRow } from '@/types/job';
 import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
+import { normalizeUsPhone, sendSms } from '@/lib/sms';
 import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
 import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrderStyle } from '@/lib/webbs';
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
@@ -31,6 +32,11 @@ function escapeHtml(s: any) {
 function intakeFormLink(tag: string, publicToken: string) {
   if (!SITE_URL) return '';
   return `${SITE_URL}/intake/${encodeURIComponent(tag)}?t=${encodeURIComponent(publicToken)}`;
+}
+
+function statusPageLink() {
+  if (!SITE_URL) return '';
+  return `${SITE_URL}/status`;
 }
 
 function buildIntakeEmail(opts: { name: string; tag: string; link: string }) {
@@ -94,6 +100,17 @@ function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: b
       `Please bring a cooler or box to transport your meat.\n` +
       `Reminder: This update is for your regular processing only. We'll reach out separately about any Webbs orders or McAfee Specialty Products.\n`,
   };
+}
+
+function buildIntakeSms(opts: { tag: string; statusUrl: string }) {
+  const tag = String(opts.tag || '').trim();
+  const statusUrl = String(opts.statusUrl || '').trim();
+  const parts = [
+    `McAfee Deer Processing: Your deer has been checked in and tagged ${tag}.`,
+    statusUrl ? `Check status: ${statusUrl}` : '',
+    'Reply STOP to opt out.',
+  ].filter(Boolean);
+  return parts.join(' ');
 }
 
 function buildCapeFinishedEmail(opts: { name: string; tag: string }) {
@@ -331,6 +348,53 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
   });
 }
 
+async function trySendDropoffSms(supabaseServer: any, row: any) {
+  if (!row || !hasRealTag(row) || row.requires_tag) return;
+  if (preferredNotificationChannel(row) !== 'sms') return;
+  const alreadyStamped = !!row.dropoff_sms_sent_at;
+  if (alreadyStamped) return;
+
+  const phone = normalizeUsPhone(String(row.phone || ''));
+  if (!phone) return;
+
+  const { data: locked } = await supabaseServer
+    .from('jobs')
+    .update({ dropoff_sms_sent_at: nowIso() })
+    .eq('id', row.id)
+    .is('dropoff_sms_sent_at', null)
+    .select('id, tag, phone')
+    .maybeSingle();
+
+  if (!locked) return;
+
+  const body = buildIntakeSms({
+    tag: String(locked.tag || ''),
+    statusUrl: statusPageLink(),
+  });
+
+  const result = await sendSms({
+    to: String(locked.phone || ''),
+    body,
+  });
+
+  try {
+    await supabaseServer.from('sms_logs').insert({
+      job_id: locked.id,
+      phone,
+      template: 'dropoff_tagged',
+      body,
+      channel: 'sms',
+      provider: 'twilio',
+      status: result.ok ? result.status || 'queued' : result.code,
+      provider_message_sid: result.ok ? result.sid : null,
+      error_code: result.ok ? null : result.code,
+      error_message: result.ok ? null : result.error,
+    });
+  } catch (logError) {
+    console.error('Drop-off SMS log failed (non-fatal)', logError);
+  }
+}
+
 async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag || !statusIsFinishedLike(row.status)) return;
   const alreadyStamped = !!row.finished_email_sent_at;
@@ -503,6 +567,16 @@ async function trySendNotificationEmails(supabaseServer: any, row: any) {
   }
 }
 
+async function trySendNotificationSms(supabaseServer: any, row: any) {
+  if (preferredNotificationChannel(row) !== 'sms') return;
+
+  try {
+    await trySendDropoffSms(supabaseServer, row);
+  } catch (error) {
+    console.error('drop-off sms failed (non-fatal)', error);
+  }
+}
+
 function appendStampedLine(existing: string | null | undefined, line: string) {
   const old = String(existing || '').trim();
   return old ? `${old}\n${line}` : line;
@@ -610,6 +684,7 @@ function mapDbRowToJob(row: any): Job {
     publicToken: row.public_token,
     publicLinkSentAt: row.public_link_sent_at,
     dropoffEmailSentAt: row.dropoff_email_sent_at,
+    dropoffSmsSentAt: row.dropoff_sms_sent_at,
     intakeSheetPrintedAt: row.intake_sheet_printed_at,
     intakeSheetPrintCount: Number(row.intake_sheet_print_count ?? 0),
     meatFinishedEmailSentAt: row.finished_email_sent_at,
@@ -1112,6 +1187,7 @@ let tagToStore: string;
     public_token: effectiveJob.publicToken ? String(effectiveJob.publicToken) : undefined,
     public_link_sent_at: effectiveJob.publicLinkSentAt ?? null,
     dropoff_email_sent_at: effectiveJob.dropoffEmailSentAt ?? null,
+    dropoff_sms_sent_at: (effectiveJob as any).dropoffSmsSentAt ?? null,
     finished_email_sent_at: (effectiveJob as any).meatFinishedEmailSentAt ?? null,
     cape_finished_email_sent_at: (effectiveJob as any).capeFinishedEmailSentAt ?? null,
     specialty_finished_email_sent_at: (effectiveJob as any).specialtyFinishedEmailSentAt ?? null,
@@ -1167,11 +1243,16 @@ Object.keys(upsertPayload).forEach((k) => {
 
 
 // ---- Emails (best-effort) ----
-try {
-  await trySendNotificationEmails(supabaseServer, data);
-} catch (e) {
-  console.error('Notification email failed (non-fatal)', e);
-}
+  try {
+    await trySendNotificationEmails(supabaseServer, data);
+  } catch (e) {
+    console.error('Notification email failed (non-fatal)', e);
+  }
+  try {
+    await trySendNotificationSms(supabaseServer, data);
+  } catch (e) {
+    console.error('Notification sms failed (non-fatal)', e);
+  }
 
 
   return { ok: true, job: data ? mapDbRowToJob(data) : null };
@@ -1786,6 +1867,7 @@ export async function setJobTag(params: {
   let stamped = false;
   if (stampDropEmail) {
     updates.dropoff_email_sent_at = nowIso();
+    updates.dropoff_sms_sent_at = nowIso();
     stamped = true;
   }
 
@@ -1812,6 +1894,11 @@ export async function setJobTag(params: {
       await trySendNotificationEmails(supabaseServer, updated);
     } catch (e) {
       console.error('Notification email after setTag failed (non-fatal)', e);
+    }
+    try {
+      await trySendNotificationSms(supabaseServer, updated);
+    } catch (e) {
+      console.error('Notification sms after setTag failed (non-fatal)', e);
     }
   }
 

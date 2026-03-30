@@ -98,6 +98,7 @@ export interface Job {
   publicToken: string | null;
   publicLinkSentAt: string | null;
   dropoffEmailSentAt: string | null;
+  dropoffSmsSentAt: string | null;
   intakeSheetPrintedAt: string | null;
   intakeSheetPrintCount: number;
   meatFinishedEmailSentAt: string | null;
