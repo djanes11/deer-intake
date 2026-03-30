@@ -4,7 +4,12 @@ import { sharedRateLimit } from '@/lib/ratelimit';
 import { saveJob } from '@/lib/jobsSupabase';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getSupabaseServer } from '@/lib/supabaseClient';
-import { normalizeWebbsOrderItems } from '@/lib/webbs';
+import {
+  normalizeWebbsAllocations,
+  normalizeWebbsOrderItems,
+  normalizeWebbsOrderStyle,
+  webbsAllocationTotalPercent,
+} from '@/lib/webbs';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -70,7 +75,14 @@ function publicValidationError(rawJob: Record<string, any>): string | null {
     if (!Number.isFinite(pounds) || pounds <= 0) {
       return 'Estimated Webbs pounds are required.';
     }
-    if (!normalizeWebbsOrderItems(rawJob.webbsItems).length) {
+    const orderStyle = normalizeWebbsOrderStyle(rawJob.webbsOrderStyle);
+    if (orderStyle === 'whole_deer_percent') {
+      const allocations = normalizeWebbsAllocations(rawJob.webbsAllocations);
+      if (!allocations.length) return 'Enter at least one Webbs product percentage.';
+      if (webbsAllocationTotalPercent(allocations) !== 100) {
+        return 'Webbs percentages must add up to 100%.';
+      }
+    } else if (!normalizeWebbsOrderItems(rawJob.webbsItems).length) {
       return 'Enter at least one Webbs item and pounds.';
     }
   }

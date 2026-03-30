@@ -6,7 +6,13 @@ import {
   specialtyPrice as calcSpecialtyPrice,
   specialtyTotalLbs,
 } from '@/lib/specialty';
-import { normalizeWebbsOrderItems, webbsOrderTotalLbs } from '@/lib/webbs';
+import {
+  normalizeWebbsAllocations,
+  normalizeWebbsOrderItems,
+  normalizeWebbsOrderStyle,
+  webbsAllocationTotalPercent,
+  webbsOrderTotalLbs,
+} from '@/lib/webbs';
 
 type AnyRec = Record<string, any>;
 
@@ -179,16 +185,26 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [specialtyItems]);
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job?.webbsItems), [job?.webbsItems]);
+  const webbsAllocations = useMemo(() => normalizeWebbsAllocations(job?.webbsAllocations), [job?.webbsAllocations]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(job?.webbsItems), [job?.webbsItems]);
+  const webbsAllocationTotal = useMemo(() => webbsAllocationTotalPercent(job?.webbsAllocations), [job?.webbsAllocations]);
   const webbsItemLines = useMemo(
     () => webbsItems.map((item) => `${shortWebbsLabel(item.label)} ${item.pounds} lb`),
     [webbsItems]
+  );
+  const webbsAllocationLines = useMemo(
+    () => webbsAllocations.map((item) => `${shortWebbsLabel(item.label)} ${item.percent}%`),
+    [webbsAllocations]
+  );
+  const webbsOrderStyle = useMemo(
+    () => normalizeWebbsOrderStyle(textVal('webbsOrderStyle', 'webbs_order_style')),
+    [job?.webbsOrderStyle, job?.webbs_order_style]
   );
   const webbsOrderMode = useMemo(
     () => textVal('webbsOrderMode', 'webbs_order_mode'),
     [job?.webbsOrderMode, job?.webbs_order_mode]
   );
-  const hasDenseWebbsList = webbsItemLines.length > 10;
+  const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
 
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -558,11 +574,22 @@ pages.forEach(p => {
             <div className="webbsMetaRow">
               <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
               <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
+              <div><b>Style:</b> {webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}</div>
               {webbsOrderMode ? (
                 <div><b>Choice:</b> {webbsOrderMode === 'online' ? 'Entered online' : 'Staff call later'}</div>
               ) : null}
             </div>
-            {webbsItemLines.length > 0 && (
+            {webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <div><b>Percent Allocation ({webbsAllocationTotal}%):</b></div>
+                <div className={`webbsItemsGrid ${hasDenseWebbsList ? 'dense' : ''}`}>
+                  {webbsAllocationLines.map((line) => (
+                    <div key={line} className="webbsItemLine">{line}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {webbsOrderStyle !== 'whole_deer_percent' && webbsItemLines.length > 0 && (
               <div style={{ marginTop: 6 }}>
                 <div><b>Detailed Items ({webbsItemTotal} lb):</b></div>
                 <div className={`webbsItemsGrid ${hasDenseWebbsList ? 'dense' : ''}`}>

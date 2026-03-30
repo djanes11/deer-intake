@@ -7,7 +7,13 @@ export const revalidate = 0;
 import crypto from 'crypto';
 import { getJobByTag } from '@/lib/jobsSupabase';
 import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
-import { webbsOrderSummary, webbsOrderTotalLbs } from '@/lib/webbs';
+import {
+  normalizeWebbsOrderStyle,
+  webbsAllocationSummary,
+  webbsAllocationTotalPercent,
+  webbsOrderSummary,
+  webbsOrderTotalLbs,
+} from '@/lib/webbs';
 import { calcProcessingPrice } from '@/lib/pricing';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 
@@ -141,7 +147,10 @@ export default async function IntakeView({
     const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job, settings.pricing) : 0;
     const webbsItems = webbsOrderSummary(job?.webbsItems);
     const webbsItemTotal = webbsOrderTotalLbs(job?.webbsItems);
+    const webbsAllocations = webbsAllocationSummary(job?.webbsAllocations);
+    const webbsAllocationTotal = webbsAllocationTotalPercent(job?.webbsAllocations);
     const webbsOrderMode = String(job?.webbsOrderMode || job?.webbs_order_mode || '').trim();
+    const webbsOrderStyle = normalizeWebbsOrderStyle(job?.webbsOrderStyle || job?.webbs_order_style);
 
     const processingOverride = toNumOrNull(
       (job as any)?.processing_price_override ?? (job as any)?.processingPriceOverride
@@ -379,11 +388,25 @@ export default async function IntakeView({
                   <div className="c12" style={{gridColumn:'span 12'}}>
                     <Field
                       label="Public Webbs Choice"
-                      value={webbsOrderMode === 'online' ? 'Order entered online' : 'Have staff call later'}
+                      value="Order entered online"
                     />
                   </div>
                 ) : null}
-                {webbsItems.length > 0 && (
+                <div className="c12" style={{gridColumn:'span 12'}}>
+                  <Field
+                    label="Webbs Order Style"
+                    value={webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}
+                  />
+                </div>
+                {webbsOrderStyle === 'whole_deer_percent' && webbsAllocations.length > 0 && (
+                  <div className="c12" style={{gridColumn:'span 12'}}>
+                    <Field
+                      label={`Webbs Percent Allocation (${webbsAllocationTotal}%)`}
+                      value={webbsAllocations.join('\n')}
+                    />
+                  </div>
+                )}
+                {webbsOrderStyle !== 'whole_deer_percent' && webbsItems.length > 0 && (
                   <div className="c12" style={{gridColumn:'span 12'}}>
                     <Field
                       label={`Webbs Items (${webbsItemTotal} lb total)`}

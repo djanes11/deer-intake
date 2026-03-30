@@ -71,10 +71,16 @@ export interface Job {
   webbsOrderFormNumber: string | null;
   webbsPounds: number;
   webbsOrderMode?: 'needs_call' | 'online' | null;
+  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent' | null;
   webbsItems?: Array<{
     key: string;
     label: string;
     pounds: number;
+  }>;
+  webbsAllocations?: Array<{
+    key: string;
+    label: string;
+    percent: number;
   }>;
 
   // Pricing

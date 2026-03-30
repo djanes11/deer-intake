@@ -10,8 +10,13 @@ import { SPECIALTY_ITEMS, specialtyBreakdown, specialtyPrice as calcSpecialtyPri
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
 import {
   WEBBS_GROUPS,
+  type WebbsAllocationItem,
   type WebbsOrderItem,
+  normalizeWebbsAllocations,
   normalizeWebbsOrderItems,
+  normalizeWebbsOrderStyle,
+  webbsAllocationSummary,
+  webbsAllocationTotalPercent,
   webbsOrderSummary,
   webbsOrderTotalLbs,
 } from '@/lib/webbs';
@@ -95,7 +100,9 @@ type Job = {
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
+  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent';
   webbsItems?: WebbsOrderItem[];
+  webbsAllocations?: WebbsAllocationItem[];
 
   price?: number | string; // optional override
 
@@ -202,7 +209,9 @@ function snapshotJob(j: Job) {
     webbsOrder: !!j.webbsOrder,
     webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? '',
     webbsPounds: j.webbsPounds ?? '',
+    webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
     webbsItems: normalizeWebbsOrderItems(j.webbsItems),
+    webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
 
     processing_price_override: String((j as any).processing_price_override ?? ''),
     specialty_price_override: String((j as any).specialty_price_override ?? ''),
@@ -329,7 +338,9 @@ function IntakePage() {
     },
     beefFat: false,
     webbsOrder: false,
+    webbsOrderStyle: 'itemized_lbs',
     webbsItems: [],
+    webbsAllocations: [],
 
     processing_price_override: null,
     specialty_price_override: null,
@@ -584,7 +595,9 @@ useEffect(() => {
             smsConsent: asBool(j.smsConsent),
             autoCallConsent: asBool(j.autoCallConsent),
             webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? '',
+            webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
             webbsItems: normalizeWebbsOrderItems(j.webbsItems),
+            webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
           };
 
           const fp = fullPaid(next);
@@ -643,6 +656,10 @@ useEffect(() => {
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
   const webbsItemLines = useMemo(() => webbsOrderSummary(webbsItems), [webbsItems]);
+  const webbsAllocations = useMemo(() => normalizeWebbsAllocations(job.webbsAllocations), [job.webbsAllocations]);
+  const webbsAllocationTotal = useMemo(() => webbsAllocationTotalPercent(webbsAllocations), [webbsAllocations]);
+  const webbsAllocationLines = useMemo(() => webbsAllocationSummary(webbsAllocations), [webbsAllocations]);
+  const webbsOrderStyle = normalizeWebbsOrderStyle(job.webbsOrderStyle);
   const webbsSummaryText = useMemo(() => {
     if (!job.webbsOrder) return 'No Webbs order';
     const parts: string[] = [];
@@ -652,6 +669,21 @@ useEffect(() => {
     if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
     return parts.length ? parts.join(' • ') : 'Webbs order selected';
   }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, webbsItems.length, webbsItemTotal]);
+  const webbsStyleSummaryText = useMemo(() => {
+    if (!job.webbsOrder) return 'No Webbs order';
+    const parts: string[] = [];
+    if ((job.webbsFormNumber || '').trim()) parts.push(`Form #${job.webbsFormNumber}`);
+    if (toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
+    parts.push(webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds');
+    if (webbsOrderStyle === 'whole_deer_percent') {
+      if (webbsAllocations.length) parts.push(`${webbsAllocations.length} products`);
+      if (webbsAllocationTotal) parts.push(`${webbsAllocationTotal}% assigned`);
+    } else {
+      if (webbsItems.length) parts.push(`${webbsItems.length} items`);
+      if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
+    }
+    return parts.join(' â€¢ ');
+  }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, webbsOrderStyle, webbsAllocations.length, webbsAllocationTotal, webbsItems.length, webbsItemTotal]);
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
@@ -755,6 +787,15 @@ useEffect(() => {
     if (!job.dropoff) missing.push('Drop-off Date');
     if (!job.sex) missing.push('Deer Sex');
     if (!job.processType) missing.push('Process Type');
+    if (job.webbsOrder) {
+      if (!toInt(job.webbsPounds)) missing.push('Webbs Pounds');
+      if (webbsOrderStyle === 'whole_deer_percent') {
+        if (!webbsAllocations.length) missing.push('Webbs Percentages');
+        if (webbsAllocationTotal !== 100) missing.push('Webbs Percentages Must Total 100%');
+      } else if (!webbsItems.length) {
+        missing.push('Webbs Items');
+      }
+    }
     return missing;
   };
 
@@ -790,7 +831,9 @@ useEffect(() => {
           : '',
       webbsFormNumber: job.webbsOrder ? (job.webbsFormNumber || '') : '',
       webbsPounds: job.webbsOrder ? String(toInt(job.webbsPounds) || webbsItemTotal || '') : '',
-      webbsItems: job.webbsOrder ? webbsItems : [],
+      webbsOrderStyle: job.webbsOrder ? webbsOrderStyle : 'itemized_lbs',
+      webbsItems: job.webbsOrder && webbsOrderStyle === 'itemized_lbs' ? webbsItems : [],
+      webbsAllocations: job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' ? webbsAllocations : [],
 
       specialtyStatus: job.specialtyProducts
         ? coerce(job.specialtyStatus, STATUS_SPECIALTY)
@@ -835,6 +878,7 @@ if (fresh?.exists && fresh.job) {
     confirmation:
       j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
     webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? job.webbsFormNumber ?? '',
+    webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
     paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
     paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
 
@@ -844,6 +888,7 @@ if (fresh?.exists && fresh.job) {
     smsConsent: asBool(j.smsConsent),
     autoCallConsent: asBool(j.autoCallConsent),
     webbsItems: normalizeWebbsOrderItems(j.webbsItems),
+    webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
   };
 
   const fp = fullPaid(merged);
@@ -893,6 +938,21 @@ if (fresh?.exists && fresh.job) {
         next.processing_price_override = null;
       }
 
+      if (k === 'webbsOrder') {
+        if (!v) {
+          next.webbsOrderStyle = 'itemized_lbs';
+          next.webbsItems = [];
+          next.webbsAllocations = [];
+          next.webbsPounds = '';
+          next.webbsFormNumber = '';
+        }
+      }
+
+      if (k === 'webbsOrderStyle') {
+        if (v === 'whole_deer_percent') next.webbsItems = [];
+        if (v === 'itemized_lbs') next.webbsAllocations = [];
+      }
+
       if (
         k === 'specialtyProducts' ||
         k === 'originalSummerSausageLbs' ||
@@ -914,6 +974,15 @@ if (fresh?.exists && fresh.job) {
       const pounds = toInt(value);
       if (pounds > 0) existing.push({ key, label: '', pounds });
       return { ...prev, webbsItems: existing };
+    });
+  };
+
+  const setWebbsAllocationPercent = (key: string, value: string) => {
+    setJob((prev) => {
+      const existing = normalizeWebbsAllocations(prev.webbsAllocations).filter((item) => item.key !== key);
+      const percent = toInt(value);
+      if (percent > 0) existing.push({ key, label: '', percent });
+      return { ...prev, webbsAllocations: existing };
     });
   };
 
@@ -1649,14 +1718,27 @@ if (fresh?.exists && fresh.job) {
                   <div className="webbsSummaryHead">
                     <div>
                       <div className="webbsSummaryTitle">Webbs Order Summary</div>
-                      <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
+                      <div className="muted" style={{ fontSize: 13 }}>{webbsStyleSummaryText}</div>
                     </div>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                       <span className="badge">Entered lbs: {toInt(job.webbsPounds) || 0}</span>
-                      <span className="badge">Detailed lbs: {webbsItemTotal || 0}</span>
+                      <span className="badge">
+                        {webbsOrderStyle === 'whole_deer_percent'
+                          ? `Assigned: ${webbsAllocationTotal || 0}%`
+                          : `Detailed lbs: ${webbsItemTotal || 0}`}
+                      </span>
                     </div>
                   </div>
-                  {webbsItemLines.length > 0 ? (
+                  {webbsOrderStyle === 'whole_deer_percent' ? (
+                    <div className="webbsSummaryList">
+                      {webbsAllocationLines.slice(0, 6).map((line) => (
+                        <div key={line} className="webbsSummaryLine">{line}</div>
+                      ))}
+                      {webbsAllocationLines.length > 6 ? (
+                        <div className="webbsSummaryMore">+{webbsAllocationLines.length - 6} more items</div>
+                      ) : null}
+                    </div>
+                  ) : webbsItemLines.length > 0 ? (
                     <div className="webbsSummaryList">
                       {webbsItemLines.slice(0, 6).map((line) => (
                         <div key={line} className="webbsSummaryLine">{line}</div>
@@ -1893,8 +1975,31 @@ if (fresh?.exists && fresh.job) {
             </div>
 
             <div className="webbsModalInfo">
-              <span className="badge">Detailed lbs: {webbsItemTotal || 0}</span>
-              <span className="badge">Items selected: {webbsItems.length}</span>
+              <span className="badge">Estimated lbs: {toInt(job.webbsPounds) || 0}</span>
+              <span className="badge">
+                {webbsOrderStyle === 'whole_deer_percent'
+                  ? `Assigned: ${webbsAllocationTotal || 0}%`
+                  : `Detailed lbs: ${webbsItemTotal || 0}`}
+              </span>
+            </div>
+
+            <div className="webbsModeSwitch" style={{ marginBottom: 12 }}>
+              <label className="chk">
+                <input
+                  type="radio"
+                  checked={webbsOrderStyle === 'itemized_lbs'}
+                  onChange={() => setVal('webbsOrderStyle', 'itemized_lbs')}
+                />
+                <span>Choose products by pounds</span>
+              </label>
+              <label className="chk">
+                <input
+                  type="radio"
+                  checked={webbsOrderStyle === 'whole_deer_percent'}
+                  onChange={() => setVal('webbsOrderStyle', 'whole_deer_percent')}
+                />
+                <span>Send whole deer by percentages</span>
+              </label>
             </div>
 
             <div className="webbsModalBody">
@@ -1904,19 +2009,24 @@ if (fresh?.exists && fresh.job) {
                   <div className="webbsWorksheet">
                     <div className="webbsWorksheetHead">
                       <div>Product</div>
-                      <div>Lb going into product</div>
+                      <div>{webbsOrderStyle === 'whole_deer_percent' ? 'Percent of deer' : 'Lb going into product'}</div>
                     </div>
                     {group.items.map((item) => {
                       const selected = webbsItems.find((entry) => entry.key === item.key);
+                      const allocated = webbsAllocations.find((entry) => entry.key === item.key);
                       return (
                         <div key={item.key} className="webbsWorksheetRow">
                           <div className="webbsWorksheetLabel">{item.label}</div>
                           <div>
                             <input
                               inputMode="numeric"
-                              value={selected?.pounds || ''}
-                              onChange={(e) => setWebbsItemPounds(item.key, e.target.value)}
-                              placeholder="lb"
+                              value={webbsOrderStyle === 'whole_deer_percent' ? allocated?.percent || '' : selected?.pounds || ''}
+                              onChange={(e) =>
+                                webbsOrderStyle === 'whole_deer_percent'
+                                  ? setWebbsAllocationPercent(item.key, e.target.value)
+                                  : setWebbsItemPounds(item.key, e.target.value)
+                              }
+                              placeholder={webbsOrderStyle === 'whole_deer_percent' ? '%' : 'lb'}
                             />
                           </div>
                         </div>

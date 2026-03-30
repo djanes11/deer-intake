@@ -4,7 +4,7 @@ import { Job, JobSearchRow } from '@/types/job';
 import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
 import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
-import { normalizeWebbsOrderItems } from '@/lib/webbs';
+import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrderStyle } from '@/lib/webbs';
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 
@@ -569,7 +569,9 @@ function mapDbRowToJob(row: any): Job {
     webbsOrderFormNumber: row.webbs_order_form_number,
     webbsPounds: Number(row.webbs_pounds ?? 0),
     webbsOrderMode: row.webbs_order_mode ?? null,
+    webbsOrderStyle: row.webbs_order_style ? normalizeWebbsOrderStyle(row.webbs_order_style) : null,
     webbsItems: normalizeWebbsOrderItems(row.webbs_items),
+    webbsAllocations: normalizeWebbsAllocations(row.webbs_allocations),
 
     // Pricing
     priceProcessing: Number(row.price_processing ?? 0),
@@ -660,6 +662,8 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     ...(row.process_type != null ? ({ processType: row.process_type } as any) : {}),
     ...(row.beef_fat != null ? ({ beefFat: !!row.beef_fat } as any) : {}),
     ...(row.webbs_order != null ? ({ webbsOrder: !!row.webbs_order } as any) : {}),
+    ...(row.webbs_order_style != null ? ({ webbsOrderStyle: normalizeWebbsOrderStyle(row.webbs_order_style) } as any) : {}),
+    ...(row.webbs_allocations != null ? ({ webbsAllocations: normalizeWebbsAllocations(row.webbs_allocations) } as any) : {}),
     ...(row.specialty_products != null ? ({ specialtyProducts: !!row.specialty_products } as any) : {}),
     ...(row.original_summer_sausage_lbs != null || row.summer_sausage_lbs != null
       ? ({ originalSummerSausageLbs: Number(row.original_summer_sausage_lbs ?? row.summer_sausage_lbs ?? 0) } as any)
@@ -1067,7 +1071,9 @@ let tagToStore: string;
     webbs_order_form_number: effectiveJob.webbsOrderFormNumber ?? (effectiveJob as any).webbsFormNumber ?? null,
     webbs_pounds: numOrZero(effectiveJob.webbsPounds),
     webbs_order_mode: (effectiveJob as any).webbsOrderMode ?? null,
+    webbs_order_style: effectiveJob.webbsOrder ? normalizeWebbsOrderStyle((effectiveJob as any).webbsOrderStyle) : null,
     webbs_items: normalizeWebbsOrderItems((effectiveJob as any).webbsItems),
+    webbs_allocations: normalizeWebbsAllocations((effectiveJob as any).webbsAllocations),
 
     processing_price_override: processingOverride,
     specialty_price_override: specialtyOverride,

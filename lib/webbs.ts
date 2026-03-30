@@ -14,6 +14,14 @@ export type WebbsOrderItem = {
   pounds: number;
 };
 
+export type WebbsAllocationItem = {
+  key: string;
+  label: string;
+  percent: number;
+};
+
+export type WebbsOrderStyle = 'itemized_lbs' | 'whole_deer_percent';
+
 export const WEBBS_GROUPS: WebbsCatalogGroup[] = [
   {
     title: 'Bacon',
@@ -118,12 +126,50 @@ export function normalizeWebbsOrderItems(input: any): WebbsOrderItem[] {
     .filter((item): item is WebbsOrderItem => !!item);
 }
 
+export function normalizeWebbsAllocations(input: any): WebbsAllocationItem[] {
+  const raw = Array.isArray(input)
+    ? input
+    : typeof input === 'string' && input.trim()
+      ? (() => {
+          try {
+            return JSON.parse(input);
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((item) => {
+      const key = String(item?.key ?? '').trim();
+      const meta = WEBBS_ITEM_MAP.get(key);
+      const percent = toPositiveNumber(item?.percent);
+      if (!meta || !percent) return null;
+      return { key: meta.key, label: meta.label, percent };
+    })
+    .filter((item): item is WebbsAllocationItem => !!item);
+}
+
 export function webbsOrderTotalLbs(input: any): number {
   return normalizeWebbsOrderItems(input).reduce((sum, item) => sum + item.pounds, 0);
 }
 
 export function webbsOrderSummary(input: any): string[] {
   return normalizeWebbsOrderItems(input).map((item) => `${item.label}: ${item.pounds} lb`);
+}
+
+export function webbsAllocationTotalPercent(input: any): number {
+  return normalizeWebbsAllocations(input).reduce((sum, item) => sum + item.percent, 0);
+}
+
+export function webbsAllocationSummary(input: any): string[] {
+  return normalizeWebbsAllocations(input).map((item) => `${item.label}: ${item.percent}%`);
+}
+
+export function normalizeWebbsOrderStyle(input: any): WebbsOrderStyle {
+  return String(input ?? '').trim() === 'whole_deer_percent' ? 'whole_deer_percent' : 'itemized_lbs';
 }
 
 export function webbsItemMeta(key: string): WebbsCatalogItem | undefined {
