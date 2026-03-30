@@ -42,6 +42,8 @@ export default function AdminSettingsPage() {
   const [smsBody, setSmsBody] = useState('McAfee Deer Processing test SMS. If you got this, Twilio is wired correctly.');
   const [smsBusy, setSmsBusy] = useState(false);
   const [smsMsg, setSmsMsg] = useState('');
+  const [smsHealthBusy, setSmsHealthBusy] = useState(false);
+  const [smsHealthMsg, setSmsHealthMsg] = useState('');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -132,6 +134,28 @@ export default function AdminSettingsPage() {
       setSmsMsg(String(e?.message || e));
     } finally {
       setSmsBusy(false);
+    }
+  };
+
+  const checkSmsHealth = async () => {
+    setSmsHealthBusy(true);
+    setSmsHealthMsg('');
+    try {
+      const res = await fetch('/api/admin/twilio-health', { headers, cache: 'no-store' });
+      const j = await res.json().catch(() => ({}));
+      if (j?.ok) {
+        const status = j?.twilioAccountStatus ? `Twilio account status: ${j.twilioAccountStatus}. ` : '';
+        const enabled = j?.enabled ? 'SMS enabled. ' : 'SMS disabled. ';
+        const allowlist = Array.isArray(j?.allowlist) && j.allowlist.length ? `Allowlist: ${j.allowlist.join(', ')}` : 'Allowlist: none';
+        setSmsHealthMsg(`${status}${enabled}${allowlist}`);
+      } else {
+        const code = j?.code ? ` (${j.code})` : '';
+        setSmsHealthMsg(`${j?.error || `HTTP ${res.status}`}${code}`);
+      }
+    } catch (e: any) {
+      setSmsHealthMsg(String(e?.message || e));
+    } finally {
+      setSmsHealthBusy(false);
     }
   };
 
@@ -477,6 +501,22 @@ export default function AdminSettingsPage() {
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
+              onClick={checkSmsHealth}
+              disabled={smsHealthBusy}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#0f172a',
+                fontWeight: 800,
+                cursor: smsHealthBusy ? 'wait' : 'pointer',
+              }}
+            >
+              {smsHealthBusy ? 'Checking...' : 'Check Twilio Health'}
+            </button>
+            <button
+              type="button"
               onClick={sendTestSms}
               disabled={smsBusy}
               style={{
@@ -494,6 +534,11 @@ export default function AdminSettingsPage() {
             {smsMsg ? (
               <div style={{ fontSize: 13, fontWeight: 900, color: smsMsg.toLowerCase().includes('sent') ? '#166534' : '#991b1b' }}>
                 {smsMsg}
+              </div>
+            ) : null}
+            {smsHealthMsg ? (
+              <div style={{ fontSize: 13, fontWeight: 800, color: smsHealthMsg.toLowerCase().includes('status:') ? '#166534' : '#991b1b' }}>
+                {smsHealthMsg}
               </div>
             ) : null}
           </div>

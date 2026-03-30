@@ -5,6 +5,20 @@ type SendSmsOpts = {
   body: string;
 };
 
+export type SmsHealthResult = {
+  ok: boolean;
+  enabled: boolean;
+  from: string;
+  allowlist: string[];
+  accountSidPresent: boolean;
+  authTokenPresent: boolean;
+  accountSidPrefix: string;
+  twilioAccountStatus?: string | null;
+  twilioAccountType?: string | null;
+  error?: string;
+  code?: string;
+};
+
 export type SmsSendResult =
   | { ok: true; sid: string; to: string; status: string | null; mode: 'live' }
   | { ok: false; error: string; code: string; to: string | null; mode: 'blocked' | 'disabled' };
@@ -32,6 +46,25 @@ function smsAllowlist() {
     .filter(Boolean);
 }
 
+function twilioConfig() {
+  return {
+    accountSid: String(process.env.TWILIO_ACCOUNT_SID || '').trim(),
+    authToken: String(process.env.TWILIO_AUTH_TOKEN || '').trim(),
+    from: normalizeUsPhone(String(process.env.TWILIO_FROM_NUMBER || '').trim()),
+  };
+}
+
+async function twilioClient() {
+  const { accountSid, authToken, from } = twilioConfig();
+  if (!accountSid || !authToken || !from) return null;
+  const twilio = (await import('twilio')).default;
+  return {
+    client: twilio(accountSid, authToken),
+    accountSid,
+    from,
+  };
+}
+
 export function canSendSmsTo(phone: string) {
   const normalized = normalizeUsPhone(phone);
   if (!normalized) return { ok: false as const, code: 'invalid-phone', to: null };
@@ -46,6 +79,53 @@ export function canSendSmsTo(phone: string) {
   }
 
   return { ok: true as const, to: normalized };
+}
+
+export async function getSmsHealth(): Promise<SmsHealthResult> {
+  const { accountSid, authToken, from } = twilioConfig();
+  const allowlist = smsAllowlist();
+
+  const base: SmsHealthResult = {
+    ok: false,
+    enabled: smsEnabled(),
+    from,
+    allowlist,
+    accountSidPresent: !!accountSid,
+    authTokenPresent: !!authToken,
+    accountSidPrefix: accountSid ? accountSid.slice(0, 6) : '',
+  };
+
+  if (!accountSid || !authToken || !from) {
+    return {
+      ...base,
+      error: 'Missing one or more Twilio env vars.',
+      code: 'missing-env',
+    };
+  }
+
+  try {
+    const tw = await twilioClient();
+    if (!tw) {
+      return {
+        ...base,
+        error: 'Missing one or more Twilio env vars.',
+        code: 'missing-env',
+      };
+    }
+    const account = await tw.client.api.v2010.accounts(accountSid).fetch();
+    return {
+      ...base,
+      ok: true,
+      twilioAccountStatus: account.status ?? null,
+      twilioAccountType: (account as any).type ?? null,
+    };
+  } catch (e: any) {
+    return {
+      ...base,
+      error: String(e?.message || e),
+      code: String(e?.code || ''),
+    };
+  }
 }
 
 export async function sendSms(opts: SendSmsOpts): Promise<SmsSendResult> {
@@ -65,10 +145,8 @@ export async function sendSms(opts: SendSmsOpts): Promise<SmsSendResult> {
     };
   }
 
-  const accountSid = String(process.env.TWILIO_ACCOUNT_SID || '').trim();
-  const authToken = String(process.env.TWILIO_AUTH_TOKEN || '').trim();
-  const from = normalizeUsPhone(String(process.env.TWILIO_FROM_NUMBER || '').trim());
-  if (!accountSid || !authToken || !from) {
+  const tw = await twilioClient();
+  if (!tw) {
     return {
       ok: false,
       error: 'Missing Twilio env vars.',
@@ -78,10 +156,8 @@ export async function sendSms(opts: SendSmsOpts): Promise<SmsSendResult> {
     };
   }
 
-  const twilio = (await import('twilio')).default;
-  const client = twilio(accountSid, authToken);
-  const msg = await client.messages.create({
-    from,
+  const msg = await tw.client.messages.create({
+    from: tw.from,
     to: gate.to,
     body: String(opts.body || '').trim(),
   });
