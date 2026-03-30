@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import PrintSheet from '@/app/components/PrintSheet';
 import type { Job } from '@/lib/api';
-import { searchJobs } from '@/lib/api';
+import { getJob, searchJobs } from '@/lib/api';
 
 export default function SearchPage() {
   const router = useRouter();
@@ -12,9 +13,10 @@ export default function SearchPage() {
   const [rows, setRows] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [printing, setPrinting] = useState('');
+  const [printJob, setPrintJob] = useState<Record<string, any> | null>(null);
   const debounced = useDebounced(q, 300);
 
-  // Only search when there is a non-empty query
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
@@ -50,6 +52,25 @@ export default function SearchPage() {
     router.push(`/intake?tag=${encodeURIComponent(tag)}`);
   };
 
+  const printTag = async (tag: string) => {
+    if (!tag) return;
+    setPrinting(tag);
+    setErr(null);
+    try {
+      const res = await getJob(tag);
+      const job = (res?.job || null) as Record<string, any> | null;
+      if (!job) throw new Error('Could not load intake sheet for printing.');
+      setPrintJob(job);
+      setTimeout(() => {
+        window.print();
+        setPrinting('');
+      }, 150);
+    } catch (e: any) {
+      setErr(e?.message || 'Print failed');
+      setPrinting('');
+    }
+  };
+
   const canShowResults = q.trim().length > 0;
 
   return (
@@ -63,7 +84,6 @@ export default function SearchPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            // no-op; we already debounce on type
           }}
           style={{ display: 'flex', gap: 8, alignItems: 'center' }}
         >
@@ -78,17 +98,15 @@ export default function SearchPage() {
         </form>
       </div>
 
-      {/* Before typing, keep the page clean */}
       {!canShowResults && (
         <div className="card" style={{ padding: 14 }}>
-          Start typing to search…
+          Start typing to search...
         </div>
       )}
 
-      {/* Results / states only render after user typed something */}
       {canShowResults && (
         <>
-          {loading && <div className="card">Loading…</div>}
+          {loading && <div className="card">Loading...</div>}
           {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
 
           {!loading && !err && (
@@ -103,7 +121,7 @@ export default function SearchPage() {
                     <th>Status</th>
                     <th>Caping</th>
                     <th>Webbs</th>
-                    <th style={{ width: 110 }} />
+                    <th style={{ width: 190 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -127,16 +145,29 @@ export default function SearchPage() {
                       <td>{r.capingStatus || '—'}</td>
                       <td>{r.webbsStatus || '—'}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openTag(r.tag!);
-                          }}
-                        >
-                          Open
-                        </button>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTag(r.tag!);
+                            }}
+                          >
+                            Open
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void printTag(r.tag!);
+                            }}
+                            disabled={printing === r.tag}
+                          >
+                            {printing === r.tag ? 'Preparing...' : 'Print'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -146,11 +177,28 @@ export default function SearchPage() {
           )}
         </>
       )}
+
+      <div className="print-only">{printJob ? <PrintSheet job={printJob} /> : null}</div>
+
+      <style jsx>{`
+        .print-only {
+          display: none;
+        }
+
+        @media print {
+          main > :not(.print-only) {
+            display: none !important;
+          }
+
+          .print-only {
+            display: block !important;
+          }
+        }
+      `}</style>
     </main>
   );
 }
 
-/* ---- tiny hook: debounce any string value ---- */
 function useDebounced(value: string, delay = 300) {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -159,5 +207,3 @@ function useDebounced(value: string, delay = 300) {
   }, [value, delay]);
   return v;
 }
-
-
