@@ -66,12 +66,27 @@ function normalizeSmsActivities(rows: any[]): ActivityRow[] {
   }));
 }
 
+function statusTone(status: string) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'sent' || s === 'queued' || s === 'delivered') {
+    return { bg: '#ecfdf3', fg: '#166534', border: '#b7e4c7' };
+  }
+  return { bg: '#fff7ed', fg: '#9a3412', border: '#fed7aa' };
+}
+
+function channelTone(channel: 'email' | 'sms') {
+  if (channel === 'sms') {
+    return { bg: '#e8f7ec', fg: '#18603a' };
+  }
+  return { bg: '#eef2ff', fg: '#3730a3' };
+}
+
 export default async function NotificationActivityPage() {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return (
-      <div style={{ maxWidth: 1200, margin: '24px auto', padding: 16 }}>
+      <div style={{ maxWidth: 1240, margin: '24px auto', padding: 16 }}>
         <h2 style={{ margin: 0 }}>Notification Activity</h2>
-        <div style={{ marginTop: 12, padding: 14, borderRadius: 10, border: '1px solid #fdba74', background: '#fff7ed', color: '#9a3412', fontWeight: 800 }}>
+        <div style={{ marginTop: 12, padding: 14, borderRadius: 12, border: '1px solid #fdba74', background: '#fff7ed', color: '#9a3412', fontWeight: 800 }}>
           Missing Supabase environment variables.
         </div>
       </div>
@@ -103,72 +118,108 @@ export default async function NotificationActivityPage() {
   const emailCount = activities.filter((row) => row.channel === 'email').length;
 
   return (
-    <div style={{ maxWidth: 1280, margin: '24px auto', padding: 16, display: 'grid', gap: 16 }}>
+    <div style={{ maxWidth: 1320, margin: '24px auto', padding: 16, display: 'grid', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: 0 }}>Notification Activity</h2>
-          <div style={{ marginTop: 6, color: '#475569', fontWeight: 700, fontSize: 13 }}>
+          <h2 style={{ margin: 0, color: '#f8fafc' }}>Notification Activity</h2>
+          <div style={{ marginTop: 6, color: '#94a3b8', fontWeight: 700, fontSize: 13 }}>
             Recent SMS and email notifications sent to customers.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ padding: '8px 12px', borderRadius: 999, background: '#eef6ee', color: '#25603a', fontWeight: 800 }}>{smsCount} SMS</div>
-          <div style={{ padding: '8px 12px', borderRadius: 999, background: '#eef2ff', color: '#3730a3', fontWeight: 800 }}>{emailCount} Email</div>
-          <div style={{ padding: '8px 12px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontWeight: 800 }}>{activities.length} Total</div>
+          <div style={{ padding: '8px 14px', borderRadius: 999, background: '#e8f7ec', color: '#18603a', fontWeight: 900 }}>{smsCount} SMS</div>
+          <div style={{ padding: '8px 14px', borderRadius: 999, background: '#eef2ff', color: '#3730a3', fontWeight: 900 }}>{emailCount} Email</div>
+          <div style={{ padding: '8px 14px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontWeight: 900 }}>{activities.length} Total</div>
         </div>
       </div>
 
       {jobErr || smsErr ? (
-        <div style={{ padding: 12, borderRadius: 10, border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', fontWeight: 800 }}>
+        <div style={{ padding: 12, borderRadius: 12, border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', fontWeight: 800 }}>
           Load failed: {String((jobErr as any)?.message || (smsErr as any)?.message || jobErr || smsErr)}
         </div>
       ) : null}
 
-      <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', background: '#fff' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '170px 92px 170px minmax(180px,1.2fr) 120px minmax(180px,1fr) 120px', gap: 0, background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontWeight: 900, color: '#0f172a' }}>
-          <div style={{ padding: 12 }}>Sent</div>
-          <div style={{ padding: 12 }}>Channel</div>
-          <div style={{ padding: 12 }}>Event</div>
-          <div style={{ padding: 12 }}>Customer</div>
-          <div style={{ padding: 12 }}>Tag</div>
-          <div style={{ padding: 12 }}>Destination</div>
-          <div style={{ padding: 12 }}>Status</div>
-        </div>
-
-        {activities.length === 0 ? (
-          <div style={{ padding: 16, color: '#475569' }}>No notification activity yet.</div>
-        ) : activities.map((row, idx) => (
+      <div style={{ border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, overflow: 'hidden', background: '#ffffff' }}>
+        <div style={{ overflowX: 'auto' }}>
           <div
-            key={`${row.channel}-${row.event}-${row.sentAt}-${idx}`}
             style={{
               display: 'grid',
-              gridTemplateColumns: '170px 92px 170px minmax(180px,1.2fr) 120px minmax(180px,1fr) 120px',
+              gridTemplateColumns: '190px 92px 170px minmax(180px,1.2fr) 100px minmax(190px,1fr) 120px',
               gap: 0,
-              borderTop: idx === 0 ? '0' : '1px solid #eef2f7',
-              background: idx % 2 ? '#fcfcfd' : '#fff',
+              background: '#f3f6f9',
+              borderBottom: '1px solid #dbe4ee',
+              fontWeight: 900,
+              color: '#0f172a',
+              minWidth: 980,
             }}
           >
-            <div style={{ padding: 12 }}>{fmtDate(row.sentAt)}</div>
-            <div style={{ padding: 12 }}>
-              <span style={{
-                display: 'inline-flex',
-                padding: '4px 8px',
-                borderRadius: 999,
-                background: row.channel === 'sms' ? '#ecfdf5' : '#eef2ff',
-                color: row.channel === 'sms' ? '#166534' : '#3730a3',
-                fontWeight: 800,
-                fontSize: 12,
-              }}>
-                {row.channel.toUpperCase()}
-              </span>
-            </div>
-            <div style={{ padding: 12, fontWeight: 700 }}>{row.event}</div>
-            <div style={{ padding: 12 }}>{row.customer}</div>
-            <div style={{ padding: 12, fontFamily: 'monospace', fontWeight: 700 }}>{row.tag || '-'}</div>
-            <div style={{ padding: 12, wordBreak: 'break-word' }}>{row.destination || '-'}</div>
-            <div style={{ padding: 12, fontWeight: 700, color: row.status === 'sent' || row.status === 'queued' ? '#166534' : '#92400e' }}>{row.status || '-'}</div>
+            <div style={{ padding: 12 }}>Sent</div>
+            <div style={{ padding: 12 }}>Channel</div>
+            <div style={{ padding: 12 }}>Event</div>
+            <div style={{ padding: 12 }}>Customer</div>
+            <div style={{ padding: 12 }}>Tag</div>
+            <div style={{ padding: 12 }}>Destination</div>
+            <div style={{ padding: 12 }}>Status</div>
           </div>
-        ))}
+
+          {activities.length === 0 ? (
+            <div style={{ padding: 16, color: '#475569' }}>No notification activity yet.</div>
+          ) : activities.map((row, idx) => {
+            const tone = statusTone(row.status);
+            const chan = channelTone(row.channel);
+            return (
+              <div
+                key={`${row.channel}-${row.event}-${row.sentAt}-${idx}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '190px 92px 170px minmax(180px,1.2fr) 100px minmax(190px,1fr) 120px',
+                  gap: 0,
+                  borderTop: idx === 0 ? '0' : '1px solid #edf2f7',
+                  background: idx % 2 ? '#fafcfe' : '#ffffff',
+                  color: '#0f172a',
+                  minWidth: 980,
+                }}
+              >
+                <div style={{ padding: 12, color: '#334155', fontWeight: 600 }}>{fmtDate(row.sentAt)}</div>
+                <div style={{ padding: 12 }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      padding: '4px 9px',
+                      borderRadius: 999,
+                      background: chan.bg,
+                      color: chan.fg,
+                      fontWeight: 900,
+                      fontSize: 12,
+                    }}
+                  >
+                    {row.channel.toUpperCase()}
+                  </span>
+                </div>
+                <div style={{ padding: 12, fontWeight: 800, color: '#1e293b' }}>{row.event}</div>
+                <div style={{ padding: 12, color: '#0f172a', fontWeight: 700 }}>{row.customer}</div>
+                <div style={{ padding: 12, fontFamily: 'monospace', fontWeight: 800, color: '#475569' }}>{row.tag || '-'}</div>
+                <div style={{ padding: 12, wordBreak: 'break-word', color: '#334155', fontWeight: 600 }}>{row.destination || '-'}</div>
+                <div style={{ padding: 12 }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      padding: '4px 9px',
+                      borderRadius: 999,
+                      background: tone.bg,
+                      color: tone.fg,
+                      border: `1px solid ${tone.border}`,
+                      fontWeight: 900,
+                      textTransform: 'lowercase',
+                    }}
+                  >
+                    {row.status || '-'}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
