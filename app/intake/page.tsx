@@ -1021,10 +1021,12 @@ if (fresh?.exists && fresh.job) {
         <h2>Deer Intake</h2>
 
         <div className="summaryMini">
-          <div className="miniChip">
-            <span className="miniLabel">Tag</span>
-            <span className="miniValue">{job.tag || '—'}</span>
-          </div>
+          {job.tag ? (
+            <div className="miniChip">
+              <span className="miniLabel">Tag</span>
+              <span className="miniValue">{job.tag}</span>
+            </div>
+          ) : null}
           <div className="miniChip">
             <span className="miniLabel">Total</span>
             <span className="miniValue">${totalPrice.toFixed(2)}</span>
@@ -1037,9 +1039,10 @@ if (fresh?.exists && fresh.job) {
 
         <div className="summary">
           <div className="row">
-            <div className="col">
+            <div className="col tagCol">
               <label>Tag Number</label>
               <input
+                className="tagInput"
                 ref={tagRef}
                 value={job.tag || ''}
                 inputMode="numeric"
@@ -1083,11 +1086,6 @@ if (fresh?.exists && fresh.job) {
           </div>
 
           <div className="row small">
-            <div className="col total">
-              <label>Total (preview)</label>
-              <div className="money total">{totalPrice.toFixed(2)}</div>
-            </div>
-
             {showMainStatus && (
               <div className="col">
                 <label>Status</label>
@@ -2099,9 +2097,17 @@ if (fresh?.exists && fresh.job) {
           font-weight: 900;
         }
         .summary { position: static; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
-        .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
-        .summary .row.small { margin-top: 6px; grid-template-columns: repeat(5, 1fr); }
+        .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: start; }
+        .summary .row.small { margin-top: 6px; grid-template-columns: repeat(4, 1fr); }
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
+        .summary .tagCol { justify-content: flex-start; }
+        .summary .tagInput {
+          min-height: 56px;
+          font-size: 18px;
+          font-weight: 800;
+          border-width: 2px;
+          background: #fff;
+        }
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
@@ -2257,7 +2263,7 @@ if (fresh?.exists && fresh.job) {
             padding: 8px;
           }
           .miniChip {
-            flex: 1 1 100%;
+            flex: 1 1 140px;
             justify-content: space-between;
           }
           .grid { grid-template-columns: 1fr; }
