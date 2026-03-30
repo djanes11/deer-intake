@@ -471,6 +471,8 @@ function OvernightIntakePage() {
     if (!job.sex) e.sex = 'Deer Sex is required';
     if (!job.howKilled) e.howKilled = 'How Killed is required';
     if (!job.processType) e.processType = 'Process Type is required';
+    if (job.hind?.['Hind - Roast'] && !toInt(job.hindRoastCount)) e.hindRoastCount = 'Hind Roast Count is required';
+    if (job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
 
     if (job.webbsOrder) {
       const enteredPounds = toInt(job.webbsPounds);
@@ -495,6 +497,7 @@ function OvernightIntakePage() {
 
     if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
+    if (k === 'cuts') ['hindRoastCount', 'frontRoastCount'].forEach(pick);
     if (k === 'extras') ['webbsPounds', 'webbsItems'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
@@ -655,10 +658,24 @@ function OvernightIntakePage() {
   };
 
   const setHind = (k: keyof Required<CutsBlock>) =>
-    !locked && setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
+    !locked && setJob((p) => {
+      const nextValue = !(p.hind?.[k]);
+      return {
+        ...p,
+        hind: { ...(p.hind || {}), [k]: nextValue },
+        hindRoastCount: k === 'Hind - Roast' && !nextValue ? '' : p.hindRoastCount,
+      };
+    });
 
   const setFront = (k: keyof Required<CutsBlock>) =>
-    !locked && setJob((p) => ({ ...p, front: { ...(p.front || {}), [k]: !(p.front?.[k]) } }));
+    !locked && setJob((p) => {
+      const nextValue = !(p.front?.[k]);
+      return {
+        ...p,
+        front: { ...(p.front || {}), [k]: nextValue },
+        frontRoastCount: k === 'Front - Roast' && !nextValue ? '' : p.frontRoastCount,
+      };
+    });
 
   return (
     <div className={`form-card ${locked ? 'locked' : ''}`}>
@@ -1139,16 +1156,17 @@ function OvernightIntakePage() {
                       <input type="checkbox" checked={!!job.hind?.['Hind - Roast']} onChange={() => setHind('Hind - Roast')} disabled={locked} />
                       <span>Roast</span>
                     </label>
-                    <span className="count">
-                      <span className="muted"># of Roast</span>
-                      <input
-                        className="countInp"
-                        value={!!job.hind?.['Hind - Roast'] ? (job.hindRoastCount || '') : ''}
-                        onChange={(e) => setVal('hindRoastCount', e.target.value)}
-                        disabled={!job.hind?.['Hind - Roast'] || locked}
-                        inputMode="numeric"
-                      />
-                    </span>
+                    {!!job.hind?.['Hind - Roast'] ? (
+                      <span className="count">
+                        <span className="muted"># of Roast</span>
+                        <input
+                          className="countInp"
+                          value={job.hindRoastCount || ''}
+                          onChange={(e) => setVal('hindRoastCount', e.target.value)}
+                          inputMode="numeric"
+                        />
+                      </span>
+                    ) : null}
                     <label className="chk">
                       <input type="checkbox" checked={!!job.hind?.['Hind - Grind']} onChange={() => setHind('Hind - Grind')} disabled={locked} />
                       <span>Grind</span>
@@ -1165,23 +1183,20 @@ function OvernightIntakePage() {
                   <Hint>Pick how you want the front shoulder processed. Grind refers to burger meat.</Hint>
                   <div className="checks">
                     <label className="chk">
-                      <input type="checkbox" checked={!!job.front?.['Front - Steak']} onChange={() => setFront('Front - Steak')} disabled={locked} />
-                      <span>Steak</span>
-                    </label>
-                    <label className="chk">
                       <input type="checkbox" checked={!!job.front?.['Front - Roast']} onChange={() => setFront('Front - Roast')} disabled={locked} />
                       <span>Roast</span>
                     </label>
-                    <span className="count">
-                      <span className="muted"># of Roast</span>
-                      <input
-                        className="countInp"
-                        value={!!job.front?.['Front - Roast'] ? (job.frontRoastCount || '') : ''}
-                        onChange={(e) => setVal('frontRoastCount', e.target.value)}
-                        disabled={!job.front?.['Front - Roast'] || locked}
-                        inputMode="numeric"
-                      />
-                    </span>
+                    {!!job.front?.['Front - Roast'] ? (
+                      <span className="count">
+                        <span className="muted"># of Roast</span>
+                        <input
+                          className="countInp"
+                          value={job.frontRoastCount || ''}
+                          onChange={(e) => setVal('frontRoastCount', e.target.value)}
+                          inputMode="numeric"
+                        />
+                      </span>
+                    ) : null}
                     <label className="chk">
                       <input type="checkbox" checked={!!job.front?.['Front - Grind']} onChange={() => setFront('Front - Grind')} disabled={locked} />
                       <span>Grind</span>
@@ -1198,27 +1213,6 @@ function OvernightIntakePage() {
             <section>
               <h3>Packaging & Add-ons</h3>
               <div className="pkgGrid">
-                <div className="pkg steak">
-                  <label>Steak Size</label>
-                  <select value={job.steak || ''} onChange={(e) => setVal('steak', e.target.value)} disabled={locked}>
-                    <option value="">--</option>
-                    <option>1/2"</option>
-                    <option>3/4"</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-
-                <div className="pkg steakOther">
-                  <label>Steak Size (Other)</label>
-                  <Hint>If you selected other, type the thickness you want.</Hint>
-                  <input
-                    value={job.steak === 'Other' ? (job.steakOther || '') : ''}
-                    onChange={(e) => setVal('steakOther', e.target.value)}
-                    disabled={job.steak !== 'Other' || locked}
-                    placeholder={'e.g., 5/8"'}
-                  />
-                </div>
-
                 <div className="pkg steaksPer">
                   <label>Steaks per Package</label>
                   <select value={job.steaksPerPackage || ''} onChange={(e) => setVal('steaksPerPackage', e.target.value)} disabled={locked}>
@@ -1260,31 +1254,6 @@ function OvernightIntakePage() {
                     <option>Sliced</option>
                     <option>Butterflied</option>
                   </select>
-                </div>
-
-                <div className="c4">
-                  <label>Thickness</label>
-                  <Hint>Only needed if Sliced/Butterflied.</Hint>
-                  <select
-                    value={job.backstrapPrep === 'Whole' ? '' : (job.backstrapThickness || '')}
-                    onChange={(e) => setVal('backstrapThickness', e.target.value as any)}
-                    disabled={job.backstrapPrep === 'Whole' || locked}
-                  >
-                    <option value="">--</option>
-                    <option>1/2"</option>
-                    <option>3/4"</option>
-                    <option>Other</option>
-                  </select>
-                </div>
-
-                <div className="c4">
-                  <label>Thickness (Other)</label>
-                  <Hint>If you selected Other, type it here.</Hint>
-                  <input
-                    value={job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other' ? (job.backstrapThicknessOther || '') : ''}
-                    onChange={(e) => setVal('backstrapThicknessOther', e.target.value)}
-                    disabled={!(job.backstrapPrep !== 'Whole' && job.backstrapThickness === 'Other') || locked}
-                  />
                 </div>
               </div>
             </section>

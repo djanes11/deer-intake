@@ -239,7 +239,6 @@ const hindRoast = truthy('Hind - Roast','hindRoast', (hindObj as any)['Hind - Ro
 const hindGrind = truthy('Hind - Grind','hindGrind', (hindObj as any)['Hind - Grind'], (hindObj as any).grind);
 const hindNone  = truthy('Hind - None','hindNone',   (hindObj as any)['Hind - None'],  (hindObj as any).none);
 
-const frontSteak = truthy('Front - Steak','frontSteak', (frontObj as any)['Front - Steak'], (frontObj as any).steak);
 const frontRoast = truthy('Front - Roast','frontRoast', (frontObj as any)['Front - Roast'], (frontObj as any).roast);
 const frontGrind = truthy('Front - Grind','frontGrind', (frontObj as any)['Front - Grind'], (frontObj as any).grind);
 const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front - None'],  (frontObj as any).none);
@@ -431,7 +430,6 @@ pages.forEach(p => {
         </div>
         <div className="col-6 box">
           <div className="label">Front Shoulder</div>
-          <div className="val"><strong className="check">{frontSteak ? CHK : BOX}</strong> Steak</div>
           <div className="val">
             <strong className="check">{frontRoast ? CHK : BOX}</strong> Roast
             &nbsp; Count: <span id="pf_rc">{frontRoastCnt || ''}</span>
@@ -441,87 +439,48 @@ pages.forEach(p => {
         </div>
       </div>
 
-{/* Row E */}
-<div className="row grid12 meat-row">
-  <div className="col-3 box">
-    <div className="label">Steak Size</div>
-    <div className="val">
-      {textVal('Steak','steak','steakSize','Steak Size')}
-    </div>
-  </div>
+      {/* Row E */}
+      <div className="row grid12 meat-row">
+        <div className="col-4 box">
+          <div className="label">Steaks per Package</div>
+          <div className="val">
+            {textVal(
+              'Steaks per Package','Steaks Per Package',
+              'Steaks/Package','Steaks Per Pkg',
+              'steaksPerPackage','steaks_per_package','SteaksPerPackage'
+            )}
+          </div>
+        </div>
 
-  <div className="col-3 box">
-    <div className="label">Steak Size (Other)</div>
-    <div className="val">
-      {textVal(
-        'Steak Size (Other)','Steak Size Other',
-        'steakSizeOther','steakOther','steak_size_other',
-        'Steak size other','SteakSizeOther'
-      )}
-    </div>
-  </div>
+        <div className="col-4 box">
+          <div className="label">Burger Size</div>
+          <div className="val">
+            {textVal('Burger Size','burgerSize','burger_size')}
+          </div>
+        </div>
 
-  <div className="col-2 box">
-    <div className="label">Steaks per Package</div>
-    <div className="val">
-      {textVal(
-        'Steaks per Package','Steaks Per Package',
-        'Steaks/Package','Steaks Per Pkg',
-        'steaksPerPackage','steaks_per_package','SteaksPerPackage'
-      )}
-    </div>
-  </div>
+        <div className="col-4 box">
+          <div className="label">Beef Fat</div>
+          <div className="val">
+            <strong className="check">{truthy('Beef Fat','beefFat','beef_fat') ? CHK : BOX}</strong> Adds $5
+          </div>
+        </div>
+      </div>
 
-  <div className="col-2 box">
-    <div className="label">Burger Size</div>
-    <div className="val">
-      {textVal('Burger Size','burgerSize','burger_size')}
-    </div>
-  </div>
+      {/* Row: Backstrap */}
+      <div className="row grid12 meat-row">
+        <div className="col-12 box">
+          <div className="label">Backstrap Prep</div>
+          <div className="val bs-val">
+            {textVal(
+              'Backstrap Prep','backstrapPrep','backstrap_prep',
+              'Back Strap Prep','back_strap_prep'
+            )}
+          </div>
+        </div>
+      </div>
 
-  <div className="col-2 box">
-    <div className="label">Beef Fat</div>
-    <div className="val">
-      <strong className="check">{truthy('Beef Fat','beefFat','beef_fat') ? CHK : BOX}</strong> Adds $5
-    </div>
-  </div>
-</div>
-
-
-{/* Row: Backstrap (after steak/burger, before specialty) */}
-<div className="row grid12 meat-row">
-  <div className="col-4 box">
-    <div className="label">Backstrap — Prep</div>
-    <div className="val bs-val">
-      {textVal(
-        'Backstrap Prep','backstrapPrep','backstrap_prep',
-        'Back Strap Prep','back_strap_prep'
-      )}
-    </div>
-  </div>
-  <div className="col-4 box">
-    <div className="label">Backstrap — Thickness</div>
-    <div className="val bs-val">
-      {textVal(
-        'Backstrap Thickness','backstrapThickness','backstrap_thickness',
-        'Back Strap Thickness','back_strap_thickness'
-      )}
-    </div>
-  </div>
-  <div className="col-4 box">
-    <div className="label">Backstrap — Thickness (Other)</div>
-    <div className="val bs-val">
-      {textVal(
-        'Backstrap Thickness (Other)','backstrapThicknessOther','backstrap_thickness_other',
-        'Back Strap Thickness (Other)','back_strap_thickness_other'
-      )}
-    </div>
-  </div>
-</div>
-
-
-      
-{/* Row F */}
+      {/* Row F */}
 <div className="row grid12 meat-row">
   <div className="col-3 box">
     <div className="label">Specialty Products</div>

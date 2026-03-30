@@ -318,7 +318,6 @@ export default async function IntakeView({
               <div className="c6" style={{gridColumn:'span 6'}}>
                 <label>Front Shoulder</label>
                 <div className="checks" style={{display:'flex', flexWrap:'wrap', gap:10}}>
-                  <Check on={!!job?.front?.['Front - Steak']} text="Steak" />
                   <Check on={!!job?.front?.['Front - Roast']} text={`Roast (Count: ${job?.frontRoastCount || ''})`} />
                   <Check on={!!job?.front?.['Front - Grind']} text="Grind" />
                   <Check on={!!job?.front?.['Front - None']} text="None" />
@@ -331,16 +330,12 @@ export default async function IntakeView({
           <section>
             <h3>Packaging & Add-ons</h3>
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
-              <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steak Size" value={job?.steak || ''} /></div>
               <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steaks per Package" value={job?.steaksPerPackage || ''} /></div>
               <div className="c3" style={{gridColumn:'span 3'}}><Field label="Burger Size" value={job?.burgerSize || ''} /></div>
               <div className="c3" style={{gridColumn:'span 3'}}>
                 <label style={{ fontSize:12, fontWeight:700, color:'#0b0f12', display:'block', marginBottom:4 }}>Beef Fat</label>
                 <Check on={!!job?.beefFat} text="Add (+$5)" />
               </div>
-              {String(job?.steak).toLowerCase() === 'other' && job?.steakOther && (
-                <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steak Size (Other)" value={job?.steakOther || ''} /></div>
-              )}
             </div>
           </section>
 
@@ -349,8 +344,6 @@ export default async function IntakeView({
             <h3>Backstrap</h3>
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
               <div className="c4" style={{gridColumn:'span 4'}}><Field label="Prep" value={job?.backstrapPrep || ''} /></div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="Thickness" value={job?.backstrapPrep === 'Whole' ? '' : (job?.backstrapThickness || '')} /></div>
-              <div className="c4" style={{gridColumn:'span 4'}}><Field label="Thickness (Other)" value={job?.backstrapPrep === 'Whole' || job?.backstrapThickness !== 'Other' ? '' : (job?.backstrapThicknessOther || '')} /></div>
             </div>
           </section>
 

@@ -687,9 +687,6 @@ useEffect(() => {
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
-  const isWholeBackstrap = job.backstrapPrep === 'Whole';
-  const needsBackstrapOther = !isWholeBackstrap && job.backstrapThickness === 'Other';
-  const needsSteakOther = job.steak === 'Other';
   const procNorm = normProc(job.processType);
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
@@ -787,6 +784,8 @@ useEffect(() => {
     if (!job.dropoff) missing.push('Drop-off Date');
     if (!job.sex) missing.push('Deer Sex');
     if (!job.processType) missing.push('Process Type');
+    if (hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
+    if (frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
     if (job.webbsOrder) {
       if (!toInt(job.webbsPounds)) missing.push('Webbs Pounds');
       if (webbsOrderStyle === 'whole_deer_percent') {
@@ -997,10 +996,24 @@ if (fresh?.exists && fresh.job) {
   };
 
   const setHind = (k: keyof Required<CutsBlock>) =>
-    setJob((p) => ({ ...p, hind: { ...(p.hind || {}), [k]: !(p.hind?.[k]) } }));
+    setJob((p) => {
+      const nextValue = !(p.hind?.[k]);
+      return {
+        ...p,
+        hind: { ...(p.hind || {}), [k]: nextValue },
+        hindRoastCount: k === 'Hind - Roast' && !nextValue ? '' : p.hindRoastCount,
+      };
+    });
 
   const setFront = (k: keyof Required<CutsBlock>) =>
-    setJob((p) => ({ ...p, front: { ...(p.front || {}), [k]: !(p.front?.[k]) } }));
+    setJob((p) => {
+      const nextValue = !(p.front?.[k]);
+      return {
+        ...p,
+        front: { ...(p.front || {}), [k]: nextValue },
+        frontRoastCount: k === 'Front - Roast' && !nextValue ? '' : p.frontRoastCount,
+      };
+    });
 
   return (
     <div className="form-card">
@@ -1457,16 +1470,17 @@ if (fresh?.exists && fresh.job) {
                   />
                   <span>Roast</span>
                 </label>
-                <span className="count">
-                  <span className="muted">Count</span>
-                  <input
-                    className="countInp"
-                    value={hindRoastOn ? (job.hindRoastCount || '') : ''}
-                    onChange={(e) => setVal('hindRoastCount', e.target.value)}
-                    disabled={!hindRoastOn}
-                    inputMode="numeric"
-                  />
-                </span>
+                {hindRoastOn ? (
+                  <span className="count">
+                    <span className="muted">Count</span>
+                    <input
+                      className="countInp"
+                      value={job.hindRoastCount || ''}
+                      onChange={(e) => setVal('hindRoastCount', e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </span>
+                ) : null}
                 <label className="chk">
                   <input
                     type="checkbox"
@@ -1492,29 +1506,22 @@ if (fresh?.exists && fresh.job) {
                 <label className="chk">
                   <input
                     type="checkbox"
-                    checked={!!job.front?.['Front - Steak']}
-                    onChange={() => setFront('Front - Steak')}
-                  />
-                  <span>Steak</span>
-                </label>
-                <label className="chk">
-                  <input
-                    type="checkbox"
                     checked={!!job.front?.['Front - Roast']}
                     onChange={() => setFront('Front - Roast')}
                   />
                   <span>Roast</span>
                 </label>
-                <span className="count">
-                  <span className="muted">Count</span>
-                  <input
-                    className="countInp"
-                    value={frontRoastOn ? (job.frontRoastCount || '') : ''}
-                    onChange={(e) => setVal('frontRoastCount', e.target.value)}
-                    disabled={!frontRoastOn}
-                    inputMode="numeric"
-                  />
-                </span>
+                {frontRoastOn ? (
+                  <span className="count">
+                    <span className="muted">Count</span>
+                    <input
+                      className="countInp"
+                      value={job.frontRoastCount || ''}
+                      onChange={(e) => setVal('frontRoastCount', e.target.value)}
+                      inputMode="numeric"
+                    />
+                  </span>
+                ) : null}
                 <label className="chk">
                   <input
                     type="checkbox"
@@ -1540,42 +1547,30 @@ if (fresh?.exists && fresh.job) {
         <section>
           <h3>Packaging & Add-ons</h3>
           <div className="grid">
-            <div className="c3">
-              <label>Steak Size</label>
-              <select
-                value={job.steak || ''}
-                onChange={(e) => setVal('steak', e.target.value)}
-              >
-                <option value="">—</option>
-                <option>1/2"</option>
-                <option>3/4"</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div className="c3">
+            <div className="c4">
               <label>Steaks per Package</label>
               <select
                 value={job.steaksPerPackage || ''}
                 onChange={(e) => setVal('steaksPerPackage', e.target.value)}
               >
-                <option value="">—</option>
+                <option value="">--</option>
                 <option>4</option>
                 <option>6</option>
                 <option>8</option>
               </select>
             </div>
-            <div className="c3">
+            <div className="c4">
               <label>Burger Size</label>
               <select
                 value={job.burgerSize || ''}
                 onChange={(e) => setVal('burgerSize', e.target.value)}
               >
-                <option value="">—</option>
+                <option value="">--</option>
                 <option>1 lb</option>
                 <option>2 lb</option>
               </select>
             </div>
-            <div className="c3 rowInline">
+            <div className="c4 rowInline">
               <label className="chk tight">
                 <input
                   type="checkbox"
@@ -1586,16 +1581,6 @@ if (fresh?.exists && fresh.job) {
                 <span className="muted"> (+$5)</span>
               </label>
             </div>
-
-            <div className="c3">
-              <label>Steak Size (Other)</label>
-              <input
-                value={needsSteakOther ? (job.steakOther || '') : ''}
-                onChange={(e) => setVal('steakOther', e.target.value)}
-                disabled={!needsSteakOther}
-                placeholder='e.g., 5/8"'
-              />
-            </div>
           </div>
         </section>
 
@@ -1603,38 +1588,17 @@ if (fresh?.exists && fresh.job) {
         <section>
           <h3>Backstrap</h3>
           <div className="grid">
-            <div className="c4">
+            <div className="c12">
               <label>Prep</label>
               <select
                 value={job.backstrapPrep || ''}
                 onChange={(e) => setVal('backstrapPrep', e.target.value as Job['backstrapPrep'])}
               >
-                <option value="">—</option>
+                <option value="">--</option>
                 <option>Whole</option>
                 <option>Sliced</option>
                 <option>Butterflied</option>
               </select>
-            </div>
-            <div className="c4">
-              <label>Thickness</label>
-              <select
-                value={isWholeBackstrap ? '' : (job.backstrapThickness || '')}
-                onChange={(e) => setVal('backstrapThickness', e.target.value as Job['backstrapThickness'])}
-                disabled={isWholeBackstrap}
-              >
-                <option value="">—</option>
-                <option>1/2"</option>
-                <option>3/4"</option>
-                <option>Other</option>
-              </select>
-            </div>
-            <div className="c4">
-              <label>Thickness (Other)</label>
-              <input
-                value={needsBackstrapOther ? (job.backstrapThicknessOther || '') : ''}
-                onChange={(e) => setVal('backstrapThicknessOther', e.target.value)}
-                disabled={!needsBackstrapOther}
-              />
             </div>
           </div>
         </section>
