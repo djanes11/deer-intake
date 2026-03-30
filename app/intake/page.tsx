@@ -1020,6 +1020,21 @@ if (fresh?.exists && fresh.job) {
       <div className="screen-only">
         <h2>Deer Intake</h2>
 
+        <div className="summaryMini">
+          <div className="miniChip">
+            <span className="miniLabel">Tag</span>
+            <span className="miniValue">{job.tag || '—'}</span>
+          </div>
+          <div className="miniChip">
+            <span className="miniLabel">Total</span>
+            <span className="miniValue">${totalPrice.toFixed(2)}</span>
+          </div>
+          <div className={`miniChip ${fullPaid(job) ? 'ok' : 'warn'}`}>
+            <span className="miniLabel">Paid</span>
+            <span className="miniValue">{fullPaid(job) ? 'Paid in Full' : 'Unpaid'}</span>
+          </div>
+        </div>
+
         <div className="summary">
           <div className="row">
             <div className="col">
@@ -2036,7 +2051,54 @@ if (fresh?.exists && fresh.job) {
         .chk { display: inline-flex; align-items: center; gap: 6px; }
         .muted { color: #6b7280; font-size: 12px; }
 
-        .summary { position: sticky; top: 0; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
+        .summaryMini {
+          position: sticky;
+          top: 0;
+          z-index: 8;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+          padding: 8px 10px;
+          margin-bottom: 10px;
+          background: rgba(255,255,255,.96);
+          border: 1px solid #d8e3f5;
+          border-radius: 10px;
+          box-shadow: 0 2px 10px rgba(0,0,0,.06);
+          backdrop-filter: blur(6px);
+        }
+        .miniChip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: #f8fbff;
+          border: 1px solid #d8e3f5;
+          color: #132238;
+          font-weight: 800;
+        }
+        .miniChip.ok {
+          background: #ecfdf5;
+          border-color: #86efac;
+          color: #166534;
+        }
+        .miniChip.warn {
+          background: #fff7db;
+          border-color: #facc15;
+          color: #854d0e;
+        }
+        .miniLabel {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: .05em;
+          opacity: 0.72;
+        }
+        .miniValue {
+          font-size: 14px;
+          font-weight: 900;
+        }
+        .summary { position: static; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
         .summary .row.small { margin-top: 6px; grid-template-columns: repeat(5, 1fr); }
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
@@ -2191,6 +2253,13 @@ if (fresh?.exists && fresh.job) {
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
         @media (max-width: 900px) { .summary .row.small { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 720px) {
+          .summaryMini {
+            padding: 8px;
+          }
+          .miniChip {
+            flex: 1 1 100%;
+            justify-content: space-between;
+          }
           .grid { grid-template-columns: 1fr; }
           .summary .row { grid-template-columns: 1fr; }
           .summary .row.small { grid-template-columns: 1fr; }
