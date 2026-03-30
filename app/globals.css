@@ -1583,6 +1583,31 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   gap: 10px 16px;
   align-items: baseline;
 }
+.printsheet .attentionBox {
+  border-width: 2px;
+  border-color: #24593b;
+  background: #f5fbf6;
+}
+.printsheet .attentionBox .label {
+  color: #114b2f;
+  font-weight: 800;
+}
+.printsheet .attentionValue {
+  font-weight: 700;
+}
+.printsheet .notesValue {
+  min-height: 30px;
+  white-space: pre-wrap;
+}
+.printsheet .paymentSummary {
+  display: grid;
+  gap: 3px;
+}
+.printsheet .specialtyFlagBox .attentionValue,
+.printsheet .webbsFlagBox .attentionValue,
+.printsheet .paymentBox .attentionValue {
+  font-size: 1.05em;
+}
 .printsheet .webbsItemsGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1657,6 +1682,21 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 
 @media print {
   .printsheet .bs-val { padding-top: 2px; padding-bottom: 2px; }
+  .printsheet .attentionBox {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: #edf7ef !important;
+    border-color: #24593b !important;
+  }
+  .printsheet .attentionValue {
+    font-size: 13.3px !important;
+    line-height: 1.22 !important;
+  }
+  .printsheet .specialtyFlagBox .attentionValue,
+  .printsheet .webbsFlagBox .attentionValue,
+  .printsheet .paymentBox .attentionValue {
+    font-size: 14px !important;
+  }
 }
 
 /* === PRINT-ONLY TIGHTENING (one-page lock) === */

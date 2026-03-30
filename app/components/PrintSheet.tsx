@@ -205,6 +205,13 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     [job?.webbsOrderMode, job?.webbs_order_mode]
   );
   const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
+  const hasSpecialty = truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') || hasSpecialtySelection(job);
+  const hasWebbs = truthy('Webbs Order','webbsOrder','webbs_order');
+  const notesText = textVal('Notes','notes');
+  const hasNotes = !!notesText.trim();
+  const paidInFull = truthy('Paid','paid','Paid in Full','Paid In Full');
+  const paidProcessing = truthy('Paid Processing','paidProcessing','paid_processing');
+  const paidSpecialty = truthy('Paid Specialty','paidSpecialty','paid_specialty');
 
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -481,55 +488,59 @@ pages.forEach(p => {
       </div>
 
       {/* Row F */}
-<div className="row grid12 meat-row">
-  <div className="col-3 box">
-    <div className="label">Specialty Products</div>
-    <div className="val">
-      <strong className="check">
-        {truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') || hasSpecialtySelection(job) ? CHK : BOX}
-      </strong>{' '}Would like specialty products
-    </div>
-  </div>
-
-  <div className="col-9 box">
-    <div className="label">Specialty Detail (lb)</div>
-    <div className="val">
-      <div className="specRow">
-        <div className="specLine">
-          {specialtyItems.filter((item) => item.pounds > 0).length > 0 ? (
-            specialtyItems
-              .filter((item) => item.pounds > 0)
-              .map((item, idx) => (
-                <span key={item.key}>
-                  {idx > 0 ? ' | ' : ''}
-                  <b>{item.shortLabel}:</b> {item.pounds || ''}
-                </span>
-              ))
-          ) : (
-            <span>No specialty products selected</span>
-          )}
-        </div>
-        <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{/* Row G */}
-
       <div className="row grid12 meat-row">
-        <div className="col-12 box"><div className="label">Notes</div><div className="val">{textVal('Notes','notes')}</div></div>
+        <div className={`col-3 box ${hasSpecialty ? 'attentionBox specialtyFlagBox' : ''}`}>
+          <div className="label">Specialty Products</div>
+          <div className={`val ${hasSpecialty ? 'attentionValue' : ''}`}>
+            <strong className="check">{hasSpecialty ? CHK : BOX}</strong>{' '}
+            {hasSpecialty ? 'SPECIALTY ORDER' : 'No specialty products'}
+          </div>
+        </div>
+
+        <div className={`col-9 box ${hasSpecialty ? 'attentionBox specialtyDetailBox' : ''}`}>
+          <div className="label">Specialty Detail (lb)</div>
+          <div className={`val ${hasSpecialty ? 'attentionValue' : ''}`}>
+            <div className="specRow">
+              <div className="specLine">
+                {specialtyItems.filter((item) => item.pounds > 0).length > 0 ? (
+                  specialtyItems
+                    .filter((item) => item.pounds > 0)
+                    .map((item, idx) => (
+                      <span key={item.key}>
+                        {idx > 0 ? ' | ' : ''}
+                        <b>{item.shortLabel}:</b> {item.pounds || ''}
+                      </span>
+                    ))
+                ) : (
+                  <span>No specialty products selected</span>
+                )}
+              </div>
+              <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Row G */}
+      <div className="row grid12 meat-row">
+        <div className={`col-12 box ${hasNotes ? 'attentionBox notesBox' : ''}`}>
+          <div className="label">Notes</div>
+          <div className={`val ${hasNotes ? 'attentionValue notesValue' : ''}`}>{notesText || 'No additional notes'}</div>
+        </div>
       </div>
 
       {/* Row H */}
       <div className="row grid12 meat-row">
-        <div className="col-3 box">
+        <div className={`col-3 box ${hasWebbs ? 'attentionBox webbsFlagBox' : ''}`}>
           <div className="label">Webbs Order</div>
-          <div className="val"><strong className="check">{truthy('Webbs Order','webbsOrder','webbs_order') ? CHK : BOX}</strong> Webbs order</div>
+          <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
+            <strong className="check">{hasWebbs ? CHK : BOX}</strong>{' '}
+            {hasWebbs ? 'WEBBS ORDER' : 'No Webbs order'}
+          </div>
         </div>
-        <div className="col-9 box">
+        <div className={`col-9 box ${hasWebbs ? 'attentionBox webbsDetailBox' : ''}`}>
           <div className="label">Webbs Details</div>
-          <div className="val">
+          <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
             <div className="webbsMetaRow">
               <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
               <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
@@ -584,11 +595,15 @@ pages.forEach(p => {
 
       {/* Row J */}
       <div className="row grid12">
-        <div className="col-3 box">
-          <div className="label">Paid</div>
-          <div className="val"><strong className="check">{truthy('Paid','paid','Paid in Full','Paid In Full') ? CHK : BOX}</strong> Paid in full</div>
+        <div className="col-6 box attentionBox paymentBox">
+          <div className="label">Payment Status</div>
+          <div className="val attentionValue paymentSummary">
+            <div><strong className="check">{paidInFull ? CHK : BOX}</strong> Paid in full</div>
+            <div><strong className="check">{paidProcessing ? CHK : BOX}</strong> Processing paid</div>
+            {hasSpecialty ? <div><strong className="check">{paidSpecialty ? CHK : BOX}</strong> Specialty paid</div> : null}
+          </div>
         </div>
-        <div className="col-9 box">
+        <div className="col-6 box">
           <div className="label">Signature (on pickup)</div>
           <div className="val signatureLine"></div>
         </div>
