@@ -74,6 +74,12 @@ function statusTone(status: string) {
   return { bg: '#fff7ed', fg: '#9a3412', border: '#fed7aa' };
 }
 
+function displayStatus(status: string) {
+  const s = String(status || '').trim().toLowerCase();
+  if (s === 'queued') return 'sent to Twilio';
+  return status || '-';
+}
+
 function channelTone(channel: 'email' | 'sms') {
   if (channel === 'sms') {
     return { bg: '#e8f7ec', fg: '#18603a' };
@@ -166,6 +172,7 @@ export default async function NotificationActivityPage() {
             <div style={{ padding: 16, color: '#475569' }}>No notification activity yet.</div>
           ) : activities.map((row, idx) => {
             const tone = statusTone(row.status);
+            const shownStatus = displayStatus(row.status);
             const chan = channelTone(row.channel);
             return (
               <div
@@ -210,10 +217,9 @@ export default async function NotificationActivityPage() {
                       color: tone.fg,
                       border: `1px solid ${tone.border}`,
                       fontWeight: 900,
-                      textTransform: 'lowercase',
                     }}
                   >
-                    {row.status || '-'}
+                    {shownStatus}
                   </span>
                 </div>
               </div>
