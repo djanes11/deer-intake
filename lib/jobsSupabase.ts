@@ -106,46 +106,37 @@ function buildIntakeSms(opts: { tag: string; statusUrl: string }) {
   const tag = String(opts.tag || '').trim();
   const statusUrl = String(opts.statusUrl || '').trim();
   const parts = [
-    `McAfee Deer Processing: Your deer has been checked in and tagged ${tag}.`,
-    statusUrl ? `Check status: ${statusUrl}` : '',
-    'Reply STOP to opt out.',
+    `McAfee: Deer tagged ${tag}.`,
+    statusUrl ? `Status: ${statusUrl}` : '',
   ].filter(Boolean);
   return parts.join(' ');
 }
 
 function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string }) {
-  const dueText = opts.paidProcessing ? 'Regular processing is marked paid.' : `Amount still owed for regular processing: $${opts.processingPrice.toFixed(2)}.`;
   return [
-    `McAfee Deer Processing: Your meat processing for ${opts.tag} is finished and ready for pickup.`,
-    dueText,
-    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
-    'Reply STOP to opt out.',
+    `McAfee: Meat ready for pickup. ${opts.tag}.`,
+    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
 function buildCapeFinishedSms(opts: { tag: string; statusUrl: string }) {
   return [
-    `McAfee Deer Processing: The cape for ${opts.tag} is finished and ready for pickup.`,
-    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
-    'Reply STOP to opt out.',
+    `McAfee: Cape ready for pickup. ${opts.tag}.`,
+    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
 function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string }) {
-  const dueText = opts.paidSpecialty ? 'Specialty products are marked paid.' : `Amount still owed for specialty products: $${opts.specialtyPrice.toFixed(2)}.`;
   return [
-    `McAfee Deer Processing: Your specialty products for ${opts.tag} are finished and ready for pickup.`,
-    dueText,
-    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
-    'Reply STOP to opt out.',
+    `McAfee: Specialty ready for pickup. ${opts.tag}.`,
+    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
 function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string }) {
   return [
-    `McAfee Deer Processing: Your Webbs order for ${opts.tag} has been delivered and is ready for pickup.`,
-    opts.statusUrl ? `Check status: ${opts.statusUrl}` : '',
-    'Reply STOP to opt out.',
+    `McAfee: Webbs delivered. ${opts.tag}.`,
+    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
