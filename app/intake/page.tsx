@@ -682,7 +682,7 @@ useEffect(() => {
       if (webbsItems.length) parts.push(`${webbsItems.length} items`);
       if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
     }
-    return parts.join(' â€¢ ');
+    return parts.join(' | ');
   }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, webbsOrderStyle, webbsAllocations.length, webbsAllocationTotal, webbsItems.length, webbsItemTotal]);
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
