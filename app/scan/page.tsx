@@ -51,16 +51,12 @@ export default function ScanPage() {
     'Status',
     'Caping Status',
     'Webbs Status',
-    'Steak',
-    'Steak Size (Other)',
     'Burger Size',
     'Steaks per Package',
     'Beef Fat',
     'Hind Roast Count',
     'Front Roast Count',
     'Backstrap Prep',
-    'Backstrap Thickness',
-    'Backstrap Thickness (Other)',
     'Notes',
     'Webbs Order',
     'Webbs Order Form Number',
@@ -205,8 +201,6 @@ export default function ScanPage() {
       'Caping Status': j.capingStatus ?? '',
       'Webbs Status': j.webbsStatus ?? '',
 
-      Steak: j.steak ?? '',
-      'Steak Size (Other)': j.steakOther ?? '',
       'Burger Size': j.burgerSize ?? '',
       'Steaks per Package': j.steaksPerPackage ?? '',
       'Beef Fat': j.beefFat ?? false,
@@ -215,8 +209,6 @@ export default function ScanPage() {
       'Front Roast Count': j.frontRoastCount ?? '',
 
       'Backstrap Prep': j.backstrapPrep ?? '',
-      'Backstrap Thickness': j.backstrapThickness ?? '',
-      'Backstrap Thickness (Other)': j.backstrapThicknessOther ?? '',
 
       Notes: j.notes ?? '',
 
@@ -317,7 +309,7 @@ export default function ScanPage() {
     const overlayFromProgress = progressedJob ? normalizeToggles(jobToCanon(progressedJob, tag)) : null;
 
     if (isProcessingLike(next)) {
-      setStatus({ kind: 'ok', text: `Tag ${tag}: Dropped Off → Processing.` });
+      setStatus({ kind: 'ok', text: `Tag ${tag}: Dropped Off -> Processing.` });
       setOverlayOn(true);
 
       const job = overlayFromProgress ?? (await fetchFullRow(tag));
@@ -330,7 +322,7 @@ export default function ScanPage() {
     }
 
     if (isFinishedLike(next)) {
-      setStatus({ kind: 'ok', text: `Tag ${tag}: Processing → Finished/Ready.` });
+      setStatus({ kind: 'ok', text: `Tag ${tag}: Processing -> Finished.` });
       setOverlayOn(false);
       setOverlayJob(null);
       return;
@@ -392,7 +384,7 @@ export default function ScanPage() {
         }}
       >
         <div style={{ fontSize: 16, opacity: 0.9 }}>Ready to scan</div>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last: ${lastTag}` : 'Awaiting tag…'}</div>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last: ${lastTag}` : 'Awaiting tag...'}</div>
       </div>
 
       {status && (
@@ -416,4 +408,5 @@ export default function ScanPage() {
     </main>
   );
 }
+
 

@@ -1528,12 +1528,8 @@ export async function progressJob(tag: string) {
 
   let nextStatus: string | null = null;
 
-  // initial/ dropped off -> Skinning -> Skinned -> Processing -> Finished
+  // Butcher scan flow: Dropped Off -> Processing -> Finished
   if (isInitialStatus) {
-    nextStatus = 'Skinning';
-  } else if (curStatus === 'skinning') {
-    nextStatus = 'Skinned';
-  } else if (curStatus === 'skinned') {
     nextStatus = 'Processing';
   } else if (curStatus === 'processing') {
     nextStatus = 'Finished';

@@ -1,82 +1,144 @@
-// app/components/ButcherOverlay.tsx — dumb view, tolerant key lookup, big type
 'use client';
 
+import type { CSSProperties } from 'react';
+
 type Row = Record<string, any>;
+
+const CARD: CSSProperties = {
+  border: '1px solid #22303a',
+  borderRadius: 20,
+  padding: '18px 20px',
+  background: 'linear-gradient(180deg, rgba(18,26,31,.98), rgba(12,18,22,.98))',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.03)',
+};
+
 export default function ButcherOverlay({ job, visible }: { job?: Row | null; visible: boolean }) {
   const row = job || {};
 
-  // tolerant getters (space/no-space/camel)
   const key = (s: string) => s.toLowerCase().replace(/\s+/g, '');
   function get(...names: string[]) {
     for (const n of names) {
       const k = key(n);
-      const hit = Object.keys(row).find(rk => key(rk) === k);
+      const hit = Object.keys(row).find((rk) => key(rk) === k);
       if (hit) return row[hit];
     }
     return '';
   }
+
   const isOn = (v: any) => {
     if (typeof v === 'boolean') return v;
     const s = String(v ?? '').trim().toLowerCase();
-    if (!s || ['0','false','no','off','none','n/a','na'].includes(s)) return false;
-    if (['true','yes','y','x','1','✓','✔','on'].includes(s)) return true;
-    const n = Number(s); return Number.isFinite(n) ? n > 0 : !!s;
+    if (!s || ['0', 'false', 'no', 'off', 'none', 'n/a', 'na'].includes(s)) return false;
+    if (['true', 'yes', 'y', 'x', '1', 'on', 'paid'].includes(s)) return true;
+    const n = Number(s);
+    return Number.isFinite(n) ? n > 0 : !!s;
   };
-  const join = (...labels: string[]) => labels.filter(Boolean).join(' / ');
 
-  // header
-  const tag  = String(get('Tag') ?? '').trim();
-  const cust = String(get('Customer','Customer Name','CustomerName','customerName','name','customer') ?? '').trim();
+  const tag = String(get('Tag') ?? '').trim();
+  const customer = String(
+    get('Customer', 'Customer Name', 'CustomerName', 'customerName', 'name', 'customer') ?? ''
+  ).trim();
+  const processType = String(get('Process Type', 'processType') ?? '').trim();
+  const notes = String(get('Notes', 'notes') ?? '').trim();
+  const steaksPerPack = String(get('Steaks per Package', 'Steaks Per Package', 'steaksPerPackage') ?? '').trim();
+  const burgerSize = String(get('Burger Size', 'burgerSize') ?? '').trim();
+  const backstrapPrep = String(get('Backstrap Prep', 'backstrapPrep') ?? '').trim();
+  const beefFat = isOn(get('Beef Fat', 'beefFat'));
 
-  // toggles
-  const hind  = join(
-    isOn(get('Hind - Steak','hindSteak')) ? 'Steak' : '',
-    isOn(get('Hind - Roast','hindRoast')) ? 'Roast' : '',
-    isOn(get('Hind - Grind','hindGrind')) ? 'Grind' : '',
-    isOn(get('Hind - None','hindNone'))   ? 'None'  : ''
-  );
-  const front = join(
-    isOn(get('Front - Steak','frontSteak')) ? 'Steak' : '',
-    isOn(get('Front - Roast','frontRoast')) ? 'Roast' : '',
-    isOn(get('Front - Grind','frontGrind')) ? 'Grind' : '',
-    isOn(get('Front - None','frontNone'))   ? 'None'  : ''
-  );
+  const hindRoastCount = String(get('Hind Roast Count', 'hindRoastCount') ?? '').trim();
+  const frontRoastCount = String(get('Front Roast Count', 'frontRoastCount') ?? '').trim();
 
-  // sizes / counts
-  const steakSize      = String(get('Steak','Steak Size','steak') ?? '');
-  const steakSizeOther = String(get('Steak Size (Other)','steakSizeOther','steakOther') ?? '');
-  const steaksPerPack  = String(get('Steaks per Package','Steaks Per Package','steaksPerPackage') ?? '');
-  const burgerSize     = String(get('Burger Size','burgerSize') ?? '');
+  const hind = [
+    isOn(get('Hind - Steak', 'hindSteak')) ? 'Steak' : '',
+    isOn(get('Hind - Roast', 'hindRoast')) ? `Roast${hindRoastCount ? ` (${hindRoastCount})` : ''}` : '',
+    isOn(get('Hind - Grind', 'hindGrind')) ? 'Grind' : '',
+    isOn(get('Hind - None', 'hindNone')) ? 'None' : '',
+  ].filter(Boolean);
 
-  const bsPrep         = String(get('Backstrap Prep','backstrapPrep') ?? '');
-  const bsThick        = String(get('Backstrap Thickness','backstrapThickness') ?? '');
-  const bsThickOther   = String(get('Backstrap Thickness (Other)','backstrapThicknessOther') ?? '');
+  const front = [
+    isOn(get('Front - Roast', 'frontRoast')) ? `Roast${frontRoastCount ? ` (${frontRoastCount})` : ''}` : '',
+    isOn(get('Front - Grind', 'frontGrind')) ? 'Grind' : '',
+    isOn(get('Front - None', 'frontNone')) ? 'None' : '',
+  ].filter(Boolean);
 
-  // specialty / webbs
-  const specialtyFlag  = get('Specialty Products','specialtyProducts');
-  const specialtyLbs   = String(get('Specialty Pounds','specialtyPounds') ?? '');
-  const showSpecialty  = isOn(specialtyFlag) || Number(specialtyLbs) > 0;
+  const specialtyItems = [
+    ['Original Summer Sausage', get('Original Summer Sausage (lb)', 'originalSummerSausageLbs')],
+    ['Summer Sausage + Cheese', get('Summer Sausage + Cheese (lb)', 'summerSausageCheeseLbs')],
+    ['Jalapeno Summer Sausage + Cheddar', get('Jalapeno Summer Sausage + Cheddar (lb)', 'jalapenoSummerSausageCheeseLbs')],
+    ['Original Snack Stix', get('Original Snack Stix (lb)', 'originalSnackSticksLbs')],
+    ['Original Snack Stix + Cheddar', get('Original Snack Stix + Cheddar (lb)', 'originalSnackSticksCheeseLbs')],
+    ['Jalapeno Snack Stix + Cheddar', get('Jalapeno Snack Stix + Cheddar (lb)', 'jalapenoSnackSticksCheeseLbs')],
+  ]
+    .map(([label, pounds]) => {
+      const value = Number(pounds ?? 0) || 0;
+      return value > 0 ? `${label}: ${value} lb` : '';
+    })
+    .filter(Boolean);
 
-  const webbsFlag      = get('Webbs Order','webbsOrder');
-  const webbsForm      = get('Webbs Order Form Number','webbsFormNumber');
-  const webbsLbs       = String(get('Webbs Pounds','webbsPounds') ?? '');
-  const webbsItemsRaw  = get('Webbs Items','webbsItems');
+  const webbsPounds = String(get('Webbs Pounds', 'webbsPounds') ?? '').trim();
+  const webbsItemsRaw = get('Webbs Items', 'webbsItems');
   const webbsItemsText = (() => {
     if (Array.isArray(webbsItemsRaw)) {
       return webbsItemsRaw
-        .map((item: any) => `${item?.label || item?.key || ''}${item?.pounds ? ` (${item.pounds} lb)` : ''}`.trim())
-        .filter(Boolean)
-        .join('\n');
+        .map((item: any) => {
+          const label = item?.label || item?.key || '';
+          const pounds = item?.pounds ? ` (${item.pounds} lb)` : '';
+          const percent = item?.percent ? ` (${item.percent}%)` : '';
+          return `${label}${pounds || percent}`.trim();
+        })
+        .filter(Boolean);
     }
-    return '';
+    if (typeof webbsItemsRaw === 'string' && webbsItemsRaw.trim()) {
+      try {
+        const parsed = JSON.parse(webbsItemsRaw);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item: any) => {
+              const label = item?.label || item?.key || '';
+              const pounds = item?.pounds ? ` (${item.pounds} lb)` : '';
+              const percent = item?.percent ? ` (${item.percent}%)` : '';
+              return `${label}${pounds || percent}`.trim();
+            })
+            .filter(Boolean);
+        }
+      } catch {}
+    }
+    return [] as string[];
   })();
-  const showWebbs      = isOn(webbsFlag) || isOn(webbsForm) || Number(webbsLbs) > 0;
 
-  const Cell = ({ label, value }: { label: string; value: string }) => (
-    <div style={{ border:'1px solid #2a2f36', borderRadius:16, padding:'14px 16px' }}>
-      <div style={{ fontSize:16, color:'#aab4be', marginBottom:8 }}>{label}</div>
-      <div style={{ fontSize:30, fontWeight:800, lineHeight:1.2, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
-        {value?.toString().trim() || '—'}
+  const webbsStyle = String(get('Webbs Order Style', 'webbsOrderStyle') ?? '').trim();
+  const showSpecialty = specialtyItems.length > 0 || isOn(get('Specialty Products', 'specialtyProducts'));
+  const showWebbs = isOn(get('Webbs Order', 'webbsOrder')) || !!webbsPounds || webbsItemsText.length > 0;
+
+  const SummaryCard = ({ label, value }: { label: string; value: string }) => (
+    <div style={CARD}>
+      <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 8, fontWeight: 700 }}>{label}</div>
+      <div style={{ fontSize: 34, fontWeight: 900, lineHeight: 1.12, whiteSpace: 'pre-wrap' }}>
+        {value || '—'}
+      </div>
+    </div>
+  );
+
+  const ListCard = ({ label, items, empty = 'None' }: { label: string; items: string[]; empty?: string }) => (
+    <div style={CARD}>
+      <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>{label}</div>
+      <div style={{ display: 'grid', gap: 10 }}>
+        {(items.length ? items : [empty]).map((item) => (
+          <div
+            key={`${label}-${item}`}
+            style={{
+              fontSize: 30,
+              fontWeight: 800,
+              lineHeight: 1.18,
+              padding: '10px 12px',
+              borderRadius: 14,
+              background: 'rgba(34,197,94,.08)',
+              border: '1px solid rgba(34,197,94,.22)',
+            }}
+          >
+            {item}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -85,47 +147,170 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
     <div
       aria-hidden={!visible}
       style={{
-        position:'fixed', inset:0, zIndex:1000,
-        background:'rgba(8,11,15,.75)',
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        background: 'rgba(4,8,11,.88)',
         display: visible ? 'flex' : 'none',
-        alignItems:'center', justifyContent:'center',
-        pointerEvents:'none', userSelect:'none'
+        alignItems: 'stretch',
+        justifyContent: 'center',
+        padding: '2vh 2vw',
+        pointerEvents: 'none',
+        userSelect: 'none',
       }}
     >
-      <div style={{
-        width:'min(1280px, 96vw)', maxHeight:'92vh', overflow:'hidden auto',
-        borderRadius:22, background:'#0b0f12', color:'#e7ecf0',
-        border:'1px solid #2a2f36', boxShadow:'0 12px 40px rgba(0,0,0,.35)',
-        pointerEvents:'none'
-      }}>
-        <div style={{
-          padding:'18px 22px', borderBottom:'1px solid #1c2228',
-          display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:16
-        }}>
-          <div style={{ fontSize:26, fontWeight:900 }}>Cut Specs</div>
-          <div style={{ display:'flex', gap:24, alignItems:'baseline' }}>
-            {tag  ? <span style={{ fontSize:42, fontWeight:900 }}>Tag #{tag}</span> : null}
-            {cust ? <span style={{ fontSize:36, fontWeight:800, opacity:.95 }}>{cust}</span> : null}
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 1700,
+          minHeight: '96vh',
+          borderRadius: 28,
+          background: 'linear-gradient(180deg, #0b0f12, #071015)',
+          color: '#edf4f8',
+          border: '1px solid #22303a',
+          boxShadow: '0 24px 60px rgba(0,0,0,.45)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            padding: '24px 30px',
+            borderBottom: '1px solid #1c2931',
+            display: 'grid',
+            gridTemplateColumns: '1.15fr .85fr',
+            gap: 24,
+            alignItems: 'center',
+            background: 'linear-gradient(180deg, rgba(19,32,27,.88), rgba(11,15,18,.88))',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 22, letterSpacing: '.08em', textTransform: 'uppercase', color: '#97b4a4', fontWeight: 800 }}>
+              Butcher Processing
+            </div>
+            <div style={{ fontSize: 72, fontWeight: 950, lineHeight: 1, marginTop: 8 }}>{tag || '—'}</div>
+            <div style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.12, marginTop: 10 }}>{customer || 'Unknown customer'}</div>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gap: 14,
+              justifyItems: 'stretch',
+            }}
+          >
+            <SummaryCard label="Process Type" value={processType} />
           </div>
         </div>
 
-        <div style={{ display:'grid', gap:16, padding:22, gridTemplateColumns:'repeat(3, minmax(0,1fr))' }}>
-          <Cell label="Hind Quarter" value={hind} />
-          <Cell label="Front Shoulder" value={front} />
-          <Cell label="Steak Size" value={steakSize} />
-          <Cell label="Steak Size (Other)" value={steakSizeOther} />
-          <Cell label="Steaks per Package" value={steaksPerPack} />
-          <Cell label="Burger Size" value={burgerSize} />
-          <Cell label="Backstrap Prep" value={bsPrep} />
-          <Cell label="Backstrap Thickness" value={bsThick} />
-          <Cell label="Backstrap Thickness (Other)" value={bsThickOther} />
-          {showSpecialty ? <Cell label="Specialty Total (lb)" value={specialtyLbs} /> : null}
-          {showWebbs      ? <Cell label="Webbs Total (lb)" value={webbsLbs} />         : null}
-          {showWebbs && webbsItemsText ? <Cell label="Webbs Items" value={webbsItemsText} /> : null}
+        <div
+          style={{
+            padding: 26,
+            display: 'grid',
+            gap: 18,
+            gridTemplateColumns: '1.15fr .85fr',
+            alignItems: 'start',
+          }}
+        >
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+              <ListCard label="Hind Quarter" items={hind} />
+              <ListCard label="Front Shoulder" items={front} />
+            </div>
+
+            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
+              <SummaryCard label="Steaks / Package" value={steaksPerPack} />
+              <SummaryCard label="Burger Size" value={burgerSize} />
+              <SummaryCard label="Backstrap" value={backstrapPrep} />
+            </div>
+
+            <div style={CARD}>
+              <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>Add-ons / Notes</div>
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ fontSize: 28, fontWeight: 800 }}>
+                  Beef Fat: <span style={{ color: beefFat ? '#8df2a8' : '#c7d4dd' }}>{beefFat ? 'YES' : 'NO'}</span>
+                </div>
+                {notes ? (
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 700,
+                      lineHeight: 1.22,
+                      whiteSpace: 'pre-wrap',
+                      padding: '12px 14px',
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,.04)',
+                    }}
+                  >
+                    {notes}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 28, fontWeight: 700, color: '#c7d4dd' }}>No extra notes</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 18 }}>
+            {showSpecialty ? (
+              <ListCard label="Specialty Products" items={specialtyItems} empty="No specialty products selected" />
+            ) : null}
+
+            {showWebbs ? (
+              <div style={CARD}>
+                <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>Webbs Order</div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <div style={{ fontSize: 28, fontWeight: 800 }}>
+                    Total: <span style={{ color: '#8df2a8' }}>{webbsPounds || '—'} lb</span>
+                  </div>
+                  {webbsStyle ? (
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#c7d4dd' }}>
+                      {webbsStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}
+                    </div>
+                  ) : null}
+                  {webbsItemsText.length ? (
+                    <div style={{ display: 'grid', gap: 10 }}>
+                      {webbsItemsText.map((item) => (
+                        <div
+                          key={item}
+                          style={{
+                            fontSize: 24,
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            padding: '10px 12px',
+                            borderRadius: 12,
+                            background: 'rgba(255,255,255,.04)',
+                          }}
+                        >
+                          {item}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {!showSpecialty && !showWebbs ? (
+              <div style={CARD}>
+                <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>Special Instructions</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: '#c7d4dd' }}>
+                  No specialty or Webbs items on this deer.
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <div style={{ padding:'10px 22px', borderTop:'1px solid #1c2228', fontSize:14, color:'#aab4be' }}>
-          Overlay stays up during Processing. Scan again to finish—no clicks needed.
+        <div
+          style={{
+            padding: '14px 28px 18px',
+            borderTop: '1px solid #1c2931',
+            fontSize: 24,
+            fontWeight: 800,
+            color: '#a9b8c2',
+            textAlign: 'center',
+          }}
+        >
+          Scan the same tag again when this deer is finished.
         </div>
       </div>
     </div>
