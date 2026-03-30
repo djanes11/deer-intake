@@ -618,8 +618,7 @@ pages.forEach(p => {
         <div className="col-12 box">
           <div className="label">Consent</div>
           <div className="val">
-            <div><span className="check">{truthy('SMS Consent','smsConsent','consentSMS') ? CHK : BOX}</span> I consent to receive informational/automated SMS</div>
-            <div><span className="check">{truthy('Auto Call Consent','autoCallConsent','consentCall','consentAutoCall') ? CHK : BOX}</span> I consent to receive automated phone calls</div>
+            <div><span className="check">{truthy('SMS Consent','smsConsent','consentSMS') ? CHK : BOX}</span> I consent to receive informational SMS</div>
           </div>
         </div>
       </div>

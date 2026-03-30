@@ -622,6 +622,18 @@ function OvernightIntakePage() {
       return next;
     });
 
+  const setContactMethod = (method: 'email' | 'sms' | 'call') => {
+    if (locked) return;
+    setJob((p) => ({
+      ...p,
+      prefEmail: method === 'email',
+      prefSMS: method === 'sms',
+      prefCall: method === 'call',
+      smsConsent: method === 'sms' ? !!p.smsConsent : false,
+      autoCallConsent: false,
+    }));
+  };
+
   const setWebbsItemPounds = (key: string, value: string) => {
     if (locked) return;
     setJob((prev) => {
@@ -1427,18 +1439,18 @@ function OvernightIntakePage() {
               <h3>Communication Preference & Consent</h3>
               <div className="grid">
                 <div className="c6">
-                  <label>Preferred Contact Methods</label>
+                  <label>Preferred Contact Method</label>
                   <div className="checks">
                     <label className="chk">
-                      <input type="checkbox" checked={!!job.prefEmail} onChange={(e) => setVal('prefEmail', e.target.checked)} disabled={locked} />
+                      <input type="radio" name="preferred-contact-public" checked={!!job.prefEmail} onChange={() => setContactMethod('email')} disabled={locked} />
                       <span>Email</span>
                     </label>
                     <label className="chk">
-                      <input type="checkbox" checked={!!job.prefSMS} onChange={(e) => setVal('prefSMS', e.target.checked)} disabled={locked} />
+                      <input type="radio" name="preferred-contact-public" checked={!!job.prefSMS} onChange={() => setContactMethod('sms')} disabled={locked} />
                       <span>Text (SMS)</span>
                     </label>
                     <label className="chk">
-                      <input type="checkbox" checked={!!job.prefCall} onChange={(e) => setVal('prefCall', e.target.checked)} disabled={locked} />
+                      <input type="radio" name="preferred-contact-public" checked={!!job.prefCall} onChange={() => setContactMethod('call')} disabled={locked} />
                       <span>Phone Call</span>
                     </label>
                   </div>
@@ -1447,14 +1459,14 @@ function OvernightIntakePage() {
                 <div className="c6">
                   <label>Legal Consent</label>
                   <div className="checks">
-                    <label className="chk">
-                      <input type="checkbox" checked={!!job.smsConsent} onChange={(e) => setVal('smsConsent', e.target.checked)} disabled={locked} />
-                      <span>I consent to receive informational/automated SMS</span>
-                    </label>
-                    <label className="chk">
-                      <input type="checkbox" checked={!!job.autoCallConsent} onChange={(e) => setVal('autoCallConsent', e.target.checked)} disabled={locked} />
-                      <span>I consent to receive automated phone calls</span>
-                    </label>
+                    {job.prefSMS ? (
+                      <label className="chk">
+                        <input type="checkbox" checked={!!job.smsConsent} onChange={(e) => setVal('smsConsent', e.target.checked)} disabled={locked} />
+                        <span>I consent to receive informational SMS updates</span>
+                      </label>
+                    ) : (
+                      <div className="muted">No extra consent needed for email or staff phone calls.</div>
+                    )}
                   </div>
                 </div>
               </div>

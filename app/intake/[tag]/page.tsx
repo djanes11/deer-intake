@@ -169,7 +169,6 @@ export default async function IntakeView({
     const prefSMS          = asBool(pick(job, ['Pref SMS','prefSMS']));
     const prefCall         = asBool(pick(job, ['Pref Call','prefCall']));
     const smsConsent       = asBool(pick(job, ['SMS Consent','smsConsent']));
-    const autoCallConsent  = asBool(pick(job, ['Auto Call Consent','autoCallConsent']));
 
     // Pull specialty status for summary bar
     const specialtyStatus =
@@ -441,8 +440,7 @@ export default async function IntakeView({
               <div className="c6" style={{gridColumn:'span 6'}}>
                 <label>Consent</label>
                 <div style={{display:'flex', flexDirection:'column', gap:6}}>
-                  <Check on={smsConsent} text="I consent to receive informational/automated SMS" />
-                  <Check on={autoCallConsent} text="I consent to receive automated phone calls" />
+                  <Check on={smsConsent} text="I consent to receive informational SMS" />
                 </div>
               </div>
             </div>

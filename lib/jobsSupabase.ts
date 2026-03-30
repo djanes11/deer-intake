@@ -960,7 +960,7 @@ function mapDbRowToJob(row: any): Job {
     prefSMS: !!row.pref_sms,
     prefCall: !!row.pref_call,
     smsConsent: !!row.sms_consent,
-    autoCallConsent: !!row.auto_call_consent,
+    autoCallConsent: false,
 
     // Misc
     howKilled: row.how_killed,
@@ -1462,7 +1462,7 @@ let tagToStore: string;
     pref_sms: effectiveJob.prefSMS ?? false,
     pref_call: effectiveJob.prefCall ?? false,
     sms_consent: effectiveJob.smsConsent ?? false,
-    auto_call_consent: effectiveJob.autoCallConsent ?? false,
+    auto_call_consent: false,
 
     how_killed: effectiveJob.howKilled ?? null,
     updated_at: saveStamp,

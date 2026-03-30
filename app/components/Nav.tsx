@@ -91,6 +91,9 @@ export default function Nav() {
               <Link href="/reports/print-queue" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                 Print Queue
               </Link>
+              <Link href="/reports/notifications" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                Notifications
+              </Link>
               {/* NEW: State Form */}
               <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                 State Form

@@ -968,6 +968,16 @@ if (fresh?.exists && fresh.job) {
       return next;
     });
 
+  const setContactMethod = (method: 'email' | 'sms' | 'call') =>
+    setJob((p) => ({
+      ...p,
+      prefEmail: method === 'email',
+      prefSMS: method === 'sms',
+      prefCall: method === 'call',
+      smsConsent: method === 'sms' ? !!p.smsConsent : false,
+      autoCallConsent: false,
+    }));
+
   const setWebbsItemPounds = (key: string, value: string) => {
     setJob((prev) => {
       const existing = normalizeWebbsOrderItems(prev.webbsItems).filter((item) => item.key !== key);
@@ -1765,56 +1775,54 @@ if (fresh?.exists && fresh.job) {
         <section>
           <h3>Communication & Consent</h3>
           <div className="grid">
-            <div className="c4">
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={!!job.prefEmail}
-                  onChange={(e) => setVal('prefEmail', e.target.checked)}
-                />
-                <span>Prefer Email</span>
-              </label>
-            </div>
-            <div className="c4">
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={!!job.prefSMS}
-                  onChange={(e) => setVal('prefSMS', e.target.checked)}
-                />
-                <span>Prefer Text (SMS)</span>
-              </label>
-            </div>
-            <div className="c4">
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={!!job.prefCall}
-                  onChange={(e) => setVal('prefCall', e.target.checked)}
-                />
-                <span>Prefer Phone Call</span>
-              </label>
+            <div className="c12">
+              <div style={{ fontWeight: 800, marginBottom: 8 }}>Preferred Contact Method</div>
+              <div className="checks">
+                <label className="chk">
+                  <input
+                    type="radio"
+                    name="preferred-contact-staff"
+                    checked={!!job.prefEmail}
+                    onChange={() => setContactMethod('email')}
+                  />
+                  <span>Email</span>
+                </label>
+                <label className="chk">
+                  <input
+                    type="radio"
+                    name="preferred-contact-staff"
+                    checked={!!job.prefSMS}
+                    onChange={() => setContactMethod('sms')}
+                  />
+                  <span>Text (SMS)</span>
+                </label>
+                <label className="chk">
+                  <input
+                    type="radio"
+                    name="preferred-contact-staff"
+                    checked={!!job.prefCall}
+                    onChange={() => setContactMethod('call')}
+                  />
+                  <span>Phone Call</span>
+                </label>
+              </div>
             </div>
 
-            <div className="c6">
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={!!job.smsConsent}
-                  onChange={(e) => setVal('smsConsent', e.target.checked)}
-                />
-                <span>Consent to receive SMS texts</span>
-              </label>
-            </div>
-            <div className="c6">
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={!!job.autoCallConsent}
-                  onChange={(e) => setVal('autoCallConsent', e.target.checked)}
-                />
-                <span>Consent to receive automated calls</span>
-              </label>
+            {job.prefSMS ? (
+              <div className="c12">
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={!!job.smsConsent}
+                    onChange={(e) => setVal('smsConsent', e.target.checked)}
+                  />
+                  <span>Consent to receive SMS texts</span>
+                </label>
+              </div>
+            ) : null}
+
+            <div className="c12 muted" style={{ fontSize: 13 }}>
+              We will use the selected method only. Phone calls are always made by a person.
             </div>
           </div>
         </section>
