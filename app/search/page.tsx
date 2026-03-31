@@ -205,170 +205,170 @@ export default function SearchPage() {
       )}
 
       {canShowResults && (
-        <>
-          {loading && <div className="card">Loading...</div>}
-          {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
+        <div className="search-layout">
+          <section className="search-results-col">
+            {loading && <div className="card">Loading...</div>}
+            {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
 
-          {!loading && !err && (
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table className="table" style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th style={{ width: 110 }}>Tag</th>
-                    <th>Customer</th>
-                    <th style={{ width: 160 }}>Phone</th>
-                    <th style={{ width: 140 }}>Drop-off</th>
-                    <th>Status</th>
-                    <th>Caping</th>
-                    <th>Webbs</th>
-                    <th style={{ width: 190 }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 && (
+            {!loading && !err && (
+              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table className="table" style={{ width: '100%' }}>
+                  <thead>
                     <tr>
-                      <td colSpan={8} style={{ padding: 14 }}>No results.</td>
+                      <th style={{ width: 110 }}>Tag</th>
+                      <th>Customer</th>
+                      <th style={{ width: 160 }}>Phone</th>
+                      <th style={{ width: 140 }}>Drop-off</th>
+                      <th>Status</th>
+                      <th>Caping</th>
+                      <th>Webbs</th>
+                      <th style={{ width: 190 }} />
                     </tr>
-                  )}
-                  {rows.map((r) => (
-                    <tr
-                      key={r.tag}
-                      onClick={() => void loadDetails(r.tag!)}
-                      onDoubleClick={() => openTag(r.tag!)}
-                      style={{
-                        cursor: 'pointer',
-                        background: r.tag === selectedTag ? '#f0fdf4' : undefined,
-                      }}
-                      title="Click for details, double-click to open"
-                    >
-                      <td><strong>{r.tag}</strong></td>
-                      <td>{r.customer || '-'}</td>
-                      <td>{r.phone || '-'}</td>
-                      <td>{r.dropoff || '-'}</td>
-                      <td>{r.status || '-'}</td>
-                      <td>{r.capingStatus || '-'}</td>
-                      <td>{r.webbsStatus || '-'}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            className="btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openTag(r.tag!);
-                            }}
-                          >
-                            Open
-                          </button>
-                          <button
-                            type="button"
-                            className="btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void printTag(r.tag!);
-                            }}
-                            disabled={printing === r.tag}
-                          >
-                            {printing === r.tag ? 'Preparing...' : 'Print'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      )}
-
-      {(selectedTag || detailLoading || detailErr) && (
-        <div className="card" style={{ marginTop: 16, padding: 16, display: 'grid', gap: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '.04em' }}>Selected Job</div>
-              <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4 }}>{selectedJob?.customer || selectedTag || 'Loading...'}</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                Tag {selectedTag || '-'}{selectedJob?.confirmation ? ` | Confirmation ${selectedJob.confirmation}` : ''}
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={8} style={{ padding: 14 }}>No results.</td>
+                      </tr>
+                    )}
+                    {rows.map((r) => (
+                      <tr
+                        key={r.tag}
+                        onClick={() => void loadDetails(r.tag!)}
+                        onDoubleClick={() => openTag(r.tag!)}
+                        style={{
+                          cursor: 'pointer',
+                          background: r.tag === selectedTag ? '#f0fdf4' : undefined,
+                        }}
+                        title="Click for preview, double-click to open"
+                      >
+                        <td><strong>{r.tag}</strong></td>
+                        <td>{r.customer || '-'}</td>
+                        <td>{r.phone || '-'}</td>
+                        <td>{r.dropoff || '-'}</td>
+                        <td>{r.status || '-'}</td>
+                        <td>{r.capingStatus || '-'}</td>
+                        <td>{r.webbsStatus || '-'}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openTag(r.tag!);
+                              }}
+                            >
+                              Open
+                            </button>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void printTag(r.tag!);
+                              }}
+                              disabled={printing === r.tag}
+                            >
+                              {printing === r.tag ? 'Preparing...' : 'Print'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn" type="button" onClick={() => selectedTag && openTag(selectedTag)} disabled={!selectedTag}>
-                Open Intake
-              </button>
-              <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
-                {printing === selectedTag ? 'Preparing...' : 'Print Sheet'}
-              </button>
-            </div>
-          </div>
+            )}
+          </section>
 
-          {detailLoading ? <div className="muted">Loading details...</div> : null}
-          {detailErr ? <div className="card" style={{ borderColor: '#ef4444' }}>Error: {detailErr}</div> : null}
-
-          {selectedJob ? (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                <DetailBox title="Contact">
-                  <div><strong>Preferred:</strong> {preferredContact}</div>
-                  <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
-                  <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
-                </DetailBox>
-                <DetailBox title="Payment & Print">
-                  <div><strong>Payment:</strong> {paymentSummary}</div>
-                  <div><strong>Last printed:</strong> {fmtDate(selectedJob.intakeSheetPrintedAt)}</div>
-                  <div><strong>Print count:</strong> {selectedJob.intakeSheetPrintCount ?? 0}</div>
-                </DetailBox>
-                <DetailBox title="Webbs & Specialty">
-                  <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
-                  <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? (selectedJob.webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds') : 'No Webbs order'}</div>
-                  <div><strong>Specialty:</strong> {selectedJob.specialtyProducts ? 'Selected' : 'Not selected'}</div>
-                </DetailBox>
-              </div>
-
-              <div style={{ display: 'grid', gap: 10 }}>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>Notification History</div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {notificationRows.map((row) => (
-                    <div
-                      key={row.label}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(160px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr)',
-                        gap: 10,
-                        padding: 10,
-                        border: '1px solid #e5e7eb',
-                        borderRadius: 12,
-                        background: '#f8fafc',
-                      }}
-                    >
-                      <div><strong>{row.label}</strong></div>
-                      <div><span className="muted">Email:</span> {fmtDate(row.email)}</div>
-                      <div><span className="muted">SMS:</span> {fmtDate(row.sms)}</div>
-                    </div>
-                  ))}
+          <aside className="search-preview-col">
+            <div className="card search-preview-card" style={{ padding: 16, display: 'grid', gap: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '.04em' }}>Preview</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, marginTop: 4 }}>{selectedJob?.customer || selectedTag || 'Select a deer'}</div>
+                  <div className="muted" style={{ marginTop: 4 }}>
+                    {selectedTag ? `Tag ${selectedTag}` : 'Click a result row to load details'}
+                    {selectedJob?.confirmation ? ` | Confirmation ${selectedJob.confirmation}` : ''}
+                  </div>
                 </div>
-              </div>
-
-              <div style={{ display: 'grid', gap: 10 }}>
-                <div style={{ fontWeight: 900, fontSize: 18 }}>Resend Notification</div>
-                <div className="muted">Uses the customer's selected automatic contact method. If they prefer phone calls, no automatic resend will be sent.</div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {RESEND_EVENTS.map((event) => (
-                    <button
-                      key={event.key}
-                      type="button"
-                      className="btn"
-                      onClick={() => void resendNotification(event.key)}
-                      disabled={!selectedTag || !!resendBusy}
-                    >
-                      {resendBusy === event.key ? 'Sending...' : event.label}
-                    </button>
-                  ))}
+                  <button className="btn" type="button" onClick={() => selectedTag && openTag(selectedTag)} disabled={!selectedTag}>
+                    Open Intake
+                  </button>
+                  <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
+                    {printing === selectedTag ? 'Preparing...' : 'Print'}
+                  </button>
                 </div>
-                {resendMsg ? <div className="muted" style={{ fontSize: 13 }}>{resendMsg}</div> : null}
               </div>
-            </>
-          ) : null}
+
+              {detailLoading ? <div className="muted">Loading details...</div> : null}
+              {detailErr ? <div className="card" style={{ borderColor: '#ef4444' }}>Error: {detailErr}</div> : null}
+
+              {!selectedJob && !detailLoading && !detailErr ? (
+                <div className="muted" style={{ padding: '8px 0' }}>
+                  Choose a result on the left to see contact details, print history, and resend controls.
+                </div>
+              ) : null}
+
+              {selectedJob ? (
+                <>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    <DetailBox title="Contact">
+                      <div><strong>Preferred:</strong> {preferredContact}</div>
+                      <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
+                      <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
+                    </DetailBox>
+
+                    <DetailBox title="Payment & Print">
+                      <div><strong>Payment:</strong> {paymentSummary}</div>
+                      <div><strong>Last printed:</strong> {fmtDate(selectedJob.intakeSheetPrintedAt)}</div>
+                      <div><strong>Print count:</strong> {selectedJob.intakeSheetPrintCount ?? 0}</div>
+                    </DetailBox>
+
+                    <DetailBox title="Webbs & Specialty">
+                      <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
+                      <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? (selectedJob.webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds') : 'No Webbs order'}</div>
+                      <div><strong>Specialty:</strong> {selectedJob.specialtyProducts ? 'Selected' : 'Not selected'}</div>
+                    </DetailBox>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    <div style={{ fontWeight: 900, fontSize: 18 }}>Notification History</div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {notificationRows.map((row) => (
+                        <div key={row.label} style={{ border: '1px solid #e5e7eb', borderRadius: 12, background: '#f8fafc', padding: 10, display: 'grid', gap: 4 }}>
+                          <div style={{ fontWeight: 800 }}>{row.label}</div>
+                          <div><span className="muted">Email:</span> {fmtDate(row.email)}</div>
+                          <div><span className="muted">SMS:</span> {fmtDate(row.sms)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <div style={{ fontWeight: 900, fontSize: 18 }}>Resend Notification</div>
+                    <div className="muted">Uses the customer's selected automatic contact method. If they prefer phone calls, no automatic resend will be sent.</div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {RESEND_EVENTS.map((event) => (
+                        <button
+                          key={event.key}
+                          type="button"
+                          className="btn"
+                          onClick={() => void resendNotification(event.key)}
+                          disabled={!selectedTag || !!resendBusy}
+                        >
+                          {resendBusy === event.key ? 'Sending...' : event.label}
+                        </button>
+                      ))}
+                    </div>
+                    {resendMsg ? <div className="muted" style={{ fontSize: 13 }}>{resendMsg}</div> : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </aside>
         </div>
       )}
 
@@ -377,6 +377,28 @@ export default function SearchPage() {
       <style jsx>{`
         .print-only {
           display: none;
+        }
+
+        .search-layout {
+          display: grid;
+          grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.95fr);
+          gap: 16px;
+          align-items: start;
+        }
+
+        .search-preview-card {
+          position: sticky;
+          top: 88px;
+        }
+
+        @media (max-width: 1100px) {
+          .search-layout {
+            grid-template-columns: 1fr;
+          }
+
+          .search-preview-card {
+            position: static;
+          }
         }
 
         @media print {
