@@ -215,11 +215,11 @@ export default function SearchPage() {
                 <table className="table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 110 }}>Tag</th>
+                      <th style={{ width: 100 }}>Tag</th>
                       <th>Customer</th>
-                      <th style={{ width: 160 }}>Phone</th>
-                      <th style={{ width: 140 }}>Drop-off</th>
-                      <th style={{ width: 190 }} />
+                      <th style={{ width: 135 }}>Phone</th>
+                      <th style={{ width: 120 }}>Drop-off</th>
+                      <th style={{ width: 150 }} />
                     </tr>
                   </thead>
                   <tbody>
@@ -334,10 +334,18 @@ export default function SearchPage() {
                     <div style={{ fontWeight: 900, fontSize: 18 }}>Notification History</div>
                     <div style={{ display: 'grid', gap: 8 }}>
                       {notificationRows.map((row) => (
-                        <div key={row.label} style={{ border: '1px solid #e5e7eb', borderRadius: 12, background: '#f8fafc', padding: 10, display: 'grid', gap: 4 }}>
-                          <div style={{ fontWeight: 800 }}>{row.label}</div>
-                          <div><span className="muted">Email:</span> {fmtDate(row.email)}</div>
-                          <div><span className="muted">SMS:</span> {fmtDate(row.sms)}</div>
+                        <div key={row.label} style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, display: 'grid', gap: 8, color: '#111827' }}>
+                          <div style={{ fontWeight: 900, color: '#111827' }}>{row.label}</div>
+                          <div style={{ display: 'grid', gap: 6 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <span style={{ color: '#4b5563', fontWeight: 700 }}>Email</span>
+                              <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.email)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                              <span style={{ color: '#4b5563', fontWeight: 700 }}>SMS</span>
+                              <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.sms)}</span>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
