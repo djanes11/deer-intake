@@ -807,6 +807,192 @@ async function trySendNotificationSms(supabaseServer: any, row: any) {
   }
 }
 
+export async function resendCustomerNotification(params: {
+  tag: string;
+  event: 'dropoff_tagged' | 'meat_finished' | 'cape_finished' | 'specialty_finished' | 'webbs_delivered';
+}) {
+  const supabaseServer = getSupabaseServer();
+  const tag = String(params.tag || '').trim();
+  const event = String(params.event || '').trim() as
+    | 'dropoff_tagged'
+    | 'meat_finished'
+    | 'cape_finished'
+    | 'specialty_finished'
+    | 'webbs_delivered';
+
+  if (!tag) return { ok: false, error: 'Missing tag' };
+
+  const { data: row, error } = await supabaseServer
+    .from('jobs')
+    .select('*')
+    .eq('tag', tag)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!row) return { ok: false, error: 'Job not found' };
+
+  const channel = preferredNotificationChannel(row);
+  if (channel === 'call') {
+    return { ok: false, error: 'This customer prefers phone calls. No automatic notification was sent.' };
+  }
+  if (channel === 'none') {
+    return { ok: false, error: 'No automatic notification method is set for this customer.' };
+  }
+
+  const emailStampField: Record<string, string> = {
+    dropoff_tagged: 'dropoff_email_sent_at',
+    meat_finished: 'finished_email_sent_at',
+    cape_finished: 'cape_finished_email_sent_at',
+    specialty_finished: 'specialty_finished_email_sent_at',
+    webbs_delivered: 'webbs_delivered_email_sent_at',
+  };
+  const smsStampField: Record<string, string> = {
+    dropoff_tagged: 'dropoff_sms_sent_at',
+    meat_finished: 'meat_finished_sms_sent_at',
+    cape_finished: 'cape_finished_sms_sent_at',
+    specialty_finished: 'specialty_finished_sms_sent_at',
+    webbs_delivered: 'webbs_delivered_sms_sent_at',
+  };
+
+  const now = nowIso();
+
+  if (event === 'dropoff_tagged' && (!hasRealTag(row) || row.requires_tag)) {
+    return { ok: false, error: 'A real deer tag must be assigned before resending the drop-off notification.' };
+  }
+  if (event === 'meat_finished' && !statusIsFinishedLike(row.status)) {
+    return { ok: false, error: 'Processing is not marked finished or ready yet.' };
+  }
+  if (event === 'cape_finished' && (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status))) {
+    return { ok: false, error: 'Cape is not marked finished or ready yet.' };
+  }
+  if (event === 'specialty_finished' && (!row.specialty_products || !specialtyReady(row.specialty_status))) {
+    return { ok: false, error: 'Specialty products are not marked finished or ready yet.' };
+  }
+  if (event === 'webbs_delivered' && (!row.webbs_order || !webbsReady(row.webbs_status))) {
+    return { ok: false, error: 'Webbs is not marked delivered or ready yet.' };
+  }
+
+  if (channel === 'email') {
+    const email = String(row.email || '').trim();
+    if (!hasUsableEmail(row)) {
+      return { ok: false, error: 'This customer does not have a valid email address.' };
+    }
+
+    if (event === 'dropoff_tagged') {
+      const token = String(row.public_token || '').trim() || makePublicToken();
+      const link = intakeFormLink(String(row.tag || ''), token);
+      const tpl = buildIntakeEmail({
+        name: String(row.customer_name || ''),
+        tag: String(row.tag || ''),
+        link,
+      });
+      await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+      await supabaseServer.from('jobs').update({
+        public_token: token,
+        [emailStampField[event]]: now,
+      }).eq('id', row.id);
+      return { ok: true, event, channel, destination: email };
+    }
+
+    if (event === 'meat_finished') {
+      const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
+      const price = Number(row.price_processing ?? 0) || computed;
+      const tpl = buildFinishedEmail({
+        name: String(row.customer_name || ''),
+        tag: String(row.tag || ''),
+        paidProcessing: !!row.paid_processing,
+        processingPrice: price,
+      });
+      await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+    }
+
+    if (event === 'cape_finished') {
+      const tpl = buildCapeFinishedEmail({
+        name: String(row.customer_name || ''),
+        tag: String(row.tag || ''),
+      });
+      await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+    }
+
+    if (event === 'specialty_finished') {
+      const computed = calcSpecialtyPriceFromLbs(row, await getCurrentPricing());
+      const override = numOrNull(row.specialty_price_override);
+      const price = override ?? (Number(row.price_specialty ?? 0) || computed);
+      const tpl = buildSpecialtyFinishedEmail({
+        name: String(row.customer_name || ''),
+        tag: String(row.tag || ''),
+        paidSpecialty: !!row.paid_specialty,
+        specialtyPrice: price,
+      });
+      await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+    }
+
+    if (event === 'webbs_delivered') {
+      const tpl = buildWebbsDeliveredEmail({
+        name: String(row.customer_name || ''),
+        tag: String(row.tag || ''),
+      });
+      await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
+    }
+
+    await supabaseServer.from('jobs').update({ [emailStampField[event]]: now }).eq('id', row.id);
+    return { ok: true, event, channel, destination: email };
+  }
+
+  const phone = normalizeUsPhone(String(row.phone || ''));
+  if (!phone) {
+    return { ok: false, error: 'This customer does not have a valid phone number for text updates.' };
+  }
+
+  let body = '';
+  if (event === 'dropoff_tagged') {
+    body = buildIntakeSms({ tag: String(row.tag || ''), statusUrl: statusPageLink() });
+  }
+  if (event === 'meat_finished') {
+    const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
+    const price = Number(row.price_processing ?? 0) || computed;
+    body = buildMeatFinishedSms({
+      tag: String(row.tag || ''),
+      paidProcessing: !!row.paid_processing,
+      processingPrice: price,
+      statusUrl: statusPageLink(),
+    });
+  }
+  if (event === 'cape_finished') {
+    body = buildCapeFinishedSms({ tag: String(row.tag || ''), statusUrl: statusPageLink() });
+  }
+  if (event === 'specialty_finished') {
+    const computed = calcSpecialtyPriceFromLbs(row, await getCurrentPricing());
+    const override = numOrNull(row.specialty_price_override);
+    const price = override ?? (Number(row.price_specialty ?? 0) || computed);
+    body = buildSpecialtyFinishedSms({
+      tag: String(row.tag || ''),
+      paidSpecialty: !!row.paid_specialty,
+      specialtyPrice: price,
+      statusUrl: statusPageLink(),
+    });
+  }
+  if (event === 'webbs_delivered') {
+    body = buildWebbsDeliveredSms({ tag: String(row.tag || ''), statusUrl: statusPageLink() });
+  }
+
+  const result = await sendSms({ to: phone, body });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  await logSmsResult(supabaseServer, {
+    jobId: String(row.id),
+    phone,
+    template: event,
+    body,
+    result,
+  });
+  await supabaseServer.from('jobs').update({ [smsStampField[event]]: now }).eq('id', row.id);
+
+  return { ok: true, event, channel, destination: phone };
+}
+
 function appendStampedLine(existing: string | null | undefined, line: string) {
   const old = String(existing || '').trim();
   return old ? `${old}\n${line}` : line;
