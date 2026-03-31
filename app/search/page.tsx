@@ -219,16 +219,13 @@ export default function SearchPage() {
                       <th>Customer</th>
                       <th style={{ width: 160 }}>Phone</th>
                       <th style={{ width: 140 }}>Drop-off</th>
-                      <th>Status</th>
-                      <th>Caping</th>
-                      <th>Webbs</th>
                       <th style={{ width: 190 }} />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={8} style={{ padding: 14 }}>No results.</td>
+                        <td colSpan={5} style={{ padding: 14 }}>No results.</td>
                       </tr>
                     )}
                     {rows.map((r) => (
@@ -238,7 +235,8 @@ export default function SearchPage() {
                         onDoubleClick={() => openTag(r.tag!)}
                         style={{
                           cursor: 'pointer',
-                          background: r.tag === selectedTag ? '#f0fdf4' : undefined,
+                          background: r.tag === selectedTag ? '#ecfdf5' : undefined,
+                          boxShadow: r.tag === selectedTag ? 'inset 5px 0 0 #2f7d42' : undefined,
                         }}
                         title="Click for preview, double-click to open"
                       >
@@ -246,9 +244,6 @@ export default function SearchPage() {
                         <td>{r.customer || '-'}</td>
                         <td>{r.phone || '-'}</td>
                         <td>{r.dropoff || '-'}</td>
-                        <td>{r.status || '-'}</td>
-                        <td>{r.capingStatus || '-'}</td>
-                        <td>{r.webbsStatus || '-'}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                             <button
@@ -319,6 +314,7 @@ export default function SearchPage() {
                       <div><strong>Preferred:</strong> {preferredContact}</div>
                       <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
                       <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
+                      <div><strong>Status:</strong> {selectedJob.status || '-'}</div>
                     </DetailBox>
 
                     <DetailBox title="Payment & Print">
@@ -427,9 +423,9 @@ function labelForEvent(event: string) {
 
 function DetailBox({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, padding: 14, background: '#f8fafc', display: 'grid', gap: 6 }}>
-      <div style={{ fontWeight: 900, fontSize: 16 }}>{title}</div>
-      <div style={{ display: 'grid', gap: 4 }}>{children}</div>
+    <div style={{ border: '1px solid #d1d5db', borderRadius: 14, padding: 14, background: '#f8fafc', color: '#111827', display: 'grid', gap: 6 }}>
+      <div style={{ fontWeight: 900, fontSize: 16, color: '#111827' }}>{title}</div>
+      <div style={{ display: 'grid', gap: 4, color: '#111827' }}>{children}</div>
     </div>
   );
 }
