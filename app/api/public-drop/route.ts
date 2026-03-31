@@ -71,11 +71,11 @@ function publicValidationError(rawJob: Record<string, any>): string | null {
   }
 
   if (rawJob.webbsOrder) {
+    const orderStyle = normalizeWebbsOrderStyle(rawJob.webbsOrderStyle);
     const pounds = Number(String(rawJob.webbsPounds ?? '').replace(/[^0-9.-]/g, ''));
-    if (!Number.isFinite(pounds) || pounds <= 0) {
+    if (orderStyle !== 'whole_deer_percent' && (!Number.isFinite(pounds) || pounds <= 0)) {
       return 'Estimated Webbs pounds are required.';
     }
-    const orderStyle = normalizeWebbsOrderStyle(rawJob.webbsOrderStyle);
     if (orderStyle === 'whole_deer_percent') {
       const allocations = normalizeWebbsAllocations(rawJob.webbsAllocations);
       if (!allocations.length) return 'Enter at least one Webbs product percentage.';

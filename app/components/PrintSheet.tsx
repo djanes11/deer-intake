@@ -204,6 +204,7 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     () => textVal('webbsOrderMode', 'webbs_order_mode'),
     [job?.webbsOrderMode, job?.webbs_order_mode]
   );
+  const webbsPaperFormCompleted = truthy('webbsPaperFormCompleted', 'webbs_paper_form_completed');
   const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
   const hasSpecialty = truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') || hasSpecialtySelection(job);
   const hasWebbs = truthy('Webbs Order','webbsOrder','webbs_order');
@@ -549,8 +550,11 @@ pages.forEach(p => {
           <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
             <div className="webbsMetaRow">
               <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
-              <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
+              {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)').trim() ? (
+                <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
+              ) : null}
               <div><b>Style:</b> {webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}</div>
+              {webbsPaperFormCompleted ? <div><b>Paper Form:</b> Completed</div> : null}
               {webbsOrderMode ? (
                 <div><b>Choice:</b> {webbsOrderMode === 'online' ? 'Entered online' : 'Staff call later'}</div>
               ) : null}

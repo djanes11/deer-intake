@@ -100,6 +100,7 @@ type Job = {
   webbsOrder?: boolean;
   webbsFormNumber?: string;
   webbsPounds?: string;
+  webbsPaperFormCompleted?: boolean;
   webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent';
   webbsItems?: WebbsOrderItem[];
   webbsAllocations?: WebbsAllocationItem[];
@@ -209,6 +210,7 @@ function snapshotJob(j: Job) {
     webbsOrder: !!j.webbsOrder,
     webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? '',
     webbsPounds: j.webbsPounds ?? '',
+    webbsPaperFormCompleted: !!(j as any).webbsPaperFormCompleted,
     webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
     webbsItems: normalizeWebbsOrderItems(j.webbsItems),
     webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
@@ -341,6 +343,7 @@ function IntakePage() {
     webbsOrderStyle: 'itemized_lbs',
     webbsItems: [],
     webbsAllocations: [],
+    webbsPaperFormCompleted: false,
 
     processing_price_override: null,
     specialty_price_override: null,
@@ -598,6 +601,7 @@ useEffect(() => {
             webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
             webbsItems: normalizeWebbsOrderItems(j.webbsItems),
             webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
+            webbsPaperFormCompleted: !!(j as any).webbsPaperFormCompleted,
           };
 
           const fp = fullPaid(next);
@@ -665,15 +669,17 @@ useEffect(() => {
     const parts: string[] = [];
     if ((job.webbsFormNumber || '').trim()) parts.push(`Form #${job.webbsFormNumber}`);
     if (toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
+    if (job.webbsPaperFormCompleted) parts.push('Paper form completed');
     if (webbsItems.length) parts.push(`${webbsItems.length} items`);
     if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
     return parts.length ? parts.join(' • ') : 'Webbs order selected';
-  }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, webbsItems.length, webbsItemTotal]);
+  }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, job.webbsPaperFormCompleted, webbsItems.length, webbsItemTotal]);
   const webbsStyleSummaryText = useMemo(() => {
     if (!job.webbsOrder) return 'No Webbs order';
     const parts: string[] = [];
     if ((job.webbsFormNumber || '').trim()) parts.push(`Form #${job.webbsFormNumber}`);
-    if (toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
+    if (webbsOrderStyle !== 'whole_deer_percent' && toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
+    if (job.webbsPaperFormCompleted) parts.push('Paper form completed');
     parts.push(webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds');
     if (webbsOrderStyle === 'whole_deer_percent') {
       if (webbsAllocations.length) parts.push(`${webbsAllocations.length} products`);
@@ -683,7 +689,7 @@ useEffect(() => {
       if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
     }
     return parts.join(' | ');
-  }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, webbsOrderStyle, webbsAllocations.length, webbsAllocationTotal, webbsItems.length, webbsItemTotal]);
+  }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, job.webbsPaperFormCompleted, webbsOrderStyle, webbsAllocations.length, webbsAllocationTotal, webbsItems.length, webbsItemTotal]);
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
@@ -787,12 +793,12 @@ useEffect(() => {
     if (hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
     if (frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
     if (job.webbsOrder) {
-      if (!toInt(job.webbsPounds)) missing.push('Webbs Pounds');
       if (webbsOrderStyle === 'whole_deer_percent') {
         if (!webbsAllocations.length) missing.push('Webbs Percentages');
         if (webbsAllocationTotal !== 100) missing.push('Webbs Percentages Must Total 100%');
-      } else if (!webbsItems.length) {
-        missing.push('Webbs Items');
+      } else {
+        if (!toInt(job.webbsPounds)) missing.push('Webbs Pounds');
+        if (!webbsItems.length) missing.push('Webbs Items');
       }
     }
     return missing;
@@ -829,7 +835,12 @@ useEffect(() => {
           ? coerce(job.webbsStatus, STATUS_WEBBS)
           : '',
       webbsFormNumber: job.webbsOrder ? (job.webbsFormNumber || '') : '',
-      webbsPounds: job.webbsOrder ? String(toInt(job.webbsPounds) || webbsItemTotal || '') : '',
+      webbsPounds: job.webbsOrder
+        ? webbsOrderStyle === 'whole_deer_percent'
+          ? String(toInt(job.webbsPounds) || '')
+          : String(toInt(job.webbsPounds) || webbsItemTotal || '')
+        : '',
+      webbsPaperFormCompleted: !!job.webbsOrder && !!job.webbsPaperFormCompleted,
       webbsOrderStyle: job.webbsOrder ? webbsOrderStyle : 'itemized_lbs',
       webbsItems: job.webbsOrder && webbsOrderStyle === 'itemized_lbs' ? webbsItems : [],
       webbsAllocations: job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' ? webbsAllocations : [],
@@ -944,6 +955,7 @@ if (fresh?.exists && fresh.job) {
           next.webbsAllocations = [];
           next.webbsPounds = '';
           next.webbsFormNumber = '';
+          next.webbsPaperFormCompleted = false;
         }
       }
 
@@ -1708,7 +1720,14 @@ if (fresh?.exists && fresh.job) {
                       <div className="muted" style={{ fontSize: 13 }}>{webbsStyleSummaryText}</div>
                     </div>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                      <span className="badge">Entered lbs: {toInt(job.webbsPounds) || 0}</span>
+                      {webbsOrderStyle !== 'whole_deer_percent' || toInt(job.webbsPounds) ? (
+                        <span className="badge">
+                          {webbsOrderStyle === 'whole_deer_percent'
+                            ? `Optional lbs: ${toInt(job.webbsPounds) || 0}`
+                            : `Entered lbs: ${toInt(job.webbsPounds) || 0}`}
+                        </span>
+                      ) : null}
+                      {job.webbsPaperFormCompleted ? <span className="badge">Paper form done</span> : null}
                       <span className="badge">
                         {webbsOrderStyle === 'whole_deer_percent'
                           ? `Assigned: ${webbsAllocationTotal || 0}%`
@@ -1950,7 +1969,7 @@ if (fresh?.exists && fresh.job) {
                 />
               </div>
               <div>
-                <label>Webbs Pounds (lb)</label>
+                <label>{webbsOrderStyle === 'whole_deer_percent' ? 'Webbs Pounds (optional)' : 'Webbs Pounds (lb)'}</label>
                 <input
                   inputMode="numeric"
                   value={job.webbsPounds || ''}
@@ -1960,13 +1979,29 @@ if (fresh?.exists && fresh.job) {
             </div>
 
             <div className="webbsModalInfo">
-              <span className="badge">Estimated lbs: {toInt(job.webbsPounds) || 0}</span>
+              {webbsOrderStyle !== 'whole_deer_percent' || toInt(job.webbsPounds) ? (
+                <span className="badge">
+                  {webbsOrderStyle === 'whole_deer_percent'
+                    ? `Optional lbs: ${toInt(job.webbsPounds) || 0}`
+                    : `Estimated lbs: ${toInt(job.webbsPounds) || 0}`}
+                </span>
+              ) : null}
+              <span className="badge">{job.webbsPaperFormCompleted ? 'Paper form done' : 'Paper form not marked'}</span>
               <span className="badge">
                 {webbsOrderStyle === 'whole_deer_percent'
                   ? `Assigned: ${webbsAllocationTotal || 0}%`
                   : `Detailed lbs: ${webbsItemTotal || 0}`}
               </span>
             </div>
+
+            <label className="chk" style={{ marginBottom: 12 }}>
+              <input
+                type="checkbox"
+                checked={!!job.webbsPaperFormCompleted}
+                onChange={(e) => setVal('webbsPaperFormCompleted', e.target.checked)}
+              />
+              <span>Filled out on the paper form</span>
+            </label>
 
             <div className="webbsModeSwitch" style={{ marginBottom: 12 }}>
               <label className="chk">

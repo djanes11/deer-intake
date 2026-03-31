@@ -375,7 +375,12 @@ export default async function IntakeView({
                   <Check on={true} text="Webbs Order (+$20 fee)" />
                 </div>
                 <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Order Form Number" value={job?.webbsFormNumber || job?.webbsOrderFormNumber || ''} /></div>
-                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
+                {String(job?.webbsPounds || '').trim() ? (
+                  <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
+                ) : null}
+                {!!(job as any)?.webbsPaperFormCompleted ? (
+                  <div className="c6" style={{gridColumn:'span 6'}}><Field label="Paper Form" value="Completed" /></div>
+                ) : null}
                 {webbsOrderMode ? (
                   <div className="c12" style={{gridColumn:'span 12'}}>
                     <Field
