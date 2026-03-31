@@ -46,6 +46,13 @@ function attemptsFor(r: FlatRow) {
   return Number(a.callAttemptsWebbs ?? a.webbsAttempts ?? a.callAttempts ?? 0);
 }
 
+function prefersCall(j: Partial<Job>) {
+  const a = j as any;
+  const wantsCall = !!(a.prefCall ?? a['Preferred Phone Call'] ?? a['Pref Call']);
+  const phone = String(a.phone ?? a.Phone ?? '').replace(/\D/g, '');
+  return wantsCall && phone.length === 10;
+}
+
 // show only processing price for meat track
 function displayProcessingPrice(r: any): string {
   if (r.__track !== 'meat') return '—';
@@ -111,7 +118,7 @@ export default function CallReportPage() {
       const raw: Row[] = (res.rows || []).map((r: any) => {
         const p = readProcessingPriceFromRow(r);
         return { ...r, priceProcessing: p ?? r.priceProcessing };
-      });
+      }).filter(prefersCall);
 
       const flat: FlatRow[] = [];
       for (const j of raw) {
@@ -154,6 +161,12 @@ export default function CallReportPage() {
         const job = r.job as Row;
         const p = readProcessingPriceFromRow(job);
         const jobWithPrice = { ...job, priceProcessing: p ?? (job as any).priceProcessing } as any;
+
+        if (!prefersCall(jobWithPrice)) {
+          setRows(prev => prev.filter(x => x.tag !== tag));
+          if (selected && selected.tag === tag) setSelectedKey(null);
+          return;
+        }
 
         setRows(prev => {
           const others = prev.filter(x => x.tag !== tag);
