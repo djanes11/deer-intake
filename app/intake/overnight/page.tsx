@@ -312,6 +312,7 @@ function OvernightIntakePage() {
   const webbsItemLines = useMemo(() => webbsOrderSummary(webbsItems), [webbsItems]);
   const webbsAllocationLines = useMemo(() => webbsAllocationSummary(webbsAllocations), [webbsAllocations]);
   const webbsOrderStyle = normalizeWebbsOrderStyle(job.webbsOrderStyle);
+  const webbsAllocationOver = webbsOrderStyle === 'whole_deer_percent' && webbsAllocationTotal > 100;
   const webbsSummaryText = useMemo(() => {
     if (!job.webbsOrder) return 'No Webbs order';
     const parts: string[] = [];
@@ -1405,6 +1406,11 @@ function OvernightIntakePage() {
                         ) : (
                           <div className="muted" style={{ fontSize: 13 }}>No Webbs items entered yet.</div>
                         )}
+                        {webbsAllocationOver ? (
+                          <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>
+                            Webbs percentages are over 100%. Reduce them before submitting.
+                          </div>
+                        ) : null}
                         {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
                         <div style={{ marginTop: 12 }}>
                           <button type="button" className="btn secondary" onClick={() => setWebbsModalOpen(true)} disabled={locked}>
@@ -1604,6 +1610,11 @@ function OvernightIntakePage() {
             </div>
 
             <div className="webbsModalBody">
+              {webbsAllocationOver ? (
+                <div className="errText" style={{ marginBottom: 12 }}>
+                  Webbs percentages are over 100%. This order cannot be submitted until the total is 100% or less.
+                </div>
+              ) : null}
               {WEBBS_GROUPS.map((group) => (
                 <div key={group.title}>
                   <div className="webbsGroupTitle">{group.title}</div>
@@ -1643,8 +1654,8 @@ function OvernightIntakePage() {
 
       {/* Thank-you modal */}
       {showThanks && (
-        <div className="modal">
-          <div className="modal-card">
+        <div className="modal thanksModal">
+          <div className="modal-card thanksModalCard">
             <div className="thanksKicker">Form Submitted</div>
             <h3>Your public intake was received</h3>
             <div className="thanksConf">
@@ -2142,10 +2153,27 @@ function OvernightIntakePage() {
         }
         .modal-card h3 { margin: 4px 0 0; }
         .modal-card code { background: #f3f4f6; padding: 0 6px; border-radius: 4px; }
+        .thanksModal {
+          align-items: flex-start;
+          padding-top: max(20px, env(safe-area-inset-top));
+          padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+        .thanksModalCard {
+          margin: 0 auto;
+          max-height: calc(100vh - 40px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+          overflow-y: auto;
+        }
         .btn.wide { width: 100%; margin-top: 12px; }
 
         @media (max-width: 720px) {
           .summary { position: static !important; top: auto !important; box-shadow: none; z-index: auto; }
+          .thanksModal {
+            padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+          }
+          .thanksModalCard {
+            max-height: calc(100vh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+            border-radius: 14px;
+          }
         }
         @media (orientation: landscape) and (max-height: 520px) {
           .summary { position: static !important; top: auto !important; box-shadow: none; }

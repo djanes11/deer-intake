@@ -664,6 +664,7 @@ useEffect(() => {
   const webbsAllocationTotal = useMemo(() => webbsAllocationTotalPercent(webbsAllocations), [webbsAllocations]);
   const webbsAllocationLines = useMemo(() => webbsAllocationSummary(webbsAllocations), [webbsAllocations]);
   const webbsOrderStyle = normalizeWebbsOrderStyle(job.webbsOrderStyle);
+  const webbsAllocationOver = webbsOrderStyle === 'whole_deer_percent' && webbsAllocationTotal > 100;
   const webbsSummaryText = useMemo(() => {
     if (!job.webbsOrder) return 'No Webbs order';
     const parts: string[] = [];
@@ -1756,6 +1757,11 @@ if (fresh?.exists && fresh.job) {
                   ) : (
                     <div className="muted" style={{ fontSize: 13 }}>No detailed Webbs items entered yet.</div>
                   )}
+                  {webbsAllocationOver ? (
+                    <div className="errText" style={{ marginTop: 12 }}>
+                      Webbs percentages are over 100%. Reduce them before saving.
+                    </div>
+                  ) : null}
                   <div style={{ marginTop: 12 }}>
                     <button type="button" className="btn secondaryBtn" onClick={() => setWebbsModalOpen(true)}>
                       Edit Webbs Order
@@ -1993,6 +1999,12 @@ if (fresh?.exists && fresh.job) {
                   : `Detailed lbs: ${webbsItemTotal || 0}`}
               </span>
             </div>
+
+            {webbsAllocationOver ? (
+              <div className="errText" style={{ marginBottom: 12 }}>
+                Webbs percentages are over 100%. This order cannot be saved until the total is 100% or less.
+              </div>
+            ) : null}
 
             <label className="chk" style={{ marginBottom: 12 }}>
               <input
