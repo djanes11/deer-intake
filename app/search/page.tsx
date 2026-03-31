@@ -219,7 +219,7 @@ export default function SearchPage() {
                       <th>Customer</th>
                       <th style={{ width: 135 }}>Phone</th>
                       <th style={{ width: 120 }}>Drop-off</th>
-                      <th style={{ width: 150 }} />
+                      <th style={{ width: 120 }} />
                     </tr>
                   </thead>
                   <tbody>
@@ -235,8 +235,9 @@ export default function SearchPage() {
                         onDoubleClick={() => openTag(r.tag!)}
                         style={{
                           cursor: 'pointer',
-                          background: r.tag === selectedTag ? '#ecfdf5' : undefined,
+                          background: r.tag === selectedTag ? '#dcfce7' : undefined,
                           boxShadow: r.tag === selectedTag ? 'inset 5px 0 0 #2f7d42' : undefined,
+                          color: r.tag === selectedTag ? '#111827' : undefined,
                         }}
                         title="Click for preview, double-click to open"
                       >
@@ -245,10 +246,11 @@ export default function SearchPage() {
                         <td>{r.phone || '-'}</td>
                         <td>{r.dropoff || '-'}</td>
                         <td>
-                          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'grid', gap: 8, justifyContent: 'end' }}>
                             <button
                               type="button"
                               className="btn"
+                              style={{ minWidth: 86, padding: '8px 12px' }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openTag(r.tag!);
@@ -259,6 +261,7 @@ export default function SearchPage() {
                             <button
                               type="button"
                               className="btn"
+                              style={{ minWidth: 86, padding: '8px 12px' }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 void printTag(r.tag!);
