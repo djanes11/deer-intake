@@ -494,6 +494,7 @@ function OvernightIntakePage() {
     if (!job.sex) e.sex = 'Deer Sex is required';
     if (!job.howKilled) e.howKilled = 'How Killed is required';
     if (!job.processType) e.processType = 'Process Type is required';
+    if (job.prefSMS && !job.smsConsent) e.smsConsent = 'SMS consent is required when text updates are selected';
     if (job.hind?.['Hind - Roast'] && !toInt(job.hindRoastCount)) e.hindRoastCount = 'Hind Roast Count is required';
     if (job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
 
@@ -1482,6 +1483,7 @@ function OvernightIntakePage() {
                     ) : (
                       <div className="muted">No extra consent needed for email or staff phone calls.</div>
                     )}
+                    {errors.smsConsent ? <div className="errText" data-err="smsConsent">{errors.smsConsent}</div> : null}
                   </div>
                 </div>
               </div>
@@ -1523,7 +1525,28 @@ function OvernightIntakePage() {
                 <div className="reviewCard">
                   <div className="reviewCardTitle">Extras & Contact</div>
                   <div className="reviewLine">Specialty: {job.specialtyProducts ? specialtySummaryText : 'No specialty products'}</div>
+                  {job.specialtyProducts && specialtyItems.length > 0 ? (
+                    <div className="reviewList">
+                      {specialtyItems.map((item) => (
+                        <div key={item.key} className="reviewListItem">{item.label.replace(' (lb)', '')}: {item.pounds} lb</div>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className="reviewLine">Webbs: {job.webbsOrder ? webbsStyleSummaryText : 'No Webbs order'}</div>
+                  {job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 ? (
+                    <div className="reviewList">
+                      {webbsAllocationLines.map((line) => (
+                        <div key={line} className="reviewListItem">{line}</div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {job.webbsOrder && webbsOrderStyle !== 'whole_deer_percent' && webbsItemLines.length > 0 ? (
+                    <div className="reviewList">
+                      {webbsItemLines.map((line) => (
+                        <div key={line} className="reviewListItem">{line}</div>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className="reviewLine">Preferred contact: {preferredContact}</div>
                   <div className="reviewLine">SMS consent: {job.prefSMS ? (job.smsConsent ? 'Yes' : 'No') : 'Not needed'}</div>
                 </div>
@@ -1876,6 +1899,18 @@ function OvernightIntakePage() {
           line-height: 1.55;
           color: #173321;
           margin-top: 4px;
+          overflow-wrap: anywhere;
+        }
+        .reviewList {
+          display: grid;
+          gap: 6px;
+          margin-top: 8px;
+          padding-left: 10px;
+        }
+        .reviewListItem {
+          font-size: 13px;
+          line-height: 1.5;
+          color: #173321;
           overflow-wrap: anywhere;
         }
         .reviewNoteText {

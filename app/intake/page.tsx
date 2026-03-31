@@ -791,6 +791,7 @@ useEffect(() => {
     if (!job.dropoff) missing.push('Drop-off Date');
     if (!job.sex) missing.push('Deer Sex');
     if (!job.processType) missing.push('Process Type');
+    if (job.prefSMS && !job.smsConsent) missing.push('SMS Consent');
     if (hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
     if (frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
     if (job.webbsOrder) {

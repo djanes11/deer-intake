@@ -69,6 +69,9 @@ function publicValidationError(rawJob: Record<string, any>): string | null {
   if (rawJob.prefEmail && !hasText(rawJob.email)) {
     return 'Email is required when email notifications are selected.';
   }
+  if (rawJob.prefSMS && !rawJob.smsConsent) {
+    return 'SMS consent is required when text updates are selected.';
+  }
 
   if (rawJob.webbsOrder) {
     const orderStyle = normalizeWebbsOrderStyle(rawJob.webbsOrderStyle);
