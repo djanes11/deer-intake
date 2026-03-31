@@ -89,23 +89,23 @@ function statusTone(status?: string): StatusTone {
 function statusMessage(label: string, status?: string) {
   const tone = statusTone(status);
   const value = text(status);
-  if (value.includes('called')) return `We have tried to reach you about ${label.toLowerCase()}.`;
-  if (value.includes('picked up')) return `${label} has been picked up.`;
-  if (tone === 'ready') return `${label} is ready for pickup.`;
-  if (tone === 'progress') return `${label} is currently being worked on.`;
-  if (tone === 'hold') return `${label} has been received and is waiting for the next step.`;
-  return `${label} status will update here as work moves forward.`;
+  if (value.includes('called')) return `Please contact the shop about your ${label.toLowerCase()}.`;
+  if (value.includes('picked up')) return `Your ${label.toLowerCase()} has already been picked up.`;
+  if (tone === 'ready') return `Your ${label.toLowerCase()} is ready for pickup.`;
+  if (tone === 'progress') return `Your ${label.toLowerCase()} is still being worked on.`;
+  if (tone === 'hold') return `We have your ${label.toLowerCase()} and it is waiting for the next step.`;
+  return `We will update this page as your ${label.toLowerCase()} moves through the shop.`;
 }
 
 function customerFacingStatus(status?: string) {
   const value = text(status);
-  if (!value) return 'Status pending';
-  if (value.includes('called')) return 'Please contact the shop';
+  if (!value) return 'Not posted yet';
+  if (value.includes('called')) return 'Please contact us';
   if (value.includes('picked up')) return 'Picked up';
   if (READY_WORDS.some((w) => value.includes(w))) return 'Ready for pickup';
-  if (PROGRESS_WORDS.some((w) => value.includes(w))) return 'In progress';
-  if (HOLD_WORDS.some((w) => value.includes(w))) return 'Received';
-  return status || 'Status pending';
+  if (PROGRESS_WORDS.some((w) => value.includes(w))) return 'Still being worked on';
+  if (HOLD_WORDS.some((w) => value.includes(w))) return 'We have it';
+  return 'Status updated';
 }
 
 function trackSummaries(res: LookupResult | null): TrackSummary[] {

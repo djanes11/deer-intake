@@ -1646,23 +1646,26 @@ function OvernightIntakePage() {
         <div className="modal">
           <div className="modal-card">
             <div className="thanksKicker">Form Submitted</div>
-            <h3>Public intake recorded</h3>
+            <h3>Your public intake was received</h3>
             <div className="thanksConf">
               <div className="thanksConfLabel">Your confirmation number</div>
               <div className="thanksConfValue">{job.confirmation || 'Saved'}</div>
             </div>
-            <p style={{ marginTop: 10 }}>
-              Please leave a note with your <b>full name</b>, <b>phone number</b>, and the <b>last 5 digits</b> of your confirmation number
+            <p style={{ marginTop: 10, lineHeight: 1.6 }}>
+              Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.
+            </p>
+            <p style={{ marginTop: 10, lineHeight: 1.6 }}>
+              Leave a note with your <b>full name</b>, <b>phone number</b>, and the <b>last 5 digits</b> of your confirmation number
               {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
-              {' '}with your deer.
+              {' '}with your deer at drop-off.
             </p>
             <div className="thanksList">
-              <div>1. Staff will assign your deer tag after check-in.</div>
-              <div>2. Use this confirmation number to check status later.</div>
-              <div>3. If you selected email updates, we'll email when your deer is tagged and when it is ready.</div>
+              <div>1. Staff will review your intake and assign the real deer tag.</div>
+              <div>2. Use this confirmation number on the status page until that tag is assigned.</div>
+              <div>3. We will contact you using the method you selected when there is an update.</div>
             </div>
             <p className="muted" style={{ marginTop: 10 }}>
-              Save or screenshot this confirmation number before you close this page.
+              If anything looks wrong later, contact the shop and have this confirmation number ready.
             </p>
             <div className="thanksActions">
               <button
@@ -2057,12 +2060,33 @@ function OvernightIntakePage() {
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             padding-top: 12px;
+            position: sticky;
+            bottom: 0;
+            background: rgba(255,255,255,.98);
+            backdrop-filter: blur(8px);
+            margin: 12px -12px 0;
+            padding: 12px;
+            border-top: 1px solid #dce7df;
           }
           .statusWrap {
             grid-column: 1 / -1;
           }
           .btn {
             width: 100%;
+          }
+          .webbsSummaryCard {
+            padding: 14px;
+          }
+          .webbsSummaryHead {
+            display: grid;
+            gap: 10px;
+          }
+          .thanksConfValue {
+            font-size: 24px;
+          }
+          .thanksActions {
+            display: grid;
+            grid-template-columns: 1fr;
           }
           .webbsModalCard {
             max-height: calc(100vh - 20px);
