@@ -250,7 +250,7 @@ export default function MissingTagsPage() {
     return (
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>Overnight Intake Queue</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>Public Intake Queue</div>
           <div style={{ marginTop: 4, fontSize: 13, opacity: 0.72 }}>
             Assign the real deer tag, then print the full intake sheet with the barcode.
           </div>
@@ -320,9 +320,9 @@ export default function MissingTagsPage() {
 
         <div style={{ border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', background: '#f7f7f7', borderBottom: '1px solid #e5e5e5' }}>
-            <div style={{ fontWeight: 700 }}>Deer Waiting For Real Tags</div>
+            <div style={{ fontWeight: 700 }}>Public Intakes Waiting For Real Tags</div>
             <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
-              This layout stays readable with a longer queue and keeps the action on one line per deer.
+              Assign the real deer tag, then print the full intake sheet with the barcode.
             </div>
           </div>
 
@@ -382,17 +382,18 @@ export default function MissingTagsPage() {
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
                       disabled={isBusy || isDeleting || !r.id}
                     />
-                    <button className="btn" onClick={() => doAssign(r)} disabled={isBusy || isDeleting || !r.id}>
-                      {isBusy ? 'Saving...' : 'Assign Tag'}
-                    </button>
-                    <button
-                      className="btn"
-                      onClick={() => doDelete(r)}
-                      disabled={isBusy || isDeleting || !r.id}
-                      style={{ background: '#7f1d1d' }}
-                    >
-                      {isDeleting ? 'Deleting...' : 'Delete'}
-                    </button>
+                    <div className="queue-action-buttons">
+                      <button className="btn btn-compact" onClick={() => doAssign(r)} disabled={isBusy || isDeleting || !r.id}>
+                        {isBusy ? 'Saving...' : 'Assign Tag'}
+                      </button>
+                      <button
+                        className="btn btn-compact btn-danger"
+                        onClick={() => doDelete(r)}
+                        disabled={isBusy || isDeleting || !r.id}
+                      >
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -427,6 +428,23 @@ export default function MissingTagsPage() {
           align-items: center;
         }
 
+        .queue-action-buttons {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          justify-content: flex-start;
+        }
+
+        .btn-compact {
+          padding: 10px 16px;
+          min-width: 132px;
+          text-align: center;
+        }
+
+        .btn-danger {
+          background: #7f1d1d;
+        }
+
         .print-only {
           display: none;
         }
@@ -442,8 +460,13 @@ export default function MissingTagsPage() {
             grid-template-columns: 1fr;
           }
 
-          .btn {
+          .queue-action-buttons {
             width: 100%;
+          }
+
+          .btn-compact {
+            flex: 1;
+            min-width: 0;
           }
         }
 
