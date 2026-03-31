@@ -782,7 +782,7 @@ useEffect(() => {
       const so = toMoneyOrNull(soRaw);
       if (so == null || so < 0) missing.push('Specialty Override (valid $ amount)');
     }
-    if (!job.email) missing.push('Email');
+    if (job.prefEmail && !job.email) missing.push('Email');
     if (!job.address) missing.push('Address');
     if (!job.city) missing.push('City');
     if (!job.state) missing.push('State');

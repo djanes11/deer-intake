@@ -483,6 +483,7 @@ function OvernightIntakePage() {
     if (!is13Digits(job.confirmation)) e.confirmation = 'Confirmation must be 13 digits';
     if (!job.customer?.trim()) e.customer = 'Customer Name is required';
     if (!is10Digits(job.phone)) e.phone = 'Phone must be 10 digits';
+    if (job.prefEmail && !job.email?.trim()) e.email = 'Email is required when email updates are selected';
     if (!job.address?.trim()) e.address = 'Address is required';
     if (!job.city?.trim()) e.city = 'City is required';
     if (!job.state?.trim()) e.state = 'State is required';
@@ -881,7 +882,24 @@ function OvernightIntakePage() {
               <div className="c4">
                 <label>Email</label>
                 <Hint>Used for receipts or email updates.</Hint>
-                <input value={job.email || ''} onChange={(e) => setVal('email', e.target.value)} disabled={locked} />
+                <input
+                  value={job.email || ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVal('email', v);
+                    setErrors((prev) => {
+                      if (!prev.email) return prev;
+                      const n = { ...prev };
+                      if (!job.prefEmail || v.trim()) delete n.email;
+                      else n.email = 'Email is required when email updates are selected';
+                      return n;
+                    });
+                  }}
+                  className={errors.email ? 'err' : ''}
+                  data-err="email"
+                  disabled={locked}
+                />
+                {errors.email ? <div className="errText">{errors.email}</div> : null}
               </div>
 
               <div className="c8">
