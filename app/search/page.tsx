@@ -219,7 +219,7 @@ export default function SearchPage() {
                       <th>Customer</th>
                       <th style={{ width: 135 }}>Phone</th>
                       <th style={{ width: 120 }}>Drop-off</th>
-                      <th style={{ width: 120 }} />
+                      <th style={{ width: 136, paddingRight: 18 }} />
                     </tr>
                   </thead>
                   <tbody>
@@ -245,8 +245,8 @@ export default function SearchPage() {
                         <td>{r.customer || '-'}</td>
                         <td>{r.phone || '-'}</td>
                         <td>{r.dropoff || '-'}</td>
-                        <td>
-                          <div style={{ display: 'grid', gap: 8, justifyContent: 'end' }}>
+                        <td style={{ paddingRight: 18 }}>
+                          <div style={{ display: 'grid', gap: 8, justifyContent: 'end', justifyItems: 'end' }}>
                             <button
                               type="button"
                               className="btn"
