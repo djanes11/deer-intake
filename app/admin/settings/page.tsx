@@ -146,7 +146,9 @@ export default function AdminSettingsPage() {
       if (j?.ok) {
         const status = j?.twilioAccountStatus ? `Twilio account status: ${j.twilioAccountStatus}. ` : '';
         const enabled = j?.enabled ? 'SMS enabled. ' : 'SMS disabled. ';
-        const allowlist = Array.isArray(j?.allowlist) && j.allowlist.length ? `Allowlist: ${j.allowlist.join(', ')}` : 'Allowlist: none';
+        const allowlist = Array.isArray(j?.allowlist) && j.allowlist.length
+          ? `Allowlist restricted to: ${j.allowlist.join(', ')}`
+          : 'Allowlist: unrestricted (all numbers can be sent texts)';
         setSmsHealthMsg(`${status}${enabled}${allowlist}`);
       } else {
         const code = j?.code ? ` (${j.code})` : '';
@@ -474,6 +476,10 @@ export default function AdminSettingsPage() {
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             This is a staff-only Twilio test tool. It still respects your SMS env guard and allowlist, so it is safe to
             wire before turning live texting on.
+          </div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+            If <code>TWILIO_SMS_ALLOWLIST</code> is blank, texting is unrestricted and can go to any valid number.
+            Keep <code>TWILIO_SMS_ENABLED</code> as your main on/off switch.
           </div>
 
           <div style={{ display: 'grid', gap: 10 }}>
