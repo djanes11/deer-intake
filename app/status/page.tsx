@@ -77,27 +77,6 @@ function normalizeName(n?: string) {
   return (n || '').trim().replace(/[^a-zA-Z'-]/g, '');
 }
 
-function parseQuery(input: string): { confirmation?: string; tag?: string; lastName?: string } {
-  let s = input.trim();
-  if (!s) return {};
-
-  s = s.replace(/[,]+/g, ' ').replace(/\s+/g, ' ');
-
-  if (/^\d{4,}$/.test(s)) return { confirmation: s };
-
-  let m = s.match(/^(\d{2,})\s+([a-zA-Z'-]{2,})$/);
-  if (m) return { tag: m[1], lastName: normalizeName(m[2]) };
-
-  m = s.match(/^([a-zA-Z'-]{2,})\s+(\d{2,})$/);
-  if (m) return { tag: m[2], lastName: normalizeName(m[1]) };
-
-  if (/^[a-zA-Z'-]{2,}$/.test(s)) return { lastName: normalizeName(s) };
-
-  const digits = s.replace(/\D/g, '');
-  if (digits.length >= 4) return { confirmation: digits };
-  return {};
-}
-
 function statusTone(status?: string): StatusTone {
   const value = text(status);
   if (!value) return 'unknown';
@@ -165,8 +144,6 @@ function trackSummaries(res: LookupResult | null): TrackSummary[] {
 }
 
 export default function StatusPage() {
-  const [q, setQ] = useState('');
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [confirmation, setConfirmation] = useState('');
   const [tag, setTag] = useState('');
   const [lastName, setLastName] = useState('');
@@ -309,15 +286,6 @@ export default function StatusPage() {
     fontWeight: 700,
     cursor: 'pointer',
   };
-  const helperChip: React.CSSProperties = {
-    border: '1px solid #1f2937',
-    borderRadius: 999,
-    padding: '8px 12px',
-    background: '#11161b',
-    color: '#d4e7db',
-    fontWeight: 700,
-    cursor: 'pointer',
-  };
   const valueBox: React.CSSProperties = {
     background: '#0f1416',
     border: '1px solid #1f2937',
@@ -403,17 +371,14 @@ export default function StatusPage() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const base = parseQuery(q);
-    const payload = showAdvanced
-      ? {
-          confirmation: confirmation || base.confirmation,
-          tag: tag || base.tag,
-          lastName: lastName || base.lastName,
-        }
-      : base;
+    const payload = {
+      confirmation: confirmation.replace(/\D/g, ''),
+      tag: tag.trim(),
+      lastName: normalizeName(lastName),
+    };
 
-    if (!payload.confirmation && !payload.tag && !payload.lastName) {
-      setErr('Enter your confirmation number or your tag and last name.');
+    if (!payload.confirmation && !(payload.tag && payload.lastName)) {
+      setErr('Enter your confirmation number, or enter your tag number and last name.');
       return;
     }
 
@@ -468,7 +433,11 @@ export default function StatusPage() {
       stream.getTracks().forEach((t: MediaStreamTrack) => t.stop());
       if (codes?.[0]?.rawValue) {
         const raw = String(codes[0].rawValue).trim();
-        setQ(/^\d+$/.test(raw) ? raw : raw.replace(/\s+/g, ' '));
+        if (/^\d+$/.test(raw)) {
+          setConfirmation(raw);
+        } else {
+          setTag(raw.replace(/\s+/g, ' '));
+        }
       }
     } catch {
       // ignore scan failures
@@ -484,32 +453,52 @@ export default function StatusPage() {
           <div>
             <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0 }}>Track Your Deer</h1>
             <p style={{ opacity: 0.86, margin: '8px 0 0' }}>
-              Enter your confirmation number for the fastest search. You can also search by deer tag and last name.
+              Use one of these two search methods: your confirmation number, or your deer tag and last name.
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => setQ('1234567890')} style={helperChip}>
-              Search with confirmation number
-            </button>
-            <button type="button" onClick={() => setQ('54321 McAfee')} style={helperChip}>
-              Search with tag and last name
-            </button>
-          </div>
-
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Confirmation # or Tag + Last Name"
-                inputMode="text"
-                enterKeyHint="search"
-                autoCapitalize="none"
-                autoCorrect="off"
-                style={{ ...field, flex: '1 1 380px' }}
-                aria-label="Search by confirmation number or tag and last name"
-              />
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: 12,
+              }}
+            >
+              <div style={sectionCard}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Confirmation Number</div>
+                <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
+                  Best for public intake forms before a deer tag has been assigned.
+                </div>
+                <input
+                  value={confirmation}
+                  onChange={(e) => setConfirmation(e.target.value)}
+                  placeholder="Confirmation #"
+                  inputMode="numeric"
+                  aria-label="Confirmation number"
+                  style={{ ...field, width: '100%' }}
+                />
+              </div>
+
+              <div style={sectionCard}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Tag and Last Name</div>
+                <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
+                  Use this after staff have assigned the real deer tag.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                  <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag number" aria-label="Tag number" style={field} />
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Last name"
+                    aria-label="Customer last name"
+                    style={field}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {canScan ? (
                 <button type="button" onClick={handleScan} title="Scan code" style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}>
                   Scan
@@ -521,34 +510,8 @@ export default function StatusPage() {
             </div>
 
             <div style={{ fontSize: 13, opacity: 0.82 }}>
-              Examples: <code>1234567890</code>, <code>54321 McAfee</code>, or <code>McAfee 54321</code>
+              Search with a confirmation number, or with both tag number and last name.
             </div>
-
-            <details style={{ marginTop: 2 }}>
-              <summary style={{ cursor: 'pointer' }} onClick={() => setShowAdvanced((v) => !v)}>
-                Advanced search
-              </summary>
-              <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-                <input
-                  value={confirmation}
-                  onChange={(e) => setConfirmation(e.target.value)}
-                  placeholder="Confirmation #"
-                  inputMode="numeric"
-                  aria-label="Confirmation number"
-                  style={field}
-                />
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                  <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag" aria-label="Tag number" style={field} />
-                  <input
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Last Name"
-                    aria-label="Customer last name"
-                    style={field}
-                  />
-                </div>
-              </div>
-            </details>
           </form>
         </div>
       </section>
