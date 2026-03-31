@@ -219,13 +219,12 @@ export default function SearchPage() {
                       <th>Customer</th>
                       <th style={{ width: 135 }}>Phone</th>
                       <th style={{ width: 120 }}>Drop-off</th>
-                      <th style={{ width: 136, paddingRight: 18 }} />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={5} style={{ padding: 14 }}>No results.</td>
+                        <td colSpan={4} style={{ padding: 14 }}>No results.</td>
                       </tr>
                     )}
                     {rows.map((r) => (
@@ -245,33 +244,6 @@ export default function SearchPage() {
                         <td>{r.customer || '-'}</td>
                         <td>{r.phone || '-'}</td>
                         <td>{r.dropoff || '-'}</td>
-                        <td style={{ paddingRight: 18 }}>
-                          <div style={{ display: 'grid', gap: 8, justifyContent: 'end', justifyItems: 'end' }}>
-                            <button
-                              type="button"
-                              className="btn"
-                              style={{ minWidth: 86, padding: '8px 12px' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openTag(r.tag!);
-                              }}
-                            >
-                              Open
-                            </button>
-                            <button
-                              type="button"
-                              className="btn"
-                              style={{ minWidth: 86, padding: '8px 12px' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void printTag(r.tag!);
-                              }}
-                              disabled={printing === r.tag}
-                            >
-                              {printing === r.tag ? 'Preparing...' : 'Print'}
-                            </button>
-                          </div>
-                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -393,9 +365,20 @@ export default function SearchPage() {
           align-items: start;
         }
 
+        .search-results-col {
+          min-width: 0;
+        }
+
+        .search-results-col :global(.card) {
+          max-height: calc(100vh - 220px);
+          overflow: auto;
+        }
+
         .search-preview-card {
           position: sticky;
           top: 88px;
+          max-height: calc(100vh - 110px);
+          overflow: auto;
         }
 
         @media (max-width: 1100px) {
@@ -403,8 +386,15 @@ export default function SearchPage() {
             grid-template-columns: 1fr;
           }
 
+          .search-results-col :global(.card) {
+            max-height: none;
+            overflow: visible;
+          }
+
           .search-preview-card {
             position: static;
+            max-height: none;
+            overflow: visible;
           }
         }
 
