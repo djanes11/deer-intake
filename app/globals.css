@@ -1585,11 +1585,11 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 }
 .printsheet .attentionBox {
   border-width: 2px;
-  border-color: #24593b;
-  background: #f5fbf6;
+  border-color: #111111;
+  background: #f4f4f4;
 }
 .printsheet .attentionBox .label {
-  color: #114b2f;
+  color: #111111;
   font-weight: 800;
 }
 .printsheet .attentionValue {
@@ -1685,17 +1685,27 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   .printsheet .attentionBox {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    background: #edf7ef !important;
-    border-color: #24593b !important;
+    background: #f0f0f0 !important;
+    border: 2px solid #000 !important;
   }
   .printsheet .attentionValue {
     font-size: 13.3px !important;
     line-height: 1.22 !important;
+    color: #000 !important;
   }
   .printsheet .specialtyFlagBox .attentionValue,
   .printsheet .webbsFlagBox .attentionValue,
   .printsheet .paymentBox .attentionValue {
     font-size: 14px !important;
+  }
+  .printsheet .attentionBox .label {
+    color: #000 !important;
+    letter-spacing: .02em;
+  }
+  .printsheet .specialtyFlagBox,
+  .printsheet .webbsFlagBox,
+  .printsheet .paymentBox {
+    background: #e8e8e8 !important;
   }
 }
 
