@@ -1,7 +1,7 @@
 // app/(public)/overnight/page.tsx
 'use client';
 
-import { Fragment, useEffect, useMemo, useState, Suspense } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
@@ -335,6 +335,22 @@ function OvernightIntakePage() {
     }
     return parts.join(' | ');
   }, [job.webbsOrder, job.webbsPounds, webbsOrderStyle, webbsAllocations.length, webbsAllocationTotal, webbsItems.length, webbsItemTotal]);
+  const hindSelections = useMemo(() => {
+    const out: string[] = [];
+    if (job.hind?.['Hind - Steak']) out.push('Steak');
+    if (job.hind?.['Hind - Roast']) out.push(`Roast${toInt(job.hindRoastCount) ? ` (${toInt(job.hindRoastCount)})` : ''}`);
+    if (job.hind?.['Hind - Grind']) out.push('Grind');
+    if (job.hind?.['Hind - None']) out.push('None');
+    return out;
+  }, [job.hind, job.hindRoastCount]);
+  const frontSelections = useMemo(() => {
+    const out: string[] = [];
+    if (job.front?.['Front - Roast']) out.push(`Roast${toInt(job.frontRoastCount) ? ` (${toInt(job.frontRoastCount)})` : ''}`);
+    if (job.front?.['Front - Grind']) out.push('Grind');
+    if (job.front?.['Front - None']) out.push('None');
+    return out;
+  }, [job.front, job.frontRoastCount]);
+  const preferredContact = job.prefSMS ? 'Text (SMS)' : job.prefCall ? 'Phone Call' : job.prefEmail ? 'Email' : 'Not selected';
 
   const procNorm = normProc(job.processType);
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
@@ -425,6 +441,12 @@ function OvernightIntakePage() {
       delete n[k];
       return n;
     });
+
+  const scrollPageTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
 
   const setConfirmation = (v: string) => {
     const val = digitsOnly(v).slice(0, 13);
@@ -519,14 +541,14 @@ function OvernightIntakePage() {
       return;
     }
     setStepIdx((i) => Math.min(i + 1, steps.length - 1));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollPageTop();
   };
 
   const goBack = () => {
     if (locked) return;
     setMsg('');
     setStepIdx((i) => Math.max(i - 1, 0));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    scrollPageTop();
   };
 
   const onSave = async () => {
@@ -604,7 +626,7 @@ function OvernightIntakePage() {
       setLocked(true);
       setShowThanks(true);
       setMsg('Saved');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollPageTop();
     } catch (e: any) {
       setMsg(e?.message || String(e));
     } finally {
@@ -612,6 +634,10 @@ function OvernightIntakePage() {
       setTimeout(() => setMsg(''), 1500);
     }
   };
+
+  useEffect(() => {
+    scrollPageTop();
+  }, [stepIdx, showThanks, scrollPageTop]);
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
     !locked &&
@@ -1468,7 +1494,48 @@ function OvernightIntakePage() {
           <section>
             <h3>Review</h3>
             <Hint>Double-check everything below. If it looks right, submit.</Hint>
-            <div style={{ marginTop: 12 }}>
+            <div className="reviewMobile" style={{ marginTop: 12 }}>
+              <div className="reviewSummaryGrid">
+                <div className="reviewCard">
+                  <div className="reviewCardTitle">Customer</div>
+                  <div className="reviewLine"><strong>{job.customer || '-'}</strong></div>
+                  <div className="reviewLine">Confirmation: {job.confirmation || '-'}</div>
+                  <div className="reviewLine">Phone: {job.phone || '-'}</div>
+                  <div className="reviewLine">Address: {[job.address, job.city, job.state, job.zip].filter(Boolean).join(', ') || '-'}</div>
+                </div>
+                <div className="reviewCard">
+                  <div className="reviewCardTitle">Hunt Details</div>
+                  <div className="reviewLine">County: {job.county || '-'}</div>
+                  <div className="reviewLine">Drop-off: {job.dropoff || '-'}</div>
+                  <div className="reviewLine">Sex: {job.sex || '-'}</div>
+                  <div className="reviewLine">How killed: {job.howKilled || '-'}</div>
+                  <div className="reviewLine">Process type: {job.processType || '-'}</div>
+                </div>
+                <div className="reviewCard">
+                  <div className="reviewCardTitle">Cuts & Packaging</div>
+                  <div className="reviewLine">Hind quarter: {hindSelections.join(' | ') || '-'}</div>
+                  <div className="reviewLine">Front shoulder: {frontSelections.join(' | ') || '-'}</div>
+                  <div className="reviewLine">Steaks per pack: {job.steaksPerPackage || '-'}</div>
+                  <div className="reviewLine">Burger size: {job.burgerSize || '-'}</div>
+                  <div className="reviewLine">Backstrap: {job.backstrapPrep || '-'}</div>
+                  <div className="reviewLine">Beef fat: {job.beefFat ? 'Yes' : 'No'}</div>
+                </div>
+                <div className="reviewCard">
+                  <div className="reviewCardTitle">Extras & Contact</div>
+                  <div className="reviewLine">Specialty: {job.specialtyProducts ? specialtySummaryText : 'No specialty products'}</div>
+                  <div className="reviewLine">Webbs: {job.webbsOrder ? webbsStyleSummaryText : 'No Webbs order'}</div>
+                  <div className="reviewLine">Preferred contact: {preferredContact}</div>
+                  <div className="reviewLine">SMS consent: {job.prefSMS ? (job.smsConsent ? 'Yes' : 'No') : 'Not needed'}</div>
+                </div>
+                {job.notes?.trim() ? (
+                  <div className="reviewCard reviewNotesCard">
+                    <div className="reviewCardTitle">Notes</div>
+                    <div className="reviewNoteText">{job.notes}</div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="reviewDesktop reviewSheetFrame" style={{ marginTop: 12 }}>
               <PrintSheet job={job as any} />
             </div>
           </section>
@@ -1722,7 +1789,7 @@ function OvernightIntakePage() {
 
         label { font-size: 12px; font-weight: 700; color: #0b0f12; display: block; margin-bottom: 4px; }
         input, select, textarea {
-          width: 100%; padding: 10px 12px; border: 1px solid #d8e3f5; border-radius: 10px; background: #fbfdff; box-sizing: border-box;
+          width: 100%; padding: 10px 12px; border: 1px solid #d8e3f5; border-radius: 10px; background: #fbfdff; box-sizing: border-box; font-size: 16px;
         }
         textarea { resize: vertical; }
         input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: #6b7280; }
@@ -1773,6 +1840,49 @@ function OvernightIntakePage() {
           line-height: 1.5;
         }
         .thanksActions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
+        .reviewSheetFrame {
+          max-width: 100%;
+          overflow-x: auto;
+          overflow-y: visible;
+          border: 1px solid #dce7df;
+          border-radius: 14px;
+          background: #fff;
+          -webkit-overflow-scrolling: touch;
+        }
+        .reviewMobile { display: none; }
+        .reviewSummaryGrid {
+          display: grid;
+          gap: 12px;
+        }
+        .reviewCard {
+          border: 1px solid #dce7df;
+          border-radius: 14px;
+          background: #fff;
+          padding: 14px;
+        }
+        .reviewNotesCard {
+          background: #fbfdff;
+        }
+        .reviewCardTitle {
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+          color: #406c4d;
+          margin-bottom: 8px;
+        }
+        .reviewLine {
+          font-size: 14px;
+          line-height: 1.55;
+          color: #173321;
+          margin-top: 4px;
+          overflow-wrap: anywhere;
+        }
+        .reviewNoteText {
+          white-space: pre-wrap;
+          line-height: 1.6;
+          color: #173321;
+        }
         .hero {
           display: grid;
           grid-template-columns: 1.6fr 1fr;
@@ -2091,6 +2201,17 @@ function OvernightIntakePage() {
           .webbsSummaryHead {
             display: grid;
             gap: 10px;
+          }
+          .reviewMobile {
+            display: block;
+          }
+          .reviewDesktop {
+            display: none;
+          }
+          .reviewSheetFrame {
+            margin-left: -2px;
+            margin-right: -2px;
+            border-radius: 12px;
           }
           .thanksConfValue {
             font-size: 24px;
