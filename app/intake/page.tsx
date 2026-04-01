@@ -1966,6 +1966,14 @@ if (fresh?.exists && fresh.job) {
                     ? 'Enter percentages only. Pounds are optional support information.'
                     : 'Enter the specific products and pounds being sent to Webbs.'}
                 </div>
+                <div style={{ marginTop: 10, maxWidth: 260 }}>
+                  <label>Webbs Form Number</label>
+                  <input
+                    value={String(job.webbsFormNumber || '')}
+                    onChange={(e) => setVal('webbsFormNumber', e.target.value)}
+                    placeholder="Form number"
+                  />
+                </div>
               </div>
               <button type="button" className="iconBtn" onClick={() => setWebbsModalOpen(false)}>
                 Close
@@ -2001,14 +2009,6 @@ if (fresh?.exists && fresh.job) {
                     <span>Filled out on paper form</span>
                   </label>
                 </div>
-              </div>
-              <div>
-                <label>Webbs Form Number</label>
-                <input
-                  value={String(job.webbsFormNumber || '')}
-                  onChange={(e) => setVal('webbsFormNumber', e.target.value)}
-                  placeholder="Form number"
-                />
               </div>
             </div>
 
