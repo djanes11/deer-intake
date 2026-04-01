@@ -102,6 +102,9 @@ export interface Job {
   dropoffSmsSentAt: string | null;
   intakeSheetPrintedAt: string | null;
   intakeSheetPrintCount: number;
+  updatedAt?: string | null;
+  pendingDeletedAt?: string | null;
+  pendingDeleteReason?: string | null;
   meatFinishedEmailSentAt: string | null;
   meatFinishedSmsSentAt: string | null;
   capeFinishedEmailSentAt: string | null;
@@ -171,4 +174,6 @@ export interface JobSearchRow {
   dropoff: string | null;
   intakeSheetPrintedAt?: string | null;
   intakeSheetPrintCount?: number;
+  updatedAt?: string | null;
+  pendingDeletedAt?: string | null;
 }

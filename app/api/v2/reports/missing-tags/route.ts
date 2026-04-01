@@ -45,6 +45,7 @@ export async function GET(req: Request) {
       .from('jobs')
       .select('*')
       .eq('requires_tag', true)
+      .is('pending_deleted_at', null)
       .or('tag.ilike.PENDING-%,tag.is.null,tag.eq.')
       .order('created_at', { ascending: false })
       .limit(limit);

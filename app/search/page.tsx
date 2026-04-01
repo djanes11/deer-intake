@@ -7,6 +7,8 @@ import type { Job } from '@/lib/api';
 import { getJob, searchJobs, tokenHeader } from '@/lib/api';
 
 const API_RESEND = '/api/v2/reports/resend-notification';
+const API_RESET = '/api/v2/reports/reset-notification';
+const API_UNPRINT = '/api/v2/reports/mark-unprinted';
 const RESEND_EVENTS = [
   { key: 'dropoff_tagged', label: 'Drop-Off Tagged' },
   { key: 'meat_finished', label: 'Meat Finished' },
@@ -32,6 +34,8 @@ export default function SearchPage() {
   const [detailErr, setDetailErr] = useState<string | null>(null);
   const [resendBusy, setResendBusy] = useState('');
   const [resendMsg, setResendMsg] = useState<string | null>(null);
+  const [resetBusy, setResetBusy] = useState('');
+  const [printMsg, setPrintMsg] = useState<string | null>(null);
   const debounced = useDebounced(q, 300);
 
   useEffect(() => {
@@ -70,6 +74,7 @@ export default function SearchPage() {
       setSelectedJob(null);
       setDetailErr(null);
       setResendMsg(null);
+      setPrintMsg(null);
     }
   }, [rows, selectedTag]);
 
@@ -84,6 +89,7 @@ export default function SearchPage() {
     setDetailLoading(true);
     setDetailErr(null);
     setResendMsg(null);
+    setPrintMsg(null);
     try {
       const res = await getJob(tag);
       const job = (res?.job || null) as Record<string, any> | null;
@@ -146,6 +152,12 @@ export default function SearchPage() {
     ];
   }, [selectedJob]);
 
+  const latestNotificationAt = useMemo(() => {
+    const values = notificationRows.flatMap((row) => [row.email, row.sms]).filter(Boolean) as string[];
+    if (!values.length) return null;
+    return values.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
+  }, [notificationRows]);
+
   const canShowResults = q.trim().length > 0;
 
   const resendNotification = async (event: ResendEventKey) => {
@@ -164,8 +176,8 @@ export default function SearchPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (!json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
-      setResendMsg(`Resent ${labelForEvent(event)} by ${json.channel} to ${json.destination}.`);
       await loadDetails(selectedTag);
+      setResendMsg(`Resent ${labelForEvent(event)} by ${json.channel} to ${json.destination}.`);
     } catch (e: any) {
       setResendMsg(e?.message || 'Resend failed.');
     } finally {
@@ -173,11 +185,62 @@ export default function SearchPage() {
     }
   };
 
+  const resetNotification = async (event: ResendEventKey) => {
+    if (!selectedTag) return;
+    const confirmed = window.confirm(`Reset the ${labelForEvent(event)} sent flags for ${selectedTag}? This lets it show as unsent again.`);
+    if (!confirmed) return;
+    setResetBusy(event);
+    setResendMsg(null);
+    try {
+      const res = await fetch(API_RESET, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...tokenHeader(),
+        },
+        cache: 'no-store',
+        body: JSON.stringify({ tag: selectedTag, event }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      await loadDetails(selectedTag);
+      setResendMsg(`Reset ${labelForEvent(event)} notification flags.`);
+    } catch (e: any) {
+      setResendMsg(e?.message || 'Reset failed.');
+    } finally {
+      setResetBusy('');
+    }
+  };
+
+  const markUnprinted = async () => {
+    if (!selectedTag) return;
+    const confirmed = window.confirm(`Mark ${selectedTag} as unprinted so it returns to the print queue?`);
+    if (!confirmed) return;
+    setPrintMsg(null);
+    try {
+      const res = await fetch(API_UNPRINT, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...tokenHeader(),
+        },
+        cache: 'no-store',
+        body: JSON.stringify({ tag: selectedTag }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      await loadDetails(selectedTag);
+      setPrintMsg('Marked unprinted. This deer will show up in the print queue again.');
+    } catch (e: any) {
+      setPrintMsg(e?.message || 'Could not mark unprinted.');
+    }
+  };
+
   return (
     <main>
       <h1>Search</h1>
       <p className="muted" style={{ marginTop: 4, marginBottom: 12 }}>
-        Type a <b>tag</b>, <b>name</b>, <b>phone</b>, or status text. Shortcuts: <code>@report</code> (ready to call) · <code>@recall</code> (called).
+        Type a <b>tag</b>, <b>name</b>, <b>phone</b>, or status text. Shortcuts: <code>@report</code> (ready to call) | <code>@recall</code> (called).
       </p>
 
       <div className="card" style={{ padding: 12, marginBottom: 16 }}>
@@ -296,12 +359,25 @@ export default function SearchPage() {
                       <div><strong>Payment:</strong> {paymentSummary}</div>
                       <div><strong>Last printed:</strong> {fmtDate(selectedJob.intakeSheetPrintedAt)}</div>
                       <div><strong>Print count:</strong> {selectedJob.intakeSheetPrintCount ?? 0}</div>
+                      <div><strong>Last updated:</strong> {fmtDate(selectedJob.updatedAt)}</div>
+                      <div style={{ paddingTop: 6 }}>
+                        <button className="btn" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob.intakeSheetPrintedAt}>
+                          Mark Unprinted
+                        </button>
+                      </div>
+                      {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
                     </DetailBox>
 
                     <DetailBox title="Webbs & Specialty">
                       <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
-                      <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? (selectedJob.webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds') : 'No Webbs order'}</div>
+                      <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? webbsStyleLabel(selectedJob.webbsOrderStyle) : 'No Webbs order'}</div>
                       <div><strong>Specialty:</strong> {selectedJob.specialtyProducts ? 'Selected' : 'Not selected'}</div>
+                    </DetailBox>
+
+                    <DetailBox title="Last Actions">
+                      <div><strong>Last notification:</strong> {fmtDate(latestNotificationAt)}</div>
+                      <div><strong>Last drop-off text/email:</strong> {fmtDate(selectedJob.dropoffSmsSentAt || selectedJob.dropoffEmailSentAt)}</div>
+                      <div><strong>Pending intake removed:</strong> {fmtDate(selectedJob.pendingDeletedAt)}</div>
                     </DetailBox>
                   </div>
 
@@ -321,29 +397,29 @@ export default function SearchPage() {
                               <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.sms)}</span>
                             </div>
                           </div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => void resendNotification(eventKeyForLabel(row.label))}
+                              disabled={!selectedTag || !!resendBusy || !!resetBusy}
+                            >
+                              {resendBusy === eventKeyForLabel(row.label) ? 'Sending...' : 'Resend'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn secondary"
+                              onClick={() => void resetNotification(eventKeyForLabel(row.label))}
+                              disabled={!selectedTag || !!resetBusy}
+                            >
+                              {resetBusy === eventKeyForLabel(row.label) ? 'Resetting...' : 'Reset Flags'}
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    <div style={{ fontWeight: 900, fontSize: 18 }}>Resend Notification</div>
-                    <div className="muted">Uses the customer's selected automatic contact method. If they prefer phone calls, no automatic resend will be sent.</div>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {RESEND_EVENTS.map((event) => (
-                        <button
-                          key={event.key}
-                          type="button"
-                          className="btn"
-                          onClick={() => void resendNotification(event.key)}
-                          disabled={!selectedTag || !!resendBusy}
-                        >
-                          {resendBusy === event.key ? 'Sending...' : event.label}
-                        </button>
-                      ))}
-                    </div>
-                    {resendMsg ? <div className="muted" style={{ fontSize: 13 }}>{resendMsg}</div> : null}
-                  </div>
+                  {resendMsg ? <div className="muted" style={{ fontSize: 13 }}>{resendMsg}</div> : null}
                 </>
               ) : null}
             </div>
@@ -420,6 +496,16 @@ function fmtDate(v: any) {
 
 function labelForEvent(event: string) {
   return RESEND_EVENTS.find((item) => item.key === event)?.label || event;
+}
+
+function eventKeyForLabel(label: string): ResendEventKey {
+  return RESEND_EVENTS.find((item) => item.label === label)?.key || 'dropoff_tagged';
+}
+
+function webbsStyleLabel(style: string | null | undefined) {
+  if (style === 'whole_deer_percent') return 'Whole deer by percentages';
+  if (style === 'paper_form') return 'Filled out on paper form';
+  return 'Products by pounds';
 }
 
 function DetailBox({ title, children }: { title: string; children: React.ReactNode }) {

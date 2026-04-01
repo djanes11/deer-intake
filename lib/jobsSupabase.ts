@@ -993,6 +993,62 @@ export async function resendCustomerNotification(params: {
   return { ok: true, event, channel, destination: phone };
 }
 
+export async function resetCustomerNotification(params: {
+  tag: string;
+  event: 'dropoff_tagged' | 'meat_finished' | 'cape_finished' | 'specialty_finished' | 'webbs_delivered';
+}) {
+  const supabaseServer = getSupabaseServer();
+  const tag = String(params.tag || '').trim();
+  const event = String(params.event || '').trim() as
+    | 'dropoff_tagged'
+    | 'meat_finished'
+    | 'cape_finished'
+    | 'specialty_finished'
+    | 'webbs_delivered';
+
+  if (!tag) return { ok: false, error: 'Missing tag' };
+
+  const { data: row, error } = await supabaseServer
+    .from('jobs')
+    .select('id, tag')
+    .eq('tag', tag)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!row) return { ok: false, error: 'Job not found' };
+
+  const emailStampField: Record<string, string> = {
+    dropoff_tagged: 'dropoff_email_sent_at',
+    meat_finished: 'finished_email_sent_at',
+    cape_finished: 'cape_finished_email_sent_at',
+    specialty_finished: 'specialty_finished_email_sent_at',
+    webbs_delivered: 'webbs_delivered_email_sent_at',
+  };
+  const smsStampField: Record<string, string> = {
+    dropoff_tagged: 'dropoff_sms_sent_at',
+    meat_finished: 'meat_finished_sms_sent_at',
+    cape_finished: 'cape_finished_sms_sent_at',
+    specialty_finished: 'specialty_finished_sms_sent_at',
+    webbs_delivered: 'webbs_delivered_sms_sent_at',
+  };
+
+  const { error: updateError } = await supabaseServer
+    .from('jobs')
+    .update({
+      [emailStampField[event]]: null,
+      [smsStampField[event]]: null,
+      updated_at: nowIso(),
+    })
+    .eq('id', row.id);
+
+  if (updateError) {
+    console.error('resetCustomerNotification error', updateError);
+    throw updateError;
+  }
+
+  return { ok: true, tag: String(row.tag || tag), event };
+}
+
 function appendStampedLine(existing: string | null | undefined, line: string) {
   const old = String(existing || '').trim();
   return old ? `${old}\n${line}` : line;
@@ -1104,6 +1160,9 @@ function mapDbRowToJob(row: any): Job {
     dropoffSmsSentAt: row.dropoff_sms_sent_at,
     intakeSheetPrintedAt: row.intake_sheet_printed_at,
     intakeSheetPrintCount: Number(row.intake_sheet_print_count ?? 0),
+    updatedAt: row.updated_at ?? null,
+    pendingDeletedAt: row.pending_deleted_at ?? null,
+    pendingDeleteReason: row.pending_delete_reason ?? null,
     meatFinishedEmailSentAt: row.finished_email_sent_at,
     meatFinishedSmsSentAt: row.meat_finished_sms_sent_at,
     capeFinishedEmailSentAt: row.cape_finished_email_sent_at,
@@ -1209,6 +1268,8 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     ...(row.picked_up_webbs_at != null ? ({ pickedUpWebbsAt: row.picked_up_webbs_at } as any) : {}),
     ...(row.intake_sheet_printed_at != null ? ({ intakeSheetPrintedAt: row.intake_sheet_printed_at } as any) : {}),
     ...(row.intake_sheet_print_count != null ? ({ intakeSheetPrintCount: Number(row.intake_sheet_print_count ?? 0) } as any) : {}),
+    ...(row.updated_at != null ? ({ updatedAt: row.updated_at } as any) : {}),
+    ...(row.pending_deleted_at != null ? ({ pendingDeletedAt: row.pending_deleted_at } as any) : {}),
   } as JobSearchRow;
 }
 
@@ -1275,7 +1336,12 @@ const SEARCH_SELECT = `
   picked_up_processing,
   picked_up_cape,
   picked_up_webbs,
-  dropoff_date
+  dropoff_date,
+  intake_sheet_printed_at,
+  intake_sheet_print_count,
+  updated_at,
+  pending_deleted_at,
+  pending_delete_reason
 `;
 
 async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
@@ -1988,6 +2054,7 @@ export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSear
     .from('jobs')
     .select(SEARCH_SELECT)
     .or('tag.is.null,tag.eq.,requires_tag.eq.true')
+    .is('pending_deleted_at', null)
     .order('dropoff_date', { ascending: false })
     .limit(200);
 
@@ -2008,12 +2075,18 @@ export async function deletePendingJob(params: { jobId: string }) {
     return { ok: false, error: 'Missing jobId' };
   }
 
+  const deletedAt = nowIso();
   const { data: deleted, error } = await supabaseServer
     .from('jobs')
-    .delete()
+    .update({
+      pending_deleted_at: deletedAt,
+      pending_delete_reason: 'No-show removed from public intake queue',
+      updated_at: deletedAt,
+    })
     .eq('id', jobId)
     .eq('requires_tag', true)
-    .select('id, tag, confirmation, customer_name')
+    .is('pending_deleted_at', null)
+    .select('id, tag, confirmation, customer_name, pending_deleted_at, pending_delete_reason')
     .maybeSingle();
 
   if (error) {
@@ -2032,6 +2105,7 @@ export async function deletePendingJob(params: { jobId: string }) {
       tag: String(deleted.tag || ''),
       confirmation: String(deleted.confirmation || ''),
       customer: String(deleted.customer_name || ''),
+      pendingDeletedAt: String(deleted.pending_deleted_at || deletedAt),
     },
   };
 }
@@ -2083,6 +2157,40 @@ export async function markIntakeSheetPrinted(params: { tag: string }) {
     tag: String((counted || updated).tag || tag),
     intakeSheetPrintedAt: (counted || updated).intake_sheet_printed_at,
     intakeSheetPrintCount: Number((counted || updated).intake_sheet_print_count ?? nextCount),
+  };
+}
+
+export async function markIntakeSheetUnprinted(params: { tag: string }) {
+  const supabaseServer = getSupabaseServer();
+  const tag = String(params.tag || '').trim();
+  if (!tag) {
+    return { ok: false, error: 'Missing tag' };
+  }
+
+  const { data: updated, error } = await supabaseServer
+    .from('jobs')
+    .update({
+      intake_sheet_printed_at: null,
+      updated_at: nowIso(),
+    })
+    .eq('tag', tag)
+    .select('tag, intake_sheet_printed_at, intake_sheet_print_count')
+    .maybeSingle();
+
+  if (error) {
+    console.error('markIntakeSheetUnprinted error', error);
+    throw error;
+  }
+
+  if (!updated) {
+    return { ok: false, error: 'Job not found' };
+  }
+
+  return {
+    ok: true,
+    tag: String(updated.tag || tag),
+    intakeSheetPrintedAt: updated.intake_sheet_printed_at,
+    intakeSheetPrintCount: Number(updated.intake_sheet_print_count ?? 0),
   };
 }
 

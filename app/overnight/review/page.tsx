@@ -231,7 +231,7 @@ export default function MissingTagsPage() {
     }
 
     const label = row.customer_name || row.confirmation || 'this public intake';
-    const confirmed = window.confirm(`Delete ${label} from the public intake queue? This cannot be undone.`);
+    const confirmed = window.confirm(`Remove ${label} from the public intake queue as a no-show? It will leave the active queue but stay in history.`);
     if (!confirmed) return;
 
     setErr('');
@@ -322,7 +322,7 @@ export default function MissingTagsPage() {
           <div style={{ padding: '12px 14px', background: '#f7f7f7', borderBottom: '1px solid #e5e5e5' }}>
             <div style={{ fontWeight: 700 }}>Public Intakes Waiting For Real Tags</div>
             <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
-              Assign the real deer tag, then print the full intake sheet with the barcode.
+              Assign the real deer tag, then print the full intake sheet with the barcode. Use delete for a no-show that should leave the active queue.
             </div>
           </div>
 
