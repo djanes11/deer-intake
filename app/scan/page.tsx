@@ -413,10 +413,10 @@ export default function ScanPage() {
         }}
       >
         <div style={{ fontSize: 14, fontWeight: 800, opacity: 0.86, textTransform: 'uppercase', letterSpacing: '.05em' }}>
-          Manual Test Scan
+          Enter Tag
         </div>
         <div className="muted" style={{ fontSize: 14 }}>
-          Use this when the barcode scanner is not available. Enter a tag and submit to simulate one scan.
+          If the scanner is not working or you just want to type the tag in, enter it here and submit one scan.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
@@ -428,8 +428,8 @@ export default function ScanPage() {
                 void handleManualSubmit();
               }
             }}
-            placeholder="Enter tag to simulate scan"
-            aria-label="Manual scan tag"
+            placeholder="Enter deer tag"
+            aria-label="Enter deer tag"
             style={{ flex: '1 1 280px', minWidth: 240 }}
           />
           <button
@@ -438,7 +438,7 @@ export default function ScanPage() {
             onClick={() => void handleManualSubmit()}
             disabled={manualBusy || !manualTag.trim()}
           >
-            {manualBusy ? 'Scanning...' : 'Simulate Scan'}
+            {manualBusy ? 'Submitting...' : 'Submit Tag'}
           </button>
         </div>
       </div>
