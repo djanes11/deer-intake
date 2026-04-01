@@ -629,7 +629,7 @@ pages.forEach(p => {
         </div>
       </div>
 
-      <footer className="ftr">localhost:3000/intake?tag={tagKey}</footer>
+      <footer className="ftr">McAfee intake sheet | Tag {tagKey}</footer>
     </div>
   );
 

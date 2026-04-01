@@ -11,7 +11,6 @@ const CAPACITY = 43;
 type SettingsRow = {
   id: number;
   stateform_page_number?: number | null;
-  stateform_printed_job_ids?: string[] | null;
 };
 
 const SHOP_TIME_ZONE = 'America/New_York';
@@ -106,12 +105,12 @@ export async function getStateformSettings() {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('site_settings')
-    .select('id,stateform_page_number,stateform_printed_job_ids')
+    .select('id,stateform_page_number')
     .eq('id', 1)
     .single();
 
   if (error) throw error;
-  return (data || { id: 1, stateform_page_number: 1, stateform_printed_job_ids: [] }) as SettingsRow;
+  return (data || { id: 1, stateform_page_number: 1 }) as SettingsRow;
 }
 
 export async function setStateformPageNumberInSupabase(page: number) {
@@ -176,19 +175,4 @@ export async function fetchStateformPayloadFromSupabase() {
       confirmation: digitsOnly(row.confirmation),
     })),
   };
-}
-
-export async function commitStateformPageInSupabase() {
-  const payload = await fetchStateformPayloadFromSupabase();
-  return {
-    ok: true,
-    pageNumber: Number(payload.pageNumberStart || 1),
-    committed: 0,
-    totalEntries: Number(payload.totalEntries || 0),
-    totalSheets: Number(payload.totalSheets || 1),
-  };
-}
-
-export async function restageStateformJobByTag(tag: string) {
-  return { ok: true, tag, restaged: false, message: 'Cumulative state-form PDF now includes all season entries automatically.' };
 }
