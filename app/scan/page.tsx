@@ -1,15 +1,13 @@
 // app/scan/page.tsx — scan-only (Supabase via /api/v2/jobs)
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import ButcherOverlay from '@/app/components/ButcherOverlay';
 import { useScanner } from '@/lib/useScanner';
 
 type AnyRec = Record<string, any>;
 
 export default function ScanPage() {
-  const hiddenRef = useRef<HTMLInputElement>(null);
-
   const [lastTag, setLastTag] = useState('');
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [manualTag, setManualTag] = useState('');
@@ -17,17 +15,6 @@ export default function ScanPage() {
 
   const [overlayOn, setOverlayOn] = useState(false);
   const [overlayJob, setOverlayJob] = useState<AnyRec | null>(null);
-
-  useEffect(() => {
-    const focus = () => hiddenRef.current?.focus();
-    focus();
-    window.addEventListener('focus', focus);
-    const id = setInterval(focus, 2000);
-    return () => {
-      window.removeEventListener('focus', focus);
-      clearInterval(id);
-    };
-  }, []);
 
   const isProcessingLike = (s: any) => String(s ?? '').toLowerCase().includes('processing');
   const isFinishedLike = (s: any) => {
@@ -371,17 +358,6 @@ export default function ScanPage() {
     <main style={{ maxWidth: 880, margin: '0 auto', padding: '24px 16px' }}>
       <h1 style={{ margin: '0 0 12px', fontSize: 48, lineHeight: 1.1 }}>Scan</h1>
 
-      {/* hidden input keeps focus for wedge scanners; no manual typing */}
-      <input
-        ref={hiddenRef}
-        type="text"
-        inputMode="none"
-        aria-hidden="true"
-        readOnly
-        tabIndex={-1}
-        style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-      />
-
       {/* visible status panel */}
       <div
         style={{
@@ -460,7 +436,14 @@ export default function ScanPage() {
         </div>
       )}
 
-      <ButcherOverlay job={overlayJob ?? undefined} visible={overlayOn} />
+      <ButcherOverlay
+        job={overlayJob ?? undefined}
+        visible={overlayOn}
+        manualTag={manualTag}
+        manualBusy={manualBusy}
+        onManualTagChange={setManualTag}
+        onManualSubmit={() => void handleManualSubmit()}
+      />
     </main>
   );
 }

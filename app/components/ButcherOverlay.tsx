@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import type { CSSProperties } from 'react';
 
 type Row = Record<string, any>;
@@ -12,7 +13,21 @@ const CARD: CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,.03)',
 };
 
-export default function ButcherOverlay({ job, visible }: { job?: Row | null; visible: boolean }) {
+export default function ButcherOverlay({
+  job,
+  visible,
+  manualTag,
+  manualBusy,
+  onManualTagChange,
+  onManualSubmit,
+}: {
+  job?: Row | null;
+  visible: boolean;
+  manualTag: string;
+  manualBusy: boolean;
+  onManualTagChange: (value: string) => void;
+  onManualSubmit: () => void;
+}) {
   const row = job || {};
 
   const key = (s: string) => s.toLowerCase().replace(/\s+/g, '');
@@ -299,13 +314,71 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
           style={{
             padding: '14px 28px 18px',
             borderTop: '1px solid #1c2931',
-            fontSize: 24,
-            fontWeight: 800,
-            color: '#a9b8c2',
-            textAlign: 'center',
+            display: 'grid',
+            gap: 14,
+            pointerEvents: 'auto',
           }}
         >
-          Scan the same tag again when this deer is finished.
+          <div
+            style={{
+              fontSize: 24,
+              fontWeight: 800,
+              color: '#a9b8c2',
+              textAlign: 'center',
+            }}
+          >
+            Scan the same tag again when this deer is finished.
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 12,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
+            <input
+              value={manualTag}
+              onChange={(e) => onManualTagChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onManualSubmit();
+                }
+              }}
+              placeholder="Enter tag to continue"
+              aria-label="Enter tag to continue"
+              style={{
+                width: 320,
+                maxWidth: '70vw',
+                padding: '14px 16px',
+                borderRadius: 12,
+                border: '1px solid #475569',
+                background: '#f8fafc',
+                color: '#0f172a',
+                fontSize: 22,
+                fontWeight: 700,
+              }}
+            />
+            <button
+              type="button"
+              onClick={onManualSubmit}
+              disabled={manualBusy || !manualTag.trim()}
+              style={{
+                padding: '14px 22px',
+                borderRadius: 12,
+                border: '1px solid #1f7a3f',
+                background: manualBusy || !manualTag.trim() ? '#3b4a41' : '#2f7d42',
+                color: '#f8fafc',
+                fontSize: 22,
+                fontWeight: 900,
+                cursor: manualBusy || !manualTag.trim() ? 'default' : 'pointer',
+              }}
+            >
+              {manualBusy ? 'Submitting...' : 'Submit Tag'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
