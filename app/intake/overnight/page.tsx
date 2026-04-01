@@ -14,8 +14,10 @@ import {
   normalizeWebbsAllocations,
   normalizeWebbsOrderItems,
   normalizeWebbsOrderStyle,
+  webbsOrderStyleLabel,
   webbsAllocationSummary,
   webbsAllocationTotalPercent,
+  webbsPrimarySummary,
   webbsOrderSummary,
   webbsOrderTotalLbs,
 } from '@/lib/webbs';
@@ -314,27 +316,14 @@ function OvernightIntakePage() {
   const webbsOrderStyle = normalizeWebbsOrderStyle(job.webbsOrderStyle);
   const webbsAllocationOver = webbsOrderStyle === 'whole_deer_percent' && webbsAllocationTotal > 100;
   const webbsSummaryText = useMemo(() => {
-    if (!job.webbsOrder) return 'No Webbs order';
-    const parts: string[] = [];
-    if (webbsOrderStyle !== 'whole_deer_percent' && toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
-    if (webbsItems.length) parts.push(`${webbsItems.length} items`);
-    if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
-    return parts.length ? parts.join(' | ') : 'Fill out the Webbs order';
-  }, [job.webbsOrder, job.webbsPounds, webbsOrderStyle, webbsItems.length, webbsItemTotal]);
-  const webbsStyleSummaryText = useMemo(() => {
-    if (!job.webbsOrder) return 'No Webbs order';
-    const parts: string[] = [];
-    if (webbsOrderStyle !== 'whole_deer_percent' && toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
-    parts.push(webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds');
-    if (webbsOrderStyle === 'whole_deer_percent') {
-      if (webbsAllocations.length) parts.push(`${webbsAllocations.length} products`);
-      if (webbsAllocationTotal) parts.push(`${webbsAllocationTotal}% assigned`);
-    } else {
-      if (webbsItems.length) parts.push(`${webbsItems.length} items`);
-      if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
-    }
-    return parts.join(' | ');
-  }, [job.webbsOrder, job.webbsPounds, webbsOrderStyle, webbsAllocations.length, webbsAllocationTotal, webbsItems.length, webbsItemTotal]);
+    return webbsPrimarySummary({
+      webbsOrder: job.webbsOrder,
+      webbsOrderStyle,
+      webbsPounds: job.webbsPounds,
+      webbsItems,
+      webbsAllocations,
+    });
+  }, [job.webbsOrder, job.webbsPounds, webbsOrderStyle, webbsItems, webbsAllocations]);
   const hindSelections = useMemo(() => {
     const out: string[] = [];
     if (job.hind?.['Hind - Steak']) out.push('Steak');
@@ -1417,7 +1406,7 @@ function OvernightIntakePage() {
                         <div className="webbsSummaryHead">
                           <div>
                             <div className="webbsSummaryTitle">Webbs Order</div>
-                            <div className="muted" style={{ fontSize: 13 }}>{webbsStyleSummaryText}</div>
+                            <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
                           </div>
                           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                             {webbsOrderStyle !== 'whole_deer_percent' || toInt(job.webbsPounds) ? (
@@ -1550,7 +1539,7 @@ function OvernightIntakePage() {
                       ))}
                     </div>
                   ) : null}
-                  <div className="reviewLine">Webbs: {job.webbsOrder ? webbsStyleSummaryText : 'No Webbs order'}</div>
+                  <div className="reviewLine">Webbs: {job.webbsOrder ? webbsSummaryText : 'No Webbs order'}</div>
                   {job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 ? (
                     <div className="reviewList">
                       {webbsAllocationLines.map((line) => (
@@ -1688,9 +1677,11 @@ function OvernightIntakePage() {
             <div className="webbsModalHead">
               <div>
                 <div className="modalKicker">Webbs Order</div>
-                <h3>Fill Out Your Webbs Order</h3>
+                <h3>{webbsOrderStyleLabel(webbsOrderStyle)}</h3>
                 <div className="muted" style={{ marginTop: 6 }}>
-                  Choose whether you want to list products by pounds or send the whole deer by percentages.
+                  {webbsOrderStyle === 'whole_deer_percent'
+                    ? 'Enter percentages that add up to 100% for the whole deer.'
+                    : 'Enter the products and pounds you want sent to Webbs.'}
                 </div>
               </div>
               <button className="btn secondary" type="button" onClick={() => setWebbsModalOpen(false)}>
@@ -1705,7 +1696,7 @@ function OvernightIntakePage() {
                   checked={webbsOrderStyle === 'itemized_lbs'}
                   onChange={() => setVal('webbsOrderStyle', 'itemized_lbs')}
                 />
-                <span>Choose products by pounds</span>
+                <span>Products by pounds</span>
               </label>
               <label className="chk">
                 <input
@@ -1713,7 +1704,7 @@ function OvernightIntakePage() {
                   checked={webbsOrderStyle === 'whole_deer_percent'}
                   onChange={() => setVal('webbsOrderStyle', 'whole_deer_percent')}
                 />
-                <span>Send whole deer by percentages</span>
+                <span>Whole deer by percentages</span>
               </label>
             </div>
 

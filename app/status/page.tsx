@@ -451,9 +451,9 @@ export default function StatusPage() {
       <section style={{ ...card, padding: 18 }}>
         <div style={{ display: 'grid', gap: 8 }}>
           <div>
-            <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0 }}>Track Your Deer</h1>
+            <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0 }}>Check Your Deer Status</h1>
             <p style={{ opacity: 0.86, margin: '8px 0 0' }}>
-              Use one of these two search methods: your confirmation number, or your deer tag and last name.
+              Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag.
             </p>
           </div>
 
@@ -550,12 +550,12 @@ export default function StatusPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <SummaryCard
-              title="What is happening now"
+              title="Current status"
               value={customerFacingStatus(currentStage?.value || res.status) || 'Status pending'}
               note={currentStage?.message || 'We will keep this page updated as your deer moves through the shop.'}
             />
             <SummaryCard
-              title="Amount owed right now"
+              title="Balance due right now"
               value={money(owedTotal)}
               note={
                 paidOverall
@@ -579,7 +579,7 @@ export default function StatusPage() {
           </div>
 
           <section style={sectionCard} aria-label="Status details">
-            <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Status Details</div>
+            <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Order Details</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
               {summaries.map((item) => (
                 <TrackCard key={item.key} item={item} />
@@ -589,7 +589,7 @@ export default function StatusPage() {
 
           {(hasAnyPricing || hasAnyPaid) && (
             <section style={sectionCard} aria-label="Payment details">
-              <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Payment Details</div>
+              <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Payment Breakdown</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
                 <PaymentCard label="Processing" amount={priceProcessing} paid={paidOverall || paidProc} owed={owedProcessing} />
                 <PaymentCard label="Specialty" amount={priceSpecialty} paid={paidOverall || paidSpec} owed={owedSpecialty} />

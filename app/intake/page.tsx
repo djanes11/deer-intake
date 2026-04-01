@@ -15,10 +15,13 @@ import {
   normalizeWebbsAllocations,
   normalizeWebbsOrderItems,
   normalizeWebbsOrderStyle,
+  webbsOrderStyleLabel,
   webbsAllocationSummary,
   webbsAllocationTotalPercent,
+  webbsPrimarySummary,
   webbsOrderSummary,
   webbsOrderTotalLbs,
+  webbsSupportSummary,
 } from '@/lib/webbs';
 
 const API_MARK_PRINTED = '/api/v2/reports/mark-printed';
@@ -666,31 +669,18 @@ useEffect(() => {
   const webbsOrderStyle = normalizeWebbsOrderStyle(job.webbsOrderStyle);
   const webbsAllocationOver = webbsOrderStyle === 'whole_deer_percent' && webbsAllocationTotal > 100;
   const webbsSummaryText = useMemo(() => {
-    if (!job.webbsOrder) return 'No Webbs order';
-    const parts: string[] = [];
-    if ((job.webbsFormNumber || '').trim()) parts.push(`Form #${job.webbsFormNumber}`);
-    if (toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
-    if (job.webbsPaperFormCompleted) parts.push('Paper form completed');
-    if (webbsItems.length) parts.push(`${webbsItems.length} items`);
-    if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
-    return parts.length ? parts.join(' • ') : 'Webbs order selected';
-  }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, job.webbsPaperFormCompleted, webbsItems.length, webbsItemTotal]);
-  const webbsStyleSummaryText = useMemo(() => {
-    if (!job.webbsOrder) return 'No Webbs order';
-    const parts: string[] = [];
-    if ((job.webbsFormNumber || '').trim()) parts.push(`Form #${job.webbsFormNumber}`);
-    if (webbsOrderStyle !== 'whole_deer_percent' && toInt(job.webbsPounds)) parts.push(`${toInt(job.webbsPounds)} lb entered`);
-    if (job.webbsPaperFormCompleted) parts.push('Paper form completed');
-    parts.push(webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds');
-    if (webbsOrderStyle === 'whole_deer_percent') {
-      if (webbsAllocations.length) parts.push(`${webbsAllocations.length} products`);
-      if (webbsAllocationTotal) parts.push(`${webbsAllocationTotal}% assigned`);
-    } else {
-      if (webbsItems.length) parts.push(`${webbsItems.length} items`);
-      if (webbsItemTotal) parts.push(`${webbsItemTotal} lb detailed`);
-    }
-    return parts.join(' | ');
-  }, [job.webbsOrder, job.webbsFormNumber, job.webbsPounds, job.webbsPaperFormCompleted, webbsOrderStyle, webbsAllocations.length, webbsAllocationTotal, webbsItems.length, webbsItemTotal]);
+    return webbsPrimarySummary({
+      webbsOrder: job.webbsOrder,
+      webbsOrderStyle,
+      webbsPounds: job.webbsPounds,
+      webbsItems,
+      webbsAllocations,
+    });
+  }, [job.webbsOrder, job.webbsPounds, webbsOrderStyle, webbsItems, webbsAllocations]);
+  const webbsSupportText = useMemo(
+    () => webbsSupportSummary({ webbsPaperFormCompleted: job.webbsPaperFormCompleted }),
+    [job.webbsPaperFormCompleted]
+  );
 
   const hindRoastOn = !!job.hind?.['Hind - Roast'];
   const frontRoastOn = !!job.front?.['Front - Roast'];
@@ -1719,7 +1709,7 @@ if (fresh?.exists && fresh.job) {
                   <div className="webbsSummaryHead">
                     <div>
                       <div className="webbsSummaryTitle">Webbs Order Summary</div>
-                      <div className="muted" style={{ fontSize: 13 }}>{webbsStyleSummaryText}</div>
+                      <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
                     </div>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                       {webbsOrderStyle !== 'whole_deer_percent' || toInt(job.webbsPounds) ? (
@@ -1729,7 +1719,6 @@ if (fresh?.exists && fresh.job) {
                             : `Entered lbs: ${toInt(job.webbsPounds) || 0}`}
                         </span>
                       ) : null}
-                      {job.webbsPaperFormCompleted ? <span className="badge">Paper form done</span> : null}
                       <span className="badge">
                         {webbsOrderStyle === 'whole_deer_percent'
                           ? `Assigned: ${webbsAllocationTotal || 0}%`
@@ -1758,6 +1747,9 @@ if (fresh?.exists && fresh.job) {
                   ) : (
                     <div className="muted" style={{ fontSize: 13 }}>No detailed Webbs items entered yet.</div>
                   )}
+                  {webbsSupportText ? (
+                    <div className="muted" style={{ fontSize: 13, marginTop: 10 }}>{webbsSupportText}</div>
+                  ) : null}
                   {webbsAllocationOver ? (
                     <div className="errText" style={{ marginTop: 12 }}>
                       Webbs percentages are over 100%. Reduce them before saving.
@@ -1960,7 +1952,12 @@ if (fresh?.exists && fresh.job) {
             <div className="modalHead">
               <div>
                 <div className="modalKicker">Webbs Order</div>
-                <h3>Edit Webbs Order</h3>
+                <h3>{webbsOrderStyleLabel(webbsOrderStyle)}</h3>
+                <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+                  {webbsOrderStyle === 'whole_deer_percent'
+                    ? 'Enter percentages only. Pounds are optional support information.'
+                    : 'Enter the specific products and pounds being sent to Webbs.'}
+                </div>
               </div>
               <button type="button" className="iconBtn" onClick={() => setWebbsModalOpen(false)}>
                 Close
@@ -1968,6 +1965,27 @@ if (fresh?.exists && fresh.job) {
             </div>
 
             <div className="webbsModalGrid">
+              <div>
+                <label>Order Type</label>
+                <div className="webbsModeSwitch">
+                  <label className="chk">
+                    <input
+                      type="radio"
+                      checked={webbsOrderStyle === 'itemized_lbs'}
+                      onChange={() => setVal('webbsOrderStyle', 'itemized_lbs')}
+                    />
+                    <span>Products by pounds</span>
+                  </label>
+                  <label className="chk">
+                    <input
+                      type="radio"
+                      checked={webbsOrderStyle === 'whole_deer_percent'}
+                      onChange={() => setVal('webbsOrderStyle', 'whole_deer_percent')}
+                    />
+                    <span>Whole deer by percentages</span>
+                  </label>
+                </div>
+              </div>
               <div>
                 <label>Webbs Order Form Number</label>
                 <input
@@ -1993,7 +2011,6 @@ if (fresh?.exists && fresh.job) {
                     : `Estimated lbs: ${toInt(job.webbsPounds) || 0}`}
                 </span>
               ) : null}
-              <span className="badge">{job.webbsPaperFormCompleted ? 'Paper form done' : 'Paper form not marked'}</span>
               <span className="badge">
                 {webbsOrderStyle === 'whole_deer_percent'
                   ? `Assigned: ${webbsAllocationTotal || 0}%`
@@ -2015,24 +2032,8 @@ if (fresh?.exists && fresh.job) {
               />
               <span>Filled out on the paper form</span>
             </label>
-
-            <div className="webbsModeSwitch" style={{ marginBottom: 12 }}>
-              <label className="chk">
-                <input
-                  type="radio"
-                  checked={webbsOrderStyle === 'itemized_lbs'}
-                  onChange={() => setVal('webbsOrderStyle', 'itemized_lbs')}
-                />
-                <span>Choose products by pounds</span>
-              </label>
-              <label className="chk">
-                <input
-                  type="radio"
-                  checked={webbsOrderStyle === 'whole_deer_percent'}
-                  onChange={() => setVal('webbsOrderStyle', 'whole_deer_percent')}
-                />
-                <span>Send whole deer by percentages</span>
-              </label>
+            <div className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
+              This only marks that the paper copy was completed. The digital Webbs order stays the main record.
             </div>
 
             <div className="webbsModalBody">

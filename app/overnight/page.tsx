@@ -261,7 +261,7 @@ export default function OvernightInstructionsPage() {
             </li>
 
             <li style={stepBox}>
-              <b>8) Watch your email.</b> We'll email once it's officially tagged, and again when it's ready for pickup.
+              <b>8) Watch for updates.</b> We’ll use the contact method you selected on your intake form once your deer is officially tagged and again when it is ready for pickup.
             </li>
           </ol>
 

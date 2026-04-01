@@ -7,9 +7,13 @@ import {
   specialtyTotalLbs,
 } from '@/lib/specialty';
 import {
+  hasWebbsOrder,
   normalizeWebbsAllocations,
   normalizeWebbsOrderItems,
   normalizeWebbsOrderStyle,
+  webbsOrderStyleLabel,
+  webbsPrimarySummary,
+  webbsSupportSummary,
   webbsAllocationTotalPercent,
   webbsOrderTotalLbs,
 } from '@/lib/webbs';
@@ -200,14 +204,25 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
     () => normalizeWebbsOrderStyle(textVal('webbsOrderStyle', 'webbs_order_style')),
     [job?.webbsOrderStyle, job?.webbs_order_style]
   );
-  const webbsOrderMode = useMemo(
-    () => textVal('webbsOrderMode', 'webbs_order_mode'),
-    [job?.webbsOrderMode, job?.webbs_order_mode]
-  );
   const webbsPaperFormCompleted = truthy('webbsPaperFormCompleted', 'webbs_paper_form_completed');
   const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
   const hasSpecialty = truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') || hasSpecialtySelection(job);
-  const hasWebbs = truthy('Webbs Order','webbsOrder','webbs_order');
+  const hasWebbs = hasWebbsOrder(jpick(job, ['Webbs Order', 'webbsOrder', 'webbs_order']));
+  const webbsSummaryText = useMemo(
+    () =>
+      webbsPrimarySummary({
+        webbsOrder: hasWebbs,
+        webbsOrderStyle,
+        webbsPounds: textVal('Webbs Pounds', 'webbsPounds', 'webbsLbs', 'Webbs Pounds (lb)'),
+        webbsItems,
+        webbsAllocations,
+      }),
+    [hasWebbs, webbsOrderStyle, job?.webbsPounds, job?.webbsLbs, job?.['Webbs Pounds'], webbsItems, webbsAllocations]
+  );
+  const webbsSupportText = useMemo(
+    () => webbsSupportSummary({ webbsPaperFormCompleted }),
+    [webbsPaperFormCompleted]
+  );
   const notesText = textVal('Notes','notes');
   const hasNotes = !!notesText.trim();
   const paidInFull = truthy('Paid','paid','Paid in Full','Paid In Full');
@@ -549,15 +564,13 @@ pages.forEach(p => {
           <div className="label">Webbs Details</div>
           <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
             <div className="webbsMetaRow">
+              <div><b>Summary:</b> {webbsSummaryText}</div>
               <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
-              {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)').trim() ? (
+              {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)').trim() && webbsOrderStyle !== 'whole_deer_percent' ? (
                 <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
               ) : null}
-              <div><b>Style:</b> {webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}</div>
-              {webbsPaperFormCompleted ? <div><b>Paper Form:</b> Completed</div> : null}
-              {webbsOrderMode ? (
-                <div><b>Choice:</b> {webbsOrderMode === 'online' ? 'Entered online' : 'Staff call later'}</div>
-              ) : null}
+              <div><b>Style:</b> {webbsOrderStyleLabel(webbsOrderStyle)}</div>
+              {webbsSupportText ? <div><b>Support:</b> {webbsSupportText}</div> : null}
             </div>
             {webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 && (
               <div style={{ marginTop: 6 }}>

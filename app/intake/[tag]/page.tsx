@@ -8,7 +8,11 @@ import crypto from 'crypto';
 import { getJobByTag } from '@/lib/jobsSupabase';
 import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import {
+  hasWebbsOrder,
   normalizeWebbsOrderStyle,
+  webbsOrderStyleLabel,
+  webbsPrimarySummary,
+  webbsSupportSummary,
   webbsAllocationSummary,
   webbsAllocationTotalPercent,
   webbsOrderSummary,
@@ -149,8 +153,18 @@ export default async function IntakeView({
     const webbsItemTotal = webbsOrderTotalLbs(job?.webbsItems);
     const webbsAllocations = webbsAllocationSummary(job?.webbsAllocations);
     const webbsAllocationTotal = webbsAllocationTotalPercent(job?.webbsAllocations);
-    const webbsOrderMode = String(job?.webbsOrderMode || job?.webbs_order_mode || '').trim();
     const webbsOrderStyle = normalizeWebbsOrderStyle(job?.webbsOrderStyle || job?.webbs_order_style);
+    const hasWebbs = hasWebbsOrder(job?.webbsOrder ?? job?.webbs_order);
+    const webbsSummaryText = webbsPrimarySummary({
+      webbsOrder: hasWebbs,
+      webbsOrderStyle,
+      webbsPounds: job?.webbsPounds || job?.webbs_pounds || '',
+      webbsItems: job?.webbsItems,
+      webbsAllocations: job?.webbsAllocations,
+    });
+    const webbsSupportText = webbsSupportSummary({
+      webbsPaperFormCompleted: (job as any)?.webbsPaperFormCompleted ?? (job as any)?.webbs_paper_form_completed,
+    });
 
     const processingOverride = toNumOrNull(
       (job as any)?.processing_price_override ?? (job as any)?.processingPriceOverride
@@ -367,32 +381,27 @@ export default async function IntakeView({
           </section>
 
           {/* Webbs */}
-          {job?.webbsOrder && (
+          {hasWebbs && (
             <section>
               <h3>Webbs</h3>
               <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
                 <div className="c12" style={{gridColumn:'span 12'}}>
                   <Check on={true} text="Webbs Order (+$20 fee)" />
                 </div>
+                <div className="c12" style={{gridColumn:'span 12'}}>
+                  <Field label="Webbs Summary" value={webbsSummaryText} />
+                </div>
                 <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Order Form Number" value={job?.webbsFormNumber || job?.webbsOrderFormNumber || ''} /></div>
-                {String(job?.webbsPounds || '').trim() ? (
+                {String(job?.webbsPounds || '').trim() && webbsOrderStyle !== 'whole_deer_percent' ? (
                   <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
                 ) : null}
-                {!!(job as any)?.webbsPaperFormCompleted ? (
-                  <div className="c6" style={{gridColumn:'span 6'}}><Field label="Paper Form" value="Completed" /></div>
-                ) : null}
-                {webbsOrderMode ? (
-                  <div className="c12" style={{gridColumn:'span 12'}}>
-                    <Field
-                      label="Public Webbs Choice"
-                      value="Order entered online"
-                    />
-                  </div>
+                {webbsSupportText ? (
+                  <div className="c6" style={{gridColumn:'span 6'}}><Field label="Support Note" value={webbsSupportText} /></div>
                 ) : null}
                 <div className="c12" style={{gridColumn:'span 12'}}>
                   <Field
                     label="Webbs Order Style"
-                    value={webbsOrderStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}
+                    value={webbsOrderStyleLabel(webbsOrderStyle)}
                   />
                 </div>
                 {webbsOrderStyle === 'whole_deer_percent' && webbsAllocations.length > 0 && (

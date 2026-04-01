@@ -22,6 +22,12 @@ export type WebbsAllocationItem = {
 
 export type WebbsOrderStyle = 'itemized_lbs' | 'whole_deer_percent';
 
+function toBool(value: any): boolean {
+  if (typeof value === 'boolean') return value;
+  const s = String(value ?? '').trim().toLowerCase();
+  return ['true', '1', 'yes', 'y', 'on'].includes(s);
+}
+
 export const WEBBS_GROUPS: WebbsCatalogGroup[] = [
   {
     title: 'Bacon',
@@ -174,4 +180,46 @@ export function normalizeWebbsOrderStyle(input: any): WebbsOrderStyle {
 
 export function webbsItemMeta(key: string): WebbsCatalogItem | undefined {
   return WEBBS_ITEM_MAP.get(key);
+}
+
+export function hasWebbsOrder(value: any): boolean {
+  return toBool(value);
+}
+
+export function webbsOrderStyleLabel(input: any): string {
+  return normalizeWebbsOrderStyle(input) === 'whole_deer_percent'
+    ? 'Whole deer by percentages'
+    : 'Products by pounds';
+}
+
+export function webbsPrimarySummary(input: {
+  webbsOrder?: any;
+  webbsOrderStyle?: any;
+  webbsPounds?: any;
+  webbsItems?: any;
+  webbsAllocations?: any;
+}): string {
+  if (!hasWebbsOrder(input?.webbsOrder)) return 'No Webbs order';
+
+  const style = normalizeWebbsOrderStyle(input?.webbsOrderStyle);
+  const pounds = toPositiveNumber(input?.webbsPounds);
+  const items = normalizeWebbsOrderItems(input?.webbsItems);
+  const allocations = normalizeWebbsAllocations(input?.webbsAllocations);
+
+  const parts: string[] = [webbsOrderStyleLabel(style)];
+  if (style === 'whole_deer_percent') {
+    if (allocations.length) parts.push(`${allocations.length} products`);
+    if (allocations.length) parts.push(`${webbsAllocationTotalPercent(allocations)}% assigned`);
+    if (pounds) parts.push(`${pounds} lb noted`);
+  } else {
+    if (pounds) parts.push(`${pounds} lb to Webbs`);
+    if (items.length) parts.push(`${items.length} items`);
+    if (items.length) parts.push(`${webbsOrderTotalLbs(items)} lb detailed`);
+  }
+
+  return parts.join(' | ');
+}
+
+export function webbsSupportSummary(input: { webbsPaperFormCompleted?: any }): string {
+  return toBool(input?.webbsPaperFormCompleted) ? 'Paper form also completed' : '';
 }
