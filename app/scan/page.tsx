@@ -12,6 +12,8 @@ export default function ScanPage() {
 
   const [lastTag, setLastTag] = useState('');
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [manualTag, setManualTag] = useState('');
+  const [manualBusy, setManualBusy] = useState(false);
 
   const [overlayOn, setOverlayOn] = useState(false);
   const [overlayJob, setOverlayJob] = useState<AnyRec | null>(null);
@@ -349,6 +351,18 @@ export default function ScanPage() {
     setStatus({ kind: 'err', text: `Tag ${tag}: unexpected transition (${next || 'unknown'}).` });
   }
 
+  const handleManualSubmit = async () => {
+    const tag = manualTag.trim();
+    if (!tag) return;
+    setManualBusy(true);
+    try {
+      await handleScan(tag);
+      setManualTag('');
+    } finally {
+      setManualBusy(false);
+    }
+  };
+
   useScanner((code) => {
     void handleScan(code);
   }, { resetMs: 150 });
@@ -385,6 +399,48 @@ export default function ScanPage() {
       >
         <div style={{ fontSize: 16, opacity: 0.9 }}>Ready to scan</div>
         <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last: ${lastTag}` : 'Awaiting tag...'}</div>
+      </div>
+
+      <div
+        className="card"
+        style={{
+          marginTop: 14,
+          padding: 14,
+          display: 'grid',
+          gap: 10,
+          background: 'rgba(15,23,42,.45)',
+          border: '1px solid rgba(148,163,184,.28)',
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 800, opacity: 0.86, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+          Manual Test Scan
+        </div>
+        <div className="muted" style={{ fontSize: 14 }}>
+          Use this when the barcode scanner is not available. Enter a tag and submit to simulate one scan.
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <input
+            value={manualTag}
+            onChange={(e) => setManualTag(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void handleManualSubmit();
+              }
+            }}
+            placeholder="Enter tag to simulate scan"
+            aria-label="Manual scan tag"
+            style={{ flex: '1 1 280px', minWidth: 240 }}
+          />
+          <button
+            type="button"
+            className="btn"
+            onClick={() => void handleManualSubmit()}
+            disabled={manualBusy || !manualTag.trim()}
+          >
+            {manualBusy ? 'Scanning...' : 'Simulate Scan'}
+          </button>
+        </div>
       </div>
 
       {status && (
