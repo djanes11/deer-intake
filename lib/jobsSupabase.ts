@@ -1686,7 +1686,7 @@ Object.keys(upsertPayload).forEach((k) => {
 
 /* ---------------- progress ---------------- */
 
-// MAIN STATUS PROGRESSION + CAPE FLOW
+// MAIN STATUS PROGRESSION FOR BUTCHER SCAN
 export async function progressJob(tag: string) {
   const supabaseServer = getSupabaseServer();
 
@@ -1725,28 +1725,8 @@ export async function progressJob(tag: string) {
     nextStatus = null;
   }
 
-  // CAPE FLOW (buck + caped): Dropped Off -> Caping -> Caped
-  const deerSex = String(job.deer_sex || '').trim().toLowerCase();
-  const procType = String(job.process_type || '').trim().toLowerCase();
-  const isBuck = deerSex.includes('buck');
-  const isCaped = procType.includes('cape');
-
-  const curCapingRaw = String(job.caping_status || '').trim();
-  const curCaping = curCapingRaw.toLowerCase();
-
-  let nextCaping: string | null = null;
-
-  if (isBuck && isCaped) {
-    if (isInitialStatus) {
-      nextCaping = 'Caping';
-    } else if (curCaping === 'caping') {
-      nextCaping = 'Caped';
-    }
-  }
-
   const updates: any = {};
   if (nextStatus) updates.status = nextStatus;
-  if (nextCaping) updates.caping_status = nextCaping;
 
   if (Object.keys(updates).length === 0) {
     return { ok: true, nextStatus: null, job: null };
@@ -1764,6 +1744,19 @@ export async function progressJob(tag: string) {
   if (updErr) {
     console.error('progressJob update error', updErr);
     throw updErr;
+  }
+
+  if (updated) {
+    try {
+      await trySendNotificationEmails(supabaseServer, updated);
+    } catch (e) {
+      console.error('Notification email after scan progress failed (non-fatal)', e);
+    }
+    try {
+      await trySendNotificationSms(supabaseServer, updated);
+    } catch (e) {
+      console.error('Notification sms after scan progress failed (non-fatal)', e);
+    }
   }
 
   return {
