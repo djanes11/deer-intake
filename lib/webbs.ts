@@ -20,7 +20,7 @@ export type WebbsAllocationItem = {
   percent: number;
 };
 
-export type WebbsOrderStyle = 'itemized_lbs' | 'whole_deer_percent';
+export type WebbsOrderStyle = 'itemized_lbs' | 'whole_deer_percent' | 'paper_form';
 
 function toBool(value: any): boolean {
   if (typeof value === 'boolean') return value;
@@ -175,7 +175,10 @@ export function webbsAllocationSummary(input: any): string[] {
 }
 
 export function normalizeWebbsOrderStyle(input: any): WebbsOrderStyle {
-  return String(input ?? '').trim() === 'whole_deer_percent' ? 'whole_deer_percent' : 'itemized_lbs';
+  const value = String(input ?? '').trim();
+  if (value === 'whole_deer_percent') return 'whole_deer_percent';
+  if (value === 'paper_form') return 'paper_form';
+  return 'itemized_lbs';
 }
 
 export function webbsItemMeta(key: string): WebbsCatalogItem | undefined {
@@ -187,25 +190,33 @@ export function hasWebbsOrder(value: any): boolean {
 }
 
 export function webbsOrderStyleLabel(input: any): string {
-  return normalizeWebbsOrderStyle(input) === 'whole_deer_percent'
-    ? 'Whole deer by percentages'
-    : 'Products by pounds';
+  const style = normalizeWebbsOrderStyle(input);
+  if (style === 'whole_deer_percent') return 'Whole deer by percentages';
+  if (style === 'paper_form') return 'Paper form';
+  return 'Products by pounds';
 }
 
 export function webbsPrimarySummary(input: {
   webbsOrder?: any;
   webbsOrderStyle?: any;
+  webbsFormNumber?: any;
+  webbsPounds?: any;
   webbsItems?: any;
   webbsAllocations?: any;
 }): string {
   if (!hasWebbsOrder(input?.webbsOrder)) return 'No Webbs order';
 
   const style = normalizeWebbsOrderStyle(input?.webbsOrderStyle);
+  const formNumber = String(input?.webbsFormNumber ?? '').trim();
+  const pounds = toPositiveNumber(input?.webbsPounds);
   const items = normalizeWebbsOrderItems(input?.webbsItems);
   const allocations = normalizeWebbsAllocations(input?.webbsAllocations);
 
   const parts: string[] = [webbsOrderStyleLabel(style)];
-  if (style === 'whole_deer_percent') {
+  if (formNumber) parts.push(`Form #${formNumber}`);
+  if (style === 'paper_form') {
+    if (pounds) parts.push(`${pounds} lb total`);
+  } else if (style === 'whole_deer_percent') {
     if (allocations.length) parts.push(`${allocations.length} products`);
     if (allocations.length) parts.push(`${webbsAllocationTotalPercent(allocations)}% assigned`);
   } else {

@@ -213,10 +213,12 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
       webbsPrimarySummary({
         webbsOrder: hasWebbs,
         webbsOrderStyle,
+        webbsFormNumber: textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number'),
+        webbsPounds: textVal('Webbs Pounds', 'webbsPounds', 'webbsLbs', 'Webbs Pounds (lb)'),
         webbsItems,
         webbsAllocations,
       }),
-    [hasWebbs, webbsOrderStyle, webbsItems, webbsAllocations]
+    [hasWebbs, webbsOrderStyle, job?.webbsOrderFormNumber, job?.webbsFormNumber, job?.['Webbs Form Number'], job?.webbsPounds, job?.webbsLbs, job?.['Webbs Pounds'], webbsItems, webbsAllocations]
   );
   const webbsSupportText = useMemo(
     () => webbsSupportSummary({ webbsPaperFormCompleted }),

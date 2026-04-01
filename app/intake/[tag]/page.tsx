@@ -158,6 +158,8 @@ export default async function IntakeView({
     const webbsSummaryText = webbsPrimarySummary({
       webbsOrder: hasWebbs,
       webbsOrderStyle,
+      webbsFormNumber: job?.webbsFormNumber || job?.webbsOrderFormNumber || '',
+      webbsPounds: job?.webbsPounds || job?.webbs_pounds || '',
       webbsItems: job?.webbsItems,
       webbsAllocations: job?.webbsAllocations,
     });

@@ -72,7 +72,7 @@ export interface Job {
   webbsPounds: number;
   webbsPaperFormCompleted?: boolean;
   webbsOrderMode?: 'needs_call' | 'online' | null;
-  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent' | null;
+  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent' | 'paper_form' | null;
   webbsItems?: Array<{
     key: string;
     label: string;

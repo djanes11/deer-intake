@@ -101,9 +101,10 @@ type Job = {
   howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';
 
   webbsOrder?: boolean;
+  webbsFormNumber?: string;
   webbsPounds?: string;
   webbsPaperFormCompleted?: boolean;
-  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent';
+  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent' | 'paper_form';
   webbsItems?: WebbsOrderItem[];
   webbsAllocations?: WebbsAllocationItem[];
 
@@ -668,10 +669,12 @@ useEffect(() => {
     return webbsPrimarySummary({
       webbsOrder: job.webbsOrder,
       webbsOrderStyle,
+      webbsFormNumber: (job as any).webbsFormNumber,
+      webbsPounds: job.webbsPounds,
       webbsItems,
       webbsAllocations,
     });
-  }, [job.webbsOrder, webbsOrderStyle, webbsItems, webbsAllocations]);
+  }, [job.webbsOrder, webbsOrderStyle, (job as any).webbsFormNumber, job.webbsPounds, webbsItems, webbsAllocations]);
   const webbsSupportText = useMemo(
     () => webbsSupportSummary({ webbsPaperFormCompleted: job.webbsPaperFormCompleted }),
     [job.webbsPaperFormCompleted]
@@ -780,7 +783,9 @@ useEffect(() => {
     if (hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
     if (frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
     if (job.webbsOrder) {
-      if (webbsOrderStyle === 'whole_deer_percent') {
+      if (webbsOrderStyle === 'paper_form') {
+        if (!toInt(job.webbsPounds)) missing.push('Webbs Total Pounds');
+      } else if (webbsOrderStyle === 'whole_deer_percent') {
         if (!webbsAllocations.length) missing.push('Webbs Percentages');
         if (webbsAllocationTotal !== 100) missing.push('Webbs Percentages Must Total 100%');
       } else if (!webbsItems.length) {
@@ -820,12 +825,15 @@ useEffect(() => {
         (job.webbsOrder && pnorm !== 'Donate')
           ? coerce(job.webbsStatus, STATUS_WEBBS)
           : '',
+      webbsFormNumber: job.webbsOrder ? ((job as any).webbsFormNumber || '') : '',
       webbsPounds: job.webbsOrder
         ? webbsOrderStyle === 'whole_deer_percent'
           ? ''
+          : webbsOrderStyle === 'paper_form'
+            ? String(toInt(job.webbsPounds) || '')
           : String(webbsItemTotal || '')
         : '',
-      webbsPaperFormCompleted: !!job.webbsOrder && !!job.webbsPaperFormCompleted,
+      webbsPaperFormCompleted: !!job.webbsOrder && webbsOrderStyle === 'paper_form',
       webbsOrderStyle: job.webbsOrder ? webbsOrderStyle : 'itemized_lbs',
       webbsItems: job.webbsOrder && webbsOrderStyle === 'itemized_lbs' ? webbsItems : [],
       webbsAllocations: job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' ? webbsAllocations : [],
@@ -938,12 +946,19 @@ if (fresh?.exists && fresh.job) {
           next.webbsItems = [];
           next.webbsAllocations = [];
           next.webbsPaperFormCompleted = false;
+          next.webbsPounds = '';
         }
       }
 
       if (k === 'webbsOrderStyle') {
         if (v === 'whole_deer_percent') next.webbsItems = [];
         if (v === 'itemized_lbs') next.webbsAllocations = [];
+        if (v === 'paper_form') {
+          next.webbsItems = [];
+          next.webbsAllocations = [];
+        }
+        if (v !== 'paper_form' && v !== 'whole_deer_percent') next.webbsPounds = '';
+        next.webbsPaperFormCompleted = v === 'paper_form';
       }
 
       if (
@@ -1703,13 +1718,21 @@ if (fresh?.exists && fresh.job) {
                     </div>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                       <span className="badge">
-                        {webbsOrderStyle === 'whole_deer_percent'
+                        {webbsOrderStyle === 'paper_form'
+                          ? `Total lbs: ${toInt(job.webbsPounds) || 0}`
+                          : webbsOrderStyle === 'whole_deer_percent'
                           ? `Assigned: ${webbsAllocationTotal || 0}%`
                           : `Detailed lbs: ${webbsItemTotal || 0}`}
                       </span>
                     </div>
                   </div>
-                  {webbsOrderStyle === 'whole_deer_percent' ? (
+                  {webbsOrderStyle === 'paper_form' ? (
+                    <div className="muted" style={{ fontSize: 13 }}>
+                      {[(job as any).webbsFormNumber ? `Form #${(job as any).webbsFormNumber}` : '', toInt(job.webbsPounds) ? `${toInt(job.webbsPounds)} lb total` : 'Enter total lbs from the paper form']
+                        .filter(Boolean)
+                        .join(' | ')}
+                    </div>
+                  ) : webbsOrderStyle === 'whole_deer_percent' ? (
                     <div className="webbsSummaryList">
                       {webbsAllocationLines.slice(0, 6).map((line) => (
                         <div key={line} className="webbsSummaryLine">{line}</div>
@@ -1937,7 +1960,9 @@ if (fresh?.exists && fresh.job) {
                 <div className="modalKicker">Webbs Order</div>
                 <h3>{webbsOrderStyleLabel(webbsOrderStyle)}</h3>
                 <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
-                  {webbsOrderStyle === 'whole_deer_percent'
+                  {webbsOrderStyle === 'paper_form'
+                    ? 'Use this when the Webbs paper form was filled out by hand.'
+                    : webbsOrderStyle === 'whole_deer_percent'
                     ? 'Enter percentages only. Pounds are optional support information.'
                     : 'Enter the specific products and pounds being sent to Webbs.'}
                 </div>
@@ -1967,13 +1992,31 @@ if (fresh?.exists && fresh.job) {
                     />
                     <span>Whole deer by percentages</span>
                   </label>
+                  <label className="chk">
+                    <input
+                      type="radio"
+                      checked={webbsOrderStyle === 'paper_form'}
+                      onChange={() => setVal('webbsOrderStyle', 'paper_form')}
+                    />
+                    <span>Filled out on paper form</span>
+                  </label>
                 </div>
+              </div>
+              <div>
+                <label>Webbs Form Number</label>
+                <input
+                  value={String(job.webbsFormNumber || '')}
+                  onChange={(e) => setVal('webbsFormNumber', e.target.value)}
+                  placeholder="Form number"
+                />
               </div>
             </div>
 
             <div className="webbsModalInfo">
               <span className="badge">
-                {webbsOrderStyle === 'whole_deer_percent'
+                {webbsOrderStyle === 'paper_form'
+                  ? `Total lbs: ${toInt(job.webbsPounds) || 0}`
+                  : webbsOrderStyle === 'whole_deer_percent'
                   ? `Assigned: ${webbsAllocationTotal || 0}%`
                   : `Detailed lbs: ${webbsItemTotal || 0}`}
               </span>
@@ -1985,51 +2028,55 @@ if (fresh?.exists && fresh.job) {
               </div>
             ) : null}
 
-            <label className="chk" style={{ marginBottom: 12 }}>
-              <input
-                type="checkbox"
-                checked={!!job.webbsPaperFormCompleted}
-                onChange={(e) => setVal('webbsPaperFormCompleted', e.target.checked)}
-              />
-              <span>Filled out on the paper form</span>
-            </label>
-            <div className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-              This only marks that the paper copy was completed. The digital Webbs order stays the main record.
-            </div>
+            {webbsOrderStyle === 'paper_form' ? (
+              <div className="webbsModalGrid" style={{ marginBottom: 12 }}>
+                <div>
+                  <label>Total Webbs Lbs</label>
+                  <input
+                    inputMode="numeric"
+                    value={job.webbsPounds || ''}
+                    onChange={(e) => setVal('webbsPounds', e.target.value)}
+                    placeholder="Total lbs"
+                  />
+                </div>
+              </div>
+            ) : null}
 
             <div className="webbsModalBody">
-              {WEBBS_GROUPS.map((group) => (
-                <div key={group.title}>
-                  <div className="webbsGroupTitle">{group.title}</div>
-                  <div className="webbsWorksheet">
-                    <div className="webbsWorksheetHead">
-                      <div>Product</div>
-                      <div>{webbsOrderStyle === 'whole_deer_percent' ? 'Percent of deer' : 'Lb going into product'}</div>
-                    </div>
-                    {group.items.map((item) => {
-                      const selected = webbsItems.find((entry) => entry.key === item.key);
-                      const allocated = webbsAllocations.find((entry) => entry.key === item.key);
-                      return (
-                        <div key={item.key} className="webbsWorksheetRow">
-                          <div className="webbsWorksheetLabel">{item.label}</div>
-                          <div>
-                            <input
-                              inputMode="numeric"
-                              value={webbsOrderStyle === 'whole_deer_percent' ? allocated?.percent || '' : selected?.pounds || ''}
-                              onChange={(e) =>
-                                webbsOrderStyle === 'whole_deer_percent'
-                                  ? setWebbsAllocationPercent(item.key, e.target.value)
-                                  : setWebbsItemPounds(item.key, e.target.value)
-                              }
-                              placeholder={webbsOrderStyle === 'whole_deer_percent' ? '%' : 'lb'}
-                            />
-                          </div>
+              {webbsOrderStyle === 'paper_form'
+                ? null
+                : WEBBS_GROUPS.map((group) => (
+                    <div key={group.title}>
+                      <div className="webbsGroupTitle">{group.title}</div>
+                      <div className="webbsWorksheet">
+                        <div className="webbsWorksheetHead">
+                          <div>Product</div>
+                          <div>{webbsOrderStyle === 'whole_deer_percent' ? 'Percent of deer' : 'Lb going into product'}</div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                        {group.items.map((item) => {
+                          const selected = webbsItems.find((entry) => entry.key === item.key);
+                          const allocated = webbsAllocations.find((entry) => entry.key === item.key);
+                          return (
+                            <div key={item.key} className="webbsWorksheetRow">
+                              <div className="webbsWorksheetLabel">{item.label}</div>
+                              <div>
+                                <input
+                                  inputMode="numeric"
+                                  value={webbsOrderStyle === 'whole_deer_percent' ? allocated?.percent || '' : selected?.pounds || ''}
+                                  onChange={(e) =>
+                                    webbsOrderStyle === 'whole_deer_percent'
+                                      ? setWebbsAllocationPercent(item.key, e.target.value)
+                                      : setWebbsItemPounds(item.key, e.target.value)
+                                  }
+                                  placeholder={webbsOrderStyle === 'whole_deer_percent' ? '%' : 'lb'}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
             </div>
 
             <div className="modalActions">

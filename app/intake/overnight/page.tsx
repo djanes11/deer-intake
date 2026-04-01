@@ -101,7 +101,7 @@ type Job = {
   webbsOrder?: boolean;
   webbsPounds?: string;
   webbsOrderMode?: 'online';
-  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent';
+  webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent' | 'paper_form';
   webbsItems?: WebbsOrderItem[];
   webbsAllocations?: WebbsAllocationItem[];
 
