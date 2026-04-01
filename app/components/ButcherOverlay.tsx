@@ -12,22 +12,6 @@ const CARD: CSSProperties = {
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,.03)',
 };
 
-const ALERT_YES: CSSProperties = {
-  border: '2px solid #22c55e',
-  borderRadius: 20,
-  padding: '18px 20px',
-  background: 'linear-gradient(180deg, rgba(20,48,30,.98), rgba(12,24,17,.98))',
-  boxShadow: '0 0 0 1px rgba(34,197,94,.12) inset',
-};
-
-const ALERT_NO: CSSProperties = {
-  border: '2px solid #475569',
-  borderRadius: 20,
-  padding: '18px 20px',
-  background: 'linear-gradient(180deg, rgba(20,25,30,.98), rgba(12,18,22,.98))',
-  boxShadow: '0 0 0 1px rgba(148,163,184,.08) inset',
-};
-
 export default function ButcherOverlay({ job, visible }: { job?: Row | null; visible: boolean }) {
   const row = job || {};
 
@@ -92,6 +76,7 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
     .filter(Boolean);
 
   const webbsPounds = String(get('Webbs Pounds', 'webbsPounds') ?? '').trim();
+  const webbsPoundsNum = Number(webbsPounds || 0) || 0;
   const webbsItemsRaw = get('Webbs Items', 'webbsItems');
   const webbsItemsText = (() => {
     if (Array.isArray(webbsItemsRaw)) {
@@ -123,8 +108,12 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
   })();
 
   const webbsStyle = String(get('Webbs Order Style', 'webbsOrderStyle') ?? '').trim();
-  const showSpecialty = specialtyItems.length > 0 || isOn(get('Specialty Products', 'specialtyProducts'));
-  const showWebbs = isOn(get('Webbs Order', 'webbsOrder')) || !!webbsPounds || webbsItemsText.length > 0;
+  const showSpecialty = specialtyItems.length > 0;
+  const showWebbs =
+    isOn(get('Webbs Order', 'webbsOrder')) ||
+    webbsItemsText.length > 0 ||
+    webbsPoundsNum > 0 ||
+    webbsStyle === 'whole_deer_percent';
 
   const SummaryCard = ({ label, value }: { label: string; value: string }) => (
     <div style={CARD}>
@@ -155,39 +144,6 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
             {item}
           </div>
         ))}
-      </div>
-    </div>
-  );
-
-  const StatusBanner = ({
-    label,
-    active,
-    activeText,
-    inactiveText,
-  }: {
-    label: string;
-    active: boolean;
-    activeText: string;
-    inactiveText: string;
-  }) => (
-    <div style={active ? ALERT_YES : ALERT_NO}>
-      <div
-        style={{
-          fontSize: 18,
-          marginBottom: 10,
-          fontWeight: 800,
-          textTransform: 'uppercase',
-          letterSpacing: '.06em',
-          color: active ? '#b6f0c7' : '#c3ced8',
-        }}
-      >
-        {label}
-      </div>
-      <div style={{ fontSize: 40, fontWeight: 950, lineHeight: 1.05, color: active ? '#f0fdf4' : '#e2e8f0' }}>
-        {active ? 'YES' : 'NO'}
-      </div>
-      <div style={{ marginTop: 10, fontSize: 24, fontWeight: 700, lineHeight: 1.18, color: active ? '#d7fbe2' : '#d4dde6' }}>
-        {active ? activeText : inactiveText}
       </div>
     </div>
   );
@@ -265,31 +221,6 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
               <SummaryCard label="Backstrap" value={backstrapPrep} />
             </div>
 
-            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: `repeat(${notes ? 3 : Math.max(1, (showSpecialty ? 1 : 0) + (showWebbs ? 1 : 0) + 1)}, minmax(0,1fr))` }}>
-              {showSpecialty ? (
-                <StatusBanner
-                  label="Specialty"
-                  active
-                  activeText={specialtyItems.length ? `${specialtyItems.length} item${specialtyItems.length === 1 ? '' : 's'} selected` : 'Specialty selected'}
-                  inactiveText=""
-                />
-              ) : null}
-              {showWebbs ? (
-                <StatusBanner
-                  label="Webbs"
-                  active
-                  activeText={webbsStyle === 'whole_deer_percent' ? 'Whole deer order' : webbsItemsText.length ? `${webbsItemsText.length} line item${webbsItemsText.length === 1 ? '' : 's'}` : 'Webbs order present'}
-                  inactiveText=""
-                />
-              ) : null}
-              <StatusBanner
-                label="Notes"
-                active={!!notes}
-                activeText="Extra notes included"
-                inactiveText="No extra notes"
-              />
-            </div>
-
             <div style={CARD}>
               <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>Add-ons / Notes</div>
               <div style={{ display: 'grid', gap: 12 }}>
@@ -324,16 +255,16 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
             ) : null}
 
             {showWebbs ? (
-              <div style={ALERT_YES}>
-                <div style={{ fontSize: 18, marginBottom: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', color: '#b6f0c7' }}>
+              <div style={CARD}>
+                <div style={{ fontSize: 18, marginBottom: 10, fontWeight: 700, color: '#9fb0bb' }}>
                   Webbs Order
                 </div>
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 28, fontWeight: 800 }}>
-                    Total: <span style={{ color: '#8df2a8' }}>{webbsPounds || '-'}{webbsPounds ? ' lb' : ''}</span>
+                    Total: <span style={{ color: '#8df2a8' }}>{webbsPoundsNum > 0 ? `${webbsPoundsNum} lb` : 'Whole deer'}</span>
                   </div>
                   {webbsStyle ? (
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#d7fbe2' }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#c7d4dd' }}>
                       {webbsStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}
                     </div>
                   ) : null}
@@ -348,7 +279,7 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
                             lineHeight: 1.2,
                             padding: '10px 12px',
                             borderRadius: 12,
-                            background: 'rgba(255,255,255,.06)',
+                            background: 'rgba(255,255,255,.04)',
                           }}
                         >
                           {item}
@@ -356,7 +287,7 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
                       ))}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#d7fbe2' }}>Webbs selected with no line items listed</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: '#c7d4dd' }}>Webbs selected</div>
                   )}
                 </div>
               </div>
