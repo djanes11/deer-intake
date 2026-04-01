@@ -24,6 +24,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
+
 /* ---------------- Types ---------------- */
 
 type CutsBlock = {
@@ -1383,6 +1385,16 @@ function OvernightIntakePage() {
                           <div>
                             <div className="webbsSummaryTitle">Webbs Order</div>
                             <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
+                            <div style={{ marginTop: 8 }}>
+                              <a
+                                href={WEBBS_PRICE_SHEET_URL}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="webbsPdfLink"
+                              >
+                                Open Webbs price sheet (PDF)
+                              </a>
+                            </div>
                           </div>
                           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                             <span className="badge">
@@ -1651,6 +1663,16 @@ function OvernightIntakePage() {
                   {webbsOrderStyle === 'whole_deer_percent'
                     ? 'Enter percentages that add up to 100% for the whole deer.'
                     : 'Enter the products and pounds you want sent to Webbs.'}
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <a
+                    href={WEBBS_PRICE_SHEET_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="webbsPdfLink"
+                  >
+                    Open Webbs price sheet (PDF)
+                  </a>
                 </div>
               </div>
               <button className="btn secondary" type="button" onClick={() => setWebbsModalOpen(false)}>
@@ -2064,6 +2086,18 @@ function OvernightIntakePage() {
         .webbsSummaryList { margin-top:12px; display:grid; gap:6px; }
         .webbsSummaryLine { font-size:13px; color:#334155; }
         .webbsSummaryMore { font-size:13px; font-weight:700; color:#475569; }
+        .webbsPdfLink {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          color: #235532;
+          font-weight: 800;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .webbsPdfLink:hover {
+          color: #173321;
+        }
         .webbsModalCard {
           width: min(980px, 100%);
           max-width: 980px;
