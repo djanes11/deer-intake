@@ -97,7 +97,6 @@ type Job = {
   notes?: string;
 
   webbsOrder?: boolean;
-  webbsFormNumber?: string;
   webbsPounds?: string;
   webbsOrderMode?: 'online';
   webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent';
@@ -165,7 +164,6 @@ const REQUIRED_LABELS: Record<string, string> = {
   sex: 'Deer Sex',
   howKilled: 'How Killed',
   processType: 'Process Type',
-  webbsPounds: 'Estimated Webbs Pounds',
   webbsItems: 'Webbs Items',
 };
 
@@ -319,11 +317,10 @@ function OvernightIntakePage() {
     return webbsPrimarySummary({
       webbsOrder: job.webbsOrder,
       webbsOrderStyle,
-      webbsPounds: job.webbsPounds,
       webbsItems,
       webbsAllocations,
     });
-  }, [job.webbsOrder, job.webbsPounds, webbsOrderStyle, webbsItems, webbsAllocations]);
+  }, [job.webbsOrder, webbsOrderStyle, webbsItems, webbsAllocations]);
   const hindSelections = useMemo(() => {
     const out: string[] = [];
     if (job.hind?.['Hind - Steak']) out.push('Steak');
@@ -489,12 +486,10 @@ function OvernightIntakePage() {
     if (job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
 
     if (job.webbsOrder) {
-      const enteredPounds = toInt(job.webbsPounds);
       if (webbsOrderStyle === 'whole_deer_percent') {
         if (!webbsAllocations.length) e.webbsItems = 'Enter at least one Webbs product percentage';
         else if (webbsAllocationTotal !== 100) e.webbsItems = 'Webbs percentages must add up to 100%';
       } else {
-        if (!enteredPounds) e.webbsPounds = 'Estimated Webbs pounds are required';
         if (!webbsItems.length) e.webbsItems = 'Enter at least one Webbs item and pounds';
       }
     }
@@ -512,7 +507,7 @@ function OvernightIntakePage() {
     if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
     if (k === 'cuts') ['hindRoastCount', 'frontRoastCount'].forEach(pick);
-    if (k === 'extras') ['webbsPounds', 'webbsItems'].forEach(pick);
+    if (k === 'extras') ['webbsItems'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
   };
@@ -576,8 +571,8 @@ function OvernightIntakePage() {
       webbsAllocations: job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' ? webbsAllocations : [],
       webbsPounds: job.webbsOrder
         ? webbsOrderStyle === 'whole_deer_percent'
-          ? String(toInt(job.webbsPounds) || '')
-          : String(toInt(job.webbsPounds) || webbsItemTotal || '')
+          ? ''
+          : String(webbsItemTotal || '')
         : '',
 
       specialtyStatus: job.specialtyProducts ? (job.specialtyStatus || 'Dropped Off') : '',
@@ -638,7 +633,6 @@ function OvernightIntakePage() {
         next.webbsOrderStyle = 'itemized_lbs';
         next.webbsItems = [];
         next.webbsAllocations = [];
-        next.webbsPounds = '';
       }
       if (k === 'webbsOrderStyle') {
         if (v === 'whole_deer_percent') next.webbsItems = [];
@@ -1384,24 +1378,6 @@ function OvernightIntakePage() {
                 {job.webbsOrder && (
                   <>
                     <div className="c12">
-                      <label>{webbsOrderStyle === 'whole_deer_percent' ? 'Estimated Webbs Pounds (optional)' : 'Estimated Webbs Pounds (lb)'}</label>
-                      <Hint>
-                        {webbsOrderStyle === 'whole_deer_percent'
-                          ? 'If you are sending the whole deer by percentages, pounds are optional. Fill out the Webbs order below so we know how to split it.'
-                          : 'Tell us how many pounds you want to send to Webbs. Fill out the Webbs order below so we know what products you want.'}
-                      </Hint>
-                      <input
-                        inputMode="numeric"
-                        value={job.webbsPounds || ''}
-                        onChange={(e) => setVal('webbsPounds', e.target.value)}
-                        className={errors.webbsPounds ? 'err' : ''}
-                        data-err="webbsPounds"
-                        disabled={locked}
-                      />
-                      {errors.webbsPounds ? <div className="errText">{errors.webbsPounds}</div> : null}
-                    </div>
-
-                    <div className="c12">
                       <div className="webbsSummaryCard">
                         <div className="webbsSummaryHead">
                           <div>
@@ -1409,13 +1385,6 @@ function OvernightIntakePage() {
                             <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
                           </div>
                           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                            {webbsOrderStyle !== 'whole_deer_percent' || toInt(job.webbsPounds) ? (
-                              <span className="badge">
-                                {webbsOrderStyle === 'whole_deer_percent'
-                                  ? `Optional lbs: ${toInt(job.webbsPounds) || 0}`
-                                  : `Entered lbs: ${toInt(job.webbsPounds) || 0}`}
-                              </span>
-                            ) : null}
                             <span className="badge">
                               {webbsOrderStyle === 'whole_deer_percent'
                                 ? `Assigned: ${webbsAllocationTotal || 0}%`

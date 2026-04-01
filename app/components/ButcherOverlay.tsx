@@ -90,8 +90,6 @@ export default function ButcherOverlay({
     })
     .filter(Boolean);
 
-  const webbsPounds = String(get('Webbs Pounds', 'webbsPounds') ?? '').trim();
-  const webbsPoundsNum = Number(webbsPounds || 0) || 0;
   const webbsItemsRaw = get('Webbs Items', 'webbsItems');
   const webbsItemsText = (() => {
     if (Array.isArray(webbsItemsRaw)) {
@@ -121,13 +119,16 @@ export default function ButcherOverlay({
     }
     return [] as string[];
   })();
+  const webbsDetailedTotal = webbsItemsText.reduce((sum, line) => {
+    const m = String(line).match(/(\d+(?:\.\d+)?)\s*lb/i);
+    return sum + (m ? Number(m[1]) : 0);
+  }, 0);
 
   const webbsStyle = String(get('Webbs Order Style', 'webbsOrderStyle') ?? '').trim();
   const showSpecialty = specialtyItems.length > 0;
   const showWebbs =
     isOn(get('Webbs Order', 'webbsOrder')) ||
     webbsItemsText.length > 0 ||
-    webbsPoundsNum > 0 ||
     webbsStyle === 'whole_deer_percent';
 
   const SummaryCard = ({ label, value }: { label: string; value: string }) => (
@@ -276,7 +277,7 @@ export default function ButcherOverlay({
                 </div>
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 28, fontWeight: 800 }}>
-                    Total: <span style={{ color: '#8df2a8' }}>{webbsPoundsNum > 0 ? `${webbsPoundsNum} lb` : 'Whole deer'}</span>
+                    Total: <span style={{ color: '#8df2a8' }}>{webbsStyle === 'whole_deer_percent' ? 'Whole deer' : `${webbsDetailedTotal || 0} lb`}</span>
                   </div>
                   {webbsStyle ? (
                     <div style={{ fontSize: 24, fontWeight: 700, color: '#c7d4dd' }}>

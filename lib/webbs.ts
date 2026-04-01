@@ -195,14 +195,12 @@ export function webbsOrderStyleLabel(input: any): string {
 export function webbsPrimarySummary(input: {
   webbsOrder?: any;
   webbsOrderStyle?: any;
-  webbsPounds?: any;
   webbsItems?: any;
   webbsAllocations?: any;
 }): string {
   if (!hasWebbsOrder(input?.webbsOrder)) return 'No Webbs order';
 
   const style = normalizeWebbsOrderStyle(input?.webbsOrderStyle);
-  const pounds = toPositiveNumber(input?.webbsPounds);
   const items = normalizeWebbsOrderItems(input?.webbsItems);
   const allocations = normalizeWebbsAllocations(input?.webbsAllocations);
 
@@ -210,9 +208,7 @@ export function webbsPrimarySummary(input: {
   if (style === 'whole_deer_percent') {
     if (allocations.length) parts.push(`${allocations.length} products`);
     if (allocations.length) parts.push(`${webbsAllocationTotalPercent(allocations)}% assigned`);
-    if (pounds) parts.push(`${pounds} lb noted`);
   } else {
-    if (pounds) parts.push(`${pounds} lb to Webbs`);
     if (items.length) parts.push(`${items.length} items`);
     if (items.length) parts.push(`${webbsOrderTotalLbs(items)} lb detailed`);
   }

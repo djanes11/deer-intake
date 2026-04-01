@@ -101,7 +101,6 @@ type Job = {
   howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';
 
   webbsOrder?: boolean;
-  webbsFormNumber?: string;
   webbsPounds?: string;
   webbsPaperFormCompleted?: boolean;
   webbsOrderStyle?: 'itemized_lbs' | 'whole_deer_percent';
@@ -211,8 +210,6 @@ function snapshotJob(j: Job) {
     notes: j.notes ?? '',
 
     webbsOrder: !!j.webbsOrder,
-    webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? '',
-    webbsPounds: j.webbsPounds ?? '',
     webbsPaperFormCompleted: !!(j as any).webbsPaperFormCompleted,
     webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
     webbsItems: normalizeWebbsOrderItems(j.webbsItems),
@@ -600,7 +597,6 @@ useEffect(() => {
             prefCall: asBool(j.prefCall),
             smsConsent: asBool(j.smsConsent),
             autoCallConsent: asBool(j.autoCallConsent),
-            webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? '',
             webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
             webbsItems: normalizeWebbsOrderItems(j.webbsItems),
             webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
@@ -672,11 +668,10 @@ useEffect(() => {
     return webbsPrimarySummary({
       webbsOrder: job.webbsOrder,
       webbsOrderStyle,
-      webbsPounds: job.webbsPounds,
       webbsItems,
       webbsAllocations,
     });
-  }, [job.webbsOrder, job.webbsPounds, webbsOrderStyle, webbsItems, webbsAllocations]);
+  }, [job.webbsOrder, webbsOrderStyle, webbsItems, webbsAllocations]);
   const webbsSupportText = useMemo(
     () => webbsSupportSummary({ webbsPaperFormCompleted: job.webbsPaperFormCompleted }),
     [job.webbsPaperFormCompleted]
@@ -788,9 +783,8 @@ useEffect(() => {
       if (webbsOrderStyle === 'whole_deer_percent') {
         if (!webbsAllocations.length) missing.push('Webbs Percentages');
         if (webbsAllocationTotal !== 100) missing.push('Webbs Percentages Must Total 100%');
-      } else {
-        if (!toInt(job.webbsPounds)) missing.push('Webbs Pounds');
-        if (!webbsItems.length) missing.push('Webbs Items');
+      } else if (!webbsItems.length) {
+        missing.push('Webbs Items');
       }
     }
     return missing;
@@ -826,11 +820,10 @@ useEffect(() => {
         (job.webbsOrder && pnorm !== 'Donate')
           ? coerce(job.webbsStatus, STATUS_WEBBS)
           : '',
-      webbsFormNumber: job.webbsOrder ? (job.webbsFormNumber || '') : '',
       webbsPounds: job.webbsOrder
         ? webbsOrderStyle === 'whole_deer_percent'
-          ? String(toInt(job.webbsPounds) || '')
-          : String(toInt(job.webbsPounds) || webbsItemTotal || '')
+          ? ''
+          : String(webbsItemTotal || '')
         : '',
       webbsPaperFormCompleted: !!job.webbsOrder && !!job.webbsPaperFormCompleted,
       webbsOrderStyle: job.webbsOrder ? webbsOrderStyle : 'itemized_lbs',
@@ -879,7 +872,6 @@ if (fresh?.exists && fresh.job) {
     ...j,
     confirmation:
       j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
-    webbsFormNumber: j.webbsFormNumber ?? (j as any).webbsOrderFormNumber ?? job.webbsFormNumber ?? '',
     webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
     paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
     paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
@@ -945,8 +937,6 @@ if (fresh?.exists && fresh.job) {
           next.webbsOrderStyle = 'itemized_lbs';
           next.webbsItems = [];
           next.webbsAllocations = [];
-          next.webbsPounds = '';
-          next.webbsFormNumber = '';
           next.webbsPaperFormCompleted = false;
         }
       }
@@ -1712,13 +1702,6 @@ if (fresh?.exists && fresh.job) {
                       <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
                     </div>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                      {webbsOrderStyle !== 'whole_deer_percent' || toInt(job.webbsPounds) ? (
-                        <span className="badge">
-                          {webbsOrderStyle === 'whole_deer_percent'
-                            ? `Optional lbs: ${toInt(job.webbsPounds) || 0}`
-                            : `Entered lbs: ${toInt(job.webbsPounds) || 0}`}
-                        </span>
-                      ) : null}
                       <span className="badge">
                         {webbsOrderStyle === 'whole_deer_percent'
                           ? `Assigned: ${webbsAllocationTotal || 0}%`
@@ -1986,31 +1969,9 @@ if (fresh?.exists && fresh.job) {
                   </label>
                 </div>
               </div>
-              <div>
-                <label>Webbs Order Form Number</label>
-                <input
-                  value={job.webbsFormNumber || ''}
-                  onChange={(e) => setVal('webbsFormNumber', e.target.value)}
-                />
-              </div>
-              <div>
-                <label>{webbsOrderStyle === 'whole_deer_percent' ? 'Webbs Pounds (optional)' : 'Webbs Pounds (lb)'}</label>
-                <input
-                  inputMode="numeric"
-                  value={job.webbsPounds || ''}
-                  onChange={(e) => setVal('webbsPounds', e.target.value)}
-                />
-              </div>
             </div>
 
             <div className="webbsModalInfo">
-              {webbsOrderStyle !== 'whole_deer_percent' || toInt(job.webbsPounds) ? (
-                <span className="badge">
-                  {webbsOrderStyle === 'whole_deer_percent'
-                    ? `Optional lbs: ${toInt(job.webbsPounds) || 0}`
-                    : `Estimated lbs: ${toInt(job.webbsPounds) || 0}`}
-                </span>
-              ) : null}
               <span className="badge">
                 {webbsOrderStyle === 'whole_deer_percent'
                   ? `Assigned: ${webbsAllocationTotal || 0}%`

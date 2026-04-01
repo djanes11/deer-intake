@@ -158,7 +158,6 @@ export default async function IntakeView({
     const webbsSummaryText = webbsPrimarySummary({
       webbsOrder: hasWebbs,
       webbsOrderStyle,
-      webbsPounds: job?.webbsPounds || job?.webbs_pounds || '',
       webbsItems: job?.webbsItems,
       webbsAllocations: job?.webbsAllocations,
     });
@@ -391,10 +390,6 @@ export default async function IntakeView({
                 <div className="c12" style={{gridColumn:'span 12'}}>
                   <Field label="Webbs Summary" value={webbsSummaryText} />
                 </div>
-                <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Order Form Number" value={job?.webbsFormNumber || job?.webbsOrderFormNumber || ''} /></div>
-                {String(job?.webbsPounds || '').trim() && webbsOrderStyle !== 'whole_deer_percent' ? (
-                  <div className="c6" style={{gridColumn:'span 6'}}><Field label="Webbs Pounds (lb)" value={job?.webbsPounds || ''} /></div>
-                ) : null}
                 {webbsSupportText ? (
                   <div className="c6" style={{gridColumn:'span 6'}}><Field label="Support Note" value={webbsSupportText} /></div>
                 ) : null}

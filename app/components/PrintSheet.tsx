@@ -213,11 +213,10 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
       webbsPrimarySummary({
         webbsOrder: hasWebbs,
         webbsOrderStyle,
-        webbsPounds: textVal('Webbs Pounds', 'webbsPounds', 'webbsLbs', 'Webbs Pounds (lb)'),
         webbsItems,
         webbsAllocations,
       }),
-    [hasWebbs, webbsOrderStyle, job?.webbsPounds, job?.webbsLbs, job?.['Webbs Pounds'], webbsItems, webbsAllocations]
+    [hasWebbs, webbsOrderStyle, webbsItems, webbsAllocations]
   );
   const webbsSupportText = useMemo(
     () => webbsSupportSummary({ webbsPaperFormCompleted }),
@@ -565,10 +564,6 @@ pages.forEach(p => {
           <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
             <div className="webbsMetaRow">
               <div><b>Summary:</b> {webbsSummaryText}</div>
-              <div><b>Form #:</b> {textVal('Webbs Order Form Number','webbsOrderFormNumber','webbsFormNumber','Webbs Form Number')}</div>
-              {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)').trim() && webbsOrderStyle !== 'whole_deer_percent' ? (
-                <div><b>Pounds:</b> {textVal('Webbs Pounds','webbsPounds','webbsLbs','Webbs Pounds (lb)')}</div>
-              ) : null}
               <div><b>Style:</b> {webbsOrderStyleLabel(webbsOrderStyle)}</div>
               {webbsSupportText ? <div><b>Support:</b> {webbsSupportText}</div> : null}
             </div>
