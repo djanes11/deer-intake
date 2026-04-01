@@ -265,19 +265,23 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
               <SummaryCard label="Backstrap" value={backstrapPrep} />
             </div>
 
-            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
-              <StatusBanner
-                label="Specialty"
-                active={showSpecialty}
-                activeText={specialtyItems.length ? `${specialtyItems.length} item${specialtyItems.length === 1 ? '' : 's'} selected` : 'Specialty selected'}
-                inactiveText="No specialty items"
-              />
-              <StatusBanner
-                label="Webbs"
-                active={showWebbs}
-                activeText={webbsStyle === 'whole_deer_percent' ? 'Whole deer order' : webbsItemsText.length ? `${webbsItemsText.length} line item${webbsItemsText.length === 1 ? '' : 's'}` : 'Webbs order present'}
-                inactiveText="No Webbs order"
-              />
+            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: `repeat(${notes ? 3 : Math.max(1, (showSpecialty ? 1 : 0) + (showWebbs ? 1 : 0) + 1)}, minmax(0,1fr))` }}>
+              {showSpecialty ? (
+                <StatusBanner
+                  label="Specialty"
+                  active
+                  activeText={specialtyItems.length ? `${specialtyItems.length} item${specialtyItems.length === 1 ? '' : 's'} selected` : 'Specialty selected'}
+                  inactiveText=""
+                />
+              ) : null}
+              {showWebbs ? (
+                <StatusBanner
+                  label="Webbs"
+                  active
+                  activeText={webbsStyle === 'whole_deer_percent' ? 'Whole deer order' : webbsItemsText.length ? `${webbsItemsText.length} line item${webbsItemsText.length === 1 ? '' : 's'}` : 'Webbs order present'}
+                  inactiveText=""
+                />
+              ) : null}
               <StatusBanner
                 label="Notes"
                 active={!!notes}
@@ -295,8 +299,8 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
                 {notes ? (
                   <div
                     style={{
-                      fontSize: 30,
-                      fontWeight: 800,
+                      fontSize: 34,
+                      fontWeight: 950,
                       lineHeight: 1.22,
                       whiteSpace: 'pre-wrap',
                       padding: '14px 16px',
@@ -315,13 +319,15 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
           </div>
 
           <div style={{ display: 'grid', gap: 18 }}>
-            <ListCard label="Specialty Products" items={specialtyItems} empty="No specialty products selected" />
+            {showSpecialty ? (
+              <ListCard label="Specialty Products" items={specialtyItems} empty="No specialty products selected" />
+            ) : null}
 
-            <div style={showWebbs ? ALERT_YES : ALERT_NO}>
-              <div style={{ fontSize: 18, marginBottom: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', color: showWebbs ? '#b6f0c7' : '#c3ced8' }}>
-                Webbs Order
-              </div>
-              {showWebbs ? (
+            {showWebbs ? (
+              <div style={ALERT_YES}>
+                <div style={{ fontSize: 18, marginBottom: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', color: '#b6f0c7' }}>
+                  Webbs Order
+                </div>
                 <div style={{ display: 'grid', gap: 12 }}>
                   <div style={{ fontSize: 28, fontWeight: 800 }}>
                     Total: <span style={{ color: '#8df2a8' }}>{webbsPounds || '-'}{webbsPounds ? ' lb' : ''}</span>
@@ -353,12 +359,8 @@ export default function ButcherOverlay({ job, visible }: { job?: Row | null; vis
                     <div style={{ fontSize: 24, fontWeight: 700, color: '#d7fbe2' }}>Webbs selected with no line items listed</div>
                   )}
                 </div>
-              ) : (
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#d4dde6' }}>
-                  No Webbs order on this deer.
-                </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
