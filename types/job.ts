@@ -146,6 +146,7 @@ export interface Job {
 }
 
 export interface JobSearchRow {
+  id?: string;
   row?: number;
   tag: string | null;
   confirmation: string | null;

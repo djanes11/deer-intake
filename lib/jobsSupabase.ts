@@ -1211,6 +1211,7 @@ function mapDbRowToJob(row: any): Job {
 
 function mapDbRowToSearchRow(row: any): JobSearchRow {
   return {
+    id: row.id != null ? String(row.id) : undefined,
     tag: row.tag,
     confirmation: row.confirmation,
     customer: row.customer_name,
