@@ -1282,6 +1282,7 @@ export async function getJobByTag(tag: string) {
     .from('jobs')
     .select('*')
     .eq('tag', tag)
+    .is('pending_deleted_at', null)
     .maybeSingle();
 
   if (error) {
@@ -1351,6 +1352,7 @@ async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const { data, error } = await supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
+    .is('pending_deleted_at', null)
     .or(
       [
         'status.ilike.%finish%',
@@ -1396,6 +1398,7 @@ async function searchRecall(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const { data, error } = await supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
+    .is('pending_deleted_at', null)
     .or('status.eq.Called,caping_status.eq.Called,webbs_status.eq.Called')
     .order('last_call_at', { ascending: false })
     .limit(500);
@@ -1430,6 +1433,7 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
   const { data, error } = await supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
+    .is('pending_deleted_at', null)
     .or(
       [
         `tag.ilike.%${q}%`,
@@ -2191,6 +2195,65 @@ export async function markIntakeSheetUnprinted(params: { tag: string }) {
     tag: String(updated.tag || tag),
     intakeSheetPrintedAt: updated.intake_sheet_printed_at,
     intakeSheetPrintCount: Number(updated.intake_sheet_print_count ?? 0),
+  };
+}
+
+export async function listRemovedPendingJobs(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+  const supabaseServer = getSupabaseServer();
+
+  const { data, error } = await supabaseServer
+    .from('jobs')
+    .select(SEARCH_SELECT)
+    .eq('requires_tag', true)
+    .not('pending_deleted_at', 'is', null)
+    .order('pending_deleted_at', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error('listRemovedPendingJobs error', error);
+    throw error;
+  }
+
+  return { ok: true, rows: (data || []).map(mapDbRowToSearchRow) };
+}
+
+export async function restorePendingJob(params: { jobId: string }) {
+  const supabaseServer = getSupabaseServer();
+  const jobId = String(params.jobId || '').trim();
+  if (!jobId) {
+    return { ok: false, error: 'Missing jobId' };
+  }
+
+  const { data: restored, error } = await supabaseServer
+    .from('jobs')
+    .update({
+      pending_deleted_at: null,
+      pending_delete_reason: null,
+      updated_at: nowIso(),
+    })
+    .eq('id', jobId)
+    .eq('requires_tag', true)
+    .not('pending_deleted_at', 'is', null)
+    .select('id, tag, confirmation, customer_name')
+    .maybeSingle();
+
+  if (error) {
+    console.error('restorePendingJob error', error);
+    throw error;
+  }
+
+  if (!restored) {
+    return { ok: false, error: 'Removed public intake not found' };
+  }
+
+  return {
+    ok: true,
+    restored: {
+      id: String(restored.id || ''),
+      tag: String(restored.tag || ''),
+      confirmation: String(restored.confirmation || ''),
+      customer: String(restored.customer_name || ''),
+    },
   };
 }
 

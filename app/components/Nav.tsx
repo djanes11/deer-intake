@@ -82,6 +82,9 @@ export default function Nav() {
               <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                 Public Intake (Needs Tag)
               </Link>
+              <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                Removed Public Intakes
+              </Link>
               <Link href="/reports/called" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                 Called / Pickups
               </Link>
