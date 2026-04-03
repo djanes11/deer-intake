@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import { SITE } from '@/lib/config';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -103,11 +104,14 @@ function donatedValue(row: any) {
 
 export async function getStateformSettings() {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  const processor = await getDefaultProcessorContext();
+  let query = supabase
     .from('site_settings')
-    .select('id,stateform_page_number')
-    .eq('id', 1)
-    .single();
+    .select('id,stateform_page_number');
+
+  query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
+
+  const { data, error } = await query.single();
 
   if (error) throw error;
   return (data || { id: 1, stateform_page_number: 1 }) as SettingsRow;
@@ -115,10 +119,14 @@ export async function getStateformSettings() {
 
 export async function setStateformPageNumberInSupabase(page: number) {
   const supabase = getSupabase();
-  const { data, error } = await supabase
+  const processor = await getDefaultProcessorContext();
+  let query = supabase
     .from('site_settings')
-    .update({ stateform_page_number: page })
-    .eq('id', 1)
+    .update({ stateform_page_number: page });
+
+  query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
+
+  const { data, error } = await query
     .select('stateform_page_number')
     .single();
 
@@ -129,8 +137,9 @@ export async function setStateformPageNumberInSupabase(page: number) {
 export async function fetchStateformPayloadFromSupabase() {
   const supabase = getSupabase();
   const settings = await getStateformSettings();
+  const processor = await getDefaultProcessorContext();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('jobs')
     .select('id,dropoff_date,picked_up_processing,picked_up_processing_at,updated_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at')
     .not('confirmation', 'is', null)
@@ -138,6 +147,10 @@ export async function fetchStateformPayloadFromSupabase() {
     .order('dropoff_date', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(5000);
+
+  query = processor.id ? query.eq('processor_id', processor.id) : query;
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
