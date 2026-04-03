@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
+import { STAFF_ACCESS_COOKIE } from '@/lib/staffSession';
 
 export type StaffIdentity = {
   userId: string | null;
@@ -43,10 +44,23 @@ function parseBasicAuth(header: string | null) {
   }
 }
 
+function parseCookie(header: string | null, key: string) {
+  const raw = String(header || '');
+  if (!raw) return '';
+  for (const part of raw.split(';')) {
+    const [name, ...rest] = part.trim().split('=');
+    if (name === key) return decodeURIComponent(rest.join('=') || '');
+  }
+  return '';
+}
+
 function getBearerToken(req?: Request | null) {
   const header = String(req?.headers.get('authorization') || '');
-  if (!header.startsWith('Bearer ')) return '';
-  return header.slice(7).trim();
+  if (header.startsWith('Bearer ')) {
+    const bearer = header.slice(7).trim();
+    if (bearer) return bearer;
+  }
+  return parseCookie(req?.headers.get('cookie') || null, STAFF_ACCESS_COOKIE);
 }
 
 function getRequestedProcessorSlug(req?: Request | null) {
