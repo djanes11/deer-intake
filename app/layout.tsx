@@ -8,20 +8,27 @@ import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
-  title: 'McAfee Deer Processing - Palmyra, IN',
-  description:
-    'Fast, clean, professional deer processing. Public intake, specialty products, and online status tracking.',
-  icons: [{ rel: 'icon', url: '/favicon.ico' }],
-  openGraph: {
-    title: 'McAfee Deer Processing',
-    description:
-      'Public intake, specialty products, and online status tracking. Palmyra, IN.',
-    url: 'https://deer-intake-public.vercel.app',
-    siteName: 'McAfee Deer Processing',
-    type: 'website',
-  },
-};
+export async function generateMetadata() {
+  const settings = process.env.PUBLIC_MODE === '1' ? await getPublicSiteSettings().catch(() => null) : null;
+  const name = settings?.branding?.name || 'McAfee Deer Processing';
+  const location = settings?.branding?.locationLabel ? ` - ${settings.branding.locationLabel}` : '';
+  const description =
+    settings?.branding?.tagline ||
+    'Fast, clean, professional deer processing. Public intake, specialty products, and online status tracking.';
+
+  return {
+    title: `${name}${location}`,
+    description,
+    icons: [{ rel: 'icon', url: '/favicon.ico' }],
+    openGraph: {
+      title: name,
+      description,
+      url: 'https://deer-intake-public.vercel.app',
+      siteName: name,
+      type: 'website',
+    },
+  };
+}
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 
@@ -50,7 +57,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         {IS_PUBLIC ? (
           <>
-            <CustomerHeader />
+            <CustomerHeader branding={settings?.branding} />
             <AlertBanner
               id="public-top-banner"
               text={bannerText}

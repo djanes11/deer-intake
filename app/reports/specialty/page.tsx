@@ -8,6 +8,7 @@ export const revalidate = 0;
 import type React from 'react';
 import { createClient } from '@supabase/supabase-js';
 import SpecialtyOrdersClient from './specialty-client';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -67,14 +68,21 @@ export default async function SpecialtyReport() {
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const processor = await getDefaultProcessorContext();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('jobs')
     .select(
       'tag,customer_name,dropoff_date,specialty_status,original_summer_sausage_lbs,summer_sausage_cheese_lbs,jalapeno_summer_sausage_cheese_lbs,original_snack_sticks_lbs,original_snack_sticks_cheese_lbs,jalapeno_snack_sticks_cheese_lbs'
     )
     .eq('specialty_products', true)
-    .in('specialty_status', ['Dropped Off', 'In Progress'])
+    .in('specialty_status', ['Dropped Off', 'In Progress']);
+
+  if (processor.id) {
+    query = query.eq('processor_id', processor.id);
+  }
+
+  const { data, error } = await query
     .order('dropoff_date', { ascending: true })
     .order('tag', { ascending: true });
 

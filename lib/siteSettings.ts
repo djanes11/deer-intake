@@ -10,12 +10,32 @@ export type PublicHourRow = {
   value: string;
 };
 
+export type PublicBrandingSettings = {
+  name: string;
+  locationLabel: string;
+  tagline: string;
+  logoUrl: string;
+  phoneDisplay: string;
+  phoneE164: string;
+  email: string;
+  address: string;
+  mapsUrl: string;
+};
+
+export type ProcessorFeatureSettings = {
+  plan: 'basic' | 'texting' | 'custom';
+  smsEnabled: boolean;
+  webbsEnabled: boolean;
+};
+
 export type PublicSiteSettings = {
   public_intake_enabled: boolean;
   banner_enabled: boolean;
   banner_message: string;
   hours: PublicHourRow[];
   pricing: SitePricing;
+  branding: PublicBrandingSettings;
+  features: ProcessorFeatureSettings;
   updated_at?: string | null;
 };
 
@@ -43,6 +63,22 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
     banner_message: '',
     hours: fallbackHours(),
     pricing: DEFAULT_SITE_PRICING,
+    branding: {
+      name: String(SITE.name || 'Game Butcher Board'),
+      locationLabel: String((SITE as any).locationLabel || ''),
+      tagline: String((SITE as any).publicTagline || ''),
+      logoUrl: String((SITE as any).logoUrl || '/mcafee-logo.png'),
+      phoneDisplay: String(SITE.phone || ''),
+      phoneE164: String((SITE as any).phoneE164 || ''),
+      email: '',
+      address: String(SITE.address || ''),
+      mapsUrl: String(SITE.mapsUrl || ''),
+    },
+    features: {
+      plan: 'custom',
+      smsEnabled: true,
+      webbsEnabled: true,
+    },
     updated_at: null,
   };
 }
@@ -68,12 +104,47 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
 
     if (error || !data) return defaultPublicSiteSettings();
 
+    let branding = defaultPublicSiteSettings().branding;
+    let features = defaultPublicSiteSettings().features;
+    if (processor.id) {
+      const { data: processorRow, error: processorError } = await supabase
+        .from('processors')
+        .select('name,public_name,public_tagline,logo_url,support_phone_display,support_phone_e164,support_email,public_address,public_maps_url,location_label,features')
+        .eq('id', processor.id)
+        .maybeSingle();
+
+      if (!processorError && processorRow) {
+        branding = {
+          name: String(processorRow.public_name || processorRow.name || branding.name),
+          locationLabel: String(processorRow.location_label || branding.locationLabel),
+          tagline: String(processorRow.public_tagline || branding.tagline),
+          logoUrl: String(processorRow.logo_url || branding.logoUrl),
+          phoneDisplay: String(processorRow.support_phone_display || branding.phoneDisplay),
+          phoneE164: String(processorRow.support_phone_e164 || branding.phoneE164),
+          email: String(processorRow.support_email || branding.email),
+          address: String(processorRow.public_address || branding.address),
+          mapsUrl: String(processorRow.public_maps_url || branding.mapsUrl),
+        };
+        const rawFeatures = (processorRow as any).features || {};
+        features = {
+          plan:
+            rawFeatures?.plan === 'basic' || rawFeatures?.plan === 'texting' || rawFeatures?.plan === 'custom'
+              ? rawFeatures.plan
+              : features.plan,
+          smsEnabled: rawFeatures?.smsEnabled !== false,
+          webbsEnabled: rawFeatures?.webbsEnabled !== false,
+        };
+      }
+    }
+
     return {
       public_intake_enabled: !!data.public_intake_enabled,
       banner_enabled: !!data.banner_enabled,
       banner_message: String(data.banner_message || ''),
       hours: normalizeHours(data.hours),
       pricing: normalizePricing(data),
+      branding,
+      features,
       updated_at: data.updated_at ?? null,
     };
   } catch {

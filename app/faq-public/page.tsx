@@ -1,20 +1,11 @@
 import 'server-only';
 import Link from 'next/link';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
-let SITE: any = {
-  address: '3172 W 1100 N, Delphi, IN 46923',
-  mapsUrl: 'https://maps.google.com/?q=3172%20W%201100%20N%2C%20Delphi%2C%20IN%2046923',
-  phone: '(765) 564-0048',
-  phoneE164: '+17655640048',
-};
-try {
-  // @ts-ignore
-  const cfg = require('@/lib/config');
-  SITE = cfg.SITE ?? SITE;
-} catch {}
-
-export default function FAQPublic() {
-  const tel = SITE?.phoneE164 || (SITE?.phone ? 'tel:' + String(SITE.phone).replace(/\D+/g, '') : '');
+export default async function FAQPublic() {
+  const settings = await getPublicSiteSettings();
+  const branding = settings.branding;
+  const tel = branding.phoneE164 || (branding.phoneDisplay ? `tel:${String(branding.phoneDisplay).replace(/\D+/g, '')}` : '');
   const phoneHref = String(tel).startsWith('tel:') ? tel : `tel:${tel}`;
 
   return (
@@ -33,8 +24,8 @@ export default function FAQPublic() {
           <section>
             <h3 style={{ fontSize: 18, fontWeight: 800 }}>Where are you located?</h3>
             <p>
-              <a href={SITE.mapsUrl} target="_blank" rel="noreferrer">
-                {SITE.address}
+              <a href={branding.mapsUrl} target="_blank" rel="noreferrer">
+                {branding.address}
               </a>
             </p>
           </section>
@@ -49,14 +40,14 @@ export default function FAQPublic() {
           <section>
             <h3 style={{ fontSize: 18, fontWeight: 800 }}>How will I know my deer is ready?</h3>
             <p>
-              We’ll use the contact method you selected on your intake form for updates. You can also <Link href="/status">check status</Link> any time.
+              We&apos;ll use the contact method you selected on your intake form for updates. You can also <Link href="/status">check status</Link> any time.
             </p>
           </section>
 
           <section>
-            <h3 style={{ fontSize: 18, fontWeight: 800 }}>What’s the best way to contact you?</h3>
+            <h3 style={{ fontSize: 18, fontWeight: 800 }}>What&apos;s the best way to contact you?</h3>
             <p>
-              Call us at <a href={phoneHref}>{SITE.phone}</a>.
+              Call us at <a href={phoneHref}>{branding.phoneDisplay}</a>.
             </p>
           </section>
         </div>

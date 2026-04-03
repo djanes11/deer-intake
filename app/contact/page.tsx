@@ -1,23 +1,11 @@
 import 'server-only';
 import Image from 'next/image';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
-// Falls back to your central SITE config if present
-let SITE: any = {
-  name: 'McAfee Custom Deer Processing',
-  address: '3172 W 1100 N, Delphi, IN 46923',
-  lat: 40.6436,
-  lng: -86.6754,
-  phone: '(765) 564-0048',
-  phoneE164: '+17655640048',
-  mapsUrl: 'https://maps.google.com/?q=3172%20W%201100%20N%2C%20Delphi%2C%20IN%2046923',
-};
-try {
-  // @ts-ignore
-  const cfg = require('@/lib/config'); SITE = cfg.SITE ?? SITE;
-} catch {}
-
-export default function ContactPage() {
-  const tel = SITE?.phoneE164 || (SITE?.phone ? 'tel:' + String(SITE.phone).replace(/\D+/g, '') : '');
+export default async function ContactPage() {
+  const settings = await getPublicSiteSettings();
+  const branding = settings.branding;
+  const tel = branding.phoneE164 || (branding.phoneDisplay ? `tel:${String(branding.phoneDisplay).replace(/\D+/g, '')}` : '');
   const phoneHref = String(tel).startsWith('tel:') ? tel : `tel:${tel}`;
 
   return (
@@ -32,7 +20,6 @@ export default function ContactPage() {
             gridTemplateColumns: '1fr',
           }}
         >
-          {/* Info card */}
           <div
             style={{
               border: '1px solid #1f2937',
@@ -46,20 +33,28 @@ export default function ContactPage() {
               <div>
                 <b>Phone:</b>{' '}
                 <a href={phoneHref} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-                  {SITE.phone}
+                  {branding.phoneDisplay}
                 </a>
               </div>
+              {branding.email ? (
+                <div>
+                  <b>Email:</b>{' '}
+                  <a href={`mailto:${branding.email}`} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+                    {branding.email}
+                  </a>
+                </div>
+              ) : null}
               <div>
                 <b>Address:</b>{' '}
-                <a href={SITE.mapsUrl} target="_blank" rel="noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-                  {SITE.address}
+                <a href={branding.mapsUrl} target="_blank" rel="noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+                  {branding.address}
                 </a>
               </div>
             </div>
 
             <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <a
-                href={SITE.mapsUrl}
+                href={branding.mapsUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -88,12 +83,11 @@ export default function ContactPage() {
                   textDecoration: 'none',
                 }}
               >
-                Call {SITE.phone}
+                Call {branding.phoneDisplay}
               </a>
             </div>
           </div>
 
-          {/* Aerial image */}
           <div
             style={{
               border: '1px solid #1f2937',
@@ -103,8 +97,8 @@ export default function ContactPage() {
             }}
           >
             <Image
-              src="/property-overview.jpg" // <-- place your image at public/images/property-aerial.jpg
-              alt="Aerial view of the McAfee drop-off entrance and cooler"
+              src="/property-overview.jpg"
+              alt={`Aerial view of the ${branding.name} drop-off entrance and cooler`}
               width={1600}
               height={1000}
               priority

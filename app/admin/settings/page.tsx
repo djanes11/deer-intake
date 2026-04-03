@@ -9,12 +9,32 @@ type HourRow = {
   value: string;
 };
 
+type BrandingSettings = {
+  name: string;
+  locationLabel: string;
+  tagline: string;
+  logoUrl: string;
+  phoneDisplay: string;
+  phoneE164: string;
+  email: string;
+  address: string;
+  mapsUrl: string;
+};
+
+type FeatureSettings = {
+  plan: 'basic' | 'texting' | 'custom';
+  smsEnabled: boolean;
+  webbsEnabled: boolean;
+};
+
 type SiteSettings = {
   public_intake_enabled: boolean;
   banner_enabled: boolean;
   banner_message: string;
   hours: HourRow[];
   pricing: SitePricing;
+  branding: BrandingSettings;
+  features: FeatureSettings;
   updated_at?: string;
 };
 
@@ -24,6 +44,24 @@ const DEFAULT_HOURS: HourRow[] = [
   { label: 'Sun', value: '9-12' },
   { label: 'After Hours', value: 'Overnight drop available' },
 ];
+
+const DEFAULT_BRANDING: BrandingSettings = {
+  name: 'McAfee Custom Deer Processing',
+  locationLabel: 'Palmyra, IN',
+  tagline: 'Fast, clean, professional deer processing.',
+  logoUrl: '/mcafee-logo.png',
+  phoneDisplay: '(502) 643-3916',
+  phoneE164: '+15026433916',
+  email: '',
+  address: '10977 Buffalo Trace Rd, Palmyra, IN 47164',
+  mapsUrl: '',
+};
+
+const DEFAULT_FEATURES: FeatureSettings = {
+  plan: 'custom',
+  smsEnabled: true,
+  webbsEnabled: true,
+};
 
 function normalizeHours(hours: any): HourRow[] {
   if (!Array.isArray(hours) || !hours.length) return DEFAULT_HOURS;
@@ -62,6 +100,14 @@ export default function AdminSettingsPage() {
       ...(j.settings as SiteSettings),
       hours: normalizeHours(j?.settings?.hours),
       pricing: normalizePricing(j?.settings),
+      branding: {
+        ...DEFAULT_BRANDING,
+        ...(j?.settings?.branding || {}),
+      },
+      features: {
+        ...DEFAULT_FEATURES,
+        ...(j?.settings?.features || {}),
+      },
     });
   };
 
@@ -90,6 +136,14 @@ export default function AdminSettingsPage() {
         ...(j.settings as SiteSettings),
         hours: normalizeHours(j?.settings?.hours),
         pricing: normalizePricing(j?.settings),
+        branding: {
+          ...DEFAULT_BRANDING,
+          ...(j?.settings?.branding || {}),
+        },
+        features: {
+          ...DEFAULT_FEATURES,
+          ...(j?.settings?.features || {}),
+        },
       });
       setMsg('Saved');
       setTimeout(() => setMsg(''), 1500);
@@ -208,6 +262,146 @@ export default function AdminSettingsPage() {
       </div>
 
       <div style={{ display: 'grid', gap: 14 }}>
+        <div
+          style={{
+            border: '1px solid #d6dee8',
+            borderRadius: 16,
+            padding: 18,
+            background: '#ffffff',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+            display: 'grid',
+            gap: 12,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Brand & Contact</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+            These details show up on the public site and are the starting point for processor-specific branding later.
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            {[
+              ['Business name', 'name'],
+              ['Location label', 'locationLabel'],
+              ['Public tagline', 'tagline'],
+              ['Logo URL', 'logoUrl'],
+              ['Phone display', 'phoneDisplay'],
+              ['Phone E.164', 'phoneE164'],
+              ['Support email', 'email'],
+              ['Address', 'address'],
+              ['Google Maps URL', 'mapsUrl'],
+            ].map(([label, key]) => (
+              <label key={key} style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontWeight: 800, color: '#0f172a' }}>{label}</span>
+                <input
+                  value={(s.branding as any)?.[key] || ''}
+                  onChange={(e) =>
+                    setS({
+                      ...s,
+                      branding: {
+                        ...DEFAULT_BRANDING,
+                        ...s.branding,
+                        [key]: e.target.value,
+                      },
+                    })
+                  }
+                  style={{
+                    width: '100%',
+                    padding: 12,
+                    borderRadius: 12,
+                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    color: '#0f172a',
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid #d6dee8',
+            borderRadius: 16,
+            padding: 18,
+            background: '#ffffff',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+            display: 'grid',
+            gap: 12,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Processor Plan</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+            This controls the processor tier setup for Game Butcher Board. Webbs stays as the current custom workflow.
+          </div>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Plan tier</span>
+            <select
+              value={s.features?.plan || DEFAULT_FEATURES.plan}
+              onChange={(e) =>
+                setS({
+                  ...s,
+                  features: {
+                    ...DEFAULT_FEATURES,
+                    ...s.features,
+                    plan: e.target.value as FeatureSettings['plan'],
+                  },
+                })
+              }
+              style={{
+                width: '100%',
+                padding: 12,
+                borderRadius: 12,
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#0f172a',
+              }}
+            >
+              <option value="basic">Basic: email workflows</option>
+              <option value="texting">Texting: email + SMS workflows</option>
+              <option value="custom">Custom: advanced custom workflows</option>
+            </select>
+          </label>
+
+          <div style={{ display: 'grid', gap: 10 }}>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={s.features?.smsEnabled !== false}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    features: {
+                      ...DEFAULT_FEATURES,
+                      ...s.features,
+                      smsEnabled: e.target.checked,
+                    },
+                  })
+                }
+              />
+              SMS features enabled
+            </label>
+
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={s.features?.webbsEnabled !== false}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    features: {
+                      ...DEFAULT_FEATURES,
+                      ...s.features,
+                      webbsEnabled: e.target.checked,
+                    },
+                  })
+                }
+              />
+              Custom Webbs workflow enabled
+            </label>
+          </div>
+        </div>
+
         <div
           style={{
             border: '1px solid #d6dee8',

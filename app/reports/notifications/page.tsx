@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { createClient } from '@supabase/supabase-js';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -100,19 +101,25 @@ export default async function NotificationActivityPage() {
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const processor = await getDefaultProcessorContext();
+
+  let jobsQuery = supabase
+    .from('jobs')
+    .select('tag,customer_name,email,dropoff_email_sent_at,finished_email_sent_at,cape_finished_email_sent_at,specialty_finished_email_sent_at,webbs_delivered_email_sent_at,updated_at')
+    .or('dropoff_email_sent_at.not.is.null,finished_email_sent_at.not.is.null,cape_finished_email_sent_at.not.is.null,specialty_finished_email_sent_at.not.is.null,webbs_delivered_email_sent_at.not.is.null');
+
+  let smsQuery = supabase
+    .from('sms_logs')
+    .select('created_at,phone,template,status,jobs(tag,customer_name)');
+
+  if (processor.id) {
+    jobsQuery = jobsQuery.eq('processor_id', processor.id);
+    smsQuery = smsQuery.eq('processor_id', processor.id);
+  }
 
   const [{ data: jobRows, error: jobErr }, { data: smsRows, error: smsErr }] = await Promise.all([
-    supabase
-      .from('jobs')
-      .select('tag,customer_name,email,dropoff_email_sent_at,finished_email_sent_at,cape_finished_email_sent_at,specialty_finished_email_sent_at,webbs_delivered_email_sent_at,updated_at')
-      .or('dropoff_email_sent_at.not.is.null,finished_email_sent_at.not.is.null,cape_finished_email_sent_at.not.is.null,specialty_finished_email_sent_at.not.is.null,webbs_delivered_email_sent_at.not.is.null')
-      .order('updated_at', { ascending: false })
-      .limit(250),
-    supabase
-      .from('sms_logs')
-      .select('created_at,phone,template,status,jobs(tag,customer_name)')
-      .order('created_at', { ascending: false })
-      .limit(250),
+    jobsQuery.order('updated_at', { ascending: false }).limit(250),
+    smsQuery.order('created_at', { ascending: false }).limit(250),
   ]);
 
   const activities = [...normalizeEmailActivities(jobRows || []), ...normalizeSmsActivities(smsRows || [])]

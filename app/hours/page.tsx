@@ -1,11 +1,11 @@
 import 'server-only';
 
-import { SITE } from '@/lib/config';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 export default async function HoursPage() {
   const settings = await getPublicSiteSettings();
-  const tel = SITE.phoneE164 || (SITE.phone ? `tel:${String(SITE.phone).replace(/\D+/g, '')}` : '');
+  const branding = settings.branding;
+  const tel = branding.phoneE164 || (branding.phoneDisplay ? `tel:${String(branding.phoneDisplay).replace(/\D+/g, '')}` : '');
   const phoneHref = String(tel).startsWith('tel:') ? tel : `tel:${tel}`;
 
   return (
@@ -46,16 +46,24 @@ export default async function HoursPage() {
         >
           <div style={{ marginBottom: 6 }}>
             <b>Address:</b>{' '}
-            <a href={SITE.mapsUrl} target="_blank" rel="noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-              {SITE.address}
+            <a href={branding.mapsUrl} target="_blank" rel="noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+              {branding.address}
             </a>
           </div>
           <div>
             <b>Phone:</b>{' '}
             <a href={phoneHref} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-              {SITE.phone}
+              {branding.phoneDisplay}
             </a>
           </div>
+          {branding.email ? (
+            <div style={{ marginTop: 6 }}>
+              <b>Email:</b>{' '}
+              <a href={`mailto:${branding.email}`} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+                {branding.email}
+              </a>
+            </div>
+          ) : null}
         </div>
       </div>
     </main>

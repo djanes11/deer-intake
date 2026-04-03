@@ -6,6 +6,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaffAccess } from '@/lib/staffAuth';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 
 function supabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,17 +37,24 @@ export async function GET(req: Request) {
     }
 
     const supabase = supabaseAdmin();
+    const processor = await getDefaultProcessorContext();
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get('limit') || 500) || 500, 2000);
 
     // Use select('*') so we don't explode when column names differ (e.g. customer vs customer_name).
     // Client code can normalize/display whatever fields exist.
-    const { data, error } = await supabase
+    let query = supabase
       .from('jobs')
       .select('*')
       .eq('requires_tag', true)
       .is('pending_deleted_at', null)
-      .or('tag.ilike.PENDING-%,tag.is.null,tag.eq.')
+      .or('tag.ilike.PENDING-%,tag.is.null,tag.eq.');
+
+    if (processor.id) {
+      query = query.eq('processor_id', processor.id);
+    }
+
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .limit(limit);
 

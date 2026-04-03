@@ -42,6 +42,14 @@ type PaymentCardProps = {
   owed?: number;
 };
 
+type PublicBrandingState = {
+  name: string;
+  address: string;
+  phoneDisplay: string;
+  phoneHref: string;
+  mapsUrl: string;
+};
+
 const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done'];
 const HOLD_WORDS = ['hold', 'waiting', 'pending', 'not started', 'dropped off', 'drop off', 'received'];
 const PROGRESS_WORDS = ['process', 'cut', 'grind', 'smoke', 'cure', 'working', 'started', 'in progress', 'calling'];
@@ -154,6 +162,13 @@ export default function StatusPage() {
   const [publicHours, setPublicHours] = useState<ReadonlyArray<{ label: string; value: string }>>(
     SITE.hours as ReadonlyArray<{ label: string; value: string }>
   );
+  const [branding, setBranding] = useState<PublicBrandingState>({
+    name: SITE.name,
+    address: SITE.address,
+    phoneDisplay: SITE.phone,
+    phoneHref,
+    mapsUrl: SITE.mapsUrl,
+  });
 
   const pollUntilRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -185,6 +200,20 @@ export default function StatusPage() {
               value: String(h?.value || ''),
             }))
           );
+        }
+        if (j?.ok && j?.settings?.branding) {
+          const nextPhoneHref = j.settings.branding.phoneE164
+            ? `tel:${j.settings.branding.phoneE164}`
+            : j.settings.branding.phoneDisplay
+              ? `tel:${String(j.settings.branding.phoneDisplay).replace(/\D+/g, '')}`
+              : phoneHref;
+          setBranding({
+            name: String(j.settings.branding.name || SITE.name),
+            address: String(j.settings.branding.address || SITE.address),
+            phoneDisplay: String(j.settings.branding.phoneDisplay || SITE.phone),
+            phoneHref: nextPhoneHref,
+            mapsUrl: String(j.settings.branding.mapsUrl || SITE.mapsUrl),
+          });
         }
       })
       .catch(() => {});
@@ -247,7 +276,7 @@ export default function StatusPage() {
 
   const summaries = useMemo(() => trackSummaries(res), [res]);
   const currentStage = summaries[0];
-  const mapsUrl = SITE.mapsUrl;
+  const mapsUrl = branding.mapsUrl;
 
   const field: React.CSSProperties = {
     background: '#0f1416',
@@ -600,10 +629,11 @@ export default function StatusPage() {
 
           <PickupPanel
             ready={isReady}
-            addressText={SITE.address}
+            processorName={branding.name}
+            addressText={branding.address}
             mapsUrl={mapsUrl}
-            phoneHref={phoneHref}
-            phoneDisplay={SITE.phone}
+            phoneHref={branding.phoneHref}
+            phoneDisplay={branding.phoneDisplay}
             hours={publicHours}
             lastUpdatedAt={lastUpdatedAt}
           />
@@ -719,6 +749,7 @@ function Badge({ ok, label }: { ok?: boolean; label: string }) {
 }
 
 function PickupPanel({
+  processorName,
   ready,
   addressText,
   mapsUrl,
@@ -727,6 +758,7 @@ function PickupPanel({
   hours,
   lastUpdatedAt,
 }: {
+  processorName: string;
   ready: boolean;
   addressText: string;
   mapsUrl: string;
@@ -751,7 +783,9 @@ function PickupPanel({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 18 }}>Pickup Information</div>
-          <div style={{ opacity: 0.84 }}>When your deer is ready, this is where to go and who to call.</div>
+          <div style={{ opacity: 0.84 }}>
+            When your deer is ready, this is where to go and how to reach {processorName}.
+          </div>
         </div>
         {ready ? <StatusPill tone="ready" label="Ready for pickup" /> : null}
       </div>

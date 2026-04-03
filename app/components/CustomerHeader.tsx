@@ -16,8 +16,15 @@ const NAV: NavItem[] = [
   { href: '/contact', label: 'Contact' },
 ];
 
-export default function CustomerHeader() {
+type Branding = {
+  name?: string;
+  locationLabel?: string;
+  logoUrl?: string;
+};
+
+export default function CustomerHeader(props: { branding?: Branding }) {
   const pathname = usePathname();
+  const branding = props.branding || {};
 
   const isActive = (item: NavItem) => {
     if (item.exact) return pathname === item.href;
@@ -36,11 +43,11 @@ export default function CustomerHeader() {
       }}
     >
       <div className="public-header-shell">
-        <Link href="/" aria-label="McAfee Home" className="brand-link">
+        <Link href="/" aria-label={`${branding.name || 'Home'}`} className="brand-link">
           <div className="logo-wrap">
             <Image
-              src="/mcafee-logo.png"
-              alt="McAfee Crest"
+              src={branding.logoUrl || '/mcafee-logo.png'}
+              alt={`${branding.name || 'Processor'} logo`}
               fill
               sizes="44px"
               priority
@@ -48,8 +55,8 @@ export default function CustomerHeader() {
             />
           </div>
           <div className="brand-copy">
-            <div className="brand-title">McAfee Custom Deer Processing</div>
-            <div className="brand-sub">Palmyra, IN</div>
+            <div className="brand-title">{branding.name || 'Game Butcher Board'}</div>
+            <div className="brand-sub">{branding.locationLabel || ''}</div>
           </div>
         </Link>
 

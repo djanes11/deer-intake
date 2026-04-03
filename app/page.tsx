@@ -15,6 +15,7 @@ export default async function Home() {
 
 function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPublicSiteSettings>> | null }) {
   const pricing = settings?.pricing;
+  const branding = settings?.branding;
   const colors = {
     bg: '#0b0f0d',
     panel: 'rgba(18,24,22,.95)',
@@ -111,10 +112,10 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
     <main style={shell}>
       <section style={hero} aria-label="Hero">
         <div style={eyebrow}>Welcome</div>
-        <h1 style={title}>Fast, clean, professional-done right.</h1>
+        <h1 style={title}>{branding?.tagline || 'Fast, clean, professional-done right.'}</h1>
         <p style={subtitle}>
-          Drop off after-hours, choose your cuts and specialty products, and track progress online.
-          We&apos;ll notify you when it&apos;s ready.
+          Submit your intake, choose your cuts and specialty products, and track progress online.
+          We&apos;ll use your selected contact method when your order is updated.
         </p>
         <div style={ctas}>
           <Link href={settings?.public_intake_enabled ? '/overnight' : '/hours'} style={cta(true)}>
@@ -130,7 +131,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
           <ol style={{ margin: 0, padding: '0 0 0 18px', lineHeight: 1.6 }}>
             <li>Arrive during business hours or use our public intake form for after-hours drop-off.</li>
             <li>Fill out the intake form and choose your cuts and specialty items.</li>
-            <li>Track progress on the Status page. We&apos;ll also email updates.</li>
+            <li>Track progress on the Status page. We&apos;ll use your chosen contact method for updates.</li>
             <li>Pick up quickly when notified.</li>
           </ol>
           <div style={{ height: 12 }} />
@@ -165,7 +166,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
       </section>
 
       <footer style={footer} aria-label="Footer">
-        <div>© {new Date().getFullYear()} McAfee Custom Deer Processing. All rights reserved.</div>
+        <div>&copy; {new Date().getFullYear()} {branding?.name || 'Game Butcher Board'}. All rights reserved.</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Link href="/faq-public">FAQ</Link>
           <Link href="/hours">Hours &amp; Location</Link>

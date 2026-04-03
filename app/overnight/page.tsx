@@ -1,22 +1,32 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { SITE } from '@/lib/config';
 
 const GO_OUTDOORS_URL = 'https://www.gooutdoorsin.com/login';
 const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
 const OVERNIGHT_INTAKE_PATH = '/intake/overnight';
 
-const BUSINESS = {
-  address: '10977 Buffalo Trace Rd NW, Palmyra, IN 47164',
-  phoneDisplay: '(502) 643-3916',
-  phoneE164: '+15026433916',
-  mapsUrl:
-    'https://www.google.com/maps/place/McAfee+Custom+Deer+Processing/@38.3589993,-86.1374638,17z/data=!3m1!4b1!4m6!3m5!1s0x88694f6a5bbc0d69:0x55f1bf1b2c069cd4!8m2!3d38.3589951!4d-86.1348889!16s%2Fg%2F11fn4yq71c?entry=ttu',
+type PublicBrandingState = {
+  name: string;
+  address: string;
+  phoneDisplay: string;
+  phoneE164: string;
+  mapsUrl: string;
+};
+
+const DEFAULT_BRANDING: PublicBrandingState = {
+  name: SITE.name,
+  address: SITE.address,
+  phoneDisplay: SITE.phone,
+  phoneE164: SITE.phoneE164,
+  mapsUrl: SITE.mapsUrl,
 };
 
 export default function OvernightInstructionsPage() {
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [bannerMessage, setBannerMessage] = useState('');
+  const [branding, setBranding] = useState(DEFAULT_BRANDING);
   const [agree, setAgree] = useState(false);
   const [canAgree, setCanAgree] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
@@ -51,6 +61,13 @@ export default function OvernightInstructionsPage() {
         if (!j?.ok || !j?.settings) return;
         setIntakeEnabled(j.settings.public_intake_enabled !== false);
         setBannerMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
+        setBranding({
+          name: String(j.settings?.branding?.name || DEFAULT_BRANDING.name),
+          address: String(j.settings?.branding?.address || DEFAULT_BRANDING.address),
+          phoneDisplay: String(j.settings?.branding?.phoneDisplay || DEFAULT_BRANDING.phoneDisplay),
+          phoneE164: String(j.settings?.branding?.phoneE164 || DEFAULT_BRANDING.phoneE164),
+          mapsUrl: String(j.settings?.branding?.mapsUrl || DEFAULT_BRANDING.mapsUrl),
+        });
       })
       .catch(() => {});
   }, []);
@@ -226,7 +243,7 @@ export default function OvernightInstructionsPage() {
               </a>{' '}
               from your check-in.
               <div style={{ marginTop: 8, color: '#d1fae5' }}>
-                You do <b>not</b> need a McAfee deer tag number yet. Staff will assign that after your deer is checked in the next day.
+                You do <b>not</b> need a processor deer tag number yet. Staff will assign that after your deer is checked in the next day.
               </div>
               {WarningCallout}
             </li>
@@ -337,7 +354,7 @@ export default function OvernightInstructionsPage() {
             <div>
               <div style={{ fontSize: 12, color: '#9ca3af' }}>Address</div>
               <a
-                href={BUSINESS.mapsUrl}
+                href={branding.mapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -351,13 +368,13 @@ export default function OvernightInstructionsPage() {
                   textDecoration: 'none',
                 }}
               >
-                {BUSINESS.address}
+                {branding.address}
               </a>
             </div>
             <div>
               <div style={{ fontSize: 12, color: '#9ca3af' }}>Phone</div>
               <a
-                href={`tel:${BUSINESS.phoneE164 || (BUSINESS.phoneDisplay || '').replace(/\D+/g, '')}`}
+                href={`tel:${branding.phoneE164 || (branding.phoneDisplay || '').replace(/\D+/g, '')}`}
                 style={{
                   display: 'inline-block',
                   marginTop: 4,
@@ -369,7 +386,7 @@ export default function OvernightInstructionsPage() {
                   textDecoration: 'none',
                 }}
               >
-                {BUSINESS.phoneDisplay}
+                {branding.phoneDisplay}
               </a>
             </div>
           </div>
