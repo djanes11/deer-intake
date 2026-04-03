@@ -9,6 +9,7 @@ import { getJob, searchJobs, tokenHeader } from '@/lib/api';
 const API_RESEND = '/api/v2/reports/resend-notification';
 const API_RESET = '/api/v2/reports/reset-notification';
 const API_UNPRINT = '/api/v2/reports/mark-unprinted';
+const API_MARK = '/api/v2/reports/mark-printed';
 const RESEND_EVENTS = [
   { key: 'dropoff_tagged', label: 'Drop-Off Tagged' },
   { key: 'meat_finished', label: 'Meat Finished' },
@@ -107,15 +108,33 @@ export default function SearchPage() {
     if (!tag) return;
     setPrinting(tag);
     setErr(null);
+    setPrintMsg(null);
     try {
       const res = await getJob(tag);
       const job = (res?.job || null) as Record<string, any> | null;
       if (!job) throw new Error('Could not load intake sheet for printing.');
+
+      const markRes = await fetch(API_MARK, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...tokenHeader(),
+        },
+        cache: 'no-store',
+        body: JSON.stringify({ tag }),
+      });
+      const markJson = await markRes.json().catch(() => ({}));
+      if (!markJson?.ok) throw new Error(markJson?.error || `HTTP ${markRes.status}`);
+
       setPrintJob(job);
       setTimeout(() => {
         window.print();
         setPrinting('');
       }, 150);
+      if (selectedTag === tag) {
+        await loadDetails(tag);
+        setPrintMsg('Marked printed from search preview.');
+      }
     } catch (e: any) {
       setErr(e?.message || 'Print failed');
       setPrinting('');

@@ -3,6 +3,7 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import { SITE } from '@/lib/config';
 import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 
 export type PublicHourRow = {
   label: string;
@@ -56,11 +57,14 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    const { data, error } = await supabase
+    const processor = await getDefaultProcessorContext();
+    let query = supabase
       .from('site_settings')
-      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb')
-      .eq('id', 1)
-      .single();
+      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb');
+
+    query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
+
+    const { data, error } = await query.single();
 
     if (error || !data) return defaultPublicSiteSettings();
 

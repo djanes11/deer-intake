@@ -8,6 +8,7 @@ import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
 import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrderStyle } from '@/lib/webbs';
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 
 /* ---------------- helpers ---------------- */
 
@@ -15,52 +16,6 @@ const SITE_URL = (process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process
   .trim()
   .replace(/^['"]|['"]$/g, '')
   .replace(/\/$/, '');
-const DEFAULT_PROCESSOR_SLUG = (
-  process.env.DEFAULT_PROCESSOR_SLUG ||
-  process.env.PROCESSOR_SLUG ||
-  'mcafee'
-).trim().toLowerCase();
-
-let cachedProcessorContext: { id: string | null; slug: string; expiresAt: number } | null = null;
-
-async function getDefaultProcessorContext(supabaseServer: any): Promise<{ id: string | null; slug: string }> {
-  const now = Date.now();
-  if (cachedProcessorContext && cachedProcessorContext.expiresAt > now) {
-    return {
-      id: cachedProcessorContext.id,
-      slug: cachedProcessorContext.slug,
-    };
-  }
-
-  try {
-    const { data, error } = await supabaseServer
-      .from('processors')
-      .select('id, slug')
-      .eq('slug', DEFAULT_PROCESSOR_SLUG)
-      .maybeSingle();
-
-    if (error) throw error;
-
-    cachedProcessorContext = {
-      id: data?.id ? String(data.id) : null,
-      slug: DEFAULT_PROCESSOR_SLUG,
-      expiresAt: now + 30_000,
-    };
-  } catch (error) {
-    console.warn('Processor context lookup skipped; falling back to unscoped queries.', error);
-    cachedProcessorContext = {
-      id: null,
-      slug: DEFAULT_PROCESSOR_SLUG,
-      expiresAt: now + 30_000,
-    };
-  }
-
-  return {
-    id: cachedProcessorContext.id,
-    slug: cachedProcessorContext.slug,
-  };
-}
-
 function withProcessorFilter<T>(query: T, processorId: string | null | undefined): T {
   if (!processorId) return query;
   return (query as any).eq('processor_id', processorId);
@@ -875,7 +830,7 @@ export async function resendCustomerNotification(params: {
   event: 'dropoff_tagged' | 'meat_finished' | 'cape_finished' | 'specialty_finished' | 'webbs_delivered';
 }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const tag = String(params.tag || '').trim();
   const event = String(params.event || '').trim() as
     | 'dropoff_tagged'
@@ -1066,7 +1021,7 @@ export async function resetCustomerNotification(params: {
   event: 'dropoff_tagged' | 'meat_finished' | 'cape_finished' | 'specialty_finished' | 'webbs_delivered';
 }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const tag = String(params.tag || '').trim();
   const event = String(params.event || '').trim() as
     | 'dropoff_tagged'
@@ -1350,7 +1305,7 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
 
 export async function getJobByTag(tag: string) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer
@@ -1424,7 +1379,7 @@ const SEARCH_SELECT = `
 
 async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
 
   // Pull a broad set of candidates, then filter in JS (simpler and more reliable than complex NOT-ILIKE ORs).
   const { data, error } = await withProcessorFilter(
@@ -1475,7 +1430,7 @@ async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
 
 async function searchRecall(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer
@@ -1506,7 +1461,7 @@ async function searchRecall(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
 
 export async function searchJobs(query: string): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const q = query.trim();
 
   if (!q) return { ok: true, rows: [] };
@@ -1551,7 +1506,7 @@ function calcSpecialtyPriceFromLbs(job: Partial<Job>, pricing?: Partial<SitePric
 
 export async function saveJob(job: Partial<Job>) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const pricing = await getCurrentPricing();
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
@@ -2147,7 +2102,7 @@ export async function markCalled(params: {
 
 export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer
@@ -2172,7 +2127,7 @@ export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSear
 
 export async function deletePendingJob(params: { jobId: string }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const jobId = String(params.jobId || '').trim();
   if (!jobId) {
     return { ok: false, error: 'Missing jobId' };
@@ -2218,7 +2173,7 @@ export async function deletePendingJob(params: { jobId: string }) {
 
 export async function markIntakeSheetPrinted(params: { tag: string }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const tag = String(params.tag || '').trim();
   if (!tag) {
     return { ok: false, error: 'Missing tag' };
@@ -2275,7 +2230,7 @@ export async function markIntakeSheetPrinted(params: { tag: string }) {
 
 export async function markIntakeSheetUnprinted(params: { tag: string }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const tag = String(params.tag || '').trim();
   if (!tag) {
     return { ok: false, error: 'Missing tag' };
@@ -2313,7 +2268,7 @@ export async function markIntakeSheetUnprinted(params: { tag: string }) {
 
 export async function listRemovedPendingJobs(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer
@@ -2336,7 +2291,7 @@ export async function listRemovedPendingJobs(): Promise<{ ok: boolean; rows: Job
 
 export async function restorePendingJob(params: { jobId: string }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const jobId = String(params.jobId || '').trim();
   if (!jobId) {
     return { ok: false, error: 'Missing jobId' };
@@ -2380,7 +2335,7 @@ export async function restorePendingJob(params: { jobId: string }) {
 
 export async function listJobsNeedingPrint(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer
@@ -2405,7 +2360,7 @@ export async function listJobsNeedingPrint(): Promise<{ ok: boolean; rows: JobSe
 
 export async function lookupCustomerByName(name: string) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext(supabaseServer);
+  const processor = await getDefaultProcessorContext();
   const q = String(name || '').trim();
   if (!q) return { ok: true, match: null, matches: [] };
 

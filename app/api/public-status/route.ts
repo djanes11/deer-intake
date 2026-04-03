@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 import { specialtyPrice } from '@/lib/specialty';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -128,15 +129,18 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
   }
 
   const supabase = getSupabaseServer();
+  const processor = await getDefaultProcessorContext();
 
   // 1) Confirmation match (strict) — best for overnight/untagged
   if (wantConf) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('jobs')
       .select(PUBLIC_STATUS_SELECT)
-      .in('confirmation', confCandidates)
-      .order('dropoff_date', { ascending: false })
-      .limit(5);
+      .in('confirmation', confCandidates);
+
+    if (processor.id) query = query.eq('processor_id', processor.id);
+
+    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(5);
 
     if (error) return { ok: false, error: 'Server error' };
 
@@ -147,12 +151,14 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
 
   // 2) Tag + last name (tag strict, last name checked in code)
   if (wantTag && wantLN) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('jobs')
       .select(PUBLIC_STATUS_SELECT)
-      .eq('tag', wantTag)
-      .order('dropoff_date', { ascending: false })
-      .limit(5);
+      .eq('tag', wantTag);
+
+    if (processor.id) query = query.eq('processor_id', processor.id);
+
+    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(5);
 
     if (error) return { ok: false, error: 'Server error' };
 

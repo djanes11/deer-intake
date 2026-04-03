@@ -10,6 +10,7 @@ import {
   normalizeWebbsOrderStyle,
   webbsAllocationTotalPercent,
 } from '@/lib/webbs';
+import { getDefaultProcessorContext } from '@/lib/processorContext';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -91,12 +92,15 @@ function publicValidationError(rawJob: Record<string, any>): string | null {
 
 async function confirmationExists(confirmation: string) {
   const supabase = getSupabaseServer();
-  const { data, error } = await supabase
+  const processor = await getDefaultProcessorContext();
+  let query = supabase
     .from('jobs')
     .select('id')
-    .eq('confirmation', confirmation)
-    .limit(1)
-    .maybeSingle();
+    .eq('confirmation', confirmation);
+
+  if (processor.id) query = query.eq('processor_id', processor.id);
+
+  const { data, error } = await query.limit(1).maybeSingle();
 
   if (error) throw error;
   return !!data;
