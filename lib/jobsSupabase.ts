@@ -15,6 +15,56 @@ const SITE_URL = (process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process
   .trim()
   .replace(/^['"]|['"]$/g, '')
   .replace(/\/$/, '');
+const DEFAULT_PROCESSOR_SLUG = (
+  process.env.DEFAULT_PROCESSOR_SLUG ||
+  process.env.PROCESSOR_SLUG ||
+  'mcafee'
+).trim().toLowerCase();
+
+let cachedProcessorContext: { id: string | null; slug: string; expiresAt: number } | null = null;
+
+async function getDefaultProcessorContext(supabaseServer: any): Promise<{ id: string | null; slug: string }> {
+  const now = Date.now();
+  if (cachedProcessorContext && cachedProcessorContext.expiresAt > now) {
+    return {
+      id: cachedProcessorContext.id,
+      slug: cachedProcessorContext.slug,
+    };
+  }
+
+  try {
+    const { data, error } = await supabaseServer
+      .from('processors')
+      .select('id, slug')
+      .eq('slug', DEFAULT_PROCESSOR_SLUG)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    cachedProcessorContext = {
+      id: data?.id ? String(data.id) : null,
+      slug: DEFAULT_PROCESSOR_SLUG,
+      expiresAt: now + 30_000,
+    };
+  } catch (error) {
+    console.warn('Processor context lookup skipped; falling back to unscoped queries.', error);
+    cachedProcessorContext = {
+      id: null,
+      slug: DEFAULT_PROCESSOR_SLUG,
+      expiresAt: now + 30_000,
+    };
+  }
+
+  return {
+    id: cachedProcessorContext.id,
+    slug: cachedProcessorContext.slug,
+  };
+}
+
+function withProcessorFilter<T>(query: T, processorId: string | null | undefined): T {
+  if (!processorId) return query;
+  return (query as any).eq('processor_id', processorId);
+}
 
 function makePublicToken() {
   return crypto.randomBytes(18).toString('base64url');
@@ -406,6 +456,7 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
 
   try {
     await supabaseServer.from('sms_logs').insert({
+      ...(row?.processor_id ? { processor_id: row.processor_id } : {}),
       job_id: locked.id,
       phone,
       template: 'dropoff_tagged',
@@ -424,6 +475,7 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
 
 async function logSmsResult(supabaseServer: any, opts: {
   jobId: string;
+  processorId?: string | null;
   phone: string;
   template: string;
   body: string;
@@ -431,6 +483,7 @@ async function logSmsResult(supabaseServer: any, opts: {
 }) {
   try {
     await supabaseServer.from('sms_logs').insert({
+      ...(opts.processorId ? { processor_id: opts.processorId } : {}),
       job_id: opts.jobId,
       phone: opts.phone,
       template: opts.template,
@@ -484,7 +537,10 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
   });
 
   if (!Number(locked.price_processing ?? 0) && computed) {
-    await supabaseServer.from('jobs').update({ price_processing: computed }).eq('tag', String(locked.tag));
+    await withProcessorFilter(
+      supabaseServer.from('jobs').update({ price_processing: computed }).eq('tag', String(locked.tag)),
+      row?.processor_id ? String(row.processor_id) : null
+    );
   }
 }
 
@@ -524,6 +580,7 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
+    processorId: row?.processor_id ? String(row.processor_id) : null,
     phone,
     template: 'meat_finished',
     body,
@@ -588,6 +645,7 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
+    processorId: row?.processor_id ? String(row.processor_id) : null,
     phone,
     template: 'cape_finished',
     body,
@@ -644,7 +702,10 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
   });
 
   if (!Number(locked.price_specialty ?? 0) && price) {
-    await supabaseServer.from('jobs').update({ price_specialty: price }).eq('tag', String(locked.tag));
+    await withProcessorFilter(
+      supabaseServer.from('jobs').update({ price_specialty: price }).eq('tag', String(locked.tag)),
+      row?.processor_id ? String(row.processor_id) : null
+    );
   }
 }
 
@@ -696,6 +757,7 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
+    processorId: row?.processor_id ? String(row.processor_id) : null,
     phone,
     template: 'specialty_finished',
     body,
@@ -760,6 +822,7 @@ async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
+    processorId: row?.processor_id ? String(row.processor_id) : null,
     phone,
     template: 'webbs_delivered',
     body,
@@ -812,6 +875,7 @@ export async function resendCustomerNotification(params: {
   event: 'dropoff_tagged' | 'meat_finished' | 'cape_finished' | 'specialty_finished' | 'webbs_delivered';
 }) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const tag = String(params.tag || '').trim();
   const event = String(params.event || '').trim() as
     | 'dropoff_tagged'
@@ -822,10 +886,13 @@ export async function resendCustomerNotification(params: {
 
   if (!tag) return { ok: false, error: 'Missing tag' };
 
-  const { data: row, error } = await supabaseServer
+  const { data: row, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select('*')
-    .eq('tag', tag)
+    .eq('tag', tag),
+    processor.id
+  )
     .maybeSingle();
 
   if (error) throw error;
@@ -983,6 +1050,7 @@ export async function resendCustomerNotification(params: {
 
   await logSmsResult(supabaseServer, {
     jobId: String(row.id),
+    processorId: row.processor_id ? String(row.processor_id) : null,
     phone,
     template: event,
     body,
@@ -998,6 +1066,7 @@ export async function resetCustomerNotification(params: {
   event: 'dropoff_tagged' | 'meat_finished' | 'cape_finished' | 'specialty_finished' | 'webbs_delivered';
 }) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const tag = String(params.tag || '').trim();
   const event = String(params.event || '').trim() as
     | 'dropoff_tagged'
@@ -1008,10 +1077,13 @@ export async function resetCustomerNotification(params: {
 
   if (!tag) return { ok: false, error: 'Missing tag' };
 
-  const { data: row, error } = await supabaseServer
+  const { data: row, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select('id, tag')
-    .eq('tag', tag)
+    .eq('tag', tag),
+    processor.id
+  )
     .maybeSingle();
 
   if (error) throw error;
@@ -1278,12 +1350,16 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
 
 export async function getJobByTag(tag: string) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select('*')
     .eq('tag', tag)
-    .is('pending_deleted_at', null)
+    .is('pending_deleted_at', null),
+    processor.id
+  )
     .maybeSingle();
 
   if (error) {
@@ -1348,9 +1424,11 @@ const SEARCH_SELECT = `
 
 async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
 
   // Pull a broad set of candidates, then filter in JS (simpler and more reliable than complex NOT-ILIKE ORs).
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
     .is('pending_deleted_at', null)
@@ -1374,7 +1452,9 @@ async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
         'webbs_status.ilike.%completed%',
         'webbs_status.ilike.%done%',
       ].join(',')
-    )
+    ),
+    processor.id
+  )
     .order('dropoff_date', { ascending: false })
     .limit(500);
 
@@ -1395,12 +1475,16 @@ async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
 
 async function searchRecall(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
     .is('pending_deleted_at', null)
-    .or('status.eq.Called,caping_status.eq.Called,webbs_status.eq.Called')
+    .or('status.eq.Called,caping_status.eq.Called,webbs_status.eq.Called'),
+    processor.id
+  )
     .order('last_call_at', { ascending: false })
     .limit(500);
 
@@ -1422,6 +1506,7 @@ async function searchRecall(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
 
 export async function searchJobs(query: string): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const q = query.trim();
 
   if (!q) return { ok: true, rows: [] };
@@ -1431,7 +1516,8 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
   if (q.toLowerCase() === '@recall') return searchRecall();
 
   // Normal search (tag/confirmation/phone/customer)
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
     .is('pending_deleted_at', null)
@@ -1442,7 +1528,9 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
         `phone.ilike.%${q}%`,
         `customer_name.ilike.%${q}%`,
       ].join(',')
-    )
+    ),
+    processor.id
+  )
     .order('dropoff_date', { ascending: false })
     .limit(50);
 
@@ -1463,6 +1551,7 @@ function calcSpecialtyPriceFromLbs(job: Partial<Job>, pricing?: Partial<SitePric
 
 export async function saveJob(job: Partial<Job>) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const pricing = await getCurrentPricing();
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
@@ -1496,10 +1585,13 @@ let tagToStore: string;
   let existingJob: Job | null = null;
 
   if (hasRealTagInput) {
-    const { data: existingRow, error: existingError } = await supabaseServer
+    const { data: existingRow, error: existingError } = await withProcessorFilter(
+      supabaseServer
       .from('jobs')
       .select('*')
-      .eq('tag', rawTag)
+      .eq('tag', rawTag),
+      processor.id
+    )
       .maybeSingle();
 
     if (existingError) {
@@ -1600,6 +1692,7 @@ let tagToStore: string;
   const usedTotalPrice      = numOrNull(effectiveJob.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
 
   const upsertPayload: any = {
+    ...(processor.id ? { processor_id: processor.id } : {}),
     tag: tagToStore,
     confirmation: effectiveJob.confirmation ?? null,
     customer_name: effectiveJob.customer ?? null,
@@ -1728,7 +1821,7 @@ Object.keys(upsertPayload).forEach((k) => {
   const { data, error } = await supabaseServer
     .from('jobs')
     .upsert(upsertPayload, {
-      onConflict: 'tag',
+      onConflict: processor.id ? 'processor_id,tag' : 'tag',
     })
     .select('*')
     .maybeSingle();
@@ -2054,12 +2147,16 @@ export async function markCalled(params: {
 
 export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
     .or('tag.is.null,tag.eq.,requires_tag.eq.true')
-    .is('pending_deleted_at', null)
+    .is('pending_deleted_at', null),
+    processor.id
+  )
     .order('dropoff_date', { ascending: false })
     .limit(200);
 
@@ -2075,13 +2172,15 @@ export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSear
 
 export async function deletePendingJob(params: { jobId: string }) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const jobId = String(params.jobId || '').trim();
   if (!jobId) {
     return { ok: false, error: 'Missing jobId' };
   }
 
   const deletedAt = nowIso();
-  const { data: deleted, error } = await supabaseServer
+  const { data: deleted, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .update({
       pending_deleted_at: deletedAt,
@@ -2090,7 +2189,9 @@ export async function deletePendingJob(params: { jobId: string }) {
     })
     .eq('id', jobId)
     .eq('requires_tag', true)
-    .is('pending_deleted_at', null)
+    .is('pending_deleted_at', null),
+    processor.id
+  )
     .select('id, tag, confirmation, customer_name, pending_deleted_at, pending_delete_reason')
     .maybeSingle();
 
@@ -2117,18 +2218,22 @@ export async function deletePendingJob(params: { jobId: string }) {
 
 export async function markIntakeSheetPrinted(params: { tag: string }) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const tag = String(params.tag || '').trim();
   if (!tag) {
     return { ok: false, error: 'Missing tag' };
   }
 
-  const { data: updated, error } = await supabaseServer
+  const { data: updated, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .update({
       intake_sheet_printed_at: nowIso(),
       updated_at: nowIso(),
     })
-    .eq('tag', tag)
+    .eq('tag', tag),
+    processor.id
+  )
     .select('tag, intake_sheet_printed_at, intake_sheet_print_count')
     .maybeSingle();
 
@@ -2142,13 +2247,16 @@ export async function markIntakeSheetPrinted(params: { tag: string }) {
   }
 
   const nextCount = Number(updated.intake_sheet_print_count ?? 0) + 1;
-  const { data: counted, error: countError } = await supabaseServer
+  const { data: counted, error: countError } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .update({
       intake_sheet_print_count: nextCount,
       updated_at: nowIso(),
     })
-    .eq('tag', tag)
+    .eq('tag', tag),
+    processor.id
+  )
     .select('tag, intake_sheet_printed_at, intake_sheet_print_count')
     .maybeSingle();
 
@@ -2167,18 +2275,22 @@ export async function markIntakeSheetPrinted(params: { tag: string }) {
 
 export async function markIntakeSheetUnprinted(params: { tag: string }) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const tag = String(params.tag || '').trim();
   if (!tag) {
     return { ok: false, error: 'Missing tag' };
   }
 
-  const { data: updated, error } = await supabaseServer
+  const { data: updated, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .update({
       intake_sheet_printed_at: null,
       updated_at: nowIso(),
     })
-    .eq('tag', tag)
+    .eq('tag', tag),
+    processor.id
+  )
     .select('tag, intake_sheet_printed_at, intake_sheet_print_count')
     .maybeSingle();
 
@@ -2201,12 +2313,16 @@ export async function markIntakeSheetUnprinted(params: { tag: string }) {
 
 export async function listRemovedPendingJobs(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
     .eq('requires_tag', true)
-    .not('pending_deleted_at', 'is', null)
+    .not('pending_deleted_at', 'is', null),
+    processor.id
+  )
     .order('pending_deleted_at', { ascending: false })
     .limit(200);
 
@@ -2220,12 +2336,14 @@ export async function listRemovedPendingJobs(): Promise<{ ok: boolean; rows: Job
 
 export async function restorePendingJob(params: { jobId: string }) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const jobId = String(params.jobId || '').trim();
   if (!jobId) {
     return { ok: false, error: 'Missing jobId' };
   }
 
-  const { data: restored, error } = await supabaseServer
+  const { data: restored, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .update({
       pending_deleted_at: null,
@@ -2234,7 +2352,9 @@ export async function restorePendingJob(params: { jobId: string }) {
     })
     .eq('id', jobId)
     .eq('requires_tag', true)
-    .not('pending_deleted_at', 'is', null)
+    .not('pending_deleted_at', 'is', null),
+    processor.id
+  )
     .select('id, tag, confirmation, customer_name')
     .maybeSingle();
 
@@ -2260,14 +2380,18 @@ export async function restorePendingJob(params: { jobId: string }) {
 
 export async function listJobsNeedingPrint(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT + ',intake_sheet_printed_at,intake_sheet_print_count')
     .eq('requires_tag', false)
     .not('tag', 'is', null)
     .neq('tag', '')
-    .is('intake_sheet_printed_at', null)
+    .is('intake_sheet_printed_at', null),
+    processor.id
+  )
     .order('dropoff_date', { ascending: false })
     .limit(500);
 
@@ -2281,13 +2405,17 @@ export async function listJobsNeedingPrint(): Promise<{ ok: boolean; rows: JobSe
 
 export async function lookupCustomerByName(name: string) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext(supabaseServer);
   const q = String(name || '').trim();
   if (!q) return { ok: true, match: null, matches: [] };
 
-  const { data, error } = await supabaseServer
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
     .select('customer_name,phone,email,address,city,state,zip,dropoff_date,created_at,tag')
-    .ilike('customer_name', q)
+    .ilike('customer_name', q),
+    processor.id
+  )
     .order('dropoff_date', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(10);
