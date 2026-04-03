@@ -11,6 +11,7 @@ import {
   setJobTag,
 } from '@/lib/jobsSupabase';
 import { requireStaffAccess } from '@/lib/staffAuth';
+import { getStaffProcessorContext } from '@/lib/staffContext';
 import { Job } from '@/types/job';
 
 function normalizeAction(v: string | null) {
@@ -106,7 +107,8 @@ export async function POST(req: NextRequest) {
           status: 400,
         });
       }
-      const result = await saveJob(job);
+      const processorContext = await getStaffProcessorContext(req);
+      const result = await saveJob(job, { processorContext });
       return new Response(JSON.stringify(result), { status: 200 });
     }
 

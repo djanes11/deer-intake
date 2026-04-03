@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { requireStaffAccess } from '@/lib/staffAuth';
 import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
 import { normalizePricing } from '@/lib/pricing';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { getStaffProcessorContext } from '@/lib/staffContext';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Missing Supabase env vars');
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    const processor = await getDefaultProcessorContext();
+    const processor = await getStaffProcessorContext(req);
     let query = supabase.from('site_settings').select('*');
     query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
     const { data, error } = await query.single();
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Missing Supabase env vars');
 
     const body = await req.json().catch(() => ({}));
-    const processor = await getDefaultProcessorContext();
+    const processor = await getStaffProcessorContext(req);
     const defaults = defaultPublicSiteSettings().branding;
 
     const payload = {
