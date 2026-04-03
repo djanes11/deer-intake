@@ -366,7 +366,7 @@ pages.forEach(p => {
 
   const renderCopy = (i: number) => (
     <div key={i} className={`page ${copies === 1 && i === 0 ? "onepage" : ""}`}>
-      {!hideHeader && <header className="hdr">McAfee Custom Deer Processing — Palmyra, IN</header>}
+      {!hideHeader && <header className="hdr">Processor Intake Sheet</header>}
 
       {/* Row A */}
       <div className="row grid12 rowA">
@@ -629,7 +629,7 @@ pages.forEach(p => {
         </div>
       </div>
 
-      <footer className="ftr">McAfee intake sheet | Tag {tagKey}</footer>
+      <footer className="ftr">Processor intake sheet | Tag {tagKey}</footer>
     </div>
   );
 

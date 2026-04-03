@@ -123,6 +123,7 @@ export default async function IntakeView({
 }) {
   try {
     const settings = await getPublicSiteSettings();
+    const webbsEnabled = settings.features.webbsEnabled !== false;
     // Promise props (Next 15)
     const { tag } = await params;
     const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
@@ -215,7 +216,7 @@ export default async function IntakeView({
                 <div className="muted" style={{fontSize:12}}>
                   {processingOverride !== null
                     ? `Auto would be: $${processingAuto.toFixed(2)}`
-                    : 'Proc. type + beef fat + Webbs fee'}
+                    : webbsEnabled ? 'Proc. type + beef fat + Webbs fee' : 'Proc. type + beef fat'}
                 </div>
               </div>
 
@@ -256,7 +257,7 @@ export default async function IntakeView({
                   <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.capingStatus || ''}</div>
                 </div>
               )}
-              {job?.webbsOrder && (
+              {webbsEnabled && job?.webbsOrder && (
                 <div className="col" style={{minWidth:0}}>
                   <label>Webbs Status</label>
                   <div style={{ background:'#fff', border:'1px solid #cbd5e1', borderRadius:10, padding:'6px 8px', minWidth:0 }}>{job?.webbsStatus || ''}</div>
@@ -364,7 +365,7 @@ export default async function IntakeView({
 
           {/* Specialty */}
           <section>
-            <h3>McAfee Specialty Products</h3>
+            <h3>Specialty Products</h3>
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
               <div className="c12" style={{gridColumn:'span 12'}}>
                 <Check on={!!job?.specialtyProducts} text="Would like specialty products" />
@@ -382,7 +383,7 @@ export default async function IntakeView({
           </section>
 
           {/* Webbs */}
-          {hasWebbs && (
+          {webbsEnabled && hasWebbs && (
             <section>
               <h3>Webbs</h3>
               <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>

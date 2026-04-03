@@ -385,6 +385,7 @@ function IntakePage() {
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
   const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
@@ -411,10 +412,29 @@ function IntakePage() {
     fetch('/api/public/site-settings', { cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => {
-        if (j?.ok) setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
+        if (j?.ok) {
+          setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
+          setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+        }
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (webbsEnabled) return;
+    setJob((prev) => ({
+      ...prev,
+      webbsOrder: false,
+      webbsStatus: '',
+      webbsOrderStyle: 'itemized_lbs',
+      webbsItems: [],
+      webbsAllocations: [],
+      webbsPounds: '',
+      webbsFormNumber: '',
+      webbsPaperFormCompleted: false,
+    }));
+    setWebbsModalOpen(false);
+  }, [webbsEnabled]);
 
   useEffect(() => {
     const name = String(job.customer || '').trim();
@@ -688,7 +708,7 @@ useEffect(() => {
 
   const showMainStatus = procNorm !== 'Cape & Donate' && procNorm !== 'Donate';
   const showCapingStatus = capingFlow;
-  const showWebbsStatus = webbsOn && procNorm !== 'Donate';
+  const showWebbsStatus = webbsEnabled && webbsOn && procNorm !== 'Donate';
   const showSpecialtyStatus = !!job.specialtyProducts;
 
   useEffect(() => {
@@ -782,7 +802,7 @@ useEffect(() => {
     if (job.prefSMS && !job.smsConsent) missing.push('SMS Consent');
     if (hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
     if (frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
-    if (job.webbsOrder) {
+    if (webbsEnabled && job.webbsOrder) {
       if (webbsOrderStyle === 'paper_form') {
         if (!toInt(job.webbsPounds)) missing.push('Webbs Total Pounds');
       } else if (webbsOrderStyle === 'whole_deer_percent') {
@@ -1065,7 +1085,9 @@ if (fresh?.exists && fresh.job) {
             <div className="col price">
               <label>Processing Price</label>
               <div className="money">{processingPriceUsed.toFixed(2)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>Proc. type + beef fat + Webbs fee</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                {webbsEnabled ? 'Proc. type + beef fat + Webbs fee' : 'Proc. type + beef fat'}
+              </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' • override active' : ''}
               </div>
@@ -1627,7 +1649,7 @@ if (fresh?.exists && fresh.job) {
 
         {/* Specialty Products */}
         <section>
-          <h3>McAfee Specialty Products</h3>
+          <h3>Specialty Products</h3>
           <div className="grid">
             <div className="c3 rowInline">
               <label className="chk tight">
@@ -1690,6 +1712,7 @@ if (fresh?.exists && fresh.job) {
         </section>
 
         {/* Webbs */}
+        {webbsEnabled ? (
         <section>
           <h3>Webbs</h3>
           <div className="grid">
@@ -1771,6 +1794,7 @@ if (fresh?.exists && fresh.job) {
             )}
           </div>
         </section>
+        ) : null}
 
         {/* Communication & Consent */}
         <section>
@@ -1889,7 +1913,7 @@ if (fresh?.exists && fresh.job) {
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalHead">
               <div>
-                <div className="modalKicker">McAfee Specialty</div>
+                <div className="modalKicker">Specialty</div>
                 <h3 style={{ margin: '4px 0 0' }}>Specialty Order</h3>
               </div>
               <button type="button" className="btn secondaryBtn" onClick={() => setSpecialtyModalOpen(false)}>
@@ -1952,7 +1976,7 @@ if (fresh?.exists && fresh.job) {
         </div>
       ) : null}
 
-      {webbsModalOpen && job.webbsOrder ? (
+      {webbsEnabled && webbsModalOpen && job.webbsOrder ? (
         <div className="modal" onClick={() => setWebbsModalOpen(false)}>
           <div className="modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="modalHead">

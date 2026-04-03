@@ -13,6 +13,7 @@ type PublicBrandingState = {
   phoneDisplay: string;
   phoneE164: string;
   mapsUrl: string;
+  webbsEnabled: boolean;
 };
 
 const DEFAULT_BRANDING: PublicBrandingState = {
@@ -21,6 +22,7 @@ const DEFAULT_BRANDING: PublicBrandingState = {
   phoneDisplay: SITE.phone,
   phoneE164: SITE.phoneE164,
   mapsUrl: SITE.mapsUrl,
+  webbsEnabled: true,
 };
 
 export default function OvernightInstructionsPage() {
@@ -67,6 +69,7 @@ export default function OvernightInstructionsPage() {
           phoneDisplay: String(j.settings?.branding?.phoneDisplay || DEFAULT_BRANDING.phoneDisplay),
           phoneE164: String(j.settings?.branding?.phoneE164 || DEFAULT_BRANDING.phoneE164),
           mapsUrl: String(j.settings?.branding?.mapsUrl || DEFAULT_BRANDING.mapsUrl),
+          webbsEnabled: j.settings?.features?.webbsEnabled !== false,
         });
       })
       .catch(() => {});
@@ -187,7 +190,10 @@ export default function OvernightInstructionsPage() {
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
             <li>Your <b>GoOutdoorsIN confirmation #</b> from State check-in</li>
             <li>Your phone and contact info</li>
-            <li>A <b>Blank Deer Tag</b>, and optionally a <b>Webbs form</b> if you want Webbs products</li>
+            <li>
+              A <b>Blank Deer Tag</b>
+              {branding.webbsEnabled ? <> and optionally a <b>Webbs form</b> if you want Webbs products</> : null}
+            </li>
           </ul>
           {WarningCallout}
         </section>
@@ -228,7 +234,7 @@ export default function OvernightInstructionsPage() {
               <b>1) Stop at the first door</b> and grab:
               <ul style={{ margin: '6px 0 0 18px' }}>
                 <li>a <b>Blank Deer Tag</b></li>
-                <li>a <b>Webbs form</b> if you want Webbs products</li>
+                {branding.webbsEnabled ? <li>a <b>Webbs form</b> if you want Webbs products</li> : null}
               </ul>
             </li>
 
@@ -248,6 +254,7 @@ export default function OvernightInstructionsPage() {
               {WarningCallout}
             </li>
 
+            {branding.webbsEnabled ? (
             <li style={stepBox}>
               <b>4) Webbs (optional):</b> If you want Webbs products, fill out the Webbs form and include your product choices and pounds going into each product.
               <div style={{ marginTop: 6 }}>
@@ -261,24 +268,25 @@ export default function OvernightInstructionsPage() {
                 </a>
               </div>
             </li>
+            ) : null}
 
             <li style={stepBox}>
-              <b>5) Save the intake form.</b> After you tap <b>Save</b>, we'll record your drop-off.
+              <b>{branding.webbsEnabled ? '5' : '4'}) Save the intake form.</b> After you tap <b>Save</b>, we'll record your drop-off.
               <div style={{ marginTop: 8, color: '#d1fae5' }}>
                 Save or screenshot your confirmation number. That is the fastest way to check your deer status later.
               </div>
             </li>
 
             <li style={stepBox}>
-              <b>6) Tag your deer.</b> On the Blank Deer Tag, write your <b>Full Name</b>, <b>Phone Number</b>, and <b>GoOutdoorsIN State Confirmation Number</b>. Attach the tag securely to the deer.
+              <b>{branding.webbsEnabled ? '6' : '5'}) Tag your deer.</b> On the Blank Deer Tag, write your <b>Full Name</b>, <b>Phone Number</b>, and <b>GoOutdoorsIN State Confirmation Number</b>. Attach the tag securely to the deer.
             </li>
 
             <li style={stepBox}>
-              <b>7) Place your deer at the furthest point in the cooler.</b>
+              <b>{branding.webbsEnabled ? '7' : '6'}) Place your deer at the furthest point in the cooler.</b>
             </li>
 
             <li style={stepBox}>
-              <b>8) Watch for updates.</b> We’ll use the contact method you selected on your intake form once your deer is officially tagged and again when it is ready for pickup.
+              <b>{branding.webbsEnabled ? '8' : '7'}) Watch for updates.</b> We’ll use the contact method you selected on your intake form once your deer is officially tagged and again when it is ready for pickup.
             </li>
           </ol>
 

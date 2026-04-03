@@ -105,7 +105,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     const processor = hostname
       ? await getProcessorContextForHostname(hostname)
-      : await getProcessorContextForHostname(await getRequestHostname()).catch(() => getDefaultProcessorContext());
+      : await getDefaultProcessorContext();
     let query = supabase
       .from('site_settings')
       .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb');

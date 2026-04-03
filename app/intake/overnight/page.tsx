@@ -243,6 +243,7 @@ function OvernightIntakePage() {
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -265,6 +266,7 @@ function OvernightIntakePage() {
         if (j?.ok) {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
           setIntakeEnabled(!!j?.settings?.public_intake_enabled);
+          setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           if (j?.settings?.banner_enabled && j?.settings?.banner_message) {
             setClosureMessage(String(j.settings.banner_message));
           }
@@ -344,6 +346,20 @@ function OvernightIntakePage() {
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
   const webbsOn = !!job.webbsOrder;
 
+  useEffect(() => {
+    if (webbsEnabled) return;
+    setJob((prev) => ({
+      ...prev,
+      webbsOrder: false,
+      webbsStatus: '',
+      webbsOrderStyle: 'itemized_lbs',
+      webbsItems: [],
+      webbsAllocations: [],
+      webbsPounds: '',
+    }));
+    setWebbsModalOpen(false);
+  }, [webbsEnabled]);
+
   // status coercion/initialization (hidden UI)
   useEffect(() => {
     setJob((prev) => {
@@ -404,6 +420,7 @@ function OvernightIntakePage() {
         if (!j?.ok || !j?.settings) return;
         setIntakeEnabled(j.settings.public_intake_enabled !== false);
         setClosureMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
+        setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
       })
       .catch(() => {});
   }, []);
@@ -487,7 +504,7 @@ function OvernightIntakePage() {
     if (job.hind?.['Hind - Roast'] && !toInt(job.hindRoastCount)) e.hindRoastCount = 'Hind Roast Count is required';
     if (job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
 
-    if (job.webbsOrder) {
+    if (webbsEnabled && job.webbsOrder) {
       if (webbsOrderStyle === 'whole_deer_percent') {
         if (!webbsAllocations.length) e.webbsItems = 'Enter at least one Webbs product percentage';
         else if (webbsAllocationTotal !== 100) e.webbsItems = 'Webbs percentages must add up to 100%';
@@ -788,7 +805,9 @@ function OvernightIntakePage() {
             <div className="col price">
               <label>Processing Price</label>
               <div className="money">{processingPrice.toFixed(2)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>Proc. type + beef fat + Webbs fee</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                {webbsEnabled ? 'Proc. type + beef fat + Webbs fee' : 'Proc. type + beef fat'}
+              </div>
             </div>
 
             <div className="col price">
@@ -1299,7 +1318,7 @@ function OvernightIntakePage() {
         {step.key === 'extras' && (
           <>
             <section>
-              <h3>McAfee Specialty Products</h3>
+              <h3>Specialty Products</h3>
               <div className="grid">
                 <div className="c3 rowInline">
                   <label className="chk tight pkg-beef">
@@ -1377,7 +1396,7 @@ function OvernightIntakePage() {
                   </label>
                 </div>
 
-                {job.webbsOrder && (
+                {webbsEnabled && job.webbsOrder && (
                   <>
                     <div className="c12">
                       <div className="webbsSummaryCard">
@@ -1520,7 +1539,9 @@ function OvernightIntakePage() {
                       ))}
                     </div>
                   ) : null}
-                  <div className="reviewLine">Webbs: {job.webbsOrder ? webbsSummaryText : 'No Webbs order'}</div>
+                  {webbsEnabled ? (
+                    <div className="reviewLine">Webbs: {job.webbsOrder ? webbsSummaryText : 'No Webbs order'}</div>
+                  ) : null}
                   {job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 ? (
                     <div className="reviewList">
                       {webbsAllocationLines.map((line) => (
@@ -1590,7 +1611,7 @@ function OvernightIntakePage() {
           <div className="modal-card webbsModalCard" onClick={(e) => e.stopPropagation()}>
             <div className="webbsModalHead">
               <div>
-                <div className="modalKicker">McAfee Specialty</div>
+                <div className="modalKicker">Specialty</div>
                 <h3>Fill Out Your Specialty Order</h3>
                 <div className="muted" style={{ marginTop: 6 }}>
                   Enter how many pounds you want for each specialty item. Leave a box blank if you do not want that item.
@@ -1652,7 +1673,7 @@ function OvernightIntakePage() {
         </div>
       ) : null}
 
-      {webbsModalOpen && job.webbsOrder && !locked ? (
+      {webbsEnabled && webbsModalOpen && job.webbsOrder && !locked ? (
         <div className="modal" onClick={() => setWebbsModalOpen(false)}>
           <div className="modal-card webbsModalCard" onClick={(e) => e.stopPropagation()}>
             <div className="webbsModalHead">

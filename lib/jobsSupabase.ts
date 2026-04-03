@@ -44,7 +44,15 @@ function statusPageLink() {
   return `${SITE_URL}/status`;
 }
 
-function buildIntakeEmail(opts: { name: string; tag: string; link: string }) {
+async function getNotificationBranding() {
+  const settings = await getPublicSiteSettings();
+  return {
+    businessName: String(settings.branding.name || 'Game Butcher Board'),
+    phoneDisplay: String(settings.branding.phoneDisplay || ''),
+  };
+}
+
+function buildIntakeEmail(opts: { name: string; tag: string; link: string; businessName: string; phoneDisplay: string }) {
   const name = opts.name || 'there';
   return {
     subject: `We received your deer (${opts.tag})`,
@@ -52,13 +60,13 @@ function buildIntakeEmail(opts: { name: string; tag: string; link: string }) {
       `<p>Hi ${escapeHtml(name)}</p>`,
       `<p>We received your deer (${escapeHtml(opts.tag)})</p>`,
       opts.link ? `<p><a href="${opts.link}" target="_blank" rel="noopener">Click here to view your intake form</a></p>` : '',
-      `<p>If you need to make any updates or have questions, please contact Travis at <a href="tel:15026433916">(502) 643-3916</a></p>`,
+      `<p>If you need to make any updates or have questions, please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''}.</p>`,
     ].join(''),
     text:
       `Hi ${name}\n` +
       `We received your deer (${opts.tag})\n` +
       (opts.link ? `Click here to view your intake form: ${opts.link}\n` : '') +
-      `If you need to make any updates or have questions, please contact Travis at (502) 643-3916\n`,
+      `If you need to make any updates or have questions, please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''}\n`,
   };
 }
 
@@ -76,7 +84,7 @@ function makePendingTag(confirmation13: string) {
 }
 
 
-function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number }) {
+function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number; businessName: string; phoneDisplay: string }) {
   const name = opts.name || 'there';
   const paid = !!opts.paidProcessing;
   const price = Number(opts.processingPrice || 0);
@@ -92,60 +100,60 @@ function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: b
       `<p>Your regular processing is finished and ready for pickup.</p>`,
       payBlock,
       `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.</p>`,
+      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.</p>`,
       `<p>Please bring a cooler or box to transport your meat.</p>`,
-      `<p><i>Reminder:</i> This update is for your regular processing only. We'll reach out separately about any Webbs orders or McAfee Specialty Products.</p>`,
+      `<p><i>Reminder:</i> This update is for your regular processing only. We'll reach out separately about any additional order items.</p>`,
     ].join(''),
     text:
       `Hi ${name}\n` +
       `Your regular processing is finished and ready for pickup.\n\n` +
       (paid ? 'Regular processing: PAID' : `Amount still owed (regular processing): $${price.toFixed(2)}`) +
       `\n\nPickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.\n` +
+      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.\n` +
       `Please bring a cooler or box to transport your meat.\n` +
-      `Reminder: This update is for your regular processing only. We'll reach out separately about any Webbs orders or McAfee Specialty Products.\n`,
+      `Reminder: This update is for your regular processing only. We'll reach out separately about any additional order items.\n`,
   };
 }
 
-function buildIntakeSms(opts: { tag: string; statusUrl: string }) {
+function buildIntakeSms(opts: { tag: string; statusUrl: string; businessName: string }) {
   const tag = String(opts.tag || '').trim();
   const statusUrl = String(opts.statusUrl || '').trim();
   const parts = [
-    `McAfee: Deer tagged ${tag}.`,
+    `${opts.businessName}: Deer tagged ${tag}.`,
     statusUrl ? `Status: ${statusUrl}` : '',
   ].filter(Boolean);
   return parts.join(' ');
 }
 
-function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string }) {
+function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string; businessName: string }) {
   return [
-    `McAfee: Meat ready for pickup. ${opts.tag}.`,
+    `${opts.businessName}: Meat ready for pickup. ${opts.tag}.`,
     opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
-function buildCapeFinishedSms(opts: { tag: string; statusUrl: string }) {
+function buildCapeFinishedSms(opts: { tag: string; statusUrl: string; businessName: string }) {
   return [
-    `McAfee: Cape ready for pickup. ${opts.tag}.`,
+    `${opts.businessName}: Cape ready for pickup. ${opts.tag}.`,
     opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
-function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string }) {
+function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string; businessName: string }) {
   return [
-    `McAfee: Specialty ready for pickup. ${opts.tag}.`,
+    `${opts.businessName}: Specialty ready for pickup. ${opts.tag}.`,
     opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
-function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string }) {
+function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string; businessName: string }) {
   return [
-    `McAfee: Webbs delivered. ${opts.tag}.`,
+    `${opts.businessName}: Webbs delivered. ${opts.tag}.`,
     opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
   ].filter(Boolean).join(' ');
 }
 
-function buildCapeFinishedEmail(opts: { name: string; tag: string }) {
+function buildCapeFinishedEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string }) {
   const name = opts.name || 'there';
   return {
     subject: `Cape finished & ready for pickup (${opts.tag})`,
@@ -153,13 +161,13 @@ function buildCapeFinishedEmail(opts: { name: string; tag: string }) {
       `<p>Hi ${escapeHtml(name)}</p>`,
       `<p>Your cape is finished and ready for pickup.</p>`,
       `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
+      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions.</p>`,
     ].join(''),
     text:
       `Hi ${name}\n` +
       `Your cape is finished and ready for pickup.\n\n` +
       `Pickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions.\n`,
+      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions.\n`,
   };
 }
 
@@ -168,6 +176,8 @@ function buildSpecialtyFinishedEmail(opts: {
   tag: string;
   paidSpecialty: boolean;
   specialtyPrice: number;
+  businessName: string;
+  phoneDisplay: string;
 }) {
   const name = opts.name || 'there';
   const paid = !!opts.paidSpecialty;
@@ -180,21 +190,21 @@ function buildSpecialtyFinishedEmail(opts: {
     subject: `Specialty products finished (${opts.tag})`,
     html: [
       `<p>Hi ${escapeHtml(name)}</p>`,
-      `<p>Your McAfee specialty products are finished and ready for pickup.</p>`,
+      `<p>Your specialty products are finished and ready for pickup.</p>`,
       payBlock,
       `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
+      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions.</p>`,
     ].join(''),
     text:
       `Hi ${name}\n` +
-      `Your McAfee specialty products are finished and ready for pickup.\n\n` +
+      `Your specialty products are finished and ready for pickup.\n\n` +
       (paid ? 'Specialty products: PAID' : `Amount still owed (specialty products): $${price.toFixed(2)}`) +
       `\n\nPickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions.\n`,
+      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions.\n`,
   };
 }
 
-function buildWebbsDeliveredEmail(opts: { name: string; tag: string }) {
+function buildWebbsDeliveredEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string }) {
   const name = opts.name || 'there';
   return {
     subject: `Webbs order delivered (${opts.tag})`,
@@ -202,13 +212,13 @@ function buildWebbsDeliveredEmail(opts: { name: string; tag: string }) {
       `<p>Hi ${escapeHtml(name)}</p>`,
       `<p>Your Webbs order has been delivered and is ready for pickup.</p>`,
       `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact Travis at <a href="tel:15026433916">(502) 643-3916</a> to confirm your pickup time or ask any questions.</p>`,
+      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions.</p>`,
     ].join(''),
     text:
       `Hi ${name}\n` +
       `Your Webbs order has been delivered and is ready for pickup.\n\n` +
       `Pickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact Travis at (502) 643-3916 to confirm your pickup time or ask any questions.\n`,
+      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions.\n`,
   };
 }
 
@@ -365,11 +375,14 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
+  const branding = await getNotificationBranding();
   const link = intakeFormLink(String(locked.tag || ''), String(locked.public_token || ''));
   const tpl = buildIntakeEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
     link,
+    businessName: branding.businessName,
+    phoneDisplay: branding.phoneDisplay,
   });
 
   await sendEmail({
@@ -399,9 +412,11 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
+  const branding = await getNotificationBranding();
   const body = buildIntakeSms({
     tag: String(locked.tag || ''),
     statusUrl: statusPageLink(),
+    businessName: branding.businessName,
   });
 
   const result = await sendSms({
@@ -477,11 +492,14 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     await getCurrentPricing(),
   );
   const price = Number(locked.price_processing ?? 0) || computed;
+  const branding = await getNotificationBranding();
   const tpl = buildFinishedEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
     paidProcessing: !!locked.paid_processing,
     processingPrice: price,
+    businessName: branding.businessName,
+    phoneDisplay: branding.phoneDisplay,
   });
 
   await sendEmail({
@@ -525,11 +543,13 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
     await getCurrentPricing(),
   );
   const price = Number(locked.price_processing ?? 0) || computed;
+  const branding = await getNotificationBranding();
   const body = buildMeatFinishedSms({
     tag: String(locked.tag || ''),
     paidProcessing: !!locked.paid_processing,
     processingPrice: price,
     statusUrl: statusPageLink(),
+    businessName: branding.businessName,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -559,9 +579,12 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
+  const branding = await getNotificationBranding();
   const tpl = buildCapeFinishedEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
+    businessName: branding.businessName,
+    phoneDisplay: branding.phoneDisplay,
   });
 
   await sendEmail({
@@ -592,9 +615,11 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
+  const branding = await getNotificationBranding();
   const body = buildCapeFinishedSms({
     tag: String(locked.tag || ''),
     statusUrl: statusPageLink(),
+    businessName: branding.businessName,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -642,11 +667,14 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
   const computed = calcSpecialtyPriceFromLbs(locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
   const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
+  const branding = await getNotificationBranding();
   const tpl = buildSpecialtyFinishedEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
     paidSpecialty: !!locked.paid_specialty,
     specialtyPrice: price,
+    businessName: branding.businessName,
+    phoneDisplay: branding.phoneDisplay,
   });
 
   await sendEmail({
@@ -702,11 +730,13 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
   const computed = calcSpecialtyPriceFromLbs(locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
   const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
+  const branding = await getNotificationBranding();
   const body = buildSpecialtyFinishedSms({
     tag: String(locked.tag || ''),
     paidSpecialty: !!locked.paid_specialty,
     specialtyPrice: price,
     statusUrl: statusPageLink(),
+    businessName: branding.businessName,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -736,9 +766,12 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
+  const branding = await getNotificationBranding();
   const tpl = buildWebbsDeliveredEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
+    businessName: branding.businessName,
+    phoneDisplay: branding.phoneDisplay,
   });
 
   await sendEmail({
@@ -769,9 +802,11 @@ async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
+  const branding = await getNotificationBranding();
   const body = buildWebbsDeliveredSms({
     tag: String(locked.tag || ''),
     statusUrl: statusPageLink(),
+    businessName: branding.businessName,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -903,10 +938,13 @@ export async function resendCustomerNotification(params: {
     if (event === 'dropoff_tagged') {
       const token = String(row.public_token || '').trim() || makePublicToken();
       const link = intakeFormLink(String(row.tag || ''), token);
+      const branding = await getNotificationBranding();
       const tpl = buildIntakeEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
         link,
+        businessName: branding.businessName,
+        phoneDisplay: branding.phoneDisplay,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
       await supabaseServer.from('jobs').update({
@@ -919,19 +957,25 @@ export async function resendCustomerNotification(params: {
     if (event === 'meat_finished') {
       const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
       const price = Number(row.price_processing ?? 0) || computed;
+      const branding = await getNotificationBranding();
       const tpl = buildFinishedEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
         paidProcessing: !!row.paid_processing,
         processingPrice: price,
+        businessName: branding.businessName,
+        phoneDisplay: branding.phoneDisplay,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
 
     if (event === 'cape_finished') {
+      const branding = await getNotificationBranding();
       const tpl = buildCapeFinishedEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
+        businessName: branding.businessName,
+        phoneDisplay: branding.phoneDisplay,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
@@ -940,19 +984,25 @@ export async function resendCustomerNotification(params: {
       const computed = calcSpecialtyPriceFromLbs(row, await getCurrentPricing());
       const override = numOrNull(row.specialty_price_override);
       const price = override ?? (Number(row.price_specialty ?? 0) || computed);
+      const branding = await getNotificationBranding();
       const tpl = buildSpecialtyFinishedEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
         paidSpecialty: !!row.paid_specialty,
         specialtyPrice: price,
+        businessName: branding.businessName,
+        phoneDisplay: branding.phoneDisplay,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
 
     if (event === 'webbs_delivered') {
+      const branding = await getNotificationBranding();
       const tpl = buildWebbsDeliveredEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
+        businessName: branding.businessName,
+        phoneDisplay: branding.phoneDisplay,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
@@ -968,34 +1018,41 @@ export async function resendCustomerNotification(params: {
 
   let body = '';
   if (event === 'dropoff_tagged') {
-    body = buildIntakeSms({ tag: String(row.tag || ''), statusUrl: statusPageLink() });
+    const branding = await getNotificationBranding();
+    body = buildIntakeSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName });
   }
   if (event === 'meat_finished') {
     const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
     const price = Number(row.price_processing ?? 0) || computed;
+    const branding = await getNotificationBranding();
     body = buildMeatFinishedSms({
       tag: String(row.tag || ''),
       paidProcessing: !!row.paid_processing,
       processingPrice: price,
       statusUrl: statusPageLink(),
+      businessName: branding.businessName,
     });
   }
   if (event === 'cape_finished') {
-    body = buildCapeFinishedSms({ tag: String(row.tag || ''), statusUrl: statusPageLink() });
+    const branding = await getNotificationBranding();
+    body = buildCapeFinishedSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName });
   }
   if (event === 'specialty_finished') {
     const computed = calcSpecialtyPriceFromLbs(row, await getCurrentPricing());
     const override = numOrNull(row.specialty_price_override);
     const price = override ?? (Number(row.price_specialty ?? 0) || computed);
+    const branding = await getNotificationBranding();
     body = buildSpecialtyFinishedSms({
       tag: String(row.tag || ''),
       paidSpecialty: !!row.paid_specialty,
       specialtyPrice: price,
       statusUrl: statusPageLink(),
+      businessName: branding.businessName,
     });
   }
   if (event === 'webbs_delivered') {
-    body = buildWebbsDeliveredSms({ tag: String(row.tag || ''), statusUrl: statusPageLink() });
+    const branding = await getNotificationBranding();
+    body = buildWebbsDeliveredSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName });
   }
 
   const result = await sendSms({ to: phone, body });

@@ -37,7 +37,18 @@ export default function SearchPage() {
   const [resendMsg, setResendMsg] = useState<string | null>(null);
   const [resetBusy, setResetBusy] = useState('');
   const [printMsg, setPrintMsg] = useState<string | null>(null);
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
   const debounced = useDebounced(q, 300);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.ok) return;
+        setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,8 +179,8 @@ export default function SearchPage() {
       { label: 'Cape Finished', email: selectedJob.capeFinishedEmailSentAt, sms: selectedJob.capeFinishedSmsSentAt },
       { label: 'Specialty Finished', email: selectedJob.specialtyFinishedEmailSentAt, sms: selectedJob.specialtyFinishedSmsSentAt },
       { label: 'Webbs Delivered', email: selectedJob.webbsDeliveredEmailSentAt, sms: selectedJob.webbsDeliveredSmsSentAt },
-    ];
-  }, [selectedJob]);
+    ].filter((row) => webbsEnabled || row.label !== 'Webbs Delivered');
+  }, [selectedJob, webbsEnabled]);
 
   const latestNotificationAt = useMemo(() => {
     const values = notificationRows.flatMap((row) => [row.email, row.sms]).filter(Boolean) as string[];
@@ -387,9 +398,13 @@ export default function SearchPage() {
                       {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
                     </DetailBox>
 
-                    <DetailBox title="Webbs & Specialty">
-                      <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
-                      <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? webbsStyleLabel(selectedJob.webbsOrderStyle) : 'No Webbs order'}</div>
+                    <DetailBox title={webbsEnabled ? 'Webbs & Specialty' : 'Specialty'}>
+                      {webbsEnabled ? (
+                        <>
+                          <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
+                          <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? webbsStyleLabel(selectedJob.webbsOrderStyle) : 'No Webbs order'}</div>
+                        </>
+                      ) : null}
                       <div><strong>Specialty:</strong> {selectedJob.specialtyProducts ? 'Selected' : 'Not selected'}</div>
                     </DetailBox>
 
