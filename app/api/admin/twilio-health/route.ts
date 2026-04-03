@@ -7,7 +7,7 @@ import { getSmsHealth } from '@/lib/sms';
 
 export async function GET(req: Request) {
   try {
-    const auth = requireStaffAccess(req);
+    const auth = await requireStaffAccess(req);
     if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     const health = await getSmsHealth();
     return NextResponse.json(health, { status: health.ok ? 200 : 200 });

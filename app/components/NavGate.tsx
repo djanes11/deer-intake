@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 
 export default function NavGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const hideChrome = pathname?.startsWith('/intake/');
+  const hideChrome = pathname?.startsWith('/intake/') || pathname?.startsWith('/staff/login') || pathname?.startsWith('/staff/logout');
   if (hideChrome) return null;       // hide Nav (and any other chrome you wrap) on intake routes
   return <>{children}</>;
 }

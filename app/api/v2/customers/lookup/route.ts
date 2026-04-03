@@ -3,7 +3,7 @@ import { requireStaffAccess } from '@/lib/staffAuth';
 import { lookupCustomerByName } from '@/lib/jobsSupabase';
 
 export async function GET(req: NextRequest) {
-  const auth = requireStaffAccess(req);
+  const auth = await requireStaffAccess(req);
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
   }

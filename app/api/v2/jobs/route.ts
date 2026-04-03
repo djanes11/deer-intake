@@ -30,7 +30,7 @@ function normalizeAction(v: string | null) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = normalizeAction(searchParams.get('action'));
-  const auth = requireStaffAccess(req);
+  const auth = await requireStaffAccess(req);
   if (!auth.ok) {
     return new Response(JSON.stringify(auth), { status: auth.status });
   }
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const auth = requireStaffAccess(req);
+  const auth = await requireStaffAccess(req);
 
   if (!auth.ok) {
     return new Response(JSON.stringify(auth), { status: auth.status });

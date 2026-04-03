@@ -10,7 +10,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function POST(req: Request) {
   try {
-    const auth = requireStaffAccess(req);
+    const auth = await requireStaffAccess(req);
     if (!auth.ok) {
       return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     }

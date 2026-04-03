@@ -13,7 +13,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function GET(req: Request) {
   try {
-    const auth = requireStaffAccess(req);
+    const auth = await requireStaffAccess(req);
     if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Missing Supabase env vars');
 
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = requireStaffAccess(req);
+    const auth = await requireStaffAccess(req);
     if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
     if (!SUPABASE_URL || !SERVICE_KEY) throw new Error('Missing Supabase env vars');
 

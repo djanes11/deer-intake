@@ -127,7 +127,7 @@ export async function GET(req: Request) {
   const download = searchParams.get("download") === "1";
 
   try {
-    const auth = requireStaffAccess(req);
+    const auth = await requireStaffAccess(req);
     if (!auth.ok) {
       return new NextResponse(auth.error, {
         status: auth.status,
