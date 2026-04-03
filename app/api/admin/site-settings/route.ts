@@ -49,10 +49,41 @@ export async function POST(req: Request) {
     };
 
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    const query = processor.id
-      ? supabase.from('site_settings').upsert(payload, { onConflict: 'processor_id' }).select('*').single()
-      : supabase.from('site_settings').update(payload).eq('id', 1).select('*').single();
-    const { data, error } = await query;
+    let existingQuery = supabase.from('site_settings').select('id');
+    existingQuery = processor.id ? existingQuery.eq('processor_id', processor.id) : existingQuery.eq('id', 1);
+    const { data: existing, error: existingError } = await existingQuery.maybeSingle();
+    if (existingError) throw existingError;
+
+    let data: any = null;
+    let error: any = null;
+
+    if (existing?.id != null) {
+      const resp = await supabase
+        .from('site_settings')
+        .update(payload)
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      data = resp.data;
+      error = resp.error;
+    } else {
+      const { data: latest, error: latestError } = await supabase
+        .from('site_settings')
+        .select('id')
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestError) throw latestError;
+
+      const nextId = Number(latest?.id ?? 0) + 1 || 1;
+      const resp = await supabase
+        .from('site_settings')
+        .insert({ id: nextId, ...payload })
+        .select('*')
+        .single();
+      data = resp.data;
+      error = resp.error;
+    }
 
     if (error) throw error;
 
