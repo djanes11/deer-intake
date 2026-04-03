@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 import { specialtyPrice } from '@/lib/specialty';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { getProcessorContextForHostname } from '@/lib/processorContext';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -111,7 +111,7 @@ function shapeJob(row: any, debug: boolean) {
   return debug ? { ...base, _raw: row } : base;
 }
 
-async function handle(confirmation: string, tag: string, lastName: string, debug = false) {
+async function handle(confirmation: string, tag: string, lastName: string, debug = false, hostname?: string | null) {
   const wantConf = toDigits(confirmation);
   const wantTag = String(tag || '').trim();
   const wantLN = lname(lastName);
@@ -129,7 +129,7 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
   }
 
   const supabase = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = await getProcessorContextForHostname(hostname);
 
   // 1) Confirmation match (strict) — best for overnight/untagged
   if (wantConf) {
@@ -172,7 +172,8 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
 export async function POST(req: NextRequest) {
   try {
     const { confirmation = '', tag = '', lastName = '', debug = false } = await req.json();
-    const resp = await handle(confirmation, tag, lastName, !!debug);
+    const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+    const resp = await handle(confirmation, tag, lastName, !!debug, hostname);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
@@ -186,7 +187,8 @@ export async function GET(req: NextRequest) {
     const tag = searchParams.get('tag') || '';
     const lastName = searchParams.get('lastName') || '';
     const debug = searchParams.get('debug') === '1';
-    const resp = await handle(confirmation, tag, lastName, debug);
+    const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+    const resp = await handle(confirmation, tag, lastName, debug, hostname);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });

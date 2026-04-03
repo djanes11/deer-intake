@@ -10,7 +10,7 @@ import {
   normalizeWebbsOrderStyle,
   webbsAllocationTotalPercent,
 } from '@/lib/webbs';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { getProcessorContextForHostname } from '@/lib/processorContext';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -90,9 +90,9 @@ function publicValidationError(rawJob: Record<string, any>): string | null {
   return null;
 }
 
-async function confirmationExists(confirmation: string) {
+async function confirmationExists(confirmation: string, hostname?: string | null) {
   const supabase = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = await getProcessorContextForHostname(hostname);
   let query = supabase
     .from('jobs')
     .select('id')
@@ -106,15 +106,15 @@ async function confirmationExists(confirmation: string) {
   return !!data;
 }
 
-async function reserveConfirmation(preferred: string) {
+async function reserveConfirmation(preferred: string, hostname?: string | null) {
   const initial = digitsOnly(preferred);
-  if (initial.length === 13 && !(await confirmationExists(initial))) {
+  if (initial.length === 13 && !(await confirmationExists(initial, hostname))) {
     return initial;
   }
 
   for (let i = 0; i < 10; i += 1) {
     const candidate = genConfirmation();
-    if (!(await confirmationExists(candidate))) {
+    if (!(await confirmationExists(candidate, hostname))) {
       return candidate;
     }
   }
@@ -135,7 +135,9 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ ok: false, error: 'Rate limited' }), { status: 429 });
   }
 
-  const settings = await getPublicSiteSettings();
+  const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
+  const settings = await getPublicSiteSettings(hostname);
+  const processor = await getProcessorContextForHostname(hostname);
   if (!settings.public_intake_enabled) {
     return new Response(
       JSON.stringify({
@@ -166,7 +168,7 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ ok: false, error: validationError }), { status: 400 });
   }
 
-  let confirmation = await reserveConfirmation(String(rawJob.confirmation || '').trim());
+  let confirmation = await reserveConfirmation(String(rawJob.confirmation || '').trim(), hostname);
   const publicToken = String(rawJob.publicToken || '').trim() || genPublicToken();
 
   try {
@@ -174,24 +176,27 @@ export async function POST(req: NextRequest) {
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        result = await saveJob({
-          ...rawJob,
-          tag: '',
-          confirmation,
-          customer,
-          phone,
-          email: email || '',
-          processType: processType || '',
-          notes: notes || '',
-          requiresTag: true,
-          status: rawJob.status || 'Dropped Off',
-          dropoff: rawJob.dropoff || new Date().toISOString().slice(0, 10),
-          publicToken,
-        });
+        result = await saveJob(
+          {
+            ...rawJob,
+            tag: '',
+            confirmation,
+            customer,
+            phone,
+            email: email || '',
+            processType: processType || '',
+            notes: notes || '',
+            requiresTag: true,
+            status: rawJob.status || 'Dropped Off',
+            dropoff: rawJob.dropoff || new Date().toISOString().slice(0, 10),
+            publicToken,
+          },
+          { processorContext: processor }
+        );
         break;
       } catch (error: any) {
         if (isUniqueViolation(error, 'confirmation')) {
-          confirmation = await reserveConfirmation('');
+          confirmation = await reserveConfirmation('', hostname);
           continue;
         }
         throw error;

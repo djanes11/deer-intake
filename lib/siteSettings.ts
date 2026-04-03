@@ -1,9 +1,10 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
 import { SITE } from '@/lib/config';
 import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { getDefaultProcessorContext, getProcessorContextForHostname } from '@/lib/processorContext';
 
 export type PublicHourRow = {
   label: string;
@@ -83,7 +84,16 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
   };
 }
 
-export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
+async function getRequestHostname() {
+  try {
+    const h = await headers();
+    return h.get('x-forwarded-host') || h.get('host') || '';
+  } catch {
+    return '';
+  }
+}
+
+export async function getPublicSiteSettings(hostname?: string | null): Promise<PublicSiteSettings> {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -93,7 +103,9 @@ export async function getPublicSiteSettings(): Promise<PublicSiteSettings> {
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    const processor = await getDefaultProcessorContext();
+    const processor = hostname
+      ? await getProcessorContextForHostname(hostname)
+      : await getProcessorContextForHostname(await getRequestHostname()).catch(() => getDefaultProcessorContext());
     let query = supabase
       .from('site_settings')
       .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb');

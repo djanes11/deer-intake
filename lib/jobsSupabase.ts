@@ -8,7 +8,7 @@ import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
 import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrderStyle } from '@/lib/webbs';
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
 
 /* ---------------- helpers ---------------- */
 
@@ -1504,9 +1504,9 @@ function calcSpecialtyPriceFromLbs(job: Partial<Job>, pricing?: Partial<SitePric
   return specialtyPrice(job as Record<string, any>, pricing);
 }
 
-export async function saveJob(job: Partial<Job>) {
+export async function saveJob(job: Partial<Job>, options?: { processorContext?: ProcessorContext | null }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = options?.processorContext || (await getDefaultProcessorContext());
   const pricing = await getCurrentPricing();
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
