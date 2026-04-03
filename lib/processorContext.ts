@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
 
 export type ProcessorContext = {
   id: string | null;
@@ -12,6 +13,7 @@ const DEFAULT_PROCESSOR_SLUG = (
   process.env.PROCESSOR_SLUG ||
   'mcafee'
 ).trim().toLowerCase();
+const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 
 let cachedProcessorContext: { id: string | null; slug: string; expiresAt: number } | null = null;
 const hostnameCache = new Map<string, { ctx: ProcessorContext; expiresAt: number }>();
@@ -32,7 +34,16 @@ export function normalizeHostname(input?: string | null): string {
   return withoutPath.split(':')[0] || '';
 }
 
-export async function getDefaultProcessorContext(): Promise<ProcessorContext> {
+async function getRequestHostname(): Promise<string> {
+  try {
+    const h = await headers();
+    return normalizeHostname(h.get('x-forwarded-host') || h.get('host') || '');
+  } catch {
+    return '';
+  }
+}
+
+async function getEnvDefaultProcessorContext(): Promise<ProcessorContext> {
   const now = Date.now();
   if (cachedProcessorContext && cachedProcessorContext.expiresAt > now) {
     return {
@@ -75,38 +86,60 @@ export async function getDefaultProcessorContext(): Promise<ProcessorContext> {
   };
 }
 
+export async function getDefaultProcessorContext(): Promise<ProcessorContext> {
+  const requestHostname = await getRequestHostname();
+  if (requestHostname) {
+    const requestScoped = await getProcessorContextForHostnameByType(
+      requestHostname,
+      IS_PUBLIC ? 'public' : 'staff'
+    );
+    if (requestScoped.id) {
+      return requestScoped;
+    }
+  }
+  return getEnvDefaultProcessorContext();
+}
+
 export async function getProcessorContextForHostname(hostname?: string | null): Promise<ProcessorContext> {
+  return getProcessorContextForHostnameByType(hostname, 'public');
+}
+
+export async function getProcessorContextForHostnameByType(
+  hostname?: string | null,
+  type: 'public' | 'staff' = 'public'
+): Promise<ProcessorContext> {
   const normalized = normalizeHostname(hostname);
-  if (!normalized) return getDefaultProcessorContext();
+  if (!normalized) return getEnvDefaultProcessorContext();
 
   const now = Date.now();
-  const cached = hostnameCache.get(normalized);
+  const cacheKey = `${type}:${normalized}`;
+  const cached = hostnameCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
     return cached.ctx;
   }
 
   const supabase = createSupabaseAdmin();
-  if (!supabase) return getDefaultProcessorContext();
+  if (!supabase) return getEnvDefaultProcessorContext();
 
   try {
     const { data, error } = await supabase
       .from('processors')
       .select('id, slug')
-      .eq('public_hostname', normalized)
+      .eq(type === 'staff' ? 'staff_hostname' : 'public_hostname', normalized)
       .maybeSingle();
 
     if (error) throw error;
 
     if (data?.id && data?.slug) {
       const ctx = { id: String(data.id), slug: String(data.slug) };
-      hostnameCache.set(normalized, { ctx, expiresAt: now + 30_000 });
+      hostnameCache.set(cacheKey, { ctx, expiresAt: now + 30_000 });
       return ctx;
     }
   } catch (error) {
     console.warn('Processor hostname lookup failed; falling back to default slug.', error);
   }
 
-  const fallback = await getDefaultProcessorContext();
-  hostnameCache.set(normalized, { ctx: fallback, expiresAt: now + 30_000 });
+  const fallback = await getEnvDefaultProcessorContext();
+  hostnameCache.set(cacheKey, { ctx: fallback, expiresAt: now + 30_000 });
   return fallback;
 }
