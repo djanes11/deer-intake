@@ -21,12 +21,6 @@ type BrandingSettings = {
   mapsUrl: string;
 };
 
-type FeatureSettings = {
-  plan: 'basic' | 'texting' | 'custom';
-  smsEnabled: boolean;
-  webbsEnabled: boolean;
-};
-
 type SiteSettings = {
   public_intake_enabled: boolean;
   banner_enabled: boolean;
@@ -34,7 +28,6 @@ type SiteSettings = {
   hours: HourRow[];
   pricing: SitePricing;
   branding: BrandingSettings;
-  features: FeatureSettings;
   updated_at?: string;
 };
 
@@ -55,12 +48,6 @@ const DEFAULT_BRANDING: BrandingSettings = {
   email: '',
   address: '10977 Buffalo Trace Rd, Palmyra, IN 47164',
   mapsUrl: '',
-};
-
-const DEFAULT_FEATURES: FeatureSettings = {
-  plan: 'custom',
-  smsEnabled: true,
-  webbsEnabled: true,
 };
 
 function normalizeHours(hours: any): HourRow[] {
@@ -104,10 +91,6 @@ export default function AdminSettingsPage() {
         ...DEFAULT_BRANDING,
         ...(j?.settings?.branding || {}),
       },
-      features: {
-        ...DEFAULT_FEATURES,
-        ...(j?.settings?.features || {}),
-      },
     });
   };
 
@@ -139,10 +122,6 @@ export default function AdminSettingsPage() {
         branding: {
           ...DEFAULT_BRANDING,
           ...(j?.settings?.branding || {}),
-        },
-        features: {
-          ...DEFAULT_FEATURES,
-          ...(j?.settings?.features || {}),
         },
       });
       setMsg('Saved');
@@ -275,7 +254,7 @@ export default function AdminSettingsPage() {
         >
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Brand & Contact</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            These details show up on the public site and are the starting point for processor-specific branding later.
+            These details show up on the public site for this processor. Plan tiers and feature access now live on the processor management page.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
@@ -329,90 +308,6 @@ export default function AdminSettingsPage() {
             gap: 12,
           }}
         >
-          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Processor Plan</div>
-          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            This controls the processor tier setup for Game Butcher Board. Webbs stays as the current custom workflow.
-          </div>
-
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Plan tier</span>
-            <select
-              value={s.features?.plan || DEFAULT_FEATURES.plan}
-              onChange={(e) =>
-                setS({
-                  ...s,
-                  features: {
-                    ...DEFAULT_FEATURES,
-                    ...s.features,
-                    plan: e.target.value as FeatureSettings['plan'],
-                  },
-                })
-              }
-              style={{
-                width: '100%',
-                padding: 12,
-                borderRadius: 12,
-                border: '1px solid #cbd5e1',
-                background: '#f8fafc',
-                color: '#0f172a',
-              }}
-            >
-              <option value="basic">Basic: email workflows</option>
-              <option value="texting">Texting: email + SMS workflows</option>
-              <option value="custom">Custom: advanced custom workflows</option>
-            </select>
-          </label>
-
-          <div style={{ display: 'grid', gap: 10 }}>
-            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-              <input
-                type="checkbox"
-                checked={s.features?.smsEnabled !== false}
-                onChange={(e) =>
-                  setS({
-                    ...s,
-                    features: {
-                      ...DEFAULT_FEATURES,
-                      ...s.features,
-                      smsEnabled: e.target.checked,
-                    },
-                  })
-                }
-              />
-              SMS features enabled
-            </label>
-
-            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-              <input
-                type="checkbox"
-                checked={s.features?.webbsEnabled !== false}
-                onChange={(e) =>
-                  setS({
-                    ...s,
-                    features: {
-                      ...DEFAULT_FEATURES,
-                      ...s.features,
-                      webbsEnabled: e.target.checked,
-                    },
-                  })
-                }
-              />
-              Custom Webbs workflow enabled
-            </label>
-          </div>
-        </div>
-
-        <div
-          style={{
-            border: '1px solid #d6dee8',
-            borderRadius: 16,
-            padding: 18,
-            background: '#ffffff',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-            display: 'grid',
-            gap: 12,
-          }}
-        >
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Public Intake</div>
           <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900, color: '#0f172a' }}>
             <input
@@ -439,6 +334,9 @@ export default function AdminSettingsPage() {
           </div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Turn this off when you are at capacity or temporarily closed. The public pages will show the intake as unavailable.
+          </div>
+          <div style={{ fontSize: 13, color: '#475569' }}>
+            Need to change plan tier, SMS access, Webbs access, or hostnames? Use <a href="/admin/processors" style={{ color: '#1d4ed8', fontWeight: 800 }}>Processor Management</a>.
           </div>
         </div>
 
