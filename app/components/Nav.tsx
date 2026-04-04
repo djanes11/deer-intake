@@ -84,6 +84,13 @@ export default function Nav() {
                 Users
               </Link>
               <Link
+                className={`item ${isActive('/admin/logo-preview') ? 'active' : ''}`}
+                href="/admin/logo-preview"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Branding
+              </Link>
+              <Link
                 className={`item ${isActive('/admin/health') ? 'active' : ''}`}
                 href="/admin/health"
                 onClick={() => closeMobileAndDropdown()}

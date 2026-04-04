@@ -1,0 +1,9 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="320" rx="28" fill="#0B1110"/>
+  <path d="M95 138C120 143 136 154 149 171C148 146 154 126 167 109C174 128 176 146 172 166C187 149 206 140 231 136" stroke="#D7E4DB" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M287 138C262 143 246 154 233 171C234 146 228 126 215 109C208 128 206 146 210 166C195 149 176 140 151 136" stroke="#D7E4DB" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="92" y="248" fill="#7FB08D" font-family="Arial, Helvetica, sans-serif" font-size="138" font-weight="900" letter-spacing="2">WGBB</text>
+  <text x="490" y="143" fill="#F4F7F4" font-family="Arial, Helvetica, sans-serif" font-size="48" font-weight="900" letter-spacing="8">WILD GAME</text>
+  <text x="490" y="210" fill="#B7C7BE" font-family="Georgia, 'Times New Roman', serif" font-size="54" font-weight="700">Butcher Board</text>
+  <text x="490" y="255" fill="#90A79B" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" letter-spacing="3">PROCESSOR OPERATIONS PLATFORM</text>
+</svg>
