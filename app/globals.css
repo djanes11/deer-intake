@@ -413,7 +413,7 @@ input[type="checkbox"] {
   z-index: 0;                 /* behind everything (header already has higher z) */
   background:
     radial-gradient(transparent, rgba(0,0,0,.45) 70%) center/100% 100% no-repeat,
-    url('/mcafee-logo.png') center 60% / 420px auto no-repeat; /* tweak size/position as you like */
+    url('/wgbb-logo.svg') center 60% / 420px auto no-repeat; /* tweak size/position as you like */
   opacity: 0.8;              /* overall strength of the watermark */
   mix-blend-mode: soft-light; /* keeps it tasteful on dark */
   filter: grayscale(100%);

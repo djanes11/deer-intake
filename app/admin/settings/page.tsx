@@ -39,10 +39,10 @@ const DEFAULT_HOURS: HourRow[] = [
 ];
 
 const DEFAULT_BRANDING: BrandingSettings = {
-  name: 'McAfee Custom Deer Processing',
+  name: 'Wild Game Butcher Board',
   locationLabel: 'Palmyra, IN',
-  tagline: 'Fast, clean, professional deer processing.',
-  logoUrl: '/mcafee-logo.png',
+  tagline: 'Wild game intake, tracking, and processor operations in one place.',
+  logoUrl: '/wgbb-logo.svg',
   phoneDisplay: '(502) 643-3916',
   phoneE164: '+15026433916',
   email: '',
@@ -64,7 +64,7 @@ export default function AdminSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [smsTo, setSmsTo] = useState('');
-  const [smsBody, setSmsBody] = useState('McAfee Deer Processing test SMS. If you got this, Twilio is wired correctly.');
+  const [smsBody, setSmsBody] = useState('Wild Game Butcher Board test SMS. If you got this, Twilio is wired correctly.');
   const [smsBusy, setSmsBusy] = useState(false);
   const [smsMsg, setSmsMsg] = useState('');
   const [smsHealthBusy, setSmsHealthBusy] = useState(false);

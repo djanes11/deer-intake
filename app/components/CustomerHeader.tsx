@@ -46,7 +46,7 @@ export default function CustomerHeader(props: { branding?: Branding }) {
         <Link href="/" aria-label={`${branding.name || 'Home'}`} className="brand-link">
           <div className="logo-wrap">
             <Image
-              src={branding.logoUrl || '/mcafee-logo.png'}
+              src={branding.logoUrl || '/wgbb-logo.svg'}
               alt={`${branding.name || 'Processor'} logo`}
               fill
               sizes="44px"

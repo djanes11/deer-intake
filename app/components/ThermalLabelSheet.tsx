@@ -36,6 +36,12 @@ export default function ThermalLabelSheet({
 
   const title =
     type === 'cape' ? 'Cape Transport Label' : type === 'package' ? 'Package Label' : 'Deer Tag Label';
+  const footer =
+    type === 'cape'
+      ? 'Attach to antler for cape transport'
+      : type === 'package'
+      ? 'Apply to finished package'
+      : 'Place inside the deer with the meat';
 
   const lines =
     type === 'cape'
@@ -58,8 +64,13 @@ export default function ThermalLabelSheet({
   return (
     <div className="thermalLabelRoot">
       <div className={`thermalLabel thermalLabel--${type}`}>
-        <div className="thermalLabel__brand">{brand}</div>
-        <div className="thermalLabel__title">{title}</div>
+        <div className="thermalLabel__top">
+          <div className="thermalLabel__brandWrap">
+            <img src="/wgbb-logo.svg" alt="" className="thermalLabel__logo" />
+            <div className="thermalLabel__brand">{brand}</div>
+          </div>
+          <div className="thermalLabel__type">{title}</div>
+        </div>
         <div className="thermalLabel__body">
           {lines.map((line) => (
             <div key={line.label} className="thermalLabel__row">
@@ -68,6 +79,7 @@ export default function ThermalLabelSheet({
             </div>
           ))}
         </div>
+        <div className="thermalLabel__footer">{footer}</div>
       </div>
 
       <style jsx>{`
@@ -82,44 +94,60 @@ export default function ThermalLabelSheet({
 
         .thermalLabel {
           width: 4in;
-          min-height: 2.2in;
+          min-height: 2.35in;
           border: 2px solid #111;
           background: #fff;
           color: #111;
           box-sizing: border-box;
-          padding: 0.14in 0.18in;
+          padding: 0.12in 0.16in;
           display: grid;
-          gap: 0.08in;
+          gap: 0.06in;
           font-family: Arial, Helvetica, sans-serif;
         }
 
         .thermalLabel--cape {
-          min-height: 2.45in;
+          min-height: 2.55in;
+        }
+
+        .thermalLabel__top {
+          display: grid;
+          gap: 0.05in;
+          border-bottom: 2px solid #111;
+          padding-bottom: 0.06in;
+        }
+
+        .thermalLabel__brandWrap {
+          display: flex;
+          align-items: center;
+          gap: 0.1in;
+        }
+
+        .thermalLabel__logo {
+          width: 0.34in;
+          height: 0.34in;
+          display: block;
         }
 
         .thermalLabel__brand {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 800;
           letter-spacing: 0.04em;
           text-transform: uppercase;
         }
 
-        .thermalLabel__title {
-          font-size: 16px;
+        .thermalLabel__type {
+          font-size: 17px;
           font-weight: 900;
-          border-top: 1px solid #111;
-          border-bottom: 1px solid #111;
-          padding: 0.05in 0;
         }
 
         .thermalLabel__body {
           display: grid;
-          gap: 0.08in;
+          gap: 0.06in;
         }
 
         .thermalLabel__row {
           display: grid;
-          gap: 2px;
+          gap: 1px;
         }
 
         .thermalLabel__label {
@@ -130,15 +158,24 @@ export default function ThermalLabelSheet({
         }
 
         .thermalLabel__value {
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 700;
           line-height: 1.1;
           overflow-wrap: anywhere;
         }
 
         .thermalLabel__value.isLarge {
-          font-size: 24px;
+          font-size: 23px;
           font-weight: 900;
+        }
+
+        .thermalLabel__footer {
+          border-top: 1px solid #111;
+          padding-top: 0.05in;
+          font-size: 10px;
+          font-weight: 700;
+          letter-spacing: 0.03em;
+          text-transform: uppercase;
         }
 
         @media print {
