@@ -2,12 +2,21 @@
 export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
+import { getStaffIdentity } from '@/lib/staffContext';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 
 export default async function Home() {
+  if (!IS_PUBLIC) {
+    const identity = await getStaffIdentity();
+    if (identity.authType === 'none') {
+      redirect('/staff/login?next=/');
+    }
+  }
+
   const settings = IS_PUBLIC ? await getPublicSiteSettings() : null;
   const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
   return IS_PUBLIC ? <PublicLanding settings={settings} /> : <StaffHome dashboard={dashboard} />;

@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { STAFF_ACCESS_COOKIE } from '@/lib/staffSession';
@@ -18,6 +18,16 @@ export default function StaffLoginPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const hasStaffCookie = document.cookie
+      .split(';')
+      .some((part) => part.trim().startsWith(`${STAFF_ACCESS_COOKIE}=`));
+    if (hasStaffCookie) {
+      router.replace(next);
+      router.refresh();
+    }
+  }, [next, router]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

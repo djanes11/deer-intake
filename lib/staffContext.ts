@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
+import { headers } from 'next/headers';
 import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
 import { STAFF_ACCESS_COOKIE } from '@/lib/staffSession';
 
@@ -54,13 +55,29 @@ function parseCookie(header: string | null, key: string) {
   return '';
 }
 
-function getBearerToken(req?: Request | null) {
-  const header = String(req?.headers.get('authorization') || '');
-  if (header.startsWith('Bearer ')) {
-    const bearer = header.slice(7).trim();
+async function getBearerToken(req?: Request | null) {
+  const explicitAuth = String(req?.headers.get('authorization') || '');
+  if (explicitAuth.startsWith('Bearer ')) {
+    const bearer = explicitAuth.slice(7).trim();
     if (bearer) return bearer;
   }
-  return parseCookie(req?.headers.get('cookie') || null, STAFF_ACCESS_COOKIE);
+
+  const explicitCookie = parseCookie(req?.headers.get('cookie') || null, STAFF_ACCESS_COOKIE);
+  if (explicitCookie) return explicitCookie;
+
+  if (req) return '';
+
+  try {
+    const h = await headers();
+    const auth = String(h.get('authorization') || '');
+    if (auth.startsWith('Bearer ')) {
+      const bearer = auth.slice(7).trim();
+      if (bearer) return bearer;
+    }
+    return parseCookie(h.get('cookie') || null, STAFF_ACCESS_COOKIE);
+  } catch {
+    return '';
+  }
 }
 
 function getRequestedProcessorSlug(req?: Request | null) {
@@ -76,7 +93,7 @@ function getRequestedProcessorSlug(req?: Request | null) {
 
 export async function getStaffIdentity(req?: Request | null): Promise<StaffIdentity> {
   const supabase = createSupabaseAdmin();
-  const bearer = getBearerToken(req);
+  const bearer = await getBearerToken(req);
 
   if (supabase && bearer) {
     try {
