@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
+import { STAFF_ACCESS_COOKIE } from '@/lib/staffSession';
 
 export type ProcessorContext = {
   id: string | null;
@@ -25,6 +26,16 @@ function createSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+function parseCookie(header: string | null, key: string) {
+  const raw = String(header || '');
+  if (!raw) return '';
+  for (const part of raw.split(';')) {
+    const [name, ...rest] = part.trim().split('=');
+    if (name === key) return decodeURIComponent(rest.join('=') || '');
+  }
+  return '';
+}
+
 export function normalizeHostname(input?: string | null): string {
   const raw = String(input || '').trim().toLowerCase();
   if (!raw) return '';
@@ -40,6 +51,62 @@ async function getRequestHostname(): Promise<string> {
     return normalizeHostname(h.get('x-forwarded-host') || h.get('host') || '');
   } catch {
     return '';
+  }
+}
+
+async function getRequestAccessToken(): Promise<string> {
+  try {
+    const h = await headers();
+    const auth = String(h.get('authorization') || '').trim();
+    if (auth.startsWith('Bearer ')) {
+      const bearer = auth.slice(7).trim();
+      if (bearer) return bearer;
+    }
+    return parseCookie(h.get('cookie'), STAFF_ACCESS_COOKIE);
+  } catch {
+    return '';
+  }
+}
+
+async function getStaffProcessorContextFromRequest(): Promise<ProcessorContext | null> {
+  if (IS_PUBLIC) return null;
+  const supabase = createSupabaseAdmin();
+  if (!supabase) return null;
+
+  const token = await getRequestAccessToken();
+  if (!token) return null;
+
+  try {
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user) return null;
+
+    const userId = String(authData.user.id || '').trim();
+    const email = String(authData.user.email || '').trim().toLowerCase();
+    if (!userId && !email) return null;
+
+    let query = supabase
+      .from('processor_users')
+      .select('processor_id,processors!inner(id,slug)')
+      .eq('active', true)
+      .limit(1);
+
+    if (userId) query = query.eq('user_id', userId);
+    else query = query.ilike('email', email);
+
+    const { data: membership, error: membershipError } = await query.maybeSingle();
+    if (membershipError || !membership) return null;
+
+    const processor = Array.isArray((membership as any).processors)
+      ? (membership as any).processors[0]
+      : (membership as any).processors;
+
+    if (!processor?.id || !processor?.slug) return null;
+    return {
+      id: String(processor.id),
+      slug: String(processor.slug),
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -87,6 +154,10 @@ async function getEnvDefaultProcessorContext(): Promise<ProcessorContext> {
 }
 
 export async function getDefaultProcessorContext(): Promise<ProcessorContext> {
+  const staffScoped = await getStaffProcessorContextFromRequest();
+  if (staffScoped?.id) {
+    return staffScoped;
+  }
   const requestHostname = await getRequestHostname();
   if (requestHostname) {
     const requestScoped = await getProcessorContextForHostnameByType(
