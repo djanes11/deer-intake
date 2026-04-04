@@ -77,6 +77,13 @@ export default function Nav() {
                 Processors
               </Link>
               <Link
+                className={`item ${isActive('/admin/users') ? 'active' : ''}`}
+                href="/admin/users"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Users
+              </Link>
+              <Link
                 className={`item ${isActive('/admin/health') ? 'active' : ''}`}
                 href="/admin/health"
                 onClick={() => closeMobileAndDropdown()}

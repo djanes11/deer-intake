@@ -226,6 +226,12 @@ export default async function PlatformAdminHome() {
                 Edit plan tiers, feature flags, and hostnames.
               </div>
             </Link>
+            <Link href="/admin/users" style={quickLink}>
+              Staff Users
+              <div style={{ color: '#475569', fontWeight: 500, marginTop: 4 }}>
+                Create staff logins and manage processor memberships.
+              </div>
+            </Link>
             <Link href="/admin/settings" style={quickLink}>
               Current Processor Settings
               <div style={{ color: '#475569', fontWeight: 500, marginTop: 4 }}>
