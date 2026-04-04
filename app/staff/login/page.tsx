@@ -1,14 +1,10 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { STAFF_ACCESS_COOKIE } from '@/lib/staffSession';
-
-function setStaffCookie(accessToken: string) {
-  const secure = typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `${STAFF_ACCESS_COOKIE}=${encodeURIComponent(accessToken)}; Path=/; SameSite=Lax${secure}`;
-}
+import { STAFF_ACCESS_COOKIE, setStaffAccessCookie } from '@/lib/staffSession';
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -42,7 +38,7 @@ export default function StaffLoginPage() {
       if (error) throw error;
       const accessToken = data.session?.access_token;
       if (!accessToken) throw new Error('No session returned from Supabase.');
-      setStaffCookie(accessToken);
+      setStaffAccessCookie(accessToken);
       router.replace(next);
       router.refresh();
     } catch (e: any) {
@@ -90,6 +86,11 @@ export default function StaffLoginPage() {
           <button className="btn" type="submit" disabled={busy}>
             {busy ? 'Signing In...' : 'Sign In'}
           </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 14 }}>
+            <Link href={`/staff/forgot-password?next=${encodeURIComponent(next)}`} style={{ color: '#1d4ed8', fontWeight: 700 }}>
+              Forgot password?
+            </Link>
+          </div>
         </form>
       </div>
     </main>

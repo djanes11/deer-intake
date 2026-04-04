@@ -91,6 +91,13 @@ export default function Nav() {
                 Health
               </Link>
               <Link
+                className={`item ${isActive('/staff/account') ? 'active' : ''}`}
+                href="/staff/account"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                My Account
+              </Link>
+              <Link
                 className={`item ${isActive('/staff') ? 'active' : ''}`}
                 href="https://staff.wildgamebutcherboard.com"
                 onClick={() => closeMobileAndDropdown()}
@@ -158,6 +165,7 @@ export default function Nav() {
                   <Link href="/tips" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Tip Sheet</Link>
                   <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
                   <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Intake QR</Link>
+                  <Link href="/staff/account" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>My Account</Link>
                   <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link>
                   <Link href="/admin/processors" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Processor Management</Link>
                 </div>
