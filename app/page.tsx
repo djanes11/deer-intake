@@ -3,14 +3,30 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
 import { getStaffIdentity } from '@/lib/staffContext';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
+const ADMIN_HOSTNAME = (process.env.ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
 
 export default async function Home() {
   if (!IS_PUBLIC) {
+    try {
+      const h = await headers();
+      const host = String(h.get('x-forwarded-host') || h.get('host') || '')
+        .trim()
+        .toLowerCase()
+        .split(',')[0]
+        ?.split(':')[0];
+      if (host === ADMIN_HOSTNAME) {
+        redirect('/admin');
+      }
+    } catch {
+      // Ignore header lookup issues and continue with normal routing.
+    }
+
     const identity = await getStaffIdentity();
     if (identity.authType === 'none') {
       redirect('/staff/login?next=/');
