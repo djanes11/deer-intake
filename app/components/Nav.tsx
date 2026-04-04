@@ -166,6 +166,7 @@ export default function Nav() {
                   <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
                   <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Intake QR</Link>
                   <Link href="/staff/account" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>My Account</Link>
+                  <Link href="/staff/team" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Staff Team</Link>
                   <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link>
                 </div>
               </details>
