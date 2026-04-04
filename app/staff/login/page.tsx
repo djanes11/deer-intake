@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { STAFF_ACCESS_COOKIE, setStaffAccessCookie } from '@/lib/staffSession';
+import { clearStaffAccessCookie, STAFF_ACCESS_COOKIE, setStaffAccessCookie } from '@/lib/staffSession';
 
 export default function StaffLoginPage() {
   const router = useRouter();
@@ -19,10 +19,30 @@ export default function StaffLoginPage() {
     const hasStaffCookie = document.cookie
       .split(';')
       .some((part) => part.trim().startsWith(`${STAFF_ACCESS_COOKIE}=`));
-    if (hasStaffCookie) {
-      router.replace(next);
-      router.refresh();
-    }
+    if (!hasStaffCookie) return;
+
+    let cancelled = false;
+    const validate = async () => {
+      try {
+        const resp = await fetch('/api/admin/staff-context', { cache: 'no-store' });
+        const json = await resp.json().catch(() => ({}));
+        if (cancelled) return;
+        if (json?.ok && json?.identity?.authType === 'supabase') {
+          router.replace(next);
+          router.refresh();
+          return;
+        }
+      } catch {
+        // Fall through and clear the stale cookie.
+      }
+
+      if (!cancelled) clearStaffAccessCookie();
+    };
+
+    void validate();
+    return () => {
+      cancelled = true;
+    };
   }, [next, router]);
 
   async function onSubmit(e: FormEvent) {
