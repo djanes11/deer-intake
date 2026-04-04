@@ -17,9 +17,13 @@ export default async function Home() {
     }
   }
 
-  const settings = IS_PUBLIC ? await getPublicSiteSettings() : null;
+  const settings = await getPublicSiteSettings();
   const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
-  return IS_PUBLIC ? <PublicLanding settings={settings} /> : <StaffHome dashboard={dashboard} />;
+  return IS_PUBLIC ? (
+    <PublicLanding settings={settings} />
+  ) : (
+    <StaffHome dashboard={dashboard} processorName={settings.branding.name} />
+  );
 }
 
 function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPublicSiteSettings>> | null }) {
@@ -189,8 +193,10 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
 
 function StaffHome({
   dashboard,
+  processorName,
 }: {
   dashboard: Awaited<ReturnType<typeof getDashboardSummary>> | null;
+  processorName: string;
 }) {
   const shell: React.CSSProperties = {
     maxWidth: 1100,
@@ -199,6 +205,14 @@ function StaffHome({
   };
 
   const header: React.CSSProperties = { marginBottom: 8 };
+  const headerTop: React.CSSProperties = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 6,
+  };
   const title: React.CSSProperties = {
     margin: 0,
     fontSize: 36,
@@ -206,6 +220,24 @@ function StaffHome({
     fontWeight: 900,
   };
   const subtitle: React.CSSProperties = { margin: '6px 0 0', opacity: 0.85 };
+  const processorBadge: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '10px 12px',
+    borderRadius: 999,
+    border: '1px solid rgba(137,192,150,.28)',
+    background: 'rgba(18,24,22,.92)',
+    color: '#dfe9e2',
+    fontSize: 13,
+    fontWeight: 800,
+  };
+  const processorLabel: React.CSSProperties = {
+    textTransform: 'uppercase',
+    letterSpacing: '.06em',
+    fontSize: 11,
+    color: '#89c096',
+  };
 
   const trio: React.CSSProperties = {
     display: 'grid',
@@ -266,21 +298,29 @@ function StaffHome({
   return (
     <main className="watermark" style={shell}>
       <div style={header}>
-        <div
-          style={{
-            color: '#89c096',
-            fontWeight: 800,
-            letterSpacing: '.06em',
-            textTransform: 'uppercase',
-            fontSize: 12,
-            marginBottom: 6,
-          }}
-        >
-          Welcome
+        <div style={headerTop}>
+          <div>
+            <div
+              style={{
+                color: '#89c096',
+                fontWeight: 800,
+                letterSpacing: '.06em',
+                textTransform: 'uppercase',
+                fontSize: 12,
+                marginBottom: 6,
+              }}
+            >
+              Staff Dashboard
+            </div>
+            <h1 style={title}>Wild Game Butcher Board</h1>
+          </div>
+          <div style={processorBadge} aria-label="Current processor">
+            <span style={processorLabel}>Processor</span>
+            <span>{processorName || 'Unassigned'}</span>
+          </div>
         </div>
-        <h1 style={title}>McAfee Deer Processing</h1>
         <p style={subtitle}>
-          Pick what you want to do. Quick access to the most common actions.
+          Pick what you want to do. Quick access to the most common actions for this processor.
         </p>
       </div>
 

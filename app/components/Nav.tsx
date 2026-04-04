@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 /**
- * Brand stays hard-coded so it never disappears.
- * You can override both name and logo via env if you want.
+ * Shared staff shell stays platform-branded.
+ * Public-facing branding comes from processor settings inside page content.
  */
-const BRAND = process.env.NEXT_PUBLIC_SITE_NAME || 'McAfee Custom Deer Processing';
+const BRAND = process.env.NEXT_PUBLIC_SITE_NAME || 'Wild Game Butcher Board';
 const LOGO_SRC = process.env.NEXT_PUBLIC_LOGO_SRC || '/mcafee-logo.png'; // leading slash for Next/Image/CDN
 
 function closeMobileAndDropdown(el?: HTMLElement | null) {
@@ -37,7 +37,7 @@ export default function Nav() {
           >
             <img
               src={LOGO_SRC}
-              alt="McAfee crest"
+              alt="Wild Game Butcher Board"
               width={28}
               height={28}
               style={{ display: 'block', borderRadius: 6 }}
