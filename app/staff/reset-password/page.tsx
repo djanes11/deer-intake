@@ -71,9 +71,10 @@ export default function ResetPasswordPage() {
         throw new Error('Passwords do not match.');
       }
       const supabase = getSupabaseBrowser();
-      const { data, error } = await supabase.auth.updateUser({ password });
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      const accessToken = data.session?.access_token;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
       if (accessToken) setStaffAccessCookie(accessToken);
       setMessage('Password updated. Sending you back to staff...');
       setTimeout(() => {
