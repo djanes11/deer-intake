@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
+import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
@@ -123,6 +124,8 @@ export default function MissingTagsPage() {
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<AnyRec | null>(null);
   const [jobErr, setJobErr] = useState('');
+  const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
+  const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
 
   const refresh = async () => {
     setErr('');
@@ -146,6 +149,16 @@ export default function MissingTagsPage() {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.ok) return;
+        setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
+      })
+      .catch(() => {});
   }, []);
 
   const count = rows.length;
@@ -186,9 +199,38 @@ export default function MissingTagsPage() {
       if (!job) return;
 
       await markPrinted(normalized);
+      setPrintMode('sheet');
 
       setTimeout(() => {
         window.print();
+        setTimeout(() => setPrintMode(''), 300);
+        setPrinting('');
+      }, 150);
+    } catch (e: any) {
+      setJobErr(String(e?.message || e));
+      setPrinting('');
+    }
+  };
+
+  const printAssignedLabel = async (tag: string, type: ThermalLabelType) => {
+    const normalized = digitsOnly(tag);
+    if (!normalized) return;
+
+    setErr('');
+    setPrinting(normalized);
+
+    try {
+      let job = selectedJob;
+      const currentTag = digitsOnly(String(selectedJob?.tag ?? selectedJob?.Tag ?? ''));
+      if (!job || currentTag !== normalized) {
+        job = await loadJob(normalized);
+      }
+      if (!job) return;
+
+      setPrintMode(type);
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => setPrintMode(''), 300);
         setPrinting('');
       }, 150);
     } catch (e: any) {
@@ -298,6 +340,17 @@ export default function MissingTagsPage() {
                 <button className="btn" onClick={() => printAssignedSheet(selectedTag)} disabled={!!printing}>
                   {printing === selectedTag ? 'Preparing Print...' : 'Print Full Sheet'}
                 </button>
+                <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'deer')} disabled={!!printing}>
+                  Deer Label
+                </button>
+                {canPrintCapeLabel(selectedJob) ? (
+                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'cape')} disabled={!!printing}>
+                    Cape Label
+                  </button>
+                ) : null}
+                <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'package')} disabled={!!printing}>
+                  Package Label
+                </button>
               </div>
             </div>
             <div style={{ fontSize: 13, opacity: 0.72 }}>
@@ -402,7 +455,12 @@ export default function MissingTagsPage() {
         </div>
       </div>
 
-      <div className="print-only">{selectedJob ? <PrintSheet job={selectedJob} /> : null}</div>
+      <div className="print-only">
+        {printMode === 'sheet' && selectedJob ? <PrintSheet job={selectedJob} /> : null}
+        {printMode === 'deer' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="deer" brandingName={brandingName} /> : null}
+        {printMode === 'cape' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="cape" brandingName={brandingName} /> : null}
+        {printMode === 'package' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="package" brandingName={brandingName} /> : null}
+      </div>
 
       <style jsx>{`
         .btn {

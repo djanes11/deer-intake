@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
+import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import type { Job } from '@/lib/api';
 import { getJob, searchJobs, tokenHeader } from '@/lib/api';
 
@@ -29,6 +30,7 @@ export default function SearchPage() {
   const [err, setErr] = useState<string | null>(null);
   const [printing, setPrinting] = useState('');
   const [printJob, setPrintJob] = useState<Record<string, any> | null>(null);
+  const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<Record<string, any> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -38,6 +40,7 @@ export default function SearchPage() {
   const [resetBusy, setResetBusy] = useState('');
   const [printMsg, setPrintMsg] = useState<string | null>(null);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const debounced = useDebounced(q, 300);
 
   useEffect(() => {
@@ -46,6 +49,7 @@ export default function SearchPage() {
       .then((j) => {
         if (!j?.ok) return;
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+        setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
       })
       .catch(() => {});
   }, []);
@@ -138,8 +142,10 @@ export default function SearchPage() {
       if (!markJson?.ok) throw new Error(markJson?.error || `HTTP ${markRes.status}`);
 
       setPrintJob(job);
+      setPrintMode('sheet');
       setTimeout(() => {
         window.print();
+        setTimeout(() => setPrintMode(''), 300);
         setPrinting('');
       }, 150);
       if (selectedTag === tag) {
@@ -148,6 +154,28 @@ export default function SearchPage() {
       }
     } catch (e: any) {
       setErr(e?.message || 'Print failed');
+      setPrinting('');
+    }
+  };
+
+  const printLabel = async (tag: string, type: ThermalLabelType) => {
+    if (!tag) return;
+    setPrinting(tag);
+    setErr(null);
+    setPrintMsg(null);
+    try {
+      const res = await getJob(tag);
+      const job = (res?.job || null) as Record<string, any> | null;
+      if (!job) throw new Error('Could not load label details.');
+      setPrintJob(job);
+      setPrintMode(type);
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => setPrintMode(''), 300);
+        setPrinting('');
+      }, 150);
+    } catch (e: any) {
+      setErr(e?.message || 'Label print failed');
       setPrinting('');
     }
   };
@@ -363,6 +391,17 @@ export default function SearchPage() {
                   <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
                     {printing === selectedTag ? 'Preparing...' : 'Print'}
                   </button>
+                  <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>
+                    Deer Label
+                  </button>
+                  {canPrintCapeLabel(selectedJob) ? (
+                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'cape')} disabled={!selectedTag || printing === selectedTag}>
+                      Cape Label
+                    </button>
+                  ) : null}
+                  <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
+                    Package Label
+                  </button>
                 </div>
               </div>
 
@@ -461,7 +500,12 @@ export default function SearchPage() {
         </div>
       )}
 
-      <div className="print-only">{printJob ? <PrintSheet job={printJob} /> : null}</div>
+      <div className="print-only">
+        {printMode === 'sheet' && printJob ? <PrintSheet job={printJob} /> : null}
+        {printMode === 'deer' && printJob ? <ThermalLabelSheet job={printJob} type="deer" brandingName={brandingName} /> : null}
+        {printMode === 'cape' && printJob ? <ThermalLabelSheet job={printJob} type="cape" brandingName={brandingName} /> : null}
+        {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} /> : null}
+      </div>
 
       <style jsx>{`
         .print-only {

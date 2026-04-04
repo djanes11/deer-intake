@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob, tokenHeader } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
+import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { SPECIALTY_ITEMS, specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
@@ -381,6 +382,8 @@ function IntakePage() {
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
+  const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
+  const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const tagRef = useRef<HTMLInputElement | null>(null);
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
@@ -415,6 +418,7 @@ function IntakePage() {
         if (j?.ok) {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+          setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         }
       })
       .catch(() => {});
@@ -1859,6 +1863,70 @@ if (fresh?.exists && fresh.job) {
           </div>
 
           <button
+            className="btn secondaryBtn"
+            type="button"
+            onClick={async () => {
+              if (dirty) {
+                const ok = await onSave();
+                if (!ok) return;
+              }
+              const tagToPrint = digitsOnly(job.tag || '');
+              if (!tagToPrint) {
+                setMsg('Tag Number is required before printing labels');
+                return;
+              }
+              setPrintMode('deer');
+              setTimeout(() => {
+                window.print();
+                setTimeout(() => setPrintMode(''), 300);
+              }, 150);
+            }}
+            disabled={busy}
+          >
+            Deer Label
+          </button>
+
+          {canPrintCapeLabel(job) ? (
+            <button
+              className="btn secondaryBtn"
+              type="button"
+              onClick={async () => {
+                if (dirty) {
+                  const ok = await onSave();
+                  if (!ok) return;
+                }
+                setPrintMode('cape');
+                setTimeout(() => {
+                  window.print();
+                  setTimeout(() => setPrintMode(''), 300);
+                }, 150);
+              }}
+              disabled={busy}
+            >
+              Cape Label
+            </button>
+          ) : null}
+
+          <button
+            className="btn secondaryBtn"
+            type="button"
+            onClick={async () => {
+              if (dirty) {
+                const ok = await onSave();
+                if (!ok) return;
+              }
+              setPrintMode('package');
+              setTimeout(() => {
+                window.print();
+                setTimeout(() => setPrintMode(''), 300);
+              }, 150);
+            }}
+            disabled={busy}
+          >
+            Package Label
+          </button>
+
+          <button
             className="btn"
             type="button"
             onClick={async () => {
@@ -1878,7 +1946,11 @@ if (fresh?.exists && fresh.job) {
                 setMsg(e?.message || 'Could not mark intake sheet as printed');
                 return;
               }
-              window.print();
+              setPrintMode('sheet');
+              setTimeout(() => {
+                window.print();
+                setTimeout(() => setPrintMode(''), 300);
+              }, 150);
             }}
             disabled={busy}
           >
@@ -1905,7 +1977,10 @@ if (fresh?.exists && fresh.job) {
       </div>
 
       <div className="print-only">
-        <PrintSheet job={job} />
+        {printMode === 'sheet' ? <PrintSheet job={job} /> : null}
+        {printMode === 'deer' ? <ThermalLabelSheet job={job} type="deer" brandingName={brandingName} /> : null}
+        {printMode === 'cape' ? <ThermalLabelSheet job={job} type="cape" brandingName={brandingName} /> : null}
+        {printMode === 'package' ? <ThermalLabelSheet job={job} type="package" brandingName={brandingName} /> : null}
       </div>
 
       {specialtyModalOpen && job.specialtyProducts ? (
