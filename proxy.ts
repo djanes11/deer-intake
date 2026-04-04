@@ -6,6 +6,15 @@ const USER = process.env.BASIC_AUTH_USER || '';
 const PASS = process.env.BASIC_AUTH_PASS || '';
 const REALM = 'Staff';
 const MAX_AGE_S = 60 * 60 * 24;
+const ADMIN_HOSTNAME = (process.env.ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
+
+function normalizeHostname(input: string | null | undefined) {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .split(',')[0]
+    ?.split(':')[0] || '';
+}
 
 function isAsset(path: string) {
   return (
@@ -64,6 +73,12 @@ function isPublicPath(path: string) {
 export function proxy(req: NextRequest) {
   const url = new URL(req.url);
   const path = url.pathname;
+  const host = normalizeHostname(req.headers.get('x-forwarded-host') || req.headers.get('host') || url.host);
+
+  if (!PUBLIC_MODE && host === ADMIN_HOSTNAME && path === '/') {
+    const target = new URL('/admin', req.url);
+    return NextResponse.redirect(target);
+  }
 
   if (PUBLIC_MODE) {
     if (isAsset(path)) return NextResponse.next();
