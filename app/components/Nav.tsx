@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 /**
  * Shared staff shell stays platform-branded.
@@ -9,6 +10,7 @@ import { usePathname } from 'next/navigation';
  */
 const BRAND = process.env.NEXT_PUBLIC_SITE_NAME || 'Wild Game Butcher Board';
 const LOGO_SRC = process.env.NEXT_PUBLIC_LOGO_SRC || '/mcafee-logo.png'; // leading slash for Next/Image/CDN
+const ADMIN_HOSTNAME = (process.env.NEXT_PUBLIC_ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
 
 function closeMobileAndDropdown(el?: HTMLElement | null) {
   // Close mobile checkbox menu
@@ -23,14 +25,21 @@ function closeMobileAndDropdown(el?: HTMLElement | null) {
 
 export default function Nav() {
   const pathname = usePathname();
+  const [isAdminHost, setIsAdminHost] = useState(false);
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const host = window.location.host.trim().toLowerCase().split(':')[0] || '';
+    setIsAdminHost(host === ADMIN_HOSTNAME);
+  }, []);
 
   return (
     <header className="site-header">
       <div className="wrap">
         <div className="brand" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Link
-            href="/"
+            href={isAdminHost ? '/admin' : '/'}
             className="brand-link"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}
             onClick={() => closeMobileAndDropdown()}
@@ -51,69 +60,103 @@ export default function Nav() {
         <label htmlFor="nav-check" className="menu-toggle">Menu</label>
 
         <nav className="menu" aria-label="Primary">
-          <Link
-            className={`item ${isActive('/intake') ? 'active' : ''}`}
-            href="/intake"
-            onClick={() => closeMobileAndDropdown()}
-          >
-            Intake
-          </Link>
-          <Link
-            className={`item ${isActive('/scan') ? 'active' : ''}`}
-            href="/scan"
-            onClick={() => closeMobileAndDropdown()}
-          >
-            Scan
-          </Link>
-          <Link
-            className={`item ${isActive('/search') ? 'active' : ''}`}
-            href="/search"
-            onClick={() => closeMobileAndDropdown()}
-          >
-            Search
-          </Link>
+          {isAdminHost ? (
+            <>
+              <Link
+                className={`item ${isActive('/admin') ? 'active' : ''}`}
+                href="/admin"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Dashboard
+              </Link>
+              <Link
+                className={`item ${isActive('/admin/processors') ? 'active' : ''}`}
+                href="/admin/processors"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Processors
+              </Link>
+              <Link
+                className={`item ${isActive('/admin/health') ? 'active' : ''}`}
+                href="/admin/health"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Health
+              </Link>
+              <Link
+                className={`item ${isActive('/staff') ? 'active' : ''}`}
+                href="https://staff.wildgamebutcherboard.com"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Staff Site
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                className={`item ${isActive('/intake') ? 'active' : ''}`}
+                href="/intake"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Intake
+              </Link>
+              <Link
+                className={`item ${isActive('/scan') ? 'active' : ''}`}
+                href="/scan"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Scan
+              </Link>
+              <Link
+                className={`item ${isActive('/search') ? 'active' : ''}`}
+                href="/search"
+                onClick={() => closeMobileAndDropdown()}
+              >
+                Search
+              </Link>
 
-          <details className="dd">
-            <summary>Reports</summary>
-            <div className="dropdown-menu" role="menu">
-              <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Call Report
-              </Link>
-              <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Public Intake (Needs Tag)
-              </Link>
-              <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Removed Public Intakes
-              </Link>
-              <Link href="/reports/called" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Called / Pickups
-              </Link>
-              <Link href="/reports/specialty" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Specialty
-              </Link>
-              <Link href="/reports/print-queue" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Print Queue
-              </Link>
-              <Link href="/reports/notifications" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                Notifications
-              </Link>
-              {/* NEW: State Form */}
-              <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                State Form
-              </Link>
-            </div>
-          </details>
+              <details className="dd">
+                <summary>Reports</summary>
+                <div className="dropdown-menu" role="menu">
+                  <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Call Report
+                  </Link>
+                  <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Public Intake (Needs Tag)
+                  </Link>
+                  <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Removed Public Intakes
+                  </Link>
+                  <Link href="/reports/called" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Called / Pickups
+                  </Link>
+                  <Link href="/reports/specialty" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Specialty
+                  </Link>
+                  <Link href="/reports/print-queue" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Print Queue
+                  </Link>
+                  <Link href="/reports/notifications" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Notifications
+                  </Link>
+                  <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    State Form
+                  </Link>
+                </div>
+              </details>
 
-          <details className="dd">
-            <summary>Help</summary>
-            <div className="dropdown-menu" role="menu">
-              <Link href="/tips" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Tip Sheet</Link>
-              <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
-              <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Intake QR</Link>
-              <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link>
-              <Link href="/admin/processors" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Processor Management</Link>
-            </div>
-          </details>
+              <details className="dd">
+                <summary>Help</summary>
+                <div className="dropdown-menu" role="menu">
+                  <Link href="/tips" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Tip Sheet</Link>
+                  <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
+                  <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Intake QR</Link>
+                  <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link>
+                  <Link href="/admin/processors" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Processor Management</Link>
+                </div>
+              </details>
+            </>
+          )}
 
           <Link
             className={`item ${isActive('/staff/logout') ? 'active' : ''}`}
