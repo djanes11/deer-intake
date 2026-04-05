@@ -38,6 +38,53 @@ async function listAllAuthUsers(supabase: ReturnType<typeof getSupabase>) {
   return users;
 }
 
+async function upsertProcessorMembership(
+  supabase: ReturnType<typeof getSupabase>,
+  input: {
+    processorId: string;
+    userId: string | null;
+    email: string;
+    role: StaffRole;
+    active: boolean;
+  }
+) {
+  const existingResp = await supabase
+    .from('processor_users')
+    .select('id')
+    .eq('processor_id', input.processorId)
+    .ilike('email', input.email)
+    .maybeSingle();
+  if (existingResp.error) throw existingResp.error;
+
+  const payload = {
+    processor_id: input.processorId,
+    user_id: input.userId,
+    email: input.email,
+    role: input.role,
+    active: input.active,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existingResp.data?.id) {
+    const { data, error } = await supabase
+      .from('processor_users')
+      .update(payload)
+      .eq('id', existingResp.data.id)
+      .select('id,processor_id,user_id,email,role,active,created_at,updated_at')
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from('processor_users')
+    .insert(payload)
+    .select('id,processor_id,user_id,email,role,active,created_at,updated_at')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 async function verifyProcessorAdmin(req: Request) {
   const auth = await requireStaffAccess(req);
   if (!auth.ok) {
@@ -142,22 +189,13 @@ export async function POST(req: Request) {
       invited = true;
     }
 
-    const { data, error } = await supabase
-      .from('processor_users')
-      .upsert(
-        {
-          processor_id: processor.id,
-          user_id: authUser?.id || null,
-          email,
-          role,
-          active: true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'processor_id,email' }
-      )
-      .select('id,processor_id,user_id,email,role,active,created_at,updated_at')
-      .single();
-    if (error) throw error;
+    const data = await upsertProcessorMembership(supabase, {
+      processorId: processor.id,
+      userId: authUser?.id || null,
+      email,
+      role,
+      active: true,
+    });
 
     return NextResponse.json({
       ok: true,

@@ -49,6 +49,90 @@ async function listAllAuthUsers(supabase: ReturnType<typeof getSupabase>) {
   return users;
 }
 
+async function upsertProcessorMembership(
+  supabase: ReturnType<typeof getSupabase>,
+  input: {
+    processorId: string;
+    userId: string;
+    email: string;
+    role: StaffRole;
+    active: boolean;
+  }
+) {
+  const existingResp = await supabase
+    .from('processor_users')
+    .select('id')
+    .eq('processor_id', input.processorId)
+    .ilike('email', input.email)
+    .maybeSingle();
+  if (existingResp.error) throw existingResp.error;
+
+  const payload = {
+    processor_id: input.processorId,
+    user_id: input.userId,
+    email: input.email,
+    role: input.role,
+    active: input.active,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existingResp.data?.id) {
+    const { data, error } = await supabase
+      .from('processor_users')
+      .update(payload)
+      .eq('id', existingResp.data.id)
+      .select('id,processor_id,user_id,email,role,active,created_at,updated_at,processors!inner(slug,name,public_name)')
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from('processor_users')
+    .insert(payload)
+    .select('id,processor_id,user_id,email,role,active,created_at,updated_at,processors!inner(slug,name,public_name)')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function upsertPlatformAdmin(
+  supabase: ReturnType<typeof getSupabase>,
+  input: {
+    userId: string;
+    email: string;
+    active: boolean;
+  }
+) {
+  const existingResp = await supabase
+    .from('platform_admins')
+    .select('id')
+    .ilike('email', input.email)
+    .maybeSingle();
+  if (existingResp.error) throw existingResp.error;
+
+  const payload = {
+    user_id: input.userId,
+    email: input.email,
+    active: input.active,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existingResp.data?.id) {
+    const { error } = await supabase
+      .from('platform_admins')
+      .update(payload)
+      .eq('id', existingResp.data.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase
+    .from('platform_admins')
+    .insert(payload);
+  if (error) throw error;
+}
+
 export async function GET(req: Request) {
   try {
     const denied = await verifyPlatformAdmin(req);
@@ -158,38 +242,21 @@ export async function POST(req: Request) {
 
     let membership: any = null;
     if (processorId) {
-      const { data, error } = await supabase
-        .from('processor_users')
-        .upsert(
-          {
-            processor_id: processorId,
-            user_id: authUserId,
-            email,
-            role,
-            active: true,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'processor_id,email' }
-        )
-        .select('id,processor_id,user_id,email,role,active,created_at,updated_at,processors!inner(slug,name,public_name)')
-        .single();
-      if (error) throw error;
-      membership = data;
+      membership = await upsertProcessorMembership(supabase, {
+        processorId,
+        userId: authUserId,
+        email,
+        role,
+        active: true,
+      });
     }
 
     if (platformAdmin) {
-      const { error } = await supabase
-        .from('platform_admins')
-        .upsert(
-          {
-            user_id: authUserId,
-            email,
-            active: true,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'email' }
-        );
-      if (error) throw error;
+      await upsertPlatformAdmin(supabase, {
+        userId: authUserId,
+        email,
+        active: true,
+      });
     }
 
     const processor = membership ? (Array.isArray(membership.processors) ? membership.processors[0] : membership.processors) : null;
