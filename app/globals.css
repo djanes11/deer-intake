@@ -1,22 +1,25 @@
 /* =========================
-   Global Dark Theme + Hunter Green
+   Global Dark Theme + Outdoor Warmth
    ========================= */
 :root{
   /* Core palette */
-  --bg:           #0c0f10;   /* page background (dark) */
-  --bg-elev:      #121517;   /* cards / panels */
-  --bg-elev-2:    #171b1d;
-  --text:         #e7ecf0;   /* primary text on dark */
-  --text-dim:     #b5c0c8;
+  --bg:           #120f0d;
+  --bg-elev:      #191613;
+  --bg-elev-2:    #221d19;
+  --text:         #eee8de;
+  --text-dim:     #c4bbaf;
 
-  /* HUNTER GREEN accents */
-  --brand:        #2f6f3f;   /* hunter green */
-  --brand-strong: #235532;   /* darker hover */
-  --brand-2:      #89c096;   /* minty secondary */
+  --brand:        #8b5a2b;
+  --brand-strong: #6e431c;
+  --brand-2:      #c88a3d;
+  --accent-green: #47644f;
+  --accent-green-strong: #38503f;
+  --paper:        #f1e7cf;
+  --walnut:       #4d3220;
 
-  --border:       #23292d;
-  --ring:         rgba(47,111,63,.35);
-  --shadow:       0 6px 24px rgba(0,0,0,.35);
+  --border:       #342b25;
+  --ring:         rgba(200,138,61,.32);
+  --shadow:       0 8px 28px rgba(0,0,0,.34);
 
   --radius:       12px;
   --radius-lg:    16px;
@@ -53,10 +56,11 @@ body::before{
 
 #___next, #__next, body > div, .site-root, main { position: relative; z-index: 1; }
 
-/* -------- Top Nav: WHITE header, BLACK text -------- */
+/* -------- Top Nav -------- */
 .site-header {
-  background: #ffffff;
-  border-bottom: 1px solid #e6e9ec;
+  background: linear-gradient(180deg, rgba(34,29,25,.98) 0%, rgba(22,18,15,.98) 100%);
+  border-bottom: 1px solid rgba(200,138,61,.18);
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -74,16 +78,16 @@ body::before{
 .site-header .brand {
   display: flex; align-items: center; gap: 10px; font-weight: 800;
 }
-.site-header .brand img { height: 28px; }
-.site-header .brand a { color: #0b0f12; text-decoration: none; } /* black */
+.site-header .brand img { height: 32px; width: auto; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.site-header .brand a { color: var(--paper); text-decoration: none; }
 
 /* --- Mobile menu toggle (CSS-only) --- */
 .menu-toggle {
   display: none;
   -webkit-appearance: none; appearance: none;
-  background: #0b0f12;
+  background: var(--brand);
   color: #fff;
-  border: 1px solid #0b0f12;
+  border: 1px solid rgba(0,0,0,.15);
   border-radius: 10px;
   padding: 8px 10px;
   font-weight: 800;
@@ -96,14 +100,14 @@ body::before{
   position: relative;
 }
 .site-header .item {
-  color: #0b0f12;                /* black text in header */
+  color: var(--paper);
   text-decoration: none;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid transparent;
   transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
-.site-header .item:hover { background: #f2f5f7; border-color: #e6e9ec; }
+.site-header .item:hover { background: rgba(200,138,61,.1); border-color: rgba(200,138,61,.18); }
 .site-header .item.active { background: var(--brand); color: #ffffff; }
 
 /* --- Details-based dropdown (mobile & desktop) --- */
@@ -115,32 +119,32 @@ body::before{
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid transparent;
-  color: #0b0f12;
+  color: var(--paper);
 }
 .menu .dd > summary::-webkit-details-marker { display: none; }
 .menu .dd > summary::after { content: "▾"; margin-left: 6px; opacity: .8; }
-.menu .dd[open] > summary { background: #f2f5f7; border-color: #e6e9ec; }
+.menu .dd[open] > summary { background: rgba(200,138,61,.1); border-color: rgba(200,138,61,.18); }
 
 .menu .dd .dropdown-menu {
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
   min-width: 220px;
-  background: #ffffff;
-  border: 1px solid #e6e9ec;
+  background: #1d1714;
+  border: 1px solid rgba(200,138,61,.18);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+  box-shadow: 0 14px 32px rgba(0,0,0,.28);
   padding: 6px;
   z-index: 20;
 }
 .menu .dd .dropdown-menu a {
   display: block;
   padding: 10px 12px;
-  color: #0b0f12;
+  color: var(--paper);
   text-decoration: none;
   border-radius: 10px;
 }
-.menu .dd .dropdown-menu a:hover { background: #f2f5f7; }
+.menu .dd .dropdown-menu a:hover { background: rgba(200,138,61,.12); }
 
 /* Desktop hover can still reveal the menu via <details open> */
 @media (min-width: 761px) {
@@ -166,7 +170,7 @@ body::before{
     top: auto; right: auto;
     box-shadow: none;
     border-radius: 10px;
-    border: 1px solid #e6e9ec;
+    border: 1px solid rgba(200,138,61,.18);
     margin-top: 4px;
   }
 }
@@ -219,6 +223,10 @@ a:hover { color: var(--brand-2); }
   background: var(--bg-elev);
   color: var(--text);
   border-color: var(--border);
+}
+.btn.secondary:hover {
+  background: var(--bg-elev-2);
+  border-color: rgba(200,138,61,.24);
 }
 
 /* Tables (reports) */
@@ -413,7 +421,7 @@ input[type="checkbox"] {
   z-index: 0;                 /* behind everything (header already has higher z) */
   background:
     radial-gradient(transparent, rgba(0,0,0,.45) 70%) center/100% 100% no-repeat,
-    url('/wgbb-logo.svg') center 60% / 420px auto no-repeat; /* tweak size/position as you like */
+    url('/wgbb-logo.png') center 60% / 420px auto no-repeat; /* tweak size/position as you like */
   opacity: 0.8;              /* overall strength of the watermark */
   mix-blend-mode: soft-light; /* keeps it tasteful on dark */
   filter: grayscale(100%);

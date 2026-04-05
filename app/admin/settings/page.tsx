@@ -42,7 +42,7 @@ const DEFAULT_BRANDING: BrandingSettings = {
   name: 'Wild Game Butcher Board',
   locationLabel: 'Palmyra, IN',
   tagline: 'Wild game intake, tracking, and processor operations in one place.',
-  logoUrl: '/wgbb-logo.svg',
+  logoUrl: '/wgbb-logo.png',
   phoneDisplay: '(502) 643-3916',
   phoneE164: '+15026433916',
   email: '',

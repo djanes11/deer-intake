@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
  * Public-facing branding comes from processor settings inside page content.
  */
 const BRAND = process.env.NEXT_PUBLIC_SITE_NAME || 'Wild Game Butcher Board';
-const LOGO_SRC = process.env.NEXT_PUBLIC_LOGO_SRC || '/wgbb-logo.svg'; // leading slash for Next/Image/CDN
+const LOGO_SRC = process.env.NEXT_PUBLIC_LOGO_SRC || '/wgbb-logo.png'; // leading slash for Next/Image/CDN
 const ADMIN_HOSTNAME = (process.env.NEXT_PUBLIC_ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
 
 function closeMobileAndDropdown(el?: HTMLElement | null) {

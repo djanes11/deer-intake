@@ -68,7 +68,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
       name: String(SITE.name || 'Game Butcher Board'),
       locationLabel: String((SITE as any).locationLabel || ''),
       tagline: String((SITE as any).publicTagline || ''),
-      logoUrl: String((SITE as any).logoUrl || '/wgbb-logo.svg'),
+      logoUrl: String((SITE as any).logoUrl || '/wgbb-logo.png'),
       phoneDisplay: String(SITE.phone || ''),
       phoneE164: String((SITE as any).phoneE164 || ''),
       email: '',

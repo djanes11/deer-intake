@@ -34,8 +34,8 @@ export default function CustomerHeader(props: { branding?: Branding }) {
   return (
     <header
       style={{
-        borderBottom: '1px solid #1f2937',
-        background: '#0b0f12',
+        borderBottom: '1px solid rgba(200,138,61,.18)',
+        background: 'linear-gradient(180deg, rgba(29,23,20,.98) 0%, rgba(19,15,13,.98) 100%)',
         position: 'sticky',
         top: 0,
         zIndex: 30,
@@ -46,7 +46,7 @@ export default function CustomerHeader(props: { branding?: Branding }) {
         <Link href="/" aria-label={`${branding.name || 'Home'}`} className="brand-link">
           <div className="logo-wrap">
             <Image
-              src={branding.logoUrl || '/wgbb-logo.svg'}
+              src={branding.logoUrl || '/wgbb-logo.png'}
               alt={`${branding.name || 'Processor'} logo`}
               fill
               sizes="44px"
@@ -96,8 +96,8 @@ export default function CustomerHeader(props: { branding?: Branding }) {
           height: 44px;
           border-radius: 10px;
           overflow: hidden;
-          background: #153624;
-          border: 1px solid #2a5f47;
+          background: #231813;
+          border: 1px solid rgba(200,138,61,.24);
           flex: 0 0 auto;
         }
         .brand-copy {
@@ -106,12 +106,12 @@ export default function CustomerHeader(props: { branding?: Branding }) {
         }
         .brand-title {
           font-weight: 900;
-          color: #e6e7eb;
+          color: #f1e7cf;
           white-space: nowrap;
         }
         .brand-sub {
           font-size: 12px;
-          color: #9ca3af;
+          color: #c4bbaf;
           margin-top: 4px;
         }
         .public-header-nav {
@@ -126,15 +126,15 @@ export default function CustomerHeader(props: { branding?: Branding }) {
           border-radius: 10px;
           font-weight: 700;
           text-decoration: none;
-          border: 1px solid #1f2937;
+          border: 1px solid rgba(200,138,61,.14);
           background: transparent;
-          color: #c7ced6;
+          color: #f1e7cf;
           white-space: nowrap;
           flex: 0 0 auto;
         }
         .public-header-link.active {
-          background: #13202c;
-          color: #e6e7eb;
+          background: rgba(139,90,43,.22);
+          color: #fff8ee;
         }
         @media (max-width: 720px) {
           .public-header-shell {

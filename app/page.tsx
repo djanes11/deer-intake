@@ -46,14 +46,15 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const pricing = settings?.pricing;
   const branding = settings?.branding;
   const colors = {
-    bg: '#0b0f0d',
-    panel: 'rgba(18,24,22,.95)',
-    panelBorder: 'rgba(255,255,255,.08)',
-    brand: '#89c096',
-    text: '#e6ebe8',
-    sub: 'rgba(230,235,232,.8)',
-    accent: '#d4e7db',
-    tileBg: 'rgba(18,24,22,.95)',
+    bg: '#120f0d',
+    panel: 'rgba(28,22,19,.96)',
+    panelBorder: 'rgba(200,138,61,.14)',
+    brand: '#c88a3d',
+    text: '#f1e7cf',
+    sub: 'rgba(241,231,207,.78)',
+    accent: '#d7c3a0',
+    tileBg: 'rgba(28,22,19,.96)',
+    green: '#5b7a62',
   } as const;
 
   const shell: React.CSSProperties = {
@@ -66,7 +67,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const hero: React.CSSProperties = {
     marginTop: 10,
     borderRadius: 16,
-    background: 'linear-gradient(180deg, rgba(22,28,25,1) 0%, rgba(12,16,14,1) 100%)',
+    background: 'radial-gradient(circle at top center, rgba(200,138,61,.16) 0%, transparent 36%), linear-gradient(180deg, rgba(33,25,21,1) 0%, rgba(16,13,11,1) 100%)',
     border: `1px solid ${colors.panelBorder}`,
     padding: 24,
   };
@@ -172,7 +173,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
           <div style={list}>
             {(settings?.hours || []).map((h) => (
               <div style={row} key={`${h.label}:${h.value}`}>
-                <div style={dot('rgba(51,117,71,.9)')} />
+                <div style={dot(colors.green)} />
                 <div>{h.label}: {h.value}</div>
               </div>
             ))}
@@ -242,9 +243,9 @@ function StaffHome({
     gap: 8,
     padding: '10px 12px',
     borderRadius: 999,
-    border: '1px solid rgba(137,192,150,.28)',
-    background: 'rgba(18,24,22,.92)',
-    color: '#dfe9e2',
+    border: '1px solid rgba(200,138,61,.24)',
+    background: 'rgba(28,22,19,.92)',
+    color: '#f1e7cf',
     fontSize: 13,
     fontWeight: 800,
   };
@@ -252,7 +253,7 @@ function StaffHome({
     textTransform: 'uppercase',
     letterSpacing: '.06em',
     fontSize: 11,
-    color: '#89c096',
+    color: '#c88a3d',
   };
 
   const trio: React.CSSProperties = {
@@ -268,8 +269,8 @@ function StaffHome({
   };
 
   const card: React.CSSProperties = {
-    background: 'rgba(18,24,22,.95)',
-    border: '1px solid rgba(255,255,255,.08)',
+    background: 'rgba(28,22,19,.95)',
+    border: '1px solid rgba(200,138,61,.14)',
     borderRadius: 14,
     padding: 16,
   };
@@ -301,7 +302,7 @@ function StaffHome({
     padding: '10px 12px',
     borderRadius: 12,
     border: '1px solid rgba(255,255,255,.08)',
-    background: 'rgba(18,24,22,.92)',
+    background: 'rgba(28,22,19,.92)',
   };
 
   const dot = (color: string): React.CSSProperties => ({

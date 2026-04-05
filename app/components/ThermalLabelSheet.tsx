@@ -66,7 +66,7 @@ export default function ThermalLabelSheet({
       <div className={`thermalLabel thermalLabel--${type}`}>
         <div className="thermalLabel__top">
           <div className="thermalLabel__brandWrap">
-            <img src="/wgbb-logo.svg" alt="" className="thermalLabel__logo" />
+            <img src="/wgbb-logo.png" alt="" className="thermalLabel__logo" />
             <div className="thermalLabel__brand">{brand}</div>
           </div>
           <div className="thermalLabel__type">{title}</div>
@@ -123,9 +123,10 @@ export default function ThermalLabelSheet({
         }
 
         .thermalLabel__logo {
-          width: 0.34in;
-          height: 0.34in;
+          width: 0.42in;
+          height: 0.42in;
           display: block;
+          object-fit: contain;
         }
 
         .thermalLabel__brand {
