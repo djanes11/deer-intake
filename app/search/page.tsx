@@ -501,7 +501,7 @@ export default function SearchPage() {
       )}
 
       <div className="print-only">
-        {printMode === 'sheet' && printJob ? <PrintSheet job={printJob} /> : null}
+        {printMode === 'sheet' && printJob ? <PrintSheet job={printJob} webbsEnabled={webbsEnabled} /> : null}
         {printMode === 'deer' && printJob ? <ThermalLabelSheet job={printJob} type="deer" brandingName={brandingName} /> : null}
         {printMode === 'cape' && printJob ? <ThermalLabelSheet job={printJob} type="cape" brandingName={brandingName} /> : null}
         {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} /> : null}

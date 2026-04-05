@@ -1568,7 +1568,7 @@ function OvernightIntakePage() {
               </div>
             </div>
             <div className="reviewDesktop reviewSheetFrame" style={{ marginTop: 12 }}>
-              <PrintSheet job={job as any} />
+              <PrintSheet job={job as any} webbsEnabled={webbsEnabled} />
             </div>
           </section>
         )}
@@ -1603,7 +1603,7 @@ function OvernightIntakePage() {
       </div>
 
       <div className="print-only">
-        <PrintSheet job={job} />
+        <PrintSheet job={job} webbsEnabled={webbsEnabled} />
       </div>
 
       {specialtyModalOpen && job.specialtyProducts && !locked ? (

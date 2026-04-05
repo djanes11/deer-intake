@@ -24,6 +24,7 @@ export interface PrintSheetProps {
   tag?: string;
   job?: AnyRec | null;
   hideHeader?: boolean;
+  webbsEnabled?: boolean;
 }
 
 const CHK = '☑';
@@ -129,7 +130,7 @@ function suggestedProcessingPrice(proc: any, beef: any, webbs: any): number {
   return base + beefAdd + webbsAdd;
 }
 /* ---------------- component ---------------- */
-export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
+export default function PrintSheet({ tag, job, hideHeader, webbsEnabled = true }: PrintSheetProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const truthy = truthyFactory(job);
   const textVal = textValFactory(job);
@@ -207,7 +208,7 @@ export default function PrintSheet({ tag, job, hideHeader }: PrintSheetProps) {
   const webbsPaperFormCompleted = truthy('webbsPaperFormCompleted', 'webbs_paper_form_completed');
   const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
   const hasSpecialty = truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') || hasSpecialtySelection(job);
-  const hasWebbs = hasWebbsOrder(jpick(job, ['Webbs Order', 'webbsOrder', 'webbs_order']));
+  const hasWebbs = webbsEnabled && hasWebbsOrder(jpick(job, ['Webbs Order', 'webbsOrder', 'webbs_order']));
   const webbsSummaryText = useMemo(
     () =>
       webbsPrimarySummary({
@@ -552,46 +553,47 @@ pages.forEach(p => {
         </div>
       </div>
 
-      {/* Row H */}
-      <div className="row grid12 meat-row">
-        <div className={`col-3 box ${hasWebbs ? 'attentionBox webbsFlagBox' : ''}`}>
-          <div className="label">Webbs Order</div>
-          <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
-            <strong className="check">{hasWebbs ? CHK : BOX}</strong>{' '}
-            {hasWebbs ? 'WEBBS ORDER' : 'No Webbs order'}
-          </div>
-        </div>
-        <div className={`col-9 box ${hasWebbs ? 'attentionBox webbsDetailBox' : ''}`}>
-          <div className="label">Webbs Details</div>
-          <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
-            <div className="webbsMetaRow">
-              <div><b>Summary:</b> {webbsSummaryText}</div>
-              <div><b>Style:</b> {webbsOrderStyleLabel(webbsOrderStyle)}</div>
-              {webbsSupportText ? <div><b>Support:</b> {webbsSupportText}</div> : null}
+      {webbsEnabled ? (
+        <div className="row grid12 meat-row">
+          <div className={`col-3 box ${hasWebbs ? 'attentionBox webbsFlagBox' : ''}`}>
+            <div className="label">Webbs Order</div>
+            <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
+              <strong className="check">{hasWebbs ? CHK : BOX}</strong>{' '}
+              {hasWebbs ? 'WEBBS ORDER' : 'No Webbs order'}
             </div>
-            {webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 && (
-              <div style={{ marginTop: 6 }}>
-                <div><b>Percent Allocation ({webbsAllocationTotal}%):</b></div>
-                <div className={`webbsItemsGrid ${hasDenseWebbsList ? 'dense' : ''}`}>
-                  {webbsAllocationLines.map((line) => (
-                    <div key={line} className="webbsItemLine">{line}</div>
-                  ))}
-                </div>
+          </div>
+          <div className={`col-9 box ${hasWebbs ? 'attentionBox webbsDetailBox' : ''}`}>
+            <div className="label">Webbs Details</div>
+            <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
+              <div className="webbsMetaRow">
+                <div><b>Summary:</b> {webbsSummaryText}</div>
+                <div><b>Style:</b> {webbsOrderStyleLabel(webbsOrderStyle)}</div>
+                {webbsSupportText ? <div><b>Support:</b> {webbsSupportText}</div> : null}
               </div>
-            )}
-            {webbsOrderStyle !== 'whole_deer_percent' && webbsItemLines.length > 0 && (
-              <div style={{ marginTop: 6 }}>
-                <div><b>Detailed Items ({webbsItemTotal} lb):</b></div>
-                <div className={`webbsItemsGrid ${hasDenseWebbsList ? 'dense' : ''}`}>
-                  {webbsItemLines.map((line) => (
-                    <div key={line} className="webbsItemLine">{line}</div>
-                  ))}
+              {webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <div><b>Percent Allocation ({webbsAllocationTotal}%):</b></div>
+                  <div className={`webbsItemsGrid ${hasDenseWebbsList ? 'dense' : ''}`}>
+                    {webbsAllocationLines.map((line) => (
+                      <div key={line} className="webbsItemLine">{line}</div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+              {webbsOrderStyle !== 'whole_deer_percent' && webbsItemLines.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  <div><b>Detailed Items ({webbsItemTotal} lb):</b></div>
+                  <div className={`webbsItemsGrid ${hasDenseWebbsList ? 'dense' : ''}`}>
+                    {webbsItemLines.map((line) => (
+                      <div key={line} className="webbsItemLine">{line}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Row I */}
       <div className="row grid12">

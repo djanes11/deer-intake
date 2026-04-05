@@ -58,6 +58,7 @@ export default function PrintQueuePage() {
   const [printing, setPrinting] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<AnyRec | null>(null);
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
 
   const refresh = async () => {
     setErr('');
@@ -78,6 +79,16 @@ export default function PrintQueuePage() {
 
   useEffect(() => {
     refresh();
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.ok) return;
+        setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+      })
+      .catch(() => {});
   }, []);
 
   const loadJob = async (tag: string) => {
@@ -238,7 +249,7 @@ export default function PrintQueuePage() {
         </div>
       </div>
 
-      <div className="print-only">{selectedJob ? <PrintSheet job={selectedJob} /> : null}</div>
+      <div className="print-only">{selectedJob ? <PrintSheet job={selectedJob} webbsEnabled={webbsEnabled} /> : null}</div>
 
       <style jsx>{`
         .queue-actions {

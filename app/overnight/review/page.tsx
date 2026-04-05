@@ -126,6 +126,7 @@ export default function MissingTagsPage() {
   const [jobErr, setJobErr] = useState('');
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
 
   const refresh = async () => {
     setErr('');
@@ -157,6 +158,7 @@ export default function MissingTagsPage() {
       .then((j) => {
         if (!j?.ok) return;
         setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
+        setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
       })
       .catch(() => {});
   }, []);
@@ -456,7 +458,7 @@ export default function MissingTagsPage() {
       </div>
 
       <div className="print-only">
-        {printMode === 'sheet' && selectedJob ? <PrintSheet job={selectedJob} /> : null}
+        {printMode === 'sheet' && selectedJob ? <PrintSheet job={selectedJob} webbsEnabled={webbsEnabled} /> : null}
         {printMode === 'deer' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="deer" brandingName={brandingName} /> : null}
         {printMode === 'cape' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="cape" brandingName={brandingName} /> : null}
         {printMode === 'package' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="package" brandingName={brandingName} /> : null}
