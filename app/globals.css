@@ -3,9 +3,9 @@
    ========================= */
 :root{
   /* Core palette */
-  --bg:           #120f0d;
-  --bg-elev:      #191613;
-  --bg-elev-2:    #221d19;
+  --bg:           #11100f;
+  --bg-elev:      #171615;
+  --bg-elev-2:    #1e1c1a;
   --text:         #eee8de;
   --text-dim:     #c4bbaf;
 
@@ -17,7 +17,7 @@
   --paper:        #f1e7cf;
   --walnut:       #4d3220;
 
-  --border:       #342b25;
+  --border:       #322a24;
   --ring:         rgba(200,138,61,.32);
   --shadow:       0 8px 28px rgba(0,0,0,.34);
 
@@ -421,10 +421,10 @@ input[type="checkbox"] {
   z-index: 0;                 /* behind everything (header already has higher z) */
   background:
     radial-gradient(transparent, rgba(0,0,0,.45) 70%) center/100% 100% no-repeat,
-    url('/wgbb-logo.png') center 60% / 420px auto no-repeat; /* tweak size/position as you like */
-  opacity: 0.8;              /* overall strength of the watermark */
-  mix-blend-mode: soft-light; /* keeps it tasteful on dark */
-  filter: grayscale(100%);
+    url('/wgbb-logo-watermark.png') center 62% / 360px auto no-repeat;
+  opacity: 0.24;
+  mix-blend-mode: soft-light;
+  filter: grayscale(35%) saturate(80%);
 }
 /* Ensure main content sits above watermark */
 main { position: relative; z-index: 1; }

@@ -47,13 +47,13 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const branding = settings?.branding;
   const colors = {
     bg: '#120f0d',
-    panel: 'rgba(28,22,19,.96)',
+    panel: 'rgba(21,20,19,.96)',
     panelBorder: 'rgba(200,138,61,.14)',
     brand: '#c88a3d',
     text: '#f1e7cf',
     sub: 'rgba(241,231,207,.78)',
     accent: '#d7c3a0',
-    tileBg: 'rgba(28,22,19,.96)',
+    tileBg: 'rgba(21,20,19,.96)',
     green: '#5b7a62',
   } as const;
 
@@ -244,7 +244,7 @@ function StaffHome({
     padding: '10px 12px',
     borderRadius: 999,
     border: '1px solid rgba(200,138,61,.24)',
-    background: 'rgba(28,22,19,.92)',
+    background: 'rgba(21,20,19,.92)',
     color: '#f1e7cf',
     fontSize: 13,
     fontWeight: 800,
@@ -269,7 +269,7 @@ function StaffHome({
   };
 
   const card: React.CSSProperties = {
-    background: 'rgba(28,22,19,.95)',
+    background: 'rgba(21,20,19,.95)',
     border: '1px solid rgba(200,138,61,.14)',
     borderRadius: 14,
     padding: 16,
@@ -302,7 +302,7 @@ function StaffHome({
     padding: '10px 12px',
     borderRadius: 12,
     border: '1px solid rgba(255,255,255,.08)',
-    background: 'rgba(28,22,19,.92)',
+    background: 'rgba(21,20,19,.92)',
   };
 
   const dot = (color: string): React.CSSProperties => ({
