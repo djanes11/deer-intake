@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaffAccess } from '@/lib/staffAuth';
+import { hashLocalPassword } from '@/lib/localStaffAuth';
 import { getStaffProcessorContext, isPlatformAdmin } from '@/lib/staffContext';
 
 type StaffRole = 'admin' | 'staff' | 'readonly';
@@ -24,6 +25,10 @@ function normalizeEmail(raw: unknown) {
   return String(raw || '').trim().toLowerCase();
 }
 
+function normalizeUsername(raw: unknown) {
+  return String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
+}
+
 async function listAllAuthUsers(supabase: ReturnType<typeof getSupabase>) {
   const users: any[] = [];
   let page = 1;
@@ -40,13 +45,7 @@ async function listAllAuthUsers(supabase: ReturnType<typeof getSupabase>) {
 
 async function upsertProcessorMembership(
   supabase: ReturnType<typeof getSupabase>,
-  input: {
-    processorId: string;
-    userId: string | null;
-    email: string;
-    role: StaffRole;
-    active: boolean;
-  }
+  input: { processorId: string; userId: string | null; email: string; role: StaffRole; active: boolean }
 ) {
   const existingResp = await supabase
     .from('processor_users')
@@ -65,24 +64,11 @@ async function upsertProcessorMembership(
     updated_at: new Date().toISOString(),
   };
 
-  if (existingResp.data?.id) {
-    const { data, error } = await supabase
-      .from('processor_users')
-      .update(payload)
-      .eq('id', existingResp.data.id)
-      .select('id,processor_id,user_id,email,role,active,created_at,updated_at')
-      .single();
-    if (error) throw error;
-    return data;
-  }
-
-  const { data, error } = await supabase
-    .from('processor_users')
-    .insert(payload)
-    .select('id,processor_id,user_id,email,role,active,created_at,updated_at')
-    .single();
-  if (error) throw error;
-  return data;
+  const resp = existingResp.data?.id
+    ? await supabase.from('processor_users').update(payload).eq('id', existingResp.data.id).select('id,processor_id,user_id,email,role,active,created_at,updated_at').single()
+    : await supabase.from('processor_users').insert(payload).select('id,processor_id,user_id,email,role,active,created_at,updated_at').single();
+  if (resp.error) throw resp.error;
+  return resp.data;
 }
 
 async function verifyProcessorAdmin(req: Request) {
@@ -90,22 +76,15 @@ async function verifyProcessorAdmin(req: Request) {
   if (!auth.ok) {
     return { denied: NextResponse.json({ ok: false, error: auth.error }, { status: auth.status }), processor: null as any };
   }
-
   const processor = await getStaffProcessorContext(req);
   const platformAdmin = await isPlatformAdmin(req);
   if (!processor.id) {
-    return {
-      denied: NextResponse.json({ ok: false, error: 'No processor membership found for this account.' }, { status: 403 }),
-      processor: null as any,
-    };
+    return { denied: NextResponse.json({ ok: false, error: 'No processor membership found for this account.' }, { status: 403 }), processor: null as any };
   }
   if (!platformAdmin && processor.role !== 'admin') {
-    return {
-      denied: NextResponse.json({ ok: false, error: 'Processor admin access required.' }, { status: 403 }),
-      processor: null as any,
-    };
+    return { denied: NextResponse.json({ ok: false, error: 'Processor admin access required.' }, { status: 403 }), processor: null as any };
   }
-  return { denied: null as NextResponse | null, processor, platformAdmin };
+  return { denied: null as NextResponse | null, processor };
 }
 
 export async function GET(req: Request) {
@@ -114,16 +93,13 @@ export async function GET(req: Request) {
     if (denied) return denied;
 
     const supabase = getSupabase();
-    const [membershipResp, authUsers] = await Promise.all([
-      supabase
-        .from('processor_users')
-        .select('id,processor_id,user_id,email,role,active,created_at,updated_at')
-        .eq('processor_id', processor.id)
-        .order('email', { ascending: true }),
+    const [membershipResp, localResp, authUsers] = await Promise.all([
+      supabase.from('processor_users').select('id,processor_id,user_id,email,role,active,created_at,updated_at').eq('processor_id', processor.id).order('email', { ascending: true }),
+      supabase.from('staff_local_users').select('id,processor_id,username,role,active,created_at,updated_at').eq('processor_id', processor.id).order('username', { ascending: true }),
       listAllAuthUsers(supabase),
     ]);
-
     if (membershipResp.error) throw membershipResp.error;
+    if (localResp.error) throw localResp.error;
 
     const authById = new Map<string, any>();
     const authByEmail = new Map<string, any>();
@@ -134,19 +110,16 @@ export async function GET(req: Request) {
       if (email) authByEmail.set(email, user);
     }
 
-    return NextResponse.json({
-      ok: true,
-      processor: {
-        id: processor.id,
-        slug: processor.slug,
-      },
-      memberships: (membershipResp.data || []).map((row: any) => {
+    const memberships = [
+      ...(membershipResp.data || []).map((row: any) => {
         const email = normalizeEmail(row.email);
         const authUser = (row.user_id && authById.get(String(row.user_id))) || authByEmail.get(email);
         return {
           id: String(row.id),
           processorId: String(row.processor_id),
+          accountType: 'email',
           email,
+          username: '',
           userId: String(row.user_id || authUser?.id || ''),
           role: normalizeRole(row.role),
           active: !!row.active,
@@ -156,7 +129,23 @@ export async function GET(req: Request) {
           authCreatedAt: authUser?.created_at || null,
         };
       }),
-    });
+      ...(localResp.data || []).map((row: any) => ({
+        id: String(row.id),
+        processorId: String(row.processor_id),
+        accountType: 'local',
+        email: '',
+        username: normalizeUsername(row.username),
+        userId: String(row.id),
+        role: normalizeRole(row.role),
+        active: !!row.active,
+        createdAt: row.created_at || null,
+        updatedAt: row.updated_at || null,
+        lastSignInAt: null,
+        authCreatedAt: null,
+      })),
+    ];
+
+    return NextResponse.json({ ok: true, processor: { id: processor.id, slug: processor.slug }, memberships });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
@@ -168,22 +157,61 @@ export async function POST(req: Request) {
     if (denied) return denied;
 
     const body = await req.json().catch(() => ({}));
-    const email = normalizeEmail(body?.email);
+    const accountType = body?.accountType === 'local' ? 'local' : 'email';
     const role = normalizeRole(body?.role);
-    if (!email) {
-      return NextResponse.json({ ok: false, error: 'Email is required.' }, { status: 400 });
+    const supabase = getSupabase();
+
+    if (accountType === 'local') {
+      const username = normalizeUsername(body?.username);
+      const password = String(body?.password || '').trim();
+      if (!username) return NextResponse.json({ ok: false, error: 'Username is required.' }, { status: 400 });
+      if (!password || password.length < 8) return NextResponse.json({ ok: false, error: 'Password must be at least 8 characters.' }, { status: 400 });
+      if (role === 'admin') return NextResponse.json({ ok: false, error: 'Local staff logins can only be Staff or Read-only.' }, { status: 400 });
+
+      const existingResp = await supabase.from('staff_local_users').select('id').eq('processor_id', processor.id).ilike('username', username).maybeSingle();
+      if (existingResp.error) throw existingResp.error;
+
+      const payload = {
+        processor_id: processor.id,
+        username,
+        password_hash: hashLocalPassword(password),
+        role,
+        active: true,
+        updated_at: new Date().toISOString(),
+      };
+      const localResp = existingResp.data?.id
+        ? await supabase.from('staff_local_users').update(payload).eq('id', existingResp.data.id).select('id,processor_id,username,role,active,created_at,updated_at').single()
+        : await supabase.from('staff_local_users').insert(payload).select('id,processor_id,username,role,active,created_at,updated_at').single();
+      if (localResp.error) throw localResp.error;
+
+      return NextResponse.json({
+        ok: true,
+        invited: false,
+        membership: {
+          id: String(localResp.data.id),
+          processorId: String(localResp.data.processor_id),
+          accountType: 'local',
+          email: '',
+          username: normalizeUsername(localResp.data.username),
+          userId: String(localResp.data.id),
+          role: normalizeRole(localResp.data.role),
+          active: !!localResp.data.active,
+          createdAt: localResp.data.created_at || null,
+          updatedAt: localResp.data.updated_at || null,
+          lastSignInAt: null,
+          authCreatedAt: null,
+        },
+      });
     }
 
-    const supabase = getSupabase();
+    const email = normalizeEmail(body?.email);
+    if (!email) return NextResponse.json({ ok: false, error: 'Email is required.' }, { status: 400 });
     const authUsers = await listAllAuthUsers(supabase);
     let authUser = authUsers.find((user) => normalizeEmail(user?.email) === email) || null;
     let invited = false;
-
     if (!authUser) {
       const origin = new URL(req.url).origin;
-      const invite = await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${origin}/staff/reset-password?next=/`,
-      });
+      const invite = await supabase.auth.admin.inviteUserByEmail(email, { redirectTo: `${origin}/staff/reset-password?next=/` });
       if (invite.error) throw invite.error;
       authUser = invite.data.user;
       invited = true;
@@ -203,7 +231,9 @@ export async function POST(req: Request) {
       membership: {
         id: String(data.id),
         processorId: String(data.processor_id),
+        accountType: 'email',
         email: normalizeEmail(data.email),
+        username: '',
         userId: String(data.user_id || authUser?.id || ''),
         role: normalizeRole(data.role),
         active: !!data.active,
@@ -225,22 +255,47 @@ export async function PATCH(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const id = String(body?.id || '').trim();
-    if (!id) {
-      return NextResponse.json({ ok: false, error: 'Membership id is required.' }, { status: 400 });
-    }
+    const accountType = body?.accountType === 'local' ? 'local' : 'email';
+    if (!id) return NextResponse.json({ ok: false, error: 'Membership id is required.' }, { status: 400 });
 
     const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from('processor_users')
-      .update({
+    if (accountType === 'local') {
+      const patch: Record<string, any> = {
         role: normalizeRole(body?.role),
         active: body?.active !== false,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('processor_id', processor.id)
-      .select('id,processor_id,user_id,email,role,active,created_at,updated_at')
-      .single();
+      };
+      if (body?.password) {
+        const password = String(body.password).trim();
+        if (password.length < 8) return NextResponse.json({ ok: false, error: 'Password must be at least 8 characters.' }, { status: 400 });
+        patch.password_hash = hashLocalPassword(password);
+      }
+      const localResp = await supabase.from('staff_local_users').update(patch).eq('id', id).eq('processor_id', processor.id).select('id,processor_id,username,role,active,created_at,updated_at').single();
+      if (localResp.error) throw localResp.error;
+      return NextResponse.json({
+        ok: true,
+        membership: {
+          id: String(localResp.data.id),
+          processorId: String(localResp.data.processor_id),
+          accountType: 'local',
+          email: '',
+          username: normalizeUsername(localResp.data.username),
+          userId: String(localResp.data.id),
+          role: normalizeRole(localResp.data.role),
+          active: !!localResp.data.active,
+          createdAt: localResp.data.created_at || null,
+          updatedAt: localResp.data.updated_at || null,
+          lastSignInAt: null,
+          authCreatedAt: null,
+        },
+      });
+    }
+
+    const { data, error } = await supabase.from('processor_users').update({
+      role: normalizeRole(body?.role),
+      active: body?.active !== false,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id).eq('processor_id', processor.id).select('id,processor_id,user_id,email,role,active,created_at,updated_at').single();
     if (error) throw error;
 
     const authUsers = await listAllAuthUsers(supabase);
@@ -255,7 +310,9 @@ export async function PATCH(req: Request) {
       membership: {
         id: String(data.id),
         processorId: String(data.processor_id),
+        accountType: 'email',
         email,
+        username: '',
         userId: String(data.user_id || authUser?.id || ''),
         role: normalizeRole(data.role),
         active: !!data.active,

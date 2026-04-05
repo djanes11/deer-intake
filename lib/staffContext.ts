@@ -3,12 +3,17 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
-import { STAFF_ACCESS_COOKIE } from '@/lib/staffSession';
+import { getLocalStaffSessionByToken } from '@/lib/localStaffAuth';
+import { STAFF_ACCESS_COOKIE, STAFF_LOCAL_SESSION_COOKIE } from '@/lib/staffSession';
 
 export type StaffIdentity = {
   userId: string | null;
   email: string | null;
-  authType: 'supabase' | 'api_token' | 'basic' | 'none';
+  username?: string | null;
+  processorId?: string | null;
+  processorSlug?: string | null;
+  role?: 'admin' | 'staff' | 'readonly' | null;
+  authType: 'supabase' | 'local' | 'api_token' | 'basic' | 'none';
 };
 
 export type StaffMembership = {
@@ -80,6 +85,19 @@ async function getBearerToken(req?: Request | null) {
   }
 }
 
+async function getLocalSessionToken(req?: Request | null) {
+  const explicitCookie = parseCookie(req?.headers.get('cookie') || null, STAFF_LOCAL_SESSION_COOKIE);
+  if (explicitCookie) return explicitCookie;
+  if (req) return '';
+
+  try {
+    const h = await headers();
+    return parseCookie(h.get('cookie') || null, STAFF_LOCAL_SESSION_COOKIE);
+  } catch {
+    return '';
+  }
+}
+
 function getRequestedProcessorSlug(req?: Request | null) {
   const headerSlug = String(req?.headers.get('x-processor-slug') || '').trim().toLowerCase();
   if (headerSlug) return headerSlug;
@@ -110,6 +128,26 @@ export async function getStaffIdentity(req?: Request | null): Promise<StaffIdent
     }
   }
 
+  const localToken = await getLocalSessionToken(req);
+  if (localToken) {
+    try {
+      const local = await getLocalStaffSessionByToken(localToken);
+      if (local) {
+        return {
+          userId: String(local.localUserId),
+          email: null,
+          username: String(local.username),
+          processorId: String(local.processorId),
+          processorSlug: String(local.processorSlug),
+          role: local.role,
+          authType: 'local',
+        };
+      }
+    } catch {
+      // Fall through to legacy auth modes.
+    }
+  }
+
   const apiToken = String(process.env.DEER_API_TOKEN || '').trim();
   const headerToken = String(req?.headers.get('x-api-token') || '').trim();
   if (apiToken && headerToken && headerToken === apiToken) {
@@ -130,6 +168,15 @@ export async function getStaffIdentity(req?: Request | null): Promise<StaffIdent
 
 export async function listStaffMemberships(req?: Request | null): Promise<StaffMembership[]> {
   const identity = await getStaffIdentity(req);
+  if (identity.authType === 'local' && identity.processorId && identity.processorSlug) {
+    return [{
+      processorId: identity.processorId,
+      processorSlug: identity.processorSlug,
+      email: identity.username || '',
+      role: (identity.role || 'staff') as StaffMembership['role'],
+      active: true,
+    }];
+  }
   if (identity.authType !== 'supabase') return [];
 
   const supabase = createSupabaseAdmin();
@@ -194,6 +241,17 @@ export async function isPlatformAdmin(req?: Request | null): Promise<boolean> {
 
 export async function getStaffProcessorContext(req?: Request | null): Promise<StaffProcessorContext> {
   const identity = await getStaffIdentity(req);
+  if (identity.authType === 'local' && identity.processorId && identity.processorSlug) {
+    return {
+      id: identity.processorId,
+      slug: identity.processorSlug,
+      role: (identity.role || 'staff') as StaffMembership['role'],
+      authType: identity.authType,
+      membershipCount: 1,
+      userId: identity.userId,
+      email: identity.username || null,
+    };
+  }
   const memberships = await listStaffMemberships(req);
   const requestedSlug = getRequestedProcessorSlug(req);
 

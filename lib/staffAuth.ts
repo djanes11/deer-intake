@@ -1,7 +1,8 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
-import { STAFF_ACCESS_COOKIE } from '@/lib/staffSession';
+import { getLocalStaffSessionByToken } from '@/lib/localStaffAuth';
+import { STAFF_ACCESS_COOKIE, STAFF_LOCAL_SESSION_COOKIE } from '@/lib/staffSession';
 
 type StaffAccessResult =
   | { ok: true }
@@ -52,6 +53,12 @@ export async function requireStaffAccess(req: Request): Promise<StaffAccessResul
   if (bearer) {
     const user = await getSupabaseUserFromBearer(bearer);
     if (user) return { ok: true };
+  }
+
+  const localToken = parseCookie(req.headers.get('cookie'), STAFF_LOCAL_SESSION_COOKIE);
+  if (localToken) {
+    const session = await getLocalStaffSessionByToken(localToken);
+    if (session?.active) return { ok: true };
   }
 
   const apiToken = String(process.env.DEER_API_TOKEN || '').trim();

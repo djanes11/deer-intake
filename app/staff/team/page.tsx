@@ -6,7 +6,9 @@ import { tokenHeader } from '@/lib/api';
 type TeamMembership = {
   id: string;
   processorId: string;
+  accountType: 'email' | 'local';
   email: string;
+  username: string;
   userId: string;
   role: 'admin' | 'staff' | 'readonly';
   active: boolean;
@@ -16,16 +18,38 @@ type TeamMembership = {
   authCreatedAt?: string | null;
 };
 
+const cardStyle: React.CSSProperties = {
+  border: '1px solid #d6dee8',
+  borderRadius: 16,
+  padding: 18,
+  background: '#ffffff',
+  boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+  display: 'grid',
+  gap: 14,
+};
+
+function teamLabel(row: TeamMembership) {
+  return row.accountType === 'local' ? row.username : row.email;
+}
+
 export default function StaffTeamPage() {
   const [processorSlug, setProcessorSlug] = useState('');
   const [memberships, setMemberships] = useState<TeamMembership[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<TeamMembership['role']>('staff');
-  const [inviting, setInviting] = useState(false);
+  const [emailRole, setEmailRole] = useState<'admin' | 'staff' | 'readonly'>('admin');
+  const [creatingEmail, setCreatingEmail] = useState(false);
+
+  const [username, setUsername] = useState('');
+  const [localPassword, setLocalPassword] = useState('');
+  const [localRole, setLocalRole] = useState<'staff' | 'readonly'>('staff');
+  const [creatingLocal, setCreatingLocal] = useState(false);
+
   const [savingId, setSavingId] = useState('');
+  const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
 
   const headers = useMemo(
     () => ({
@@ -44,7 +68,7 @@ export default function StaffTeamPage() {
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
         setProcessorSlug(String(json.processor?.slug || ''));
-        setMemberships(json.memberships || []);
+        setMemberships((json.memberships || []) as TeamMembership[]);
       } catch (e: any) {
         setError(String(e?.message || e));
       } finally {
@@ -57,29 +81,67 @@ export default function StaffTeamPage() {
   const updateMembership = (id: string, patch: Partial<TeamMembership>) =>
     setMemberships((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
 
-  const inviteUser = async () => {
-    setInviting(true);
+  const addOrReplaceMembership = (nextRow: TeamMembership) =>
+    setMemberships((prev) => {
+      const rest = prev.filter((row) => row.id !== nextRow.id);
+      return [nextRow, ...rest];
+    });
+
+  const createEmailUser = async () => {
+    setCreatingEmail(true);
     setError('');
     setMessage('');
+    const trimmedEmail = email.trim().toLowerCase();
     try {
       const res = await fetch('/api/staff/team', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({
+          accountType: 'email',
+          email: trimmedEmail,
+          role: emailRole,
+        }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
-      setMemberships((prev) => {
-        const next = prev.filter((row) => row.id !== json.membership.id);
-        return [json.membership, ...next];
-      });
+      addOrReplaceMembership(json.membership);
       setEmail('');
-      setRole('staff');
-      setMessage(json.invited ? `Invite sent to ${email}` : `Added ${email} to this processor`);
+      setEmailRole('admin');
+      setMessage(json.invited ? `Invite sent to ${trimmedEmail}` : `Added ${trimmedEmail} to this processor`);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
-      setInviting(false);
+      setCreatingEmail(false);
+    }
+  };
+
+  const createLocalUser = async () => {
+    setCreatingLocal(true);
+    setError('');
+    setMessage('');
+    const trimmedUsername = username.trim().toLowerCase();
+    try {
+      const res = await fetch('/api/staff/team', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          accountType: 'local',
+          username: trimmedUsername,
+          password: localPassword,
+          role: localRole,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      addOrReplaceMembership(json.membership);
+      setUsername('');
+      setLocalPassword('');
+      setLocalRole('staff');
+      setMessage(`Created local login ${trimmedUsername}`);
+    } catch (e: any) {
+      setError(String(e?.message || e));
+    } finally {
+      setCreatingLocal(false);
     }
   };
 
@@ -87,20 +149,30 @@ export default function StaffTeamPage() {
     setSavingId(row.id);
     setError('');
     setMessage('');
+    const passwordDraft = (passwordDrafts[row.id] || '').trim();
     try {
       const res = await fetch('/api/staff/team', {
         method: 'PATCH',
         headers,
         body: JSON.stringify({
           id: row.id,
+          accountType: row.accountType,
           role: row.role,
           active: row.active,
+          ...(row.accountType === 'local' && passwordDraft ? { password: passwordDraft } : {}),
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
       setMemberships((prev) => prev.map((item) => (item.id === row.id ? json.membership : item)));
-      setMessage(`Saved ${row.email}`);
+      if (passwordDraft) {
+        setPasswordDrafts((prev) => ({ ...prev, [row.id]: '' }));
+      }
+      setMessage(
+        row.accountType === 'local'
+          ? `Saved ${row.username}${passwordDraft ? ' and reset password' : ''}`
+          : `Saved ${row.email}`
+      );
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -109,21 +181,11 @@ export default function StaffTeamPage() {
   };
 
   const shell: React.CSSProperties = {
-    maxWidth: 980,
+    maxWidth: 1040,
     margin: '24px auto',
     padding: '0 16px 40px',
     display: 'grid',
     gap: 16,
-  };
-
-  const panel: React.CSSProperties = {
-    border: '1px solid #d6dee8',
-    borderRadius: 16,
-    padding: 18,
-    background: '#ffffff',
-    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-    display: 'grid',
-    gap: 14,
   };
 
   return (
@@ -132,17 +194,26 @@ export default function StaffTeamPage() {
         style={{
           padding: '18px 20px',
           borderRadius: 18,
-          background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+          background: 'linear-gradient(135deg, #161718 0%, #23262a 100%)',
           color: '#f8fafc',
-          border: '1px solid #334155',
+          border: '1px solid rgba(214, 173, 91, 0.22)',
         }}
       >
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#cbd5e1' }}>
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: '.08em',
+            textTransform: 'uppercase',
+            color: '#d9c7a0',
+          }}
+        >
           Processor Admin
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Staff Team</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 760, lineHeight: 1.5 }}>
-          Invite staff and manage access for <strong>{processorSlug || 'this processor'}</strong> without needing platform admin help.
+          Manage the team for <strong>{processorSlug || 'this processor'}</strong>. Use email logins for processor admins and
+          simple username/password logins for back-room or seasonal staff.
         </div>
       </div>
 
@@ -157,40 +228,97 @@ export default function StaffTeamPage() {
         </div>
       ) : null}
 
-      <section style={panel}>
-        <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Invite Staff Member</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) 180px auto', gap: 12, alignItems: 'end' }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Email</span>
-            <input
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-              placeholder="staff@example.com"
-            />
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Role</span>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as TeamMembership['role'])}
-              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-            >
-              <option value="admin">Admin</option>
-              <option value="staff">Staff</option>
-              <option value="readonly">Read-only</option>
-            </select>
-          </label>
-          <button className="btn" type="button" onClick={() => void inviteUser()} disabled={inviting}>
-            {inviting ? 'Sending...' : 'Invite'}
-          </button>
+      <section
+        style={{
+          display: 'grid',
+          gap: 16,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        }}
+      >
+        <div style={cardStyle}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Add Processor Admin</div>
+          <div style={{ color: '#475569', lineHeight: 1.5 }}>
+            Processor admins use email and password so they can recover their own account and manage other staff later.
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Email</span>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+                placeholder="owner@processor.com"
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Role</span>
+              <select
+                value={emailRole}
+                onChange={(e) => setEmailRole(e.target.value as 'admin' | 'staff' | 'readonly')}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              >
+                <option value="admin">Admin</option>
+                <option value="staff">Staff</option>
+                <option value="readonly">Read-only</option>
+              </select>
+            </label>
+            <button className="btn" type="button" onClick={() => void createEmailUser()} disabled={creatingEmail}>
+              {creatingEmail ? 'Sending...' : 'Send Invite'}
+            </button>
+          </div>
+          <div style={{ color: '#64748b', fontSize: 14 }}>
+            If the email already belongs to an existing user, this just adds them to this processor. If it&apos;s new, they&apos;ll get an invite
+            to set their password.
+          </div>
         </div>
-        <div style={{ color: '#475569', fontSize: 14 }}>
-          If the email already belongs to an existing user, this just adds them to this processor. If it&apos;s new, they&apos;ll get an invite to set their password.
+
+        <div style={cardStyle}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Add Staff Login</div>
+          <div style={{ color: '#475569', lineHeight: 1.5 }}>
+            These are simple local logins for regular staff. They do not need email, and you can reset their password here anytime.
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Username</span>
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+                placeholder="frontdesk"
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Temporary Password</span>
+              <input
+                type="password"
+                value={localPassword}
+                onChange={(e) => setLocalPassword(e.target.value)}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+                placeholder="At least 8 characters"
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Role</span>
+              <select
+                value={localRole}
+                onChange={(e) => setLocalRole(e.target.value as 'staff' | 'readonly')}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              >
+                <option value="staff">Staff</option>
+                <option value="readonly">Read-only</option>
+              </select>
+            </label>
+            <button className="btn" type="button" onClick={() => void createLocalUser()} disabled={creatingLocal}>
+              {creatingLocal ? 'Creating...' : 'Create Login'}
+            </button>
+          </div>
+          <div style={{ color: '#64748b', fontSize: 14 }}>
+            Best for seasonal help, family members, or shop staff who just need a simple username and password.
+          </div>
         </div>
       </section>
 
-      <section style={panel}>
+      <section style={cardStyle}>
         <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Current Team</div>
         {loading ? (
           <div>Loading team...</div>
@@ -212,9 +340,12 @@ export default function StaffTeamPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontWeight: 900, color: '#0f172a' }}>{row.email}</div>
+                    <div style={{ fontWeight: 900, color: '#0f172a' }}>{teamLabel(row)}</div>
                     <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                      Last sign-in: {row.lastSignInAt ? new Date(row.lastSignInAt).toLocaleString() : 'Never'}
+                      {row.accountType === 'local' ? 'Local staff login' : 'Email login'}
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+                      Last sign-in: {row.lastSignInAt ? new Date(row.lastSignInAt).toLocaleString() : row.accountType === 'local' ? 'Not tracked yet' : 'Never'}
                     </div>
                   </div>
                   <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
@@ -223,7 +354,14 @@ export default function StaffTeamPage() {
                   </label>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr auto', gap: 12, alignItems: 'end' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: row.accountType === 'local' ? '180px minmax(220px, 1fr) 1fr auto' : '220px 1fr auto',
+                    gap: 12,
+                    alignItems: 'end',
+                  }}
+                >
                   <label style={{ display: 'grid', gap: 6 }}>
                     <span style={{ fontWeight: 800, color: '#0f172a' }}>Role</span>
                     <select
@@ -231,14 +369,36 @@ export default function StaffTeamPage() {
                       onChange={(e) => updateMembership(row.id, { role: e.target.value as TeamMembership['role'] })}
                       style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
                     >
-                      <option value="admin">Admin</option>
+                      {row.accountType === 'local' ? null : <option value="admin">Admin</option>}
                       <option value="staff">Staff</option>
                       <option value="readonly">Read-only</option>
                     </select>
                   </label>
+
+                  {row.accountType === 'local' ? (
+                    <label style={{ display: 'grid', gap: 6 }}>
+                      <span style={{ fontWeight: 800, color: '#0f172a' }}>Reset Password</span>
+                      <input
+                        type="password"
+                        value={passwordDrafts[row.id] || ''}
+                        onChange={(e) => setPasswordDrafts((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                        style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                        placeholder="Leave blank to keep current password"
+                      />
+                    </label>
+                  ) : null}
+
                   <div style={{ color: '#64748b', fontSize: 13 }}>
-                    Joined: {row.authCreatedAt ? new Date(row.authCreatedAt).toLocaleDateString() : 'Pending invite'}
+                    Joined:{' '}
+                    {row.accountType === 'email'
+                      ? row.authCreatedAt
+                        ? new Date(row.authCreatedAt).toLocaleDateString()
+                        : 'Pending invite'
+                      : row.createdAt
+                        ? new Date(row.createdAt).toLocaleDateString()
+                        : 'Recently created'}
                   </div>
+
                   <button className="btn" type="button" onClick={() => void saveMembership(row)} disabled={savingId === row.id}>
                     {savingId === row.id ? 'Saving...' : 'Save'}
                   </button>
