@@ -10,8 +10,7 @@ import {
   listJobsNeedingTag,
   setJobTag,
 } from '@/lib/jobsSupabase';
-import { requireStaffAccess } from '@/lib/staffAuth';
-import { getStaffProcessorContext } from '@/lib/staffContext';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { Job } from '@/types/job';
 
 function normalizeAction(v: string | null) {
@@ -30,9 +29,9 @@ function normalizeAction(v: string | null) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = normalizeAction(searchParams.get('action'));
-  const auth = await requireStaffAccess(req);
-  if (!auth.ok) {
-    return new Response(JSON.stringify(auth), { status: auth.status });
+  const { denied } = await requireProcessorPermission(req, 'view');
+  if (denied) {
+    return new Response(await denied.text(), { status: denied.status, headers: { 'content-type': 'application/json' } });
   }
 
   if (action === 'ping') {
@@ -90,16 +89,21 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const auth = await requireStaffAccess(req);
-
-  if (!auth.ok) {
-    return new Response(JSON.stringify(auth), { status: auth.status });
-  }
-
   const body = await req.json().catch(() => ({} as any));
   const action = normalizeAction(body.action || searchParams.get('action'));
 
   try {
+    const permission =
+      action === 'save' || action === 'log-call' || action === 'settag'
+        ? 'edit_jobs'
+        : action === 'progress' || action === 'markcalled'
+          ? 'update_status'
+          : 'view';
+    const { denied, context: processorContext } = await requireProcessorPermission(req, permission as any);
+    if (denied) {
+      return new Response(await denied.text(), { status: denied.status, headers: { 'content-type': 'application/json' } });
+    }
+
     if (action === 'save') {
       const job = body.job as Partial<Job>;
       if (!job) {
@@ -107,7 +111,6 @@ export async function POST(req: NextRequest) {
           status: 400,
         });
       }
-      const processorContext = await getStaffProcessorContext(req);
       const result = await saveJob(job, { processorContext });
       return new Response(JSON.stringify(result), { status: 200 });
     }

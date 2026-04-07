@@ -2,9 +2,9 @@ import 'server-only';
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { requireStaffAccess } from '@/lib/staffAuth';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 import { canSendSmsTo, normalizeUsPhone, sendSms } from '@/lib/sms';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 
 function trimBody(value: any) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -12,8 +12,8 @@ function trimBody(value: any) {
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireStaffAccess(req);
-    if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+    const { denied } = await requireProcessorPermission(req, 'manage_settings');
+    if (denied) return denied;
 
     const body = await req.json().catch(() => ({}));
     const to = normalizeUsPhone(String(body?.to || ''));

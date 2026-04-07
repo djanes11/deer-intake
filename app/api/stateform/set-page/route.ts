@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
 import { setStateformPageNumberInSupabase } from '@/lib/stateform/supabase';
-import { requireStaffAccess } from '@/lib/staffAuth';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireStaffAccess(req);
-    if (!auth.ok) {
-      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
-    }
+    const { denied } = await requireProcessorPermission(req, 'update_status');
+    if (denied) return denied;
     const body = await req.json().catch(() => ({}));
     const page = Number(body?.page);
     if (!(page > 0 && Number.isFinite(page))) {

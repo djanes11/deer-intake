@@ -41,6 +41,7 @@ export default function SearchPage() {
   const [printMsg, setPrintMsg] = useState<string | null>(null);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const debounced = useDebounced(q, 300);
 
   useEffect(() => {
@@ -50,6 +51,16 @@ export default function SearchPage() {
         if (!j?.ok) return;
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
       })
       .catch(() => {});
   }, []);
@@ -96,7 +107,11 @@ export default function SearchPage() {
 
   const openTag = (tag: string) => {
     if (!tag) return;
-    router.push(`/intake?tag=${encodeURIComponent(tag)}`);
+    router.push(
+      staffRole === 'admin' || staffRole === 'staff'
+        ? `/intake?tag=${encodeURIComponent(tag)}`
+        : `/intake/${encodeURIComponent(tag)}`
+    );
   };
 
   const loadDetails = async (tag: string) => {
@@ -217,6 +232,8 @@ export default function SearchPage() {
   }, [notificationRows]);
 
   const canShowResults = q.trim().length > 0;
+  const canEdit = staffRole === 'admin' || staffRole === 'staff';
+  const canManageNotifications = staffRole === 'admin';
 
   const resendNotification = async (event: ResendEventKey) => {
     if (!selectedTag) return;
@@ -386,7 +403,7 @@ export default function SearchPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button className="btn" type="button" onClick={() => selectedTag && openTag(selectedTag)} disabled={!selectedTag}>
-                    Open Intake
+                    {canEdit ? 'Open Intake' : 'Open Details'}
                   </button>
                   <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
                     {printing === selectedTag ? 'Preparing...' : 'Print'}
@@ -410,7 +427,7 @@ export default function SearchPage() {
 
               {!selectedJob && !detailLoading && !detailErr ? (
                 <div className="muted" style={{ padding: '8px 0' }}>
-                  Choose a result on the left to see contact details, print history, and resend controls.
+                  Choose a result on the left to see contact details, print history, and available actions.
                 </div>
               ) : null}
 
@@ -470,24 +487,26 @@ export default function SearchPage() {
                               <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.sms)}</span>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              className="btn"
-                              onClick={() => void resendNotification(eventKeyForLabel(row.label))}
-                              disabled={!selectedTag || !!resendBusy || !!resetBusy}
-                            >
-                              {resendBusy === eventKeyForLabel(row.label) ? 'Sending...' : 'Resend'}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn secondary"
-                              onClick={() => void resetNotification(eventKeyForLabel(row.label))}
-                              disabled={!selectedTag || !!resetBusy}
-                            >
-                              {resetBusy === eventKeyForLabel(row.label) ? 'Resetting...' : 'Reset Flags'}
-                            </button>
-                          </div>
+                          {canManageNotifications ? (
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="btn"
+                                onClick={() => void resendNotification(eventKeyForLabel(row.label))}
+                                disabled={!selectedTag || !!resendBusy || !!resetBusy}
+                              >
+                                {resendBusy === eventKeyForLabel(row.label) ? 'Sending...' : 'Resend'}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn secondary"
+                                onClick={() => void resetNotification(eventKeyForLabel(row.label))}
+                                disabled={!selectedTag || !!resetBusy}
+                              >
+                                {resetBusy === eventKeyForLabel(row.label) ? 'Resetting...' : 'Reset Flags'}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>

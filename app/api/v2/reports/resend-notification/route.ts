@@ -4,15 +4,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { requireStaffAccess } from '@/lib/staffAuth';
 import { resendCustomerNotification } from '@/lib/jobsSupabase';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireStaffAccess(req);
-    if (!auth.ok) {
-      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
-    }
+    const { denied } = await requireProcessorPermission(req, 'manage_notifications');
+    if (denied) return denied;
 
     const body = await req.json().catch(() => null);
     const tag = String(body?.tag || '').trim();

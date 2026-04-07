@@ -2,13 +2,13 @@ import 'server-only';
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { requireStaffAccess } from '@/lib/staffAuth';
 import { getSmsHealth } from '@/lib/sms';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 
 export async function GET(req: Request) {
   try {
-    const auth = await requireStaffAccess(req);
-    if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+    const { denied } = await requireProcessorPermission(req, 'manage_settings');
+    if (denied) return denied;
     const health = await getSmsHealth();
     return NextResponse.json(health, { status: health.ok ? 200 : 200 });
   } catch (e: any) {

@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
-import { getStaffIdentity } from '@/lib/staffContext';
+import { getStaffIdentity, getStaffProcessorContext } from '@/lib/staffContext';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 const ADMIN_HOSTNAME = (process.env.ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
@@ -35,10 +35,11 @@ export default async function Home() {
 
   const settings = await getPublicSiteSettings();
   const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
+  const staffContext = IS_PUBLIC ? null : await getStaffProcessorContext().catch(() => null);
   return IS_PUBLIC ? (
     <PublicLanding settings={settings} />
   ) : (
-    <StaffHome dashboard={dashboard} processorName={settings.branding.name} />
+    <StaffHome dashboard={dashboard} processorName={settings.branding.name} role={staffContext?.role || null} />
   );
 }
 
@@ -211,10 +212,13 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
 function StaffHome({
   dashboard,
   processorName,
+  role,
 }: {
   dashboard: Awaited<ReturnType<typeof getDashboardSummary>> | null;
   processorName: string;
+  role: 'admin' | 'staff' | 'readonly' | null;
 }) {
+  const canEdit = role === 'admin' || role === 'staff';
   const shell: React.CSSProperties = {
     maxWidth: 1100,
     margin: '26px auto',
@@ -342,29 +346,53 @@ function StaffHome({
       </div>
 
       <div style={{ ...trio, marginBottom: 16 }}>
-        <Link href="/intake" style={linkStyle}>
-          <div style={card}>
+        {canEdit ? (
+          <Link href="/intake" style={linkStyle}>
+            <div style={card}>
+              <div style={mini}>Intake</div>
+              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
+                New Intake form
+              </div>
+              <div style={{ opacity: 0.8, marginTop: 4 }}>
+                Start a new Intake Form
+              </div>
+            </div>
+          </Link>
+        ) : (
+          <div style={{ ...card, opacity: 0.7 }}>
             <div style={mini}>Intake</div>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-              New Intake form
+              View-only Access
             </div>
             <div style={{ opacity: 0.8, marginTop: 4 }}>
-              Start a new Intake Form
+              Your role can search, print, and view reports, but cannot edit intake records.
             </div>
           </div>
-        </Link>
+        )}
 
-        <Link href="/scan" style={linkStyle}>
-          <div style={card}>
+        {canEdit ? (
+          <Link href="/scan" style={linkStyle}>
+            <div style={card}>
+              <div style={mini}>Scan</div>
+              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
+                Scan Tags
+              </div>
+              <div style={{ opacity: 0.8, marginTop: 4 }}>
+                Update status by scanning a barcode
+              </div>
+            </div>
+          </Link>
+        ) : (
+          <div style={{ ...card, opacity: 0.7 }}>
             <div style={mini}>Scan</div>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-              Scan Tags
+              Status Updates Restricted
             </div>
             <div style={{ opacity: 0.8, marginTop: 4 }}>
-              Update status by scanning a barcode
+              Only Admin and Staff roles can scan tags or advance processing status.
             </div>
           </div>
-        </Link>
+        )}
 
         <Link href="/search" style={linkStyle}>
           <div style={card}>

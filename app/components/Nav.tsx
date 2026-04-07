@@ -26,6 +26,8 @@ function closeMobileAndDropdown(el?: HTMLElement | null) {
 export default function Nav() {
   const pathname = usePathname();
   const [isAdminHost, setIsAdminHost] = useState(false);
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
+  const [platformAdmin, setPlatformAdmin] = useState(false);
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
 
   useEffect(() => {
@@ -33,6 +35,20 @@ export default function Nav() {
     const host = window.location.host.trim().toLowerCase().split(':')[0] || '';
     setIsAdminHost(host === ADMIN_HOSTNAME);
   }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
+        setPlatformAdmin(json?.platformAdmin === true);
+      })
+      .catch(() => {});
+  }, []);
+
+  const canEdit = staffRole === 'admin' || staffRole === 'staff';
+  const canManageSettings = staffRole === 'admin';
 
   return (
     <header className="site-header">
@@ -114,20 +130,24 @@ export default function Nav() {
             </>
           ) : (
             <>
-              <Link
-                className={`item ${isActive('/intake') ? 'active' : ''}`}
-                href="/intake"
-                onClick={() => closeMobileAndDropdown()}
-              >
-                Intake
-              </Link>
-              <Link
-                className={`item ${isActive('/scan') ? 'active' : ''}`}
-                href="/scan"
-                onClick={() => closeMobileAndDropdown()}
-              >
-                Scan
-              </Link>
+              {canEdit ? (
+                <>
+                  <Link
+                    className={`item ${isActive('/intake') ? 'active' : ''}`}
+                    href="/intake"
+                    onClick={() => closeMobileAndDropdown()}
+                  >
+                    Intake
+                  </Link>
+                  <Link
+                    className={`item ${isActive('/scan') ? 'active' : ''}`}
+                    href="/scan"
+                    onClick={() => closeMobileAndDropdown()}
+                  >
+                    Scan
+                  </Link>
+                </>
+              ) : null}
               <Link
                 className={`item ${isActive('/search') ? 'active' : ''}`}
                 href="/search"
@@ -173,8 +193,9 @@ export default function Nav() {
                   <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
                   <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Intake QR</Link>
                   <Link href="/staff/account" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>My Account</Link>
-                  <Link href="/staff/team" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Staff Team</Link>
-                  <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link>
+                  {canManageSettings ? <Link href="/staff/team" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Staff Team</Link> : null}
+                  {canManageSettings ? <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link> : null}
+                  {platformAdmin ? <Link href="https://admin.wildgamebutcherboard.com" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Platform Admin</Link> : null}
                 </div>
               </details>
             </>

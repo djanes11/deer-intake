@@ -5,15 +5,13 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { setJobTag } from '@/lib/jobsSupabase';
-import { requireStaffAccess } from '@/lib/staffAuth';
 import { getSupabaseServer } from '@/lib/supabaseClient';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 
 export async function POST(req: Request) {
   try {
-    const auth = await requireStaffAccess(req);
-    if (!auth.ok) {
-      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
-    }
+    const { denied } = await requireProcessorPermission(req, 'edit_jobs');
+    if (denied) return denied;
 
     const body = await req.json().catch(() => null);
     if (!body) return NextResponse.json({ ok: false, error: 'Missing payload' }, { status: 400 });

@@ -127,6 +127,7 @@ export default function MissingTagsPage() {
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   const refresh = async () => {
     setErr('');
@@ -162,6 +163,18 @@ export default function MissingTagsPage() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  const canEdit = staffRole === 'admin' || staffRole === 'staff';
 
   const count = rows.length;
 
@@ -367,6 +380,12 @@ export default function MissingTagsPage() {
           </div>
         ) : null}
 
+        {!canEdit ? (
+          <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', padding: 10, borderRadius: 8, color: '#3730a3', fontWeight: 700 }}>
+            Read-only access: you can review and print these public intakes, but assigning real tags or removing no-shows requires Staff or Admin access.
+          </div>
+        ) : null}
+
         {jobErr ? (
           <div style={{ background: '#f8d7da', border: '1px solid #f5c2c7', padding: 10, borderRadius: 8 }}>
             {jobErr}
@@ -435,16 +454,16 @@ export default function MissingTagsPage() {
                       onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: e.target.value }))}
                       placeholder="Enter actual deer tag"
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
-                      disabled={isBusy || isDeleting || !r.id}
+                      disabled={!canEdit || isBusy || isDeleting || !r.id}
                     />
                     <div className="queue-action-buttons">
-                      <button className="btn btn-compact" onClick={() => doAssign(r)} disabled={isBusy || isDeleting || !r.id}>
+                      <button className="btn btn-compact" onClick={() => doAssign(r)} disabled={!canEdit || isBusy || isDeleting || !r.id}>
                         {isBusy ? 'Saving...' : 'Assign Tag'}
                       </button>
                       <button
                         className="btn btn-compact btn-danger"
                         onClick={() => doDelete(r)}
-                        disabled={isBusy || isDeleting || !r.id}
+                        disabled={!canEdit || isBusy || isDeleting || !r.id}
                       >
                         {isDeleting ? 'Deleting...' : 'Delete'}
                       </button>
