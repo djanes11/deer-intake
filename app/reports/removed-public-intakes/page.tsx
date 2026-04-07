@@ -30,6 +30,7 @@ export default function RemovedPublicIntakesPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState('');
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   const refresh = async () => {
     setErr('');
@@ -52,6 +53,18 @@ export default function RemovedPublicIntakesPage() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  const canEdit = staffRole === 'admin' || staffRole === 'staff';
 
   const restore = async (row: Row) => {
     const jobId = String(row.id || '').trim();
@@ -102,6 +115,12 @@ export default function RemovedPublicIntakesPage() {
         </div>
       ) : null}
 
+      {!canEdit ? (
+        <div style={{ background: '#eef2ff', border: '1px solid #c7d2fe', padding: 10, borderRadius: 8, color: '#3730a3', fontWeight: 700 }}>
+          Read-only access: you can review removed intakes here, but restoring them requires Staff or Admin access.
+        </div>
+      ) : null}
+
       <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ fontWeight: 800 }}>Recently Removed No-Shows</div>
@@ -143,7 +162,7 @@ export default function RemovedPublicIntakesPage() {
                       </span>
                     </div>
                   </div>
-                  <button className="btn" type="button" onClick={() => void restore(row)} disabled={busy === id}>
+                  <button className="btn" type="button" onClick={() => void restore(row)} disabled={!canEdit || busy === id}>
                     {busy === id ? 'Restoring...' : 'Restore'}
                   </button>
                 </div>

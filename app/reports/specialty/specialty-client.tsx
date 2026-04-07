@@ -101,6 +101,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
   const [busyTag, setBusyTag] = useState<string>('');
   const [msg, setMsg] = useState<string>('');
   const [err, setErr] = useState<string>('');
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   const totals = useMemo(() => {
     return rows.reduce(
@@ -138,6 +139,18 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
 
   const allSpecialtyTotal = summerSausageTotal + snackStixTotal;
 
+  React.useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  const canUpdate = staffRole === 'admin' || staffRole === 'staff';
+
   const markFinished = async (tag: string) => {
     setErr('');
     setMsg('');
@@ -171,6 +184,11 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
     <div>
       {msg && <div style={styles.msg}>{msg}</div>}
       {err && <div style={styles.err}>{err}</div>}
+      {!canUpdate && (
+        <div style={{ ...styles.msg, color: '#3730a3', background: '#eef2ff', border: '1px solid #c7d2fe', padding: 10, borderRadius: 8 }}>
+          Read-only access: you can review specialty totals and open intake details, but only Staff or Admin can mark specialty orders finished.
+        </div>
+      )}
 
       {/* TOP TILES — now tied to rows state so it auto updates */}
       <div style={styles.kpiGrid}>
@@ -237,7 +255,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
               <tr key={r.tag}>
                 <td style={styles.td}>
                   {/* staff intake edit page */}
-                  <Link style={styles.link} href={`/intake?tag=${encodeURIComponent(r.tag)}`}>
+                  <Link style={styles.link} href={`${canUpdate ? '/intake?tag=' : '/intake/'}${encodeURIComponent(r.tag)}`}>
                     {r.tag}
                   </Link>
                 </td>
@@ -264,8 +282,8 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                   <button
                     type="button"
                     onClick={() => markFinished(r.tag)}
-                    disabled={!!busyTag}
-                    style={busyTag ? styles.btnOff : styles.btn}
+                    disabled={!canUpdate || !!busyTag}
+                    style={!canUpdate || busyTag ? styles.btnOff : styles.btn}
                     title="Sets Specialty Status to Finished"
                   >
                     {busyTag === r.tag ? 'Updating…' : 'Mark Finished'}

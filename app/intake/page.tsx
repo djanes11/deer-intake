@@ -393,6 +393,7 @@ function IntakePage() {
   const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
   const [customerLookupCollapsedFor, setCustomerLookupCollapsedFor] = useState('');
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   // ---- UNSAVED CHANGES GUARD ----
   const [lastSavedJson, setLastSavedJson] = useState<string>('');
@@ -420,6 +421,16 @@ function IntakePage() {
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
       })
       .catch(() => {});
   }, []);
@@ -507,6 +518,7 @@ function IntakePage() {
 
   const customerLookupVisible =
     customerLookupCollapsedFor !== String(job.customer || '').trim().toLowerCase();
+  const canEdit = staffRole === 'admin' || staffRole === 'staff';
 
   // Establish baseline for a brand new job (or when tag query changes)
 useEffect(() => {
@@ -820,6 +832,10 @@ useEffect(() => {
   };
 
   const onSave = async (): Promise<boolean> => {
+    if (!canEdit) {
+      setMsg('Read-only users cannot save or edit intake records.');
+      return false;
+    }
     setMsg('');
     const missing = validate();
     if (missing.length) {
@@ -1052,6 +1068,21 @@ if (fresh?.exists && fresh.job) {
     <div className="form-card">
       <div className="screen-only">
         <h2>Deer Intake</h2>
+        {!canEdit ? (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 12,
+              borderRadius: 12,
+              border: '1px solid #c7d2fe',
+              background: '#eef2ff',
+              color: '#3730a3',
+              fontWeight: 700,
+            }}
+          >
+            Read-only access: you can review this intake and print from this page, but editing and saving are disabled for your role.
+          </div>
+        ) : null}
 
         <div className="summaryMini">
           {job.tag ? (
@@ -1070,6 +1101,7 @@ if (fresh?.exists && fresh.job) {
           </div>
         </div>
 
+        <fieldset disabled={!canEdit} style={{ display: 'contents', margin: 0, padding: 0, border: 0 }}>
         <div className="summary">
           <div className="row">
             <div className="col tagCol">
@@ -1856,6 +1888,8 @@ if (fresh?.exists && fresh.job) {
           </div>
         </section>
 
+        </fieldset>
+
         {/* Actions */}
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>
@@ -1957,7 +1991,7 @@ if (fresh?.exists && fresh.job) {
             Print
           </button>
 
-          <button className="btn" onClick={onSave} disabled={busy}>
+          <button className="btn" onClick={onSave} disabled={busy || !canEdit}>
             {busy ? 'Saving…' : 'Save'}
           </button>
 
@@ -1969,7 +2003,7 @@ if (fresh?.exists && fresh.job) {
               if (!ok) return;
               resetForNew();
             }}
-            disabled={busy}
+            disabled={busy || !canEdit}
           >
             {busy ? 'Saving…' : 'Save & New'}
           </button>

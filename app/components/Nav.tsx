@@ -49,6 +49,8 @@ export default function Nav() {
 
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageSettings = staffRole === 'admin';
+  const roleLabel =
+    staffRole === 'admin' ? 'Admin' : staffRole === 'staff' ? 'Staff' : staffRole === 'readonly' ? 'Read-only' : '';
 
   return (
     <header className="site-header">
@@ -209,6 +211,21 @@ export default function Nav() {
           >
             Logout
           </Link>
+          {!isAdminHost && roleLabel ? (
+            <span
+              className="item"
+              style={{
+                pointerEvents: 'none',
+                opacity: 0.95,
+                border: '1px solid rgba(200,138,61,.24)',
+                borderRadius: 999,
+                paddingInline: 12,
+                background: 'rgba(21,20,19,.92)',
+              }}
+            >
+              Role: {roleLabel}
+            </span>
+          ) : null}
         </nav>
       </div>
     </header>
