@@ -19,11 +19,50 @@ type ProcessorRow = {
   updatedAt?: string | null;
 };
 
+type CreatedProcessorSummary = {
+  id: string;
+  slug: string;
+  publicName: string;
+  publicHostname: string;
+  staffHostname: string;
+  firstAdminEmail: string;
+  firstAdminCreated: boolean;
+};
+
+type CreateProcessorForm = {
+  slug: string;
+  name: string;
+  publicName: string;
+  publicHostname: string;
+  staffHostname: string;
+  firstAdminEmail: string;
+  firstAdminPassword: string;
+  features: ProcessorRow['features'];
+};
+
+const EMPTY_CREATE_FORM: CreateProcessorForm = {
+  slug: '',
+  name: '',
+  publicName: '',
+  publicHostname: '',
+  staffHostname: '',
+  firstAdminEmail: '',
+  firstAdminPassword: '',
+  features: {
+    plan: 'basic',
+    smsEnabled: false,
+    webbsEnabled: false,
+  },
+};
+
 export default function AdminProcessorsPage() {
   const [rows, setRows] = useState<ProcessorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
   const [savingId, setSavingId] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateProcessorForm>(EMPTY_CREATE_FORM);
+  const [createdSummary, setCreatedSummary] = useState<CreatedProcessorSummary | null>(null);
 
   const headers = useMemo(
     () => ({
@@ -58,6 +97,55 @@ export default function AdminProcessorsPage() {
     setRows((prev) =>
       prev.map((row) => (row.id === id ? { ...row, features: { ...row.features, ...patch } } : row))
     );
+
+  const updateCreateForm = (patch: Partial<CreateProcessorForm>) =>
+    setCreateForm((prev) => ({ ...prev, ...patch }));
+
+  const updateCreateFeatures = (patch: Partial<CreateProcessorForm['features']>) =>
+    setCreateForm((prev) => ({ ...prev, features: { ...prev.features, ...patch } }));
+
+  const createProcessor = async () => {
+    setCreating(true);
+    setMsg('');
+    try {
+      const payload = {
+        ...createForm,
+        slug: createForm.slug.trim().toLowerCase(),
+        name: createForm.name.trim(),
+        publicName: createForm.publicName.trim(),
+        publicHostname: createForm.publicHostname.trim().toLowerCase(),
+        staffHostname: createForm.staffHostname.trim().toLowerCase(),
+        firstAdminEmail: createForm.firstAdminEmail.trim().toLowerCase(),
+      };
+      const res = await fetch('/api/admin/processors', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setRows((prev) => [json.row, ...prev]);
+      setCreatedSummary({
+        id: json.row.id,
+        slug: json.row.slug,
+        publicName: json.row.publicName,
+        publicHostname: json.row.publicHostname || '',
+        staffHostname: json.row.staffHostname || '',
+        firstAdminEmail: payload.firstAdminEmail,
+        firstAdminCreated: !!json.firstAdminCreated,
+      });
+      setCreateForm(EMPTY_CREATE_FORM);
+      setMsg(
+        json.firstAdminCreated
+          ? `Created ${json.row.publicName} and set up the first processor admin.`
+          : `Created ${json.row.publicName}.`
+      );
+    } catch (e: any) {
+      setMsg(String(e?.message || e));
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const saveRow = async (row: ProcessorRow) => {
     setSavingId(row.id);
@@ -104,6 +192,278 @@ export default function AdminProcessorsPage() {
           {msg}
         </div>
       ) : null}
+
+      {createdSummary ? (
+        <section
+          style={{
+            border: '1px solid #c7e7d0',
+            borderRadius: 18,
+            padding: 18,
+            background: 'linear-gradient(180deg, #f4fbf6 0%, #ffffff 100%)',
+            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+            display: 'grid',
+            gap: 14,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#166534' }}>
+                Processor Created
+              </div>
+              <h2 style={{ margin: '8px 0 6px', fontSize: 28, lineHeight: 1.1, color: '#0f172a' }}>{createdSummary.publicName}</h2>
+              <div style={{ color: '#334155', lineHeight: 1.55, maxWidth: 760 }}>
+                The processor record is set up, default settings are seeded, and you can move straight into testing or handoff.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCreatedSummary(null)}
+              style={{
+                border: '1px solid #cbd5e1',
+                background: '#fff',
+                color: '#334155',
+                borderRadius: 12,
+                padding: '10px 12px',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            <div style={{ border: '1px solid #d6dee8', borderRadius: 14, padding: 14, background: '#fff' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>Slug</div>
+              <div style={{ marginTop: 6, fontWeight: 900, color: '#0f172a' }}>{createdSummary.slug}</div>
+            </div>
+            <div style={{ border: '1px solid #d6dee8', borderRadius: 14, padding: 14, background: '#fff' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>First Admin</div>
+              <div style={{ marginTop: 6, fontWeight: 900, color: '#0f172a' }}>
+                {createdSummary.firstAdminEmail || 'Not created yet'}
+              </div>
+              <div style={{ color: '#64748b', marginTop: 4, fontSize: 13 }}>
+                {createdSummary.firstAdminEmail
+                  ? createdSummary.firstAdminCreated
+                    ? 'New admin account created'
+                    : 'Existing account attached to this processor'
+                  : 'You can add one later from Staff Users'}
+              </div>
+            </div>
+            <div style={{ border: '1px solid #d6dee8', borderRadius: 14, padding: 14, background: '#fff' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>Public Host</div>
+              <div style={{ marginTop: 6, fontWeight: 900, color: '#0f172a', wordBreak: 'break-word' }}>
+                {createdSummary.publicHostname || 'Not set'}
+              </div>
+            </div>
+            <div style={{ border: '1px solid #d6dee8', borderRadius: 14, padding: 14, background: '#fff' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>Staff Host</div>
+              <div style={{ marginTop: 6, fontWeight: 900, color: '#0f172a', wordBreak: 'break-word' }}>
+                {createdSummary.staffHostname || 'Not set'}
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1.1fr .9fr',
+              gap: 16,
+            }}
+          >
+            <div
+              style={{
+                border: '1px solid #d6dee8',
+                borderRadius: 16,
+                padding: 16,
+                background: '#fff',
+                display: 'grid',
+                gap: 10,
+              }}
+            >
+              <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Next Steps</div>
+              <div style={{ display: 'grid', gap: 8, color: '#334155', lineHeight: 1.5 }}>
+                <div>1. Verify the public and staff hostnames resolve correctly in Vercel.</div>
+                <div>2. Sign in as the processor admin and update branding, phone, address, and pricing.</div>
+                <div>3. Test a public intake and staff login for this processor.</div>
+                <div>4. Add regular staff logins from the processor’s `Staff Team` page if needed.</div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: '1px solid #d6dee8',
+                borderRadius: 16,
+                padding: 16,
+                background: '#fff',
+                display: 'grid',
+                gap: 10,
+              }}
+            >
+              <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Jump To</div>
+              <div style={{ display: 'grid', gap: 10 }}>
+                {createdSummary.publicHostname ? (
+                  <a
+                    href={`https://${createdSummary.publicHostname}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <div className="btn" style={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>Open Public Site</div>
+                  </a>
+                ) : null}
+                {createdSummary.staffHostname ? (
+                  <a
+                    href={`https://${createdSummary.staffHostname}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <div className="btn" style={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>Open Staff Site</div>
+                  </a>
+                ) : null}
+                <a href="/admin/settings" style={{ textDecoration: 'none' }}>
+                  <div className="btn secondary" style={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>Open Current Settings</div>
+                </a>
+                <a href="/admin/users" style={{ textDecoration: 'none' }}>
+                  <div className="btn secondary" style={{ display: 'inline-flex', width: '100%', justifyContent: 'center' }}>Open Staff Users</div>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section
+        style={{
+          border: '1px solid #d6dee8',
+          borderRadius: 16,
+          padding: 18,
+          background: '#ffffff',
+          boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+          display: 'grid',
+          gap: 14,
+        }}
+      >
+        <div style={{ display: 'grid', gap: 4 }}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Onboard New Processor</div>
+          <div style={{ color: '#475569', lineHeight: 1.5, maxWidth: 860 }}>
+            Create the processor record, seed default settings, and optionally create the first processor admin login in one step.
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Business name</span>
+            <input
+              value={createForm.name}
+              onChange={(e) => updateCreateForm({ name: e.target.value, publicName: createForm.publicName || e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="Smith Family Processing"
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Slug</span>
+            <input
+              value={createForm.slug}
+              onChange={(e) => updateCreateForm({ slug: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="smith-family"
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Public-facing name</span>
+            <input
+              value={createForm.publicName}
+              onChange={(e) => updateCreateForm({ publicName: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="Smith Deer Processing"
+            />
+          </label>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Public hostname</span>
+            <input
+              value={createForm.publicHostname}
+              onChange={(e) => updateCreateForm({ publicHostname: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="smith.wildgamebutcherboard.com"
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Staff hostname</span>
+            <input
+              value={createForm.staffHostname}
+              onChange={(e) => updateCreateForm({ staffHostname: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="staff.wildgamebutcherboard.com"
+            />
+          </label>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Plan tier</span>
+            <select
+              value={createForm.features.plan}
+              onChange={(e) => updateCreateFeatures({ plan: e.target.value as ProcessorRow['features']['plan'] })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            >
+              <option value="basic">Basic</option>
+              <option value="texting">Texting</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+            <input type="checkbox" checked={createForm.features.smsEnabled} onChange={(e) => updateCreateFeatures({ smsEnabled: e.target.checked })} />
+            SMS enabled
+          </label>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+            <input type="checkbox" checked={createForm.features.webbsEnabled} onChange={(e) => updateCreateFeatures({ webbsEnabled: e.target.checked })} />
+            Webbs/custom workflow enabled
+          </label>
+        </div>
+
+        <div style={{ display: 'grid', gap: 4 }}>
+          <div style={{ fontWeight: 900, color: '#0f172a' }}>First Processor Admin</div>
+          <div style={{ color: '#64748b', fontSize: 14 }}>
+            Optional, but recommended. If you fill this in now, the new processor can sign in immediately after you create them.
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Admin email</span>
+            <input
+              value={createForm.firstAdminEmail}
+              onChange={(e) => updateCreateForm({ firstAdminEmail: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="owner@processor.com"
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Temporary password</span>
+            <input
+              type="text"
+              value={createForm.firstAdminPassword}
+              onChange={(e) => updateCreateForm({ firstAdminPassword: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="At least 8 characters"
+            />
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ color: '#64748b', fontSize: 14 }}>
+            This seeds default pricing, hours, public settings, and processor features so the shop is ready to customize.
+          </div>
+          <button className="btn" type="button" onClick={() => void createProcessor()} disabled={creating}>
+            {creating ? 'Creating...' : 'Create Processor'}
+          </button>
+        </div>
+      </section>
 
       {loading ? (
         <div className="card" style={{ padding: 18 }}>Loading processors...</div>

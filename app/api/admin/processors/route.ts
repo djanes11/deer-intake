@@ -5,6 +5,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaffAccess } from '@/lib/staffAuth';
 import { isPlatformAdmin } from '@/lib/staffContext';
+import { SITE } from '@/lib/config';
+import { DEFAULT_SITE_PRICING } from '@/lib/pricing';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,6 +25,72 @@ function normalizeFeatures(raw: any) {
     smsEnabled: raw?.smsEnabled !== false,
     webbsEnabled: raw?.webbsEnabled !== false,
   };
+}
+
+function normalizeText(raw: unknown) {
+  return String(raw || '').trim();
+}
+
+function normalizeSlug(raw: unknown) {
+  return normalizeText(raw)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+function normalizeEmail(raw: unknown) {
+  return normalizeText(raw).toLowerCase();
+}
+
+function nextSiteSettingsId(supabase: ReturnType<typeof getSupabase>) {
+  return supabase
+    .from('site_settings')
+    .select('id')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+}
+
+async function listAllAuthUsers(supabase: ReturnType<typeof getSupabase>) {
+  const users: any[] = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) throw error;
+    const batch = data?.users || [];
+    users.push(...batch);
+    if (batch.length < 200) break;
+    page += 1;
+  }
+  return users;
+}
+
+async function upsertProcessorMembership(
+  supabase: ReturnType<typeof getSupabase>,
+  input: { processorId: string; userId: string; email: string; role: 'admin' | 'staff' | 'readonly'; active: boolean }
+) {
+  const existingResp = await supabase
+    .from('processor_users')
+    .select('id')
+    .eq('processor_id', input.processorId)
+    .ilike('email', input.email)
+    .maybeSingle();
+  if (existingResp.error) throw existingResp.error;
+
+  const payload = {
+    processor_id: input.processorId,
+    user_id: input.userId,
+    email: input.email,
+    role: input.role,
+    active: input.active,
+    updated_at: new Date().toISOString(),
+  };
+
+  const resp = existingResp.data?.id
+    ? await supabase.from('processor_users').update(payload).eq('id', existingResp.data.id)
+    : await supabase.from('processor_users').insert(payload);
+  if (resp.error) throw resp.error;
 }
 
 export async function GET(req: Request) {
@@ -69,8 +137,112 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const id = String(body?.id || '').trim();
-    if (!id) return NextResponse.json({ ok: false, error: 'Processor id is required.' }, { status: 400 });
+    const id = normalizeText(body?.id);
+    const supabase = getSupabase();
+
+    if (!id) {
+      const slug = normalizeSlug(body?.slug);
+      const name = normalizeText(body?.name);
+      const publicName = normalizeText(body?.publicName) || name;
+      const publicHostname = normalizeText(body?.publicHostname).toLowerCase() || null;
+      const staffHostname = normalizeText(body?.staffHostname).toLowerCase() || null;
+      const features = normalizeFeatures(body?.features || {});
+      const firstAdminEmail = normalizeEmail(body?.firstAdminEmail);
+      const firstAdminPassword = normalizeText(body?.firstAdminPassword);
+
+      if (!slug) {
+        return NextResponse.json({ ok: false, error: 'Processor slug is required.' }, { status: 400 });
+      }
+      if (!name) {
+        return NextResponse.json({ ok: false, error: 'Processor business name is required.' }, { status: 400 });
+      }
+      if (firstAdminEmail && (!firstAdminPassword || firstAdminPassword.length < 8)) {
+        return NextResponse.json({ ok: false, error: 'First admin password must be at least 8 characters.' }, { status: 400 });
+      }
+
+      const { data: createdProcessor, error: createProcessorError } = await supabase
+        .from('processors')
+        .insert({
+          slug,
+          name,
+          public_name: publicName,
+          active: body?.active !== false,
+          public_hostname: publicHostname,
+          staff_hostname: staffHostname,
+          public_tagline: `${publicName} on Wild Game Butcher Board.`,
+          logo_url: SITE.logoUrl,
+          support_phone_display: '',
+          support_phone_e164: '',
+          support_email: firstAdminEmail || '',
+          public_address: '',
+          public_maps_url: '',
+          location_label: '',
+          features,
+          updated_at: new Date().toISOString(),
+        })
+        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,created_at,updated_at')
+        .single();
+      if (createProcessorError) throw createProcessorError;
+
+      const { data: latestSiteSettings, error: latestSiteSettingsError } = await nextSiteSettingsId(supabase);
+      if (latestSiteSettingsError) throw latestSiteSettingsError;
+      const nextId = Number(latestSiteSettings?.id ?? 0) + 1 || 1;
+
+      const { error: siteSettingsError } = await supabase.from('site_settings').insert({
+        id: nextId,
+        processor_id: createdProcessor.id,
+        public_intake_enabled: true,
+        banner_enabled: false,
+        banner_message: '',
+        hours: SITE.hours.map((row) => ({ label: String(row.label || ''), value: String(row.value || '') })),
+        ...DEFAULT_SITE_PRICING,
+      });
+      if (siteSettingsError) throw siteSettingsError;
+
+      let firstAdminCreated = false;
+      if (firstAdminEmail) {
+        const authUsers = await listAllAuthUsers(supabase);
+        let authUser = authUsers.find((user) => normalizeEmail(user?.email) === firstAdminEmail) || null;
+        if (!authUser) {
+          const created = await supabase.auth.admin.createUser({
+            email: firstAdminEmail,
+            password: firstAdminPassword,
+            email_confirm: true,
+          });
+          if (created.error) throw created.error;
+          authUser = created.data.user;
+          firstAdminCreated = true;
+        }
+
+        const authUserId = String(authUser?.id || '').trim();
+        if (!authUserId) throw new Error('Unable to resolve first processor admin.');
+        await upsertProcessorMembership(supabase, {
+          processorId: String(createdProcessor.id),
+          userId: authUserId,
+          email: firstAdminEmail,
+          role: 'admin',
+          active: true,
+        });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        created: true,
+        firstAdminCreated,
+        row: {
+          id: String(createdProcessor.id),
+          slug: String(createdProcessor.slug || ''),
+          name: String(createdProcessor.name || ''),
+          publicName: String(createdProcessor.public_name || createdProcessor.name || ''),
+          active: !!createdProcessor.active,
+          publicHostname: String(createdProcessor.public_hostname || ''),
+          staffHostname: String(createdProcessor.staff_hostname || ''),
+          features: normalizeFeatures(createdProcessor.features || {}),
+          createdAt: createdProcessor.created_at || null,
+          updatedAt: createdProcessor.updated_at || null,
+        },
+      });
+    }
 
     const payload = {
       active: body?.active !== false,
@@ -80,7 +252,6 @@ export async function POST(req: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    const supabase = getSupabase();
     const { data, error } = await supabase
       .from('processors')
       .update(payload)
