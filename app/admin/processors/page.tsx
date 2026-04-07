@@ -22,6 +22,7 @@ type ProcessorRow = {
   trialEndsAt?: string | null;
   subscriptionStartedAt?: string | null;
   goLiveAt?: string | null;
+  setupCompletedAt?: string | null;
   billingNotes?: string;
   updatedAt?: string | null;
 };
@@ -51,6 +52,7 @@ type CreateProcessorForm = {
   trialEndsAt: string;
   subscriptionStartedAt: string;
   goLiveAt: string;
+  setupCompletedAt: string;
   billingNotes: string;
 };
 
@@ -79,11 +81,29 @@ const EMPTY_CREATE_FORM: CreateProcessorForm = {
   trialEndsAt: '',
   subscriptionStartedAt: '',
   goLiveAt: '',
+  setupCompletedAt: '',
   billingNotes: '',
 };
 
 function dateInputValue(v?: string | null) {
   return v ? String(v).slice(0, 10) : '';
+}
+
+function lifecycleTone(status: ProcessorRow['billingStatus']) {
+  switch (status) {
+    case 'trial':
+      return { bg: '#ecfccb', fg: '#3f6212' };
+    case 'active':
+      return { bg: '#dcfce7', fg: '#166534' };
+    case 'past_due':
+      return { bg: '#fee2e2', fg: '#991b1b' };
+    case 'paused':
+      return { bg: '#e2e8f0', fg: '#334155' };
+    case 'internal':
+      return { bg: '#ede9fe', fg: '#6d28d9' };
+    default:
+      return { bg: '#fff7ed', fg: '#9a3412' };
+  }
 }
 
 export default function AdminProcessorsPage() {
@@ -462,6 +482,95 @@ export default function AdminProcessorsPage() {
         </div>
 
         <div style={{ display: 'grid', gap: 4 }}>
+          <div style={{ fontWeight: 900, color: '#0f172a' }}>Billing Lifecycle</div>
+          <div style={{ color: '#64748b', fontSize: 14 }}>
+            Keep pricing light for now if you want. The main value here is tracking where a processor is in setup, trial, and go-live.
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing status</span>
+            <select
+              value={createForm.billingStatus}
+              onChange={(e) => updateCreateForm({ billingStatus: e.target.value as ProcessorRow['billingStatus'] })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            >
+              <option value="setup">Setup</option>
+              <option value="trial">Trial</option>
+              <option value="active">Active</option>
+              <option value="past_due">Past Due</option>
+              <option value="paused">Paused</option>
+              <option value="internal">Internal</option>
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing cycle</span>
+            <select
+              value={createForm.billingCycle}
+              onChange={(e) => updateCreateForm({ billingCycle: e.target.value as ProcessorRow['billingCycle'] })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            >
+              <option value="monthly">Monthly</option>
+              <option value="seasonal">Seasonal</option>
+              <option value="annual">Annual</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Monthly price</span>
+            <input
+              value={createForm.monthlyPrice}
+              onChange={(e) => updateCreateForm({ monthlyPrice: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="199"
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Setup completed</span>
+            <input
+              type="date"
+              value={createForm.setupCompletedAt}
+              onChange={(e) => updateCreateForm({ setupCompletedAt: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Trial ends</span>
+            <input
+              type="date"
+              value={createForm.trialEndsAt}
+              onChange={(e) => updateCreateForm({ trialEndsAt: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            />
+          </label>
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Go live</span>
+            <input
+              type="date"
+              value={createForm.goLiveAt}
+              onChange={(e) => updateCreateForm({ goLiveAt: e.target.value })}
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            />
+          </label>
+        </div>
+
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing notes</span>
+          <textarea
+            value={createForm.billingNotes}
+            onChange={(e) => updateCreateForm({ billingNotes: e.target.value })}
+            rows={3}
+            style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', resize: 'vertical' }}
+            placeholder="Trial through opening weekend, pricing still being finalized, or any special arrangement."
+          />
+        </label>
+
+        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.55 }}>
+          Marking <strong>Setup completed</strong> will automatically move a processor from <strong>Setup</strong> into <strong>Trial</strong> if they are still in setup, and it will default the trial end date to two weeks later if you leave it blank.
+        </div>
+
+        <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontWeight: 900, color: '#0f172a' }}>First Processor Admin</div>
           <div style={{ color: '#64748b', fontSize: 14 }}>
             Optional, but recommended. If you fill this in now, the new processor can sign in immediately after you create them.
@@ -559,6 +668,91 @@ export default function AdminProcessorsPage() {
                   Webbs/custom workflow enabled
                 </label>
               </div>
+
+              <div style={{ display: 'grid', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 900, color: '#0f172a' }}>Lifecycle</div>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 900,
+                      background: lifecycleTone(row.billingStatus).bg,
+                      color: lifecycleTone(row.billingStatus).fg,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {row.billingStatus.replace('_', ' ')}
+                  </span>
+                </div>
+                <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.55 }}>
+                  Setup complete: {row.setupCompletedAt ? new Date(row.setupCompletedAt).toLocaleDateString() : 'Not marked yet'}.
+                  {row.billingStatus === 'trial' && row.trialEndsAt ? ` Trial ends ${new Date(row.trialEndsAt).toLocaleDateString()}.` : ''}
+                  {row.goLiveAt ? ` Go live ${new Date(row.goLiveAt).toLocaleDateString()}.` : ''}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing status</span>
+                  <select value={row.billingStatus} onChange={(e) => updateRow(row.id, { billingStatus: e.target.value as ProcessorRow['billingStatus'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
+                    <option value="setup">Setup</option>
+                    <option value="trial">Trial</option>
+                    <option value="active">Active</option>
+                    <option value="past_due">Past Due</option>
+                    <option value="paused">Paused</option>
+                    <option value="internal">Internal</option>
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing cycle</span>
+                  <select value={row.billingCycle} onChange={(e) => updateRow(row.id, { billingCycle: e.target.value as ProcessorRow['billingCycle'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
+                    <option value="monthly">Monthly</option>
+                    <option value="seasonal">Seasonal</option>
+                    <option value="annual">Annual</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Monthly price</span>
+                  <input value={row.monthlyPrice ?? ''} onChange={(e) => updateRow(row.id, { monthlyPrice: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} placeholder="199" />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Setup completed</span>
+                  <input type="date" value={dateInputValue(row.setupCompletedAt)} onChange={(e) => updateRow(row.id, { setupCompletedAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Trial ends</span>
+                  <input type="date" value={dateInputValue(row.trialEndsAt)} onChange={(e) => updateRow(row.id, { trialEndsAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                </label>
+                <label style={{ display: 'grid', gap: 6 }}>
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Go live</span>
+                  <input type="date" value={dateInputValue(row.goLiveAt)} onChange={(e) => updateRow(row.id, { goLiveAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button className="btn secondary" type="button" onClick={() => updateRow(row.id, { setupCompletedAt: dateInputValue(new Date().toISOString()) })}>
+                  Mark Setup Complete
+                </button>
+                <button className="btn secondary" type="button" onClick={() => updateRow(row.id, { goLiveAt: dateInputValue(new Date().toISOString()) })}>
+                  Mark Go Live
+                </button>
+              </div>
+
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing notes</span>
+                <textarea
+                  value={row.billingNotes || ''}
+                  onChange={(e) => updateRow(row.id, { billingNotes: e.target.value })}
+                  rows={3}
+                  style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', resize: 'vertical' }}
+                  placeholder="Internal notes about onboarding, pricing, or follow-up."
+                />
+              </label>
 
               <div style={{ fontSize: 13, color: '#64748b' }}>
                 {row.features.plan === 'basic'

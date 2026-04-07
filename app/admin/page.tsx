@@ -22,6 +22,9 @@ type ProcessorSummary = {
   billingStatus: 'setup' | 'trial' | 'active' | 'past_due' | 'paused' | 'internal';
   billingCycle: 'monthly' | 'seasonal' | 'annual' | 'custom';
   monthlyPrice: number | null;
+  trialEndsAt?: string | null;
+  goLiveAt?: string | null;
+  setupCompletedAt?: string | null;
 };
 
 function getSupabase() {
@@ -54,7 +57,7 @@ async function loadAdminDashboard() {
     await Promise.all([
       supabase
         .from('processors')
-        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price')
+        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,go_live_at,setup_completed_at')
         .order('slug', { ascending: true }),
       supabase
         .from('processor_users')
@@ -89,6 +92,9 @@ async function loadAdminDashboard() {
         ? (String(row.billing_cycle) as ProcessorSummary['billingCycle'])
         : 'monthly',
       monthlyPrice: row.monthly_price == null ? null : Number(row.monthly_price),
+      trialEndsAt: row.trial_ends_at || null,
+      goLiveAt: row.go_live_at || null,
+      setupCompletedAt: row.setup_completed_at || null,
     };
   });
 
@@ -110,6 +116,17 @@ async function loadAdminDashboard() {
   );
 
   const estimatedMrr = rows.reduce((sum, row) => sum + estimatedMrrFor(row), 0);
+  const now = Date.now();
+  const trialExpiring = rows
+    .filter((row) => row.billingStatus === 'trial' && row.trialEndsAt)
+    .map((row) => ({
+      ...row,
+      daysLeft: Math.ceil((new Date(String(row.trialEndsAt)).getTime() - now) / (24 * 60 * 60 * 1000)),
+    }))
+    .filter((row) => row.daysLeft >= 0 && row.daysLeft <= 7)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+  const pastDue = rows.filter((row) => row.billingStatus === 'past_due');
+  const readyToTrial = rows.filter((row) => row.billingStatus === 'setup' && !!row.setupCompletedAt);
 
   return {
     processors: rows,
@@ -120,6 +137,9 @@ async function loadAdminDashboard() {
     planMix,
     billingMix,
     estimatedMrr,
+    trialExpiring,
+    pastDue,
+    readyToTrial,
   };
 }
 
@@ -314,6 +334,81 @@ export default async function PlatformAdminHome() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Paused</span><strong>{dashboard.billingMix.paused}</strong></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Internal</span><strong>{dashboard.billingMix.internal}</strong></div>
           </div>
+        </div>
+
+        <div style={panel}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Trial Follow-up</div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {dashboard.trialExpiring.length ? (
+              dashboard.trialExpiring.slice(0, 6).map((processor) => (
+                <div key={processor.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
+                    <div style={{ color: '#64748b', fontSize: 13 }}>
+                      Ends {processor.trialEndsAt ? new Date(processor.trialEndsAt).toLocaleDateString() : '-'}
+                    </div>
+                  </div>
+                  <strong style={{ color: processor.daysLeft <= 2 ? '#b91c1c' : '#9a3412' }}>
+                    {processor.daysLeft === 0 ? 'Today' : `${processor.daysLeft}d`}
+                  </strong>
+                </div>
+              ))
+            ) : (
+              <div style={{ color: '#64748b' }}>No trials expiring in the next 7 days.</div>
+            )}
+          </div>
+        </div>
+
+        <div style={panel}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Billing Attention</div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {dashboard.pastDue.length ? (
+              dashboard.pastDue.slice(0, 6).map((processor) => (
+                <div key={processor.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
+                    <div style={{ color: '#64748b', fontSize: 13 }}>
+                      {processor.monthlyPrice != null ? `$${processor.monthlyPrice.toFixed(2)}/${processor.billingCycle}` : 'Pricing not set'}
+                    </div>
+                  </div>
+                  <span style={{ color: '#991b1b', fontWeight: 900 }}>Past due</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ color: '#64748b' }}>No processors are marked past due right now.</div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section style={{ ...panel, gap: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Lifecycle Nudges</div>
+            <div style={{ color: '#475569', marginTop: 4 }}>
+              Processors that are clearly through setup and ready for the next billing step.
+            </div>
+          </div>
+          <Link href="/admin/processors" style={{ ...quickLink, padding: '10px 14px', fontWeight: 900 }}>
+            Open Processor Management
+          </Link>
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {dashboard.readyToTrial.length ? (
+            dashboard.readyToTrial.slice(0, 6).map((processor) => (
+              <div key={processor.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
+                  <div style={{ color: '#64748b', fontSize: 13 }}>
+                    Setup completed {processor.setupCompletedAt ? new Date(processor.setupCompletedAt).toLocaleDateString() : '-'}
+                  </div>
+                </div>
+                <span style={{ color: '#9a3412', fontWeight: 900 }}>Ready for trial review</span>
+              </div>
+            ))
+          ) : (
+            <div style={{ color: '#64748b' }}>No processors are waiting on setup-to-trial review.</div>
+          )}
         </div>
       </section>
 
