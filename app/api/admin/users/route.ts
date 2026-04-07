@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireStaffAccess } from '@/lib/staffAuth';
 import { isPlatformAdmin } from '@/lib/staffContext';
+import { writeAuditEntry } from '@/lib/auditLog';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -258,6 +259,20 @@ export async function POST(req: Request) {
         active: true,
       });
     }
+    if (processorId) {
+      await writeAuditEntry({
+        req,
+        processorId,
+        action: !authUsers.some((user) => normalizeEmail(user?.email) === email) ? 'platform.staff.created' : 'platform.staff.access_updated',
+        targetType: 'processor_user',
+        targetId: membership ? String(membership.id) : authUserId,
+        targetLabel: email,
+        summary: !authUsers.some((user) => normalizeEmail(user?.email) === email)
+          ? `Created staff login ${email}`
+          : `Updated platform-managed access for ${email}`,
+        details: { email, role, platformAdmin },
+      });
+    }
 
     const processor = membership ? (Array.isArray(membership.processors) ? membership.processors[0] : membership.processors) : null;
 
@@ -320,6 +335,16 @@ export async function PATCH(req: Request) {
       authUsers.find((user) => normalizeEmail(user?.email) === email) ||
       null;
     const processor = Array.isArray((data as any).processors) ? (data as any).processors[0] : (data as any).processors;
+    await writeAuditEntry({
+      req,
+      processorId: String(data.processor_id),
+      action: 'platform.staff.access_updated',
+      targetType: 'processor_user',
+      targetId: String(data.id),
+      targetLabel: email,
+      summary: `Updated platform-managed access for ${email}`,
+      details: { email, role, active },
+    });
 
     return NextResponse.json({
       ok: true,

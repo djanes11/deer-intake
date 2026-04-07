@@ -284,7 +284,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                     onClick={() => markFinished(r.tag)}
                     disabled={!canUpdate || !!busyTag}
                     style={!canUpdate || busyTag ? styles.btnOff : styles.btn}
-                    title="Sets Specialty Status to Finished"
+                    title={!canUpdate ? 'Only Staff or Admin can mark specialty orders finished.' : 'Sets Specialty Status to Finished'}
                   >
                     {busyTag === r.tag ? 'Updating…' : 'Mark Finished'}
                   </button>

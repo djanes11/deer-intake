@@ -179,8 +179,13 @@ export default function AdminUsersPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Staff Users</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 760, lineHeight: 1.5 }}>
-          Create staff logins, attach them to processors, and manage their access without touching Supabase SQL.
+          Bootstrap processor admin accounts and manage processor memberships without touching Supabase SQL.
         </div>
+      </div>
+
+      <div style={{ padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #d6dee8', color: '#475569', lineHeight: 1.5 }}>
+        This page is mainly for platform setup. Day-to-day processor staff management should usually happen from each processor&apos;s
+        <strong> Staff Team</strong> screen.
       </div>
 
       {message ? (
@@ -195,7 +200,7 @@ export default function AdminUsersPage() {
       ) : null}
 
       <section style={panel}>
-        <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Create Staff User</div>
+        <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Create Email-Based Staff User</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <label style={{ display: 'grid', gap: 6 }}>
             <span style={{ fontWeight: 800, color: '#0f172a' }}>Email</span>
@@ -255,7 +260,7 @@ export default function AdminUsersPage() {
         </label>
 
         <div style={{ color: '#475569', fontSize: 14 }}>
-          This first version creates the auth user immediately with the password you enter here. Later we can replace this with an invite flow.
+          Use this for processor owners, first admins, or platform-managed accounts. Regular staff can usually be created later by the processor admin.
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

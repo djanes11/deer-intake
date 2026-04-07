@@ -40,8 +40,12 @@ export default function ForgotPasswordPage() {
           </div>
           <h1 style={{ margin: '6px 0 0', fontSize: 30 }}>Reset Password</h1>
           <p className="muted" style={{ marginTop: 8 }}>
-            Enter your staff email and we&apos;ll send you a reset link.
+            This is only for email-based processor admin accounts.
           </p>
+        </div>
+
+        <div style={{ padding: 10, borderRadius: 12, background: '#f8fafc', color: '#475569', fontSize: 14, lineHeight: 1.45 }}>
+          Local username logins do not use email reset. A processor admin can reset those passwords from Staff Team.
         </div>
 
         <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>

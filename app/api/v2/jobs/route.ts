@@ -12,6 +12,7 @@ import {
 } from '@/lib/jobsSupabase';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { Job } from '@/types/job';
+import { writeAuditEntry } from '@/lib/auditLog';
 
 function normalizeAction(v: string | null) {
   const s = (v || '').trim().toLowerCase();
@@ -112,6 +113,20 @@ export async function POST(req: NextRequest) {
         });
       }
       const result = await saveJob(job, { processorContext });
+      if (result?.ok && job?.tag) {
+        await writeAuditEntry({
+          req,
+          processorId: processorContext?.id,
+          action: 'job.saved',
+          targetType: 'job',
+          targetLabel: String(job.tag),
+          summary: `Saved intake record for tag ${job.tag}`,
+          details: {
+            tag: String(job.tag),
+            customerName: (job as any)?.customerName || null,
+          },
+        });
+      }
       return new Response(JSON.stringify(result), { status: 200 });
     }
 
@@ -123,6 +138,17 @@ export async function POST(req: NextRequest) {
         });
       }
       const result = await logCall({ tag, scope, reason, notes, outcome });
+      if ((result as any)?.ok !== false) {
+        await writeAuditEntry({
+          req,
+          processorId: processorContext?.id,
+          action: 'call.logged',
+          targetType: 'job',
+          targetLabel: String(tag),
+          summary: `Logged a call attempt for tag ${tag}`,
+          details: { tag, scope: scope || 'meat', reason: reason || null, outcome: outcome || null },
+        });
+      }
       return new Response(JSON.stringify(result), { status: 200 });
     }
 
@@ -138,6 +164,17 @@ export async function POST(req: NextRequest) {
       }
 
       const result = await progressJob(finalTag);
+      if ((result as any)?.ok !== false) {
+        await writeAuditEntry({
+          req,
+          processorId: processorContext?.id,
+          action: 'status.progressed',
+          targetType: 'job',
+          targetLabel: String(finalTag),
+          summary: `Progressed processing status for tag ${finalTag}`,
+          details: { tag: finalTag },
+        });
+      }
       return new Response(JSON.stringify(result), { status: 200 });
     }
 
@@ -153,6 +190,17 @@ export async function POST(req: NextRequest) {
       }
 
       const result = await markCalled({ tag: finalTag, scope, notes });
+      if ((result as any)?.ok !== false) {
+        await writeAuditEntry({
+          req,
+          processorId: processorContext?.id,
+          action: 'call.marked_called',
+          targetType: 'job',
+          targetLabel: String(finalTag),
+          summary: `Marked ${scope || 'meat'} as called for tag ${finalTag}`,
+          details: { tag: finalTag, scope: scope || 'meat' },
+        });
+      }
       return new Response(JSON.stringify(result), { status: 200 });
     }
 
@@ -169,6 +217,18 @@ export async function POST(req: NextRequest) {
         stampDropEmail: !!stampDropEmail,
         returnRow: !!returnRow,
       });
+      if (result.ok) {
+        await writeAuditEntry({
+          req,
+          processorId: processorContext?.id,
+          action: 'job.tag_assigned',
+          targetType: 'job',
+          targetId: String(jobId || ''),
+          targetLabel: String(newTag),
+          summary: `Assigned tag ${newTag}`,
+          details: { jobId: jobId || null, tag: newTag },
+        });
+      }
       const status = result.ok ? 200 : 400;
       return new Response(JSON.stringify(result), { status });
     }

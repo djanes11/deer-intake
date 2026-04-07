@@ -103,7 +103,7 @@ export default function StaffLoginPage() {
           </div>
           <h1 style={{ margin: '6px 0 0', fontSize: 30 }}>Staff Login</h1>
           <p className="muted" style={{ marginTop: 8 }}>
-            Sign in with your staff account to access the shared staff site.
+            Use an email login for processor owners and admins, or a simple username login for regular shop staff.
           </p>
         </div>
 
@@ -119,8 +119,11 @@ export default function StaffLoginPage() {
         <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
           {mode === 'admin' ? (
             <>
+              <div style={{ padding: 10, borderRadius: 12, background: '#f8fafc', color: '#475569', fontSize: 14, lineHeight: 1.45 }}>
+                Processor admins use email and password so they can recover their own access and manage the rest of the team.
+              </div>
               <div>
-                <label>Email</label>
+                <label>Staff email</label>
                 <input
                   type="email"
                   autoComplete="email"
@@ -142,8 +145,11 @@ export default function StaffLoginPage() {
             </>
           ) : (
             <>
+              <div style={{ padding: 10, borderRadius: 12, background: '#f8fafc', color: '#475569', fontSize: 14, lineHeight: 1.45 }}>
+                Local staff logins are created by a processor admin. Use the processor slug and username they gave you.
+              </div>
               <div>
-                <label>Processor</label>
+                <label>Processor slug</label>
                 <input
                   type="text"
                   autoComplete="organization"
@@ -152,6 +158,7 @@ export default function StaffLoginPage() {
                   placeholder="mcafee"
                   required
                 />
+                <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Example: <code>mcafee</code> or <code>demo-processor</code></div>
               </div>
               <div>
                 <label>Username</label>
@@ -187,7 +194,7 @@ export default function StaffLoginPage() {
             </div>
           ) : (
             <div style={{ color: '#64748b', fontSize: 14 }}>
-              If a staff member forgets their password, a processor admin can reset it from Staff Team.
+              If you forget a local staff password, ask a processor admin to reset it from <strong>Staff Team</strong>.
             </div>
           )}
         </form>

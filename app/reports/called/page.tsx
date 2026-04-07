@@ -162,6 +162,7 @@ export default function CalledPickupQueue() {
   const [err, setErr] = useState<string>();
   const [busy, setBusy] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string>('');
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   const selected = useMemo(
     () => rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
@@ -188,10 +189,22 @@ export default function CalledPickupQueue() {
 
   useEffect(() => { load(); }, []);
 
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  const canUpdate = staffRole === 'admin' || staffRole === 'staff';
+
   const gridCols = '0.7fr 1.2fr 1.1fr 0.7fr 0.9fr 0.7fr 0.7fr 0.6fr 0.7fr';
 
   function openIntake(tag: string) {
-    const url = `/intake?tag=${encodeURIComponent(tag)}`;
+    const url = canUpdate ? `/intake?tag=${encodeURIComponent(tag)}` : `/intake/${encodeURIComponent(tag)}`;
     window.open(url, '_blank', 'noopener');
   }
 
@@ -204,6 +217,11 @@ export default function CalledPickupQueue() {
         </div>
 
         {err && <div className="err" style={{ marginBottom: 8 }}>{err}</div>}
+        {!canUpdate && (
+          <div className="card" style={{ marginBottom: 10, background: '#eef2ff', borderColor: '#c7d2fe', color: '#3730a3', fontWeight: 700 }}>
+            Read-only access: you can review this queue and open printable intake details, but only Staff or Admin can mark items paid or picked up.
+          </div>
+        )}
 
         {loading ? (
           <div className="muted">Loading…</div>
@@ -236,7 +254,7 @@ export default function CalledPickupQueue() {
                 >
                   <div>
                     <a
-                      href={`/intake?tag=${encodeURIComponent(r.tag)}`}
+                      href={canUpdate ? `/intake?tag=${encodeURIComponent(r.tag)}` : `/intake/${encodeURIComponent(r.tag)}`}
                       target="_blank"
                       rel="noopener"
                       onClick={(e) => { e.stopPropagation(); openIntake(r.tag); }}
@@ -278,7 +296,8 @@ export default function CalledPickupQueue() {
             <div className="toolbar-actions">
               <button
                 className="btn secondary small"
-                disabled={!selected || busy === `paid:${selected?.tag}` || selected?.track !== 'meat' || !!selected?.paidProcessing}
+                disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}` || selected?.track !== 'meat' || !!selected?.paidProcessing}
+                title={!canUpdate ? 'Only Staff or Admin can mark processing as paid.' : undefined}
                 onClick={async () => {
                   if (!selected) return;
                   setBusy(`paid:${selected.tag}`);
@@ -295,7 +314,8 @@ export default function CalledPickupQueue() {
 
               <button
                 className="btn small"
-                disabled={!selected || busy === `pu:${selected?.tag}:${selected?.track}` || !!selected?.pickedUp}
+                disabled={!canUpdate || !selected || busy === `pu:${selected?.tag}:${selected?.track}` || !!selected?.pickedUp}
+                title={!canUpdate ? 'Only Staff or Admin can mark items picked up.' : undefined}
                 onClick={async () => {
                   if (!selected) return;
                   setBusy(`pu:${selected.tag}:${selected.track}`);

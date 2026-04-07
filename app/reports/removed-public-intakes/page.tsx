@@ -163,7 +163,7 @@ export default function RemovedPublicIntakesPage() {
                     </div>
                   </div>
                   <button className="btn" type="button" onClick={() => void restore(row)} disabled={!canEdit || busy === id}>
-                    {busy === id ? 'Restoring...' : 'Restore'}
+                    {!canEdit ? 'Restore (Staff/Admin)' : busy === id ? 'Restoring...' : 'Restore'}
                   </button>
                 </div>
               </div>

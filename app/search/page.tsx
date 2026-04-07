@@ -473,6 +473,11 @@ export default function SearchPage() {
 
                   <div style={{ display: 'grid', gap: 8 }}>
                     <div style={{ fontWeight: 900, fontSize: 18 }}>Notification History</div>
+                    {!canManageNotifications ? (
+                      <div className="muted" style={{ fontSize: 13 }}>
+                        Notification timestamps are visible here, but only Admin users can resend messages or reset sent flags.
+                      </div>
+                    ) : null}
                     <div style={{ display: 'grid', gap: 8 }}>
                       {notificationRows.map((row) => (
                         <div key={row.label} style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, display: 'grid', gap: 8, color: '#111827' }}>

@@ -85,7 +85,7 @@ export default function StaffAccountPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>My Account</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 760, lineHeight: 1.5 }}>
-          Manage your own sign-in details without needing a platform admin.
+          Manage the password for your email-based staff account without needing platform support.
         </div>
       </div>
 
@@ -107,6 +107,9 @@ export default function StaffAccountPage() {
             <div>
               <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>Signed in as</div>
               <div style={{ color: '#334155' }}>{email || 'Unknown user'}</div>
+              <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
+                Local username logins are managed by the processor admin and do not use this page.
+              </div>
             </div>
 
             <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
@@ -116,10 +119,11 @@ export default function StaffAccountPage() {
                   type="password"
                   autoComplete="new-password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Use at least 8 characters.</div>
+            </div>
               <div>
                 <label>Confirm password</label>
                 <input

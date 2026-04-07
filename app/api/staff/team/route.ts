@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { requireStaffAccess } from '@/lib/staffAuth';
 import { hashLocalPassword } from '@/lib/localStaffAuth';
 import { getStaffProcessorContext, isPlatformAdmin } from '@/lib/staffContext';
+import { writeAuditEntry } from '@/lib/auditLog';
 
 type StaffRole = 'admin' | 'staff' | 'readonly';
 
@@ -183,6 +184,18 @@ export async function POST(req: Request) {
         ? await supabase.from('staff_local_users').update(payload).eq('id', existingResp.data.id).select('id,processor_id,username,role,active,created_at,updated_at').single()
         : await supabase.from('staff_local_users').insert(payload).select('id,processor_id,username,role,active,created_at,updated_at').single();
       if (localResp.error) throw localResp.error;
+      await writeAuditEntry({
+        req,
+        processorId: processor.id,
+        action: existingResp.data?.id ? 'staff.local.updated' : 'staff.local.created',
+        targetType: 'staff_local_user',
+        targetId: String(localResp.data.id),
+        targetLabel: username,
+        summary: existingResp.data?.id
+          ? `Updated local staff login ${username}`
+          : `Created local staff login ${username}`,
+        details: { username, role, active: true },
+      });
 
       return NextResponse.json({
         ok: true,
@@ -223,6 +236,16 @@ export async function POST(req: Request) {
       email,
       role,
       active: true,
+    });
+    await writeAuditEntry({
+      req,
+      processorId: processor.id,
+      action: invited ? 'staff.invited' : 'staff.access.granted',
+      targetType: 'processor_user',
+      targetId: String(data.id),
+      targetLabel: email,
+      summary: invited ? `Invited ${email} to this processor` : `Granted ${email} access to this processor`,
+      details: { email, role, invited },
     });
 
     return NextResponse.json({
@@ -272,6 +295,23 @@ export async function PATCH(req: Request) {
       }
       const localResp = await supabase.from('staff_local_users').update(patch).eq('id', id).eq('processor_id', processor.id).select('id,processor_id,username,role,active,created_at,updated_at').single();
       if (localResp.error) throw localResp.error;
+      await writeAuditEntry({
+        req,
+        processorId: processor.id,
+        action: body?.password ? 'staff.local.password_reset' : 'staff.local.access_updated',
+        targetType: 'staff_local_user',
+        targetId: String(localResp.data.id),
+        targetLabel: normalizeUsername(localResp.data.username),
+        summary: body?.password
+          ? `Reset password for local staff login ${normalizeUsername(localResp.data.username)}`
+          : `Updated local staff login ${normalizeUsername(localResp.data.username)}`,
+        details: {
+          username: normalizeUsername(localResp.data.username),
+          role: normalizeRole(localResp.data.role),
+          active: !!localResp.data.active,
+          passwordReset: !!body?.password,
+        },
+      });
       return NextResponse.json({
         ok: true,
         membership: {
@@ -297,9 +337,23 @@ export async function PATCH(req: Request) {
       updated_at: new Date().toISOString(),
     }).eq('id', id).eq('processor_id', processor.id).select('id,processor_id,user_id,email,role,active,created_at,updated_at').single();
     if (error) throw error;
+    const email = normalizeEmail(data.email);
+    await writeAuditEntry({
+      req,
+      processorId: processor.id,
+      action: 'staff.access_updated',
+      targetType: 'processor_user',
+      targetId: String(data.id),
+      targetLabel: email,
+      summary: `Updated staff access for ${email}`,
+      details: {
+        email,
+        role: normalizeRole(data.role),
+        active: !!data.active,
+      },
+    });
 
     const authUsers = await listAllAuthUsers(supabase);
-    const email = normalizeEmail(data.email);
     const authUser =
       authUsers.find((user) => String(user?.id || '') === String(data.user_id || '')) ||
       authUsers.find((user) => normalizeEmail(user?.email) === email) ||

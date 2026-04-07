@@ -7,10 +7,11 @@ import { NextResponse } from 'next/server';
 import { setJobTag } from '@/lib/jobsSupabase';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
+import { writeAuditEntry } from '@/lib/auditLog';
 
 export async function POST(req: Request) {
   try {
-    const { denied } = await requireProcessorPermission(req, 'edit_jobs');
+    const { denied, context: processor } = await requireProcessorPermission(req, 'edit_jobs');
     if (denied) return denied;
 
     const body = await req.json().catch(() => null);
@@ -48,6 +49,18 @@ export async function POST(req: Request) {
       newTag,
       returnRow: true,
     });
+    if (result.ok) {
+      await writeAuditEntry({
+        req,
+        processorId: processor?.id,
+        action: 'job.tag_assigned',
+        targetType: 'job',
+        targetId: resolvedJobId,
+        targetLabel: newTag,
+        summary: `Assigned tag ${newTag} to a pending public intake`,
+        details: { jobId: resolvedJobId, tag: newTag, pendingTag: pendingTag || null },
+      });
+    }
 
     return NextResponse.json(result, { status: result.ok ? 200 : 400 });
   } catch (err: any) {

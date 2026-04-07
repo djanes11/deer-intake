@@ -29,6 +29,7 @@ export default function StateFormReportPage() {
   const [zoom, setZoom] = useState<ZoomPreset>('fit');
   const [refreshKey, setRefreshKey] = useState(0); // forces iframe reload
   const [src, setSrc] = useState(withToken('/api/stateform/render?dry=1'));
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   // auto refresh
   const [auto, setAuto] = useState(true);
@@ -38,6 +39,7 @@ export default function StateFormReportPage() {
   const totalSheets = payload?.totalSheets ?? Math.max(1, Math.ceil(totalEntries / CAPACITY));
   const pageNumber = Number((payload?.pageNumberStart ?? payload?.pageNumber) || 1);
   const endPageNumber = pageNumber + Math.max(0, totalSheets - 1);
+  const canSetPage = staffRole === 'admin' || staffRole === 'staff';
 
   // ----- fetch
   const load = useCallback(async () => {
@@ -56,6 +58,16 @@ export default function StateFormReportPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
+      })
+      .catch(() => {});
+  }, []);
 
   // auto-refresh
   useEffect(() => {
@@ -129,6 +141,12 @@ export default function StateFormReportPage() {
         </div>
       </div>
 
+      {!canSetPage && staffRole === 'readonly' ? (
+        <div className="mb-3 text-sm font-semibold text-indigo-300">
+          Read-only access: you can review and download the state form, but changing the page number requires Staff or Admin access.
+        </div>
+      ) : null}
+
       {/* Toolbar (matches rest of app) */}
       <div className="mb-3 flex flex-wrap items-center gap-3 bg-zinc-900/70 border border-zinc-700/70 rounded-lg px-3 py-2">
         <button
@@ -158,6 +176,7 @@ export default function StateFormReportPage() {
           <span className="text-sm text-zinc-400">Page #</span>
           <button
             onClick={() => stepPage(-1)}
+            disabled={!canSetPage}
             className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
             aria-label="Previous page"
           >
@@ -166,6 +185,7 @@ export default function StateFormReportPage() {
           <span className="px-2 tabular-nums text-zinc-200 text-sm">{pageNumber}</span>
           <button
             onClick={() => stepPage(+1)}
+            disabled={!canSetPage}
             className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
             aria-label="Next page"
           >
@@ -173,6 +193,7 @@ export default function StateFormReportPage() {
           </button>
           <button
             onClick={setPageManual}
+            disabled={!canSetPage}
             className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
           >
             Set…

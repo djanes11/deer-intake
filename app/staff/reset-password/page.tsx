@@ -97,7 +97,7 @@ export default function ResetPasswordPage() {
           </div>
           <h1 style={{ margin: '6px 0 0', fontSize: 30 }}>Choose New Password</h1>
           <p className="muted" style={{ marginTop: 8 }}>
-            Set a new password for your staff account.
+            Set a new password for your email-based staff account.
           </p>
         </div>
 
@@ -116,6 +116,7 @@ export default function ResetPasswordPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
+              <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Use at least 8 characters.</div>
             </div>
             <div>
               <label>Confirm password</label>

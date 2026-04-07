@@ -217,6 +217,11 @@ export default function StaffTeamPage() {
         </div>
       </div>
 
+      <div style={{ padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #d6dee8', color: '#475569', lineHeight: 1.5 }}>
+        Recommended setup: keep <strong>owners/managers</strong> on email logins so they can reset their own password, and create
+        <strong> local logins</strong> for seasonal staff, family members, or anyone who just needs a simple username and password.
+      </div>
+
       {message ? (
         <div style={{ padding: 12, borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontWeight: 800 }}>
           {message}
@@ -313,7 +318,7 @@ export default function StaffTeamPage() {
             </button>
           </div>
           <div style={{ color: '#64748b', fontSize: 14 }}>
-            Best for seasonal help, family members, or shop staff who just need a simple username and password.
+            Best for seasonal help, family members, or shop staff who just need a simple username and password. Usernames are unique inside this processor.
           </div>
         </div>
       </section>
@@ -385,6 +390,7 @@ export default function StaffTeamPage() {
                         style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
                         placeholder="Leave blank to keep current password"
                       />
+                      <div style={{ color: '#64748b', fontSize: 12 }}>Enter a new password only when you want to reset this login.</div>
                     </label>
                   ) : null}
 

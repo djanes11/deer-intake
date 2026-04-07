@@ -100,6 +100,7 @@ export default function CallReportPage() {
   const [saving, setSaving] = useState(false);
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const [err, setErr] = useState<string | null>(null);
+  const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   const selected = useMemo(
     () => rows.find(r => (r.tag + '|' + r.__track) === selectedKey),
@@ -153,6 +154,18 @@ export default function CallReportPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    fetch('/api/admin/staff-context', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  const canUpdate = staffRole === 'admin' || staffRole === 'staff';
 
   const refreshOne = async (tag: string) => {
     try {
@@ -310,6 +323,12 @@ export default function CallReportPage() {
         <span className="muted">One row per ready track (Meat / Cape / Webbs)</span>
       </div>
 
+      {!canUpdate && (
+        <div className="card" style={{ borderColor: '#c7d2fe', background: '#eef2ff', color: '#3730a3', marginTop: 12, fontWeight: 700 }}>
+          Read-only access: you can review who is ready to call and open intake details, but only Staff or Admin can add attempts, save call notes, or mark items called.
+        </div>
+      )}
+
       {err && (
         <div className="card" style={{ borderColor: '#ef4444', marginTop: 12 }}>
           Error: {err}
@@ -350,9 +369,9 @@ export default function CallReportPage() {
                   >
                     <td>
                       <Link
-                        href={`/intake?tag=${encodeURIComponent(r.tag!)}`}
+                        href={canUpdate ? `/intake?tag=${encodeURIComponent(r.tag!)}` : `/intake/${encodeURIComponent(r.tag!)}`}
                         onClick={(e) => e.stopPropagation()}
-                        title="Open form"
+                        title={canUpdate ? 'Open form' : 'Open read-only details'}
                       >
                         {r.tag}
                       </Link>
@@ -400,15 +419,16 @@ export default function CallReportPage() {
                 if (!selected) return;
                 setNote(selected.tag + '|' + selected.__track, e.target.value);
               }}
-              disabled={!selected || saving}
+              disabled={!canUpdate || !selected || saving}
+              title={!canUpdate ? 'Only Staff or Admin can add call notes.' : undefined}
             />
-            <button className="btn secondary" disabled={!selected || saving || !(notes[selected ? (selected.tag + '|' + selected.__track) : ''] || '').trim()} onClick={onSaveNote}>
+            <button className="btn secondary" disabled={!canUpdate || !selected || saving || !(notes[selected ? (selected.tag + '|' + selected.__track) : ''] || '').trim()} title={!canUpdate ? 'Only Staff or Admin can save call notes.' : undefined} onClick={onSaveNote}>
               {saving ? 'Saving…' : 'Save Note'}
             </button>
-            <button className="btn secondary" disabled={!selected || saving} onClick={onPlusAttempt}>
+            <button className="btn secondary" disabled={!canUpdate || !selected || saving} title={!canUpdate ? 'Only Staff or Admin can add a call attempt.' : undefined} onClick={onPlusAttempt}>
               {saving ? 'Working…' : '+1 Attempt'}
             </button>
-            <button className="btn" disabled={!selected || saving} onClick={onMarkCalled}>
+            <button className="btn" disabled={!canUpdate || !selected || saving} title={!canUpdate ? 'Only Staff or Admin can mark an item called.' : undefined} onClick={onMarkCalled}>
               {saving ? 'Working…' : 'Mark Called'}
             </button>
           </div>

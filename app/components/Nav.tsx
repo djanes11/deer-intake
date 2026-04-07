@@ -182,6 +182,11 @@ export default function Nav() {
                   <Link href="/reports/notifications" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                     Notifications
                   </Link>
+                  {canManageSettings ? (
+                    <Link href="/reports/activity" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                      Activity History
+                    </Link>
+                  ) : null}
                   <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                     State Form
                   </Link>

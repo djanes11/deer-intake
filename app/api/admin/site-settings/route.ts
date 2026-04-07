@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
 import { normalizePricing } from '@/lib/pricing';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
+import { writeAuditEntry } from '@/lib/auditLog';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -178,6 +179,21 @@ export async function POST(req: Request) {
       },
       features: processorPayload.features,
     };
+
+    await writeAuditEntry({
+      req,
+      processorId: processor.id,
+      action: 'settings.updated',
+      targetType: 'site_settings',
+      targetId: String(data.id || ''),
+      targetLabel: processor.slug || processor.id || 'settings',
+      summary: 'Updated public site settings and processor branding',
+      details: {
+        publicIntakeEnabled: !!payload.public_intake_enabled,
+        bannerEnabled: !!payload.banner_enabled,
+        brandingName: merged.branding.name,
+      },
+    });
 
     return NextResponse.json({ ok: true, settings: merged });
   } catch (e: any) {

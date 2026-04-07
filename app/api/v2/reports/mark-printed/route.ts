@@ -6,10 +6,11 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { markIntakeSheetPrinted } from '@/lib/jobsSupabase';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
+import { writeAuditEntry } from '@/lib/auditLog';
 
 export async function POST(req: Request) {
   try {
-    const { denied } = await requireProcessorPermission(req, 'print');
+    const { denied, context: processor } = await requireProcessorPermission(req, 'print');
     if (denied) return denied;
 
     const body = await req.json().catch(() => null);
@@ -23,6 +24,17 @@ export async function POST(req: Request) {
     }
 
     const result = await markIntakeSheetPrinted({ tag });
+    if (result.ok) {
+      await writeAuditEntry({
+        req,
+        processorId: processor?.id,
+        action: 'print.sheet_marked_printed',
+        targetType: 'job',
+        targetLabel: tag,
+        summary: `Marked intake sheet printed for tag ${tag}`,
+        details: { tag },
+      });
+    }
     return NextResponse.json(result, { status: result.ok ? 200 : 404 });
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 });
