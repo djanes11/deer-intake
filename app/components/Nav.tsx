@@ -11,6 +11,12 @@ import { useEffect, useState } from 'react';
 const BRAND = process.env.NEXT_PUBLIC_SITE_NAME || 'Wild Game Butcher Board';
 const LOGO_SRC = process.env.NEXT_PUBLIC_LOGO_SRC || '/wgbb-logo.png'; // leading slash for Next/Image/CDN
 const ADMIN_HOSTNAME = (process.env.NEXT_PUBLIC_ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
+const STAFF_HOSTNAME = (process.env.NEXT_PUBLIC_STAFF_HOSTNAME || 'staff.wildgamebutcherboard.com').trim().toLowerCase();
+
+function absoluteHostUrl(hostname: string) {
+  const host = String(hostname || '').trim().toLowerCase();
+  return host ? `https://${host}` : '/';
+}
 
 function closeMobileAndDropdown(el?: HTMLElement | null) {
   // Close mobile checkbox menu
@@ -124,7 +130,7 @@ export default function Nav() {
               </Link>
               <Link
                 className={`item ${isActive('/staff') ? 'active' : ''}`}
-                href="https://staff.wildgamebutcherboard.com"
+                href={absoluteHostUrl(STAFF_HOSTNAME)}
                 onClick={() => closeMobileAndDropdown()}
               >
                 Staff Site
@@ -207,7 +213,7 @@ export default function Nav() {
                   <Link href="/staff/account" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>My Account</Link>
                   {canManageSettings ? <Link href="/staff/team" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Staff Team</Link> : null}
                   {canManageSettings ? <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link> : null}
-                  {platformAdmin ? <Link href="https://admin.wildgamebutcherboard.com" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Platform Admin</Link> : null}
+                  {platformAdmin ? <Link href={absoluteHostUrl(ADMIN_HOSTNAME)} onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Platform Admin</Link> : null}
                 </div>
               </details>
             </>

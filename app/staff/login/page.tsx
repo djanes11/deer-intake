@@ -13,6 +13,8 @@ export default function StaffLoginPage() {
   const [mode, setMode] = useState<'admin' | 'staff'>('admin');
   const [email, setEmail] = useState('');
   const [processorSlug, setProcessorSlug] = useState('');
+  const [processors, setProcessors] = useState<Array<{ slug: string; name: string }>>([]);
+  const [processorListError, setProcessorListError] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -53,6 +55,24 @@ export default function StaffLoginPage() {
       cancelled = true;
     };
   }, [next, router]);
+
+  useEffect(() => {
+    const loadProcessors = async () => {
+      try {
+        const res = await fetch('/api/staff/processors', { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.ok) throw new Error('Unable to load processors.');
+        const rows = Array.isArray(json?.processors) ? json.processors : [];
+        setProcessors(rows);
+        if (!processorSlug && rows[0]?.slug) {
+          setProcessorSlug(String(rows[0].slug));
+        }
+      } catch {
+        setProcessorListError(true);
+      }
+    };
+    void loadProcessors();
+  }, []);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -146,19 +166,39 @@ export default function StaffLoginPage() {
           ) : (
             <>
               <div style={{ padding: 10, borderRadius: 12, background: '#f8fafc', color: '#475569', fontSize: 14, lineHeight: 1.45 }}>
-                Local staff logins are created by a processor admin. Use the processor slug and username they gave you.
+                Local staff logins are created by a processor admin. Choose your processor, then use the username and password they gave you.
               </div>
               <div>
-                <label>Processor slug</label>
-                <input
-                  type="text"
-                  autoComplete="organization"
-                  value={processorSlug}
-                  onChange={(e) => setProcessorSlug(e.target.value)}
-                  placeholder="mcafee"
-                  required
-                />
-                <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Example: <code>mcafee</code> or <code>demo-processor</code></div>
+                <label>Processor</label>
+                {processors.length ? (
+                  <select
+                    value={processorSlug}
+                    onChange={(e) => setProcessorSlug(e.target.value)}
+                    required
+                  >
+                    {processors.map((processor) => (
+                      <option key={processor.slug} value={processor.slug}>
+                        {processor.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    autoComplete="organization"
+                    value={processorSlug}
+                    onChange={(e) => setProcessorSlug(e.target.value)}
+                    placeholder="processor code"
+                    required
+                  />
+                )}
+                <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
+                  {processors.length
+                    ? 'If you work for more than one processor, pick the one you are signing into right now.'
+                    : processorListError
+                      ? 'Processor list unavailable right now. Enter the processor code your admin gave you.'
+                      : 'Loading processor list...'}
+                </div>
               </div>
               <div>
                 <label>Username</label>

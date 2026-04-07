@@ -5,16 +5,21 @@ import NavGate from './components/NavGate';
 import CustomerHeader from './components/CustomerHeader';
 import AlertBanner from './components/AlertBanner';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
+import { headers } from 'next/headers';
+import { SITE } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata() {
+  const h = await headers().catch(() => null);
+  const host = h ? (h.get('x-forwarded-host') || h.get('host') || '').split(',')[0]?.trim() || '' : '';
   const settings = process.env.PUBLIC_MODE === '1' ? await getPublicSiteSettings().catch(() => null) : null;
-  const name = settings?.branding?.name || 'McAfee Deer Processing';
+  const name = settings?.branding?.name || SITE.name;
   const location = settings?.branding?.locationLabel ? ` - ${settings.branding.locationLabel}` : '';
   const description =
     settings?.branding?.tagline ||
     'Fast, clean, professional deer processing. Public intake, specialty products, and online status tracking.';
+  const siteUrl = host ? `https://${host}` : undefined;
 
   return {
     title: `${name}${location}`,
@@ -23,7 +28,7 @@ export async function generateMetadata() {
     openGraph: {
       title: name,
       description,
-      url: 'https://deer-intake-public.vercel.app',
+      url: siteUrl,
       siteName: name,
       type: 'website',
     },

@@ -12,9 +12,23 @@ export default function ScanPage() {
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [manualTag, setManualTag] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
 
   const [overlayOn, setOverlayOn] = useState(false);
   const [overlayJob, setOverlayJob] = useState<AnyRec | null>(null);
+
+  React.useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await fetch('/api/public/site-settings', { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (json?.ok) setWebbsEnabled(json?.settings?.features?.webbsEnabled !== false);
+      } catch {
+        setWebbsEnabled(true);
+      }
+    };
+    void loadSettings();
+  }, []);
 
   const isProcessingLike = (s: any) => String(s ?? '').toLowerCase().includes('processing');
   const isFinishedLike = (s: any) => {
@@ -458,6 +472,7 @@ export default function ScanPage() {
         visible={overlayOn}
         manualTag={manualTag}
         manualBusy={manualBusy}
+        webbsEnabled={webbsEnabled}
         onManualTagChange={setManualTag}
         onManualSubmit={() => void handleManualSubmit()}
       />

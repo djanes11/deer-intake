@@ -18,6 +18,7 @@ export default function ButcherOverlay({
   visible,
   manualTag,
   manualBusy,
+  webbsEnabled = true,
   onManualTagChange,
   onManualSubmit,
 }: {
@@ -25,6 +26,7 @@ export default function ButcherOverlay({
   visible: boolean;
   manualTag: string;
   manualBusy: boolean;
+  webbsEnabled?: boolean;
   onManualTagChange: (value: string) => void;
   onManualSubmit: () => void;
 }) {
@@ -126,10 +128,11 @@ export default function ButcherOverlay({
 
   const webbsStyle = String(get('Webbs Order Style', 'webbsOrderStyle') ?? '').trim();
   const showSpecialty = specialtyItems.length > 0;
-  const showWebbs =
+  const showWebbs = webbsEnabled && (
     isOn(get('Webbs Order', 'webbsOrder')) ||
     webbsItemsText.length > 0 ||
-    webbsStyle === 'whole_deer_percent';
+    webbsStyle === 'whole_deer_percent'
+  );
 
   const SummaryCard = ({ label, value }: { label: string; value: string }) => (
     <div style={CARD}>
