@@ -61,6 +61,47 @@ function normalizeIsoDate(raw: unknown) {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+function addDaysIso(baseIso: string, days: number) {
+  const d = new Date(baseIso);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString();
+}
+
+function applyLifecycleDefaults(input: {
+  billingStatus: string;
+  trialEndsAt: string | null;
+  subscriptionStartedAt: string | null;
+  goLiveAt: string | null;
+  setupCompletedAt: string | null;
+}) {
+  const nowIso = new Date().toISOString();
+  let billingStatus = normalizeBillingStatus(input.billingStatus);
+  let trialEndsAt = input.trialEndsAt;
+  let subscriptionStartedAt = input.subscriptionStartedAt;
+  let goLiveAt = input.goLiveAt;
+  const setupCompletedAt = input.setupCompletedAt;
+
+  if (setupCompletedAt && billingStatus === 'setup') {
+    billingStatus = 'trial';
+  }
+
+  if (billingStatus === 'trial' && !trialEndsAt) {
+    trialEndsAt = addDaysIso(setupCompletedAt || nowIso, 14);
+  }
+
+  if (billingStatus === 'active') {
+    if (!goLiveAt) goLiveAt = nowIso;
+    if (!subscriptionStartedAt) subscriptionStartedAt = goLiveAt;
+  }
+
+  return {
+    billingStatus,
+    trialEndsAt,
+    subscriptionStartedAt,
+    goLiveAt,
+  };
+}
+
 function nextSiteSettingsId(supabase: ReturnType<typeof getSupabase>) {
   return supabase
     .from('site_settings')
@@ -122,7 +163,7 @@ export async function GET(req: Request) {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('processors')
-      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,billing_notes,created_at,updated_at')
+      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
       .order('slug', { ascending: true });
     if (error) throw error;
 
@@ -143,6 +184,7 @@ export async function GET(req: Request) {
         trialEndsAt: row.trial_ends_at || null,
         subscriptionStartedAt: row.subscription_started_at || null,
         goLiveAt: row.go_live_at || null,
+        setupCompletedAt: row.setup_completed_at || null,
         billingNotes: String(row.billing_notes || ''),
         createdAt: row.created_at || null,
         updatedAt: row.updated_at || null,
@@ -178,9 +220,17 @@ export async function POST(req: Request) {
       const trialEndsAt = normalizeIsoDate(body?.trialEndsAt);
       const subscriptionStartedAt = normalizeIsoDate(body?.subscriptionStartedAt);
       const goLiveAt = normalizeIsoDate(body?.goLiveAt);
+      const setupCompletedAt = normalizeIsoDate(body?.setupCompletedAt);
       const billingNotes = normalizeText(body?.billingNotes) || null;
       const firstAdminEmail = normalizeEmail(body?.firstAdminEmail);
       const firstAdminPassword = normalizeText(body?.firstAdminPassword);
+      const lifecycle = applyLifecycleDefaults({
+        billingStatus,
+        trialEndsAt,
+        subscriptionStartedAt,
+        goLiveAt,
+        setupCompletedAt,
+      });
 
       if (!slug) {
         return NextResponse.json({ ok: false, error: 'Processor slug is required.' }, { status: 400 });
@@ -210,16 +260,17 @@ export async function POST(req: Request) {
           public_maps_url: '',
           location_label: '',
           features,
-          billing_status: billingStatus,
+          billing_status: lifecycle.billingStatus,
           billing_cycle: billingCycle,
           monthly_price: monthlyPrice,
-          trial_ends_at: trialEndsAt,
-          subscription_started_at: subscriptionStartedAt,
-          go_live_at: goLiveAt,
+          trial_ends_at: lifecycle.trialEndsAt,
+          subscription_started_at: lifecycle.subscriptionStartedAt,
+          go_live_at: lifecycle.goLiveAt,
+          setup_completed_at: setupCompletedAt,
           billing_notes: billingNotes,
           updated_at: new Date().toISOString(),
         })
-        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,billing_notes,created_at,updated_at')
+        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
         .single();
       if (createProcessorError) throw createProcessorError;
 
@@ -283,6 +334,7 @@ export async function POST(req: Request) {
           trialEndsAt: createdProcessor.trial_ends_at || null,
           subscriptionStartedAt: createdProcessor.subscription_started_at || null,
           goLiveAt: createdProcessor.go_live_at || null,
+          setupCompletedAt: createdProcessor.setup_completed_at || null,
           billingNotes: String(createdProcessor.billing_notes || ''),
           createdAt: createdProcessor.created_at || null,
           updatedAt: createdProcessor.updated_at || null,
@@ -290,17 +342,27 @@ export async function POST(req: Request) {
       });
     }
 
+    const setupCompletedAt = normalizeIsoDate(body?.setupCompletedAt);
+    const lifecycle = applyLifecycleDefaults({
+      billingStatus: body?.billingStatus,
+      trialEndsAt: normalizeIsoDate(body?.trialEndsAt),
+      subscriptionStartedAt: normalizeIsoDate(body?.subscriptionStartedAt),
+      goLiveAt: normalizeIsoDate(body?.goLiveAt),
+      setupCompletedAt,
+    });
+
     const payload = {
       active: body?.active !== false,
       public_hostname: String(body?.publicHostname || '').trim().toLowerCase() || null,
       staff_hostname: String(body?.staffHostname || '').trim().toLowerCase() || null,
       features: normalizeFeatures(body?.features || {}),
-      billing_status: normalizeBillingStatus(body?.billingStatus),
+      billing_status: lifecycle.billingStatus,
       billing_cycle: normalizeBillingCycle(body?.billingCycle),
       monthly_price: normalizeMoney(body?.monthlyPrice),
-      trial_ends_at: normalizeIsoDate(body?.trialEndsAt),
-      subscription_started_at: normalizeIsoDate(body?.subscriptionStartedAt),
-      go_live_at: normalizeIsoDate(body?.goLiveAt),
+      trial_ends_at: lifecycle.trialEndsAt,
+      subscription_started_at: lifecycle.subscriptionStartedAt,
+      go_live_at: lifecycle.goLiveAt,
+      setup_completed_at: setupCompletedAt,
       billing_notes: normalizeText(body?.billingNotes) || null,
       updated_at: new Date().toISOString(),
     };
@@ -309,7 +371,7 @@ export async function POST(req: Request) {
       .from('processors')
       .update(payload)
       .eq('id', id)
-      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,billing_notes,created_at,updated_at')
+      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
       .single();
     if (error) throw error;
 
@@ -330,6 +392,7 @@ export async function POST(req: Request) {
         trialEndsAt: data.trial_ends_at || null,
         subscriptionStartedAt: data.subscription_started_at || null,
         goLiveAt: data.go_live_at || null,
+        setupCompletedAt: data.setup_completed_at || null,
         billingNotes: String(data.billing_notes || ''),
         createdAt: data.created_at || null,
         updatedAt: data.updated_at || null,
