@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 // GET /api/voice-ready?name=First&tag=12345&total=246.55
 export async function GET(req: Request) {
@@ -9,13 +10,18 @@ export async function GET(req: Request) {
 
   const friendly = name.split(' ')[0] || 'there';
   const due = total ? ` Total due: ${total} dollars.` : '';
+  const settings = await getPublicSiteSettings().catch(() => null);
+  const businessName = String(settings?.branding?.name || 'Wild Game Butcher Board');
+  const phoneDisplay = String(settings?.branding?.phoneDisplay || '').trim();
+  const spokenPhone = phoneDisplay ? ` If you have questions, please call ${phoneDisplay}.` : '';
 
   const message =
     `Hi ${friendly}. Your deer` +
     (tag ? `, tag ${tag},` : '') +
-    ` is ready for pickup at McAfee Custom Deer Processing.` +
+    ` is ready for pickup at ${businessName}.` +
     due +
-    ` If you have questions, please call 502 643 3916. Thank you.`;
+    spokenPhone +
+    ` Thank you.`;
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>

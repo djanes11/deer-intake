@@ -6,6 +6,7 @@ export const revalidate = 0;
 
 import { createClient } from '@supabase/supabase-js';
 import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -102,6 +103,8 @@ export default async function NotificationActivityPage() {
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const processor = await getDefaultProcessorContext();
+  const settings = await getPublicSiteSettings().catch(() => null);
+  const webbsEnabled = settings?.features?.webbsEnabled !== false;
 
   let jobsQuery = supabase
     .from('jobs')
@@ -123,6 +126,7 @@ export default async function NotificationActivityPage() {
   ]);
 
   const activities = [...normalizeEmailActivities(jobRows || []), ...normalizeSmsActivities(smsRows || [])]
+    .filter((row) => webbsEnabled || row.event !== 'Webbs Delivered')
     .filter((row) => row.sentAt)
     .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime())
     .slice(0, 200);

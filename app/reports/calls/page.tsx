@@ -101,6 +101,7 @@ export default function CallReportPage() {
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const [err, setErr] = useState<string | null>(null);
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
 
   const selected = useMemo(
     () => rows.find(r => (r.tag + '|' + r.__track) === selectedKey),
@@ -124,6 +125,7 @@ export default function CallReportPage() {
       const flat: FlatRow[] = [];
       for (const j of raw) {
         for (const t of readyTracks(j)) {
+          if (!webbsEnabled && t === 'webbs') continue;
           flat.push({
             ...j,
             __track: t,
@@ -153,7 +155,17 @@ export default function CallReportPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [webbsEnabled]);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setWebbsEnabled(json?.settings?.features?.webbsEnabled !== false);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/admin/staff-context', { cache: 'no-store' })
@@ -320,7 +332,7 @@ export default function CallReportPage() {
         <button className="btn" onClick={load} disabled={loading}>
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
-        <span className="muted">One row per ready track (Meat / Cape / Webbs)</span>
+        <span className="muted">One row per ready track ({webbsEnabled ? 'Meat / Cape / Webbs' : 'Meat / Cape'})</span>
       </div>
 
       {!canUpdate && (

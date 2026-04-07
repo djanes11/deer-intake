@@ -163,6 +163,7 @@ export default function CalledPickupQueue() {
   const [busy, setBusy] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string>('');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
+  const [webbsEnabled, setWebbsEnabled] = useState(true);
 
   const selected = useMemo(
     () => rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
@@ -174,8 +175,9 @@ export default function CalledPickupQueue() {
     setErr(undefined);
     try {
       const list = await fetchCalled();
-      setRows(list);
-      if (selectedKey && !list.some((r) => `${r.tag}|${r.track}` === selectedKey)) {
+      const filtered = webbsEnabled ? list : list.filter((row) => row.track !== 'webbs');
+      setRows(filtered);
+      if (selectedKey && !filtered.some((r) => `${r.tag}|${r.track}` === selectedKey)) {
         setSelectedKey('');
       }
     } catch (e: any) {
@@ -187,7 +189,17 @@ export default function CalledPickupQueue() {
     }
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [webbsEnabled]);
+
+  useEffect(() => {
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setWebbsEnabled(json?.settings?.features?.webbsEnabled !== false);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/admin/staff-context', { cache: 'no-store' })

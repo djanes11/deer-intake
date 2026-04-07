@@ -48,6 +48,7 @@ type PublicBrandingState = {
   phoneDisplay: string;
   phoneHref: string;
   mapsUrl: string;
+  webbsEnabled: boolean;
 };
 
 const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done'];
@@ -168,6 +169,7 @@ export default function StatusPage() {
     phoneDisplay: SITE.phone,
     phoneHref,
     mapsUrl: SITE.mapsUrl,
+    webbsEnabled: true,
   });
 
   const pollUntilRef = useRef<number | null>(null);
@@ -213,6 +215,7 @@ export default function StatusPage() {
             phoneDisplay: String(j.settings.branding.phoneDisplay || SITE.phone),
             phoneHref: nextPhoneHref,
             mapsUrl: String(j.settings.branding.mapsUrl || SITE.mapsUrl),
+            webbsEnabled: j.settings.features?.webbsEnabled !== false,
           });
         }
       })
@@ -274,7 +277,10 @@ export default function StatusPage() {
           ? priceTotal
           : undefined;
 
-  const summaries = useMemo(() => trackSummaries(res), [res]);
+  const summaries = useMemo(
+    () => trackSummaries(res).filter((item) => branding.webbsEnabled || item.key !== 'webbs'),
+    [res, branding.webbsEnabled]
+  );
   const currentStage = summaries[0];
   const mapsUrl = branding.mapsUrl;
 
