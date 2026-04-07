@@ -21,11 +21,18 @@ export function rateLimit(ip: string, key: string, limit = 20, windowMs = 60_000
 export async function sharedRateLimit(ip: string, key: string, limit = 20, windowMs = 60_000) {
   try {
     const supabase = getSupabaseServer();
-    const { data, error } = await supabase.rpc('mcafee_rate_limit', {
+    const payload = {
       p_bucket: `${key}:${ip}`,
       p_limit: limit,
       p_window_seconds: Math.max(1, Math.ceil(windowMs / 1000)),
-    });
+    };
+    let data: any = null;
+    let error: any = null;
+
+    ({ data, error } = await supabase.rpc('shared_rate_limit', payload));
+    if (error?.code === '42883') {
+      ({ data, error } = await supabase.rpc('mcafee_rate_limit', payload));
+    }
 
     if (!error && data) {
       return {

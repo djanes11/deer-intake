@@ -2030,13 +2030,20 @@ export async function logCall(params: {
   const { tag, scope, reason, notes, outcome } = params;
 
   try {
-    const { data, error } = await supabaseServer.rpc('mcafee_log_call', {
+    const payload = {
       p_tag: tag,
       p_scope: scope ?? null,
       p_reason: reason ?? null,
       p_notes: notes ?? null,
       p_outcome: outcome ?? null,
-    });
+    };
+    let data: any = null;
+    let error: any = null;
+
+    ({ data, error } = await supabaseServer.rpc('log_processor_call', payload));
+    if (error?.code === '42883') {
+      ({ data, error } = await supabaseServer.rpc('mcafee_log_call', payload));
+    }
 
     if (!error && data && data.ok !== false) {
       return { ok: true };
@@ -2111,11 +2118,18 @@ export async function markCalled(params: {
   const { tag, scope: rawScope, notes } = params;
 
   try {
-    const { data, error } = await supabaseServer.rpc('mcafee_mark_called', {
+    const payload = {
       p_tag: tag,
       p_scope: rawScope ?? 'auto',
       p_notes: notes ?? null,
-    });
+    };
+    let data: any = null;
+    let error: any = null;
+
+    ({ data, error } = await supabaseServer.rpc('mark_processor_called', payload));
+    if (error?.code === '42883') {
+      ({ data, error } = await supabaseServer.rpc('mcafee_mark_called', payload));
+    }
 
     if (!error && data && data.ok !== false) {
       return {
