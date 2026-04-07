@@ -1,6 +1,5 @@
 // lib/api.ts
 // Single client-side entrypoint for talking to our Next API.
-// NOW points to /api/v2/jobs (Supabase-backed) instead of /api/gas2 (GAS/Sheets).
 //
 // NOTE:
 // - Frontend should NOT talk to Supabase directly.
@@ -8,7 +7,7 @@
 //
 // Auth:
 // - Sends token via header: x-api-token
-// - Optionally supports query token on server for backward compatibility.
+// - Optionally supports query token where older routes still need it.
 
 export type AnyRec = Record<string, any>;
 type Json = Record<string, any>;
@@ -240,14 +239,4 @@ export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: 
   return calcProcessingPrice(proc, beef, webbs);
 }
 
-/**
- * Previously used GAS-only "job" action.
- * For v2, just call getJob(tag) or implement a dedicated "full" action server-side if needed.
- */
-export async function getJobFull(tag: string) {
-  // Keep behavior: return { ok, job } shape if server returns it.
-  // v2 GET action=get already returns { ok, exists, job }.
-  const r = await getJob(tag);
-  return (r as any)?.job ?? null;
-}
 import { calcProcessingPrice } from '@/lib/pricing';

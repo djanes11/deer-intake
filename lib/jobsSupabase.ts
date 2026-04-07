@@ -1522,12 +1522,56 @@ export async function searchJobs(query: string): Promise<{ ok: boolean; rows: Jo
   const supabaseServer = getSupabaseServer();
   const processor = await getDefaultProcessorContext();
   const q = query.trim();
+  const confirmationDigits = q.replace(/\D/g, '');
 
   if (!q) return { ok: true, rows: [] };
 
   // --- special keywords used by your UI ---
   if (q.toLowerCase() === '@report') return searchReport();
   if (q.toLowerCase() === '@recall') return searchRecall();
+
+  // Fast path for the most common staff searches: exact tag or confirmation lookups.
+  // This keeps scanner/manual tag entry and exact confirmation searches on indexed equality queries
+  // before we fall back to broader fuzzy matching.
+  if (q.length <= 32) {
+    const { data: exactTagRows, error: exactTagError } = await withProcessorFilter(
+      supabaseServer
+        .from('jobs')
+        .select(SEARCH_SELECT)
+        .is('pending_deleted_at', null)
+        .eq('tag', q),
+      processor.id
+    )
+      .limit(10);
+
+    if (exactTagError) {
+      console.error('searchJobs exact tag error', exactTagError);
+      throw exactTagError;
+    }
+    if ((exactTagRows || []).length) {
+      return { ok: true, rows: (exactTagRows || []).map(mapDbRowToSearchRow) };
+    }
+
+    if (confirmationDigits.length >= 6) {
+      const { data: exactConfirmationRows, error: exactConfirmationError } = await withProcessorFilter(
+        supabaseServer
+          .from('jobs')
+          .select(SEARCH_SELECT)
+          .is('pending_deleted_at', null)
+          .eq('confirmation', confirmationDigits),
+        processor.id
+      )
+        .limit(10);
+
+      if (exactConfirmationError) {
+        console.error('searchJobs exact confirmation error', exactConfirmationError);
+        throw exactConfirmationError;
+      }
+      if ((exactConfirmationRows || []).length) {
+        return { ok: true, rows: (exactConfirmationRows || []).map(mapDbRowToSearchRow) };
+      }
+    }
+  }
 
   // Normal search (tag/confirmation/phone/customer)
   const { data, error } = await withProcessorFilter(
