@@ -183,6 +183,11 @@ export default function Nav() {
                     Notifications
                   </Link>
                   {canManageSettings ? (
+                    <Link href="/reports/owner-insights" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                      Owner Insights
+                    </Link>
+                  ) : null}
+                  {canManageSettings ? (
                     <Link href="/reports/activity" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                       Activity History
                     </Link>

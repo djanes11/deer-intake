@@ -1888,6 +1888,7 @@ export async function progressJob(tag: string) {
 
   const curStatusRaw = String(job.status || '').trim();
   const curStatus = curStatusRaw.toLowerCase();
+  const curCapeStatusRaw = String(job.caping_status || '').trim();
 
   const isInitialStatus =
     !curStatus ||
@@ -1896,22 +1897,35 @@ export async function progressJob(tag: string) {
     curStatus === 'droppedoff';
 
   let nextStatus: string | null = null;
+  let progressedField: 'status' | 'caping_status' | null = null;
+  const needsCape = processTypeNeedsCape(job.process_type);
+  const capeAlreadyFinished = capeReady(curCapeStatusRaw);
 
-  // Butcher scan flow: Dropped Off -> Processing -> Finished
-  if (isInitialStatus) {
+  // Cape flow:
+  // 1) Cape -> Finished
+  // 2) Dropped Off -> Processing
+  // 3) Processing -> Finished
+  if (needsCape && !capeAlreadyFinished) {
+    nextStatus = 'Finished';
+    progressedField = 'caping_status';
+  } else if (isInitialStatus) {
     nextStatus = 'Processing';
+    progressedField = 'status';
   } else if (curStatus === 'processing') {
     nextStatus = 'Finished';
+    progressedField = 'status';
   } else {
     nextStatus = null;
+    progressedField = null;
   }
 
   const updates: any = {};
-  if (nextStatus) updates.status = nextStatus;
-  if (nextStatus === 'Processing' && !job.processing_started_at) {
+  if (nextStatus && progressedField === 'status') updates.status = nextStatus;
+  if (nextStatus && progressedField === 'caping_status') updates.caping_status = nextStatus;
+  if (nextStatus === 'Processing' && progressedField === 'status' && !job.processing_started_at) {
     updates.processing_started_at = nowIso();
   }
-  if (nextStatus === 'Finished' && !job.processing_finished_at) {
+  if (nextStatus === 'Finished' && progressedField === 'status' && !job.processing_finished_at) {
     updates.processing_finished_at = nowIso();
   }
 
@@ -1952,6 +1966,7 @@ export async function progressJob(tag: string) {
   return {
     ok: true,
     nextStatus,
+    progressedField,
     job: updated ? mapDbRowToJob(updated) : null,
   };
 }

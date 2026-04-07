@@ -481,6 +481,25 @@ function StaffHome({
               </div>
             ))}
           </div>
+          <div style={{ marginTop: 14 }}>
+            <Link
+              href="/reports/owner-insights"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 14px',
+                borderRadius: 10,
+                textDecoration: 'none',
+                fontWeight: 900,
+                color: '#f1e7cf',
+                border: '1px solid rgba(200,138,61,.24)',
+                background: 'rgba(21,20,19,.92)',
+              }}
+            >
+              Open detailed owner insights
+            </Link>
+          </div>
         </section>
       ) : null}
 

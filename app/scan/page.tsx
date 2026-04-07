@@ -285,10 +285,12 @@ export default function ScanPage() {
 
     let next = '';
     let progressedJob: AnyRec | null = null;
+    let progressedField = '';
 
     try {
       const res: any = await jobsPOST({ action: 'progress', tag });
       next = String(res?.nextStatus || res?.next || '').trim();
+      progressedField = String(res?.progressedField || '').trim();
       progressedJob = res?.job ?? null; // progressJob may return updated job
     } catch {
       setStatus({ kind: 'err', text: `Tag ${tag}: progress failed.` });
@@ -296,6 +298,13 @@ export default function ScanPage() {
     }
 
     const overlayFromProgress = progressedJob ? normalizeToggles(jobToCanon(progressedJob, tag)) : null;
+
+    if (progressedField === 'caping_status' && isFinishedLike(next)) {
+      setStatus({ kind: 'ok', text: `Tag ${tag}: Cape -> Finished.` });
+      setOverlayOn(false);
+      setOverlayJob(null);
+      return;
+    }
 
     if (isProcessingLike(next)) {
       setStatus({ kind: 'ok', text: `Tag ${tag}: Dropped Off -> Processing.` });
@@ -330,6 +339,14 @@ export default function ScanPage() {
 
     if (isFinishedLike(liveStatus)) {
       setStatus({ kind: 'ok', text: `Tag ${tag}: moved to Finished/Ready.` });
+      setOverlayOn(false);
+      setOverlayJob(null);
+      return;
+    }
+
+    const liveCapeStatus = String(job?.['Cape Status'] ?? job?.capingStatus ?? job?.caping_status ?? '').trim();
+    if (progressedField === 'caping_status' && isFinishedLike(liveCapeStatus)) {
+      setStatus({ kind: 'ok', text: `Tag ${tag}: Cape finished.` });
       setOverlayOn(false);
       setOverlayJob(null);
       return;

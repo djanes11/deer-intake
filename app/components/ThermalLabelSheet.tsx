@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 type AnyRec = Record<string, any>;
 
@@ -28,11 +28,13 @@ export default function ThermalLabelSheet({
   type: ThermalLabelType;
   brandingName?: string;
 }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const brand = brandingName || 'Wild Game Butcher Board';
   const customer = value(job, ['customer', 'Customer', 'customer_name', 'Customer Name']) || 'Unknown Customer';
   const confirmation = value(job, ['confirmation', 'Confirmation #', 'Confirmation', 'confirmationNumber']);
   const phone = value(job, ['phone', 'Phone', 'Phone Number', 'phoneNumber']);
   const tag = value(job, ['tag', 'Tag', 'tag_id', 'tagId']);
+  const shouldShowBarcode = (type === 'deer' || type === 'cape') && !!tag;
 
   const title =
     type === 'cape' ? 'Cape Transport Label' : type === 'package' ? 'Package Label' : 'Deer Tag Label';
@@ -47,6 +49,7 @@ export default function ThermalLabelSheet({
     type === 'cape'
       ? [
           { label: 'Customer', value: customer, large: true },
+          { label: 'Tag', value: tag || '-', large: true },
           { label: 'Confirmation', value: confirmation || '-', large: true },
           { label: 'Phone', value: phone || '-', large: false },
         ]
@@ -61,8 +64,73 @@ export default function ThermalLabelSheet({
           { label: 'Confirmation', value: confirmation || '-', large: false },
         ];
 
+  useEffect(() => {
+    const container = rootRef.current;
+    if (!container || !shouldShowBarcode || !tag) return;
+    const nodes = Array.from(container.querySelectorAll('svg[data-barcode]')) as SVGSVGElement[];
+    if (!nodes.length) return;
+
+    const drawAll = () => {
+      try {
+        const JB = typeof window !== 'undefined' ? (window as any).JsBarcode : null;
+        if (!JB) return;
+        nodes.forEach((el) => {
+          try {
+            while (el.firstChild) el.removeChild(el.firstChild);
+            JB(el, tag, {
+              format: 'CODE128',
+              lineColor: '#111',
+              width: 1.3,
+              height: 26,
+              displayValue: true,
+              font: 'monospace',
+              fontSize: 11,
+              textMargin: 2,
+              margin: 0,
+            });
+          } catch {}
+        });
+      } catch {}
+    };
+
+    const ensureLib = () => {
+      if (typeof window !== 'undefined' && (window as any).JsBarcode) {
+        drawAll();
+        return;
+      }
+      if (typeof document !== 'undefined') {
+        const existing = document.querySelector('script[data-jsbarcode="1"]') as HTMLScriptElement | null;
+        if (existing) {
+          existing.addEventListener('load', drawAll, { once: true });
+          return;
+        }
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
+        s.dataset.jsbarcode = '1';
+        s.onload = drawAll;
+        document.head.appendChild(s);
+      }
+    };
+
+    ensureLib();
+    const t1 = setTimeout(drawAll, 60);
+    const t2 = setTimeout(drawAll, 220);
+    const onBeforePrint = () => setTimeout(drawAll, 0);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeprint', onBeforePrint);
+    }
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeprint', onBeforePrint);
+      }
+    };
+  }, [shouldShowBarcode, tag]);
+
   return (
-    <div className="thermalLabelRoot">
+    <div className="thermalLabelRoot" ref={rootRef}>
       <div className={`thermalLabel thermalLabel--${type}`}>
         <div className="thermalLabel__top">
           <div className="thermalLabel__brandWrap">
@@ -78,6 +146,11 @@ export default function ThermalLabelSheet({
               <div className={`thermalLabel__value ${line.large ? 'isLarge' : ''}`}>{line.value}</div>
             </div>
           ))}
+          {shouldShowBarcode ? (
+            <div className="thermalLabel__barcodeWrap">
+              <svg data-barcode role="img" aria-label="Tag barcode" />
+            </div>
+          ) : null}
         </div>
         <div className="thermalLabel__footer">{footer}</div>
       </div>
@@ -177,6 +250,23 @@ export default function ThermalLabelSheet({
           font-weight: 700;
           letter-spacing: 0.03em;
           text-transform: uppercase;
+        }
+
+        .thermalLabel__barcodeWrap {
+          border-top: 1px solid #111;
+          padding-top: 0.07in;
+          margin-top: 0.02in;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 0.54in;
+        }
+
+        .thermalLabel__barcodeWrap :global(svg) {
+          width: 100%;
+          max-width: 3.5in;
+          height: 0.56in;
+          display: block;
         }
 
         @media print {
