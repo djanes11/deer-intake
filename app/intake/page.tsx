@@ -268,6 +268,19 @@ type CustomerLookupMatch = {
   exact?: boolean;
 };
 
+function hasFilledCustomerContactInfo(job: Partial<Job>) {
+  const phone = String(job.phone || '').trim();
+  const email = String(job.email || '').trim();
+  const address = String(job.address || '').trim();
+  const city = String(job.city || '').trim();
+  const state = String(job.state || '').trim();
+  const zip = String(job.zip || '').trim();
+
+  const hasReachableContact = phone.length >= 10 || /\S+@\S+\.\S+/.test(email);
+  const hasCoreAddress = !!address && !!city && !!state && !!zip;
+  return hasReachableContact && hasCoreAddress;
+}
+
 async function markPrinted(tag: string) {
   const r = await fetch(API_MARK_PRINTED, {
     method: 'POST',
@@ -523,8 +536,12 @@ function IntakePage() {
     setCustomerLookupCollapsedFor(currentName);
   };
 
+  const customerNameKey = String(job.customer || '').trim().toLowerCase();
+  const customerSectionComplete = hasFilledCustomerContactInfo(job);
   const customerLookupVisible =
-    customerLookupCollapsedFor !== String(job.customer || '').trim().toLowerCase();
+    !!customerNameKey &&
+    customerLookupCollapsedFor !== customerNameKey &&
+    !customerSectionComplete;
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
 
   // Establish baseline for a brand new job (or when tag query changes)
@@ -914,6 +931,7 @@ useEffect(() => {
       }
 
       setMsg('Saved ✓');
+      setCustomerLookupCollapsedFor(String(payload.customer ?? job.customer ?? '').trim().toLowerCase());
       setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
 
       // Re-load after save (use the standardized tag from payload)
@@ -965,6 +983,9 @@ if (fresh?.exists && fresh.job) {
     setJob(fresh);
     setZipDirty(false);
     setMsg('');
+    setCustomerMatch(null);
+    setCustomerMatches([]);
+    setCustomerLookupCollapsedFor('');
     setLastSavedJson(stableStringify(snapshotJob(fresh))); // not dirty after reset
 
     // Clear ?tag= in the URL so we don't accidentally reload an existing job
