@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
+import { normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { normalizePricing } from '@/lib/pricing';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { writeAuditEntry } from '@/lib/auditLog';
@@ -51,14 +52,7 @@ export async function GET(req: Request) {
           settings: {
             ...data,
             branding,
-            features: {
-              plan:
-                rawFeatures?.plan === 'basic' || rawFeatures?.plan === 'texting' || rawFeatures?.plan === 'custom'
-                  ? rawFeatures.plan
-                  : 'custom',
-              smsEnabled: rawFeatures?.smsEnabled !== false,
-              webbsEnabled: rawFeatures?.webbsEnabled !== false,
-            },
+            features: normalizeProcessorFeatures(rawFeatures),
           },
         });
       }
@@ -106,14 +100,7 @@ export async function POST(req: Request) {
       public_address: String(body?.branding?.address || defaults.address),
       public_maps_url: String(body?.branding?.mapsUrl || defaults.mapsUrl),
       location_label: String(body?.branding?.locationLabel || defaults.locationLabel),
-      features: {
-        plan:
-          body?.features?.plan === 'basic' || body?.features?.plan === 'texting' || body?.features?.plan === 'custom'
-            ? body.features.plan
-            : defaultPublicSiteSettings().features.plan,
-        smsEnabled: body?.features?.smsEnabled !== false,
-        webbsEnabled: body?.features?.webbsEnabled !== false,
-      },
+      features: normalizeProcessorFeatures(body?.features || defaultPublicSiteSettings().features),
       updated_at: new Date().toISOString(),
     };
 

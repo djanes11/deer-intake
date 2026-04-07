@@ -244,6 +244,7 @@ function OvernightIntakePage() {
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -267,6 +268,7 @@ function OvernightIntakePage() {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
           setIntakeEnabled(!!j?.settings?.public_intake_enabled);
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+          setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
           if (j?.settings?.banner_enabled && j?.settings?.banner_message) {
             setClosureMessage(String(j.settings.banner_message));
           }
@@ -421,9 +423,15 @@ function OvernightIntakePage() {
         setIntakeEnabled(j.settings.public_intake_enabled !== false);
         setClosureMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+        setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (smsEnabled || !job.prefSMS) return;
+    setContactMethod(job.email ? 'email' : 'call');
+  }, [smsEnabled, job.prefSMS, job.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
 
@@ -1469,7 +1477,7 @@ function OvernightIntakePage() {
                       <span>Email</span>
                     </label>
                     <label className="chk">
-                      <input type="radio" name="preferred-contact-public" checked={!!job.prefSMS} onChange={() => setContactMethod('sms')} disabled={locked} />
+                      <input type="radio" name="preferred-contact-public" checked={!!job.prefSMS} onChange={() => setContactMethod('sms')} disabled={locked || !smsEnabled} />
                       <span>Text (SMS)</span>
                     </label>
                     <label className="chk">
@@ -1491,6 +1499,7 @@ function OvernightIntakePage() {
                       <div className="muted">No extra consent needed for email or staff phone calls.</div>
                     )}
                     {errors.smsConsent ? <div className="errText" data-err="smsConsent">{errors.smsConsent}</div> : null}
+                    {!smsEnabled ? <div className="muted">Text updates are not included for this processor&apos;s current plan.</div> : null}
                   </div>
                 </div>
               </div>

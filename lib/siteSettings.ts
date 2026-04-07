@@ -40,6 +40,25 @@ export type PublicSiteSettings = {
   updated_at?: string | null;
 };
 
+export function normalizeProcessorFeatures(raw: any): ProcessorFeatureSettings {
+  const plan: ProcessorFeatureSettings['plan'] =
+    raw?.plan === 'basic' || raw?.plan === 'texting' || raw?.plan === 'custom'
+      ? raw.plan
+      : 'basic';
+
+  if (plan === 'basic') {
+    return { plan, smsEnabled: false, webbsEnabled: false };
+  }
+  if (plan === 'texting') {
+    return { plan, smsEnabled: true, webbsEnabled: false };
+  }
+  return {
+    plan,
+    smsEnabled: true,
+    webbsEnabled: raw?.webbsEnabled !== false,
+  };
+}
+
 function fallbackHours(): PublicHourRow[] {
   return Array.isArray(SITE.hours)
     ? SITE.hours.map((h) => ({ label: String(h.label || ''), value: String(h.value || '') }))
@@ -76,9 +95,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
       mapsUrl: String(SITE.mapsUrl || ''),
     },
     features: {
-      plan: 'custom',
-      smsEnabled: true,
-      webbsEnabled: true,
+      ...normalizeProcessorFeatures({ plan: 'custom', smsEnabled: true, webbsEnabled: true }),
     },
     updated_at: null,
   };
@@ -138,14 +155,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
           mapsUrl: String(processorRow.public_maps_url || branding.mapsUrl),
         };
         const rawFeatures = (processorRow as any).features || {};
-        features = {
-          plan:
-            rawFeatures?.plan === 'basic' || rawFeatures?.plan === 'texting' || rawFeatures?.plan === 'custom'
-              ? rawFeatures.plan
-              : features.plan,
-          smsEnabled: rawFeatures?.smsEnabled !== false,
-          webbsEnabled: rawFeatures?.webbsEnabled !== false,
-        };
+        features = normalizeProcessorFeatures(rawFeatures);
       }
     }
 

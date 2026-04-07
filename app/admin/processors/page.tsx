@@ -40,6 +40,12 @@ type CreateProcessorForm = {
   features: ProcessorRow['features'];
 };
 
+function normalizedFeaturesForPlan(features: ProcessorRow['features']) {
+  if (features.plan === 'basic') return { plan: 'basic' as const, smsEnabled: false, webbsEnabled: false };
+  if (features.plan === 'texting') return { plan: 'texting' as const, smsEnabled: true, webbsEnabled: false };
+  return { plan: 'custom' as const, smsEnabled: true, webbsEnabled: features.webbsEnabled };
+}
+
 const EMPTY_CREATE_FORM: CreateProcessorForm = {
   slug: '',
   name: '',
@@ -95,14 +101,14 @@ export default function AdminProcessorsPage() {
 
   const updateFeatures = (id: string, patch: Partial<ProcessorRow['features']>) =>
     setRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, features: { ...row.features, ...patch } } : row))
+      prev.map((row) => (row.id === id ? { ...row, features: normalizedFeaturesForPlan({ ...row.features, ...patch }) } : row))
     );
 
   const updateCreateForm = (patch: Partial<CreateProcessorForm>) =>
     setCreateForm((prev) => ({ ...prev, ...patch }));
 
   const updateCreateFeatures = (patch: Partial<CreateProcessorForm['features']>) =>
-    setCreateForm((prev) => ({ ...prev, features: { ...prev.features, ...patch } }));
+    setCreateForm((prev) => ({ ...prev, features: normalizedFeaturesForPlan({ ...prev.features, ...patch }) }));
 
   const createProcessor = async () => {
     setCreating(true);
@@ -417,13 +423,17 @@ export default function AdminProcessorsPage() {
             </select>
           </label>
           <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-            <input type="checkbox" checked={createForm.features.smsEnabled} onChange={(e) => updateCreateFeatures({ smsEnabled: e.target.checked })} />
+            <input type="checkbox" checked={createForm.features.smsEnabled} onChange={(e) => updateCreateFeatures({ smsEnabled: e.target.checked })} disabled />
             SMS enabled
           </label>
           <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-            <input type="checkbox" checked={createForm.features.webbsEnabled} onChange={(e) => updateCreateFeatures({ webbsEnabled: e.target.checked })} />
+            <input type="checkbox" checked={createForm.features.webbsEnabled} onChange={(e) => updateCreateFeatures({ webbsEnabled: e.target.checked })} disabled={createForm.features.plan !== 'custom'} />
             Webbs/custom workflow enabled
           </label>
+        </div>
+
+        <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.55 }}>
+          <strong>Plan rules:</strong> Basic = core workflow only. Texting = core workflow plus SMS. Custom = texting plus optional custom workflows like Webbs.
         </div>
 
         <div style={{ display: 'grid', gap: 4 }}>
@@ -516,13 +526,23 @@ export default function AdminProcessorsPage() {
                   </select>
                 </label>
                 <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-                  <input type="checkbox" checked={row.features.smsEnabled} onChange={(e) => updateFeatures(row.id, { smsEnabled: e.target.checked })} />
+                  <input type="checkbox" checked={row.features.smsEnabled} onChange={(e) => updateFeatures(row.id, { smsEnabled: e.target.checked })} disabled />
                   SMS enabled
                 </label>
                 <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-                  <input type="checkbox" checked={row.features.webbsEnabled} onChange={(e) => updateFeatures(row.id, { webbsEnabled: e.target.checked })} />
+                  <input type="checkbox" checked={row.features.webbsEnabled} onChange={(e) => updateFeatures(row.id, { webbsEnabled: e.target.checked })} disabled={row.features.plan !== 'custom'} />
                   Webbs/custom workflow enabled
                 </label>
+              </div>
+
+              <div style={{ fontSize: 13, color: '#64748b' }}>
+                {row.features.plan === 'basic'
+                  ? 'Basic keeps the core deer-processing workflow only.'
+                  : row.features.plan === 'texting'
+                    ? 'Texting includes SMS notifications but no custom workflows.'
+                    : row.features.webbsEnabled
+                      ? 'Custom includes texting plus Webbs/custom workflow access.'
+                      : 'Custom includes texting and can optionally turn on Webbs/custom workflows.'}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>

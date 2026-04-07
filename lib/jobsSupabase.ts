@@ -1257,6 +1257,8 @@ function mapDbRowToJob(row: any): Job {
     webbsDeliveredSmsSentAt: row.webbs_delivered_sms_sent_at,
     paidProcessingAt: row.paid_processing_at,
     paidSpecialtyAt: row.paid_specialty_at,
+    processingStartedAt: row.processing_started_at ?? null,
+    processingFinishedAt: row.processing_finished_at ?? null,
 
     // Pickup
     pickedUpProcessing: !!row.picked_up_processing,
@@ -1865,12 +1867,15 @@ Object.keys(upsertPayload).forEach((k) => {
 // MAIN STATUS PROGRESSION FOR BUTCHER SCAN
 export async function progressJob(tag: string) {
   const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext();
 
-  const { data: job, error: jobError } = await supabaseServer
-    .from('jobs')
-    .select('*')
-    .eq('tag', tag)
-    .maybeSingle();
+  const { data: job, error: jobError } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .select('*')
+      .eq('tag', tag),
+    processor.id
+  ).maybeSingle();
 
   if (jobError) {
     console.error('progressJob get error', jobError);
@@ -1903,6 +1908,12 @@ export async function progressJob(tag: string) {
 
   const updates: any = {};
   if (nextStatus) updates.status = nextStatus;
+  if (nextStatus === 'Processing' && !job.processing_started_at) {
+    updates.processing_started_at = nowIso();
+  }
+  if (nextStatus === 'Finished' && !job.processing_finished_at) {
+    updates.processing_finished_at = nowIso();
+  }
 
   if (Object.keys(updates).length === 0) {
     return { ok: true, nextStatus: null, job: null };
@@ -1910,10 +1921,13 @@ export async function progressJob(tag: string) {
 
   updates.updated_at = nowIso();
 
-  const { data: updated, error: updErr } = await supabaseServer
-    .from('jobs')
-    .update(updates)
-    .eq('id', job.id)
+  const { data: updated, error: updErr } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .update(updates)
+      .eq('id', job.id),
+    processor.id
+  )
     .select('*')
     .maybeSingle();
 
@@ -2466,6 +2480,19 @@ function currentSeasonStartIso() {
   return `${year}-07-01`;
 }
 
+function diffHours(a: any, b: any) {
+  const start = new Date(String(a || ''));
+  const end = new Date(String(b || ''));
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  const hours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+  return hours >= 0 ? hours : null;
+}
+
+function diffDays(a: any, b: any) {
+  const hours = diffHours(a, b);
+  return hours == null ? null : hours / 24;
+}
+
 export async function getDashboardSummary() {
   const supabaseServer = getSupabaseServer();
   const processor = await getDefaultProcessorContext();
@@ -2477,6 +2504,10 @@ export async function getDashboardSummary() {
     todayDropoffsRes,
     calledQueueRes,
     specialtyOpenRes,
+    ownerRowsRes,
+    recentIntakesRes,
+    unpaidProcessingRes,
+    unpaidSpecialtyRes,
   ] = await Promise.all([
     withProcessorFilter(
       supabaseServer
@@ -2526,6 +2557,37 @@ export async function getDashboardSummary() {
         .neq('specialty_status', 'Picked Up'),
       processor.id
     ),
+    withProcessorFilter(
+      supabaseServer
+        .from('jobs')
+        .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at')
+        .limit(2000),
+      processor.id
+    ),
+    withProcessorFilter(
+      supabaseServer
+        .from('jobs')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      processor.id
+    ),
+    withProcessorFilter(
+      supabaseServer
+        .from('jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('paid_processing', false)
+        .neq('status', 'Picked Up'),
+      processor.id
+    ),
+    withProcessorFilter(
+      supabaseServer
+        .from('jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('specialty_products', true)
+        .eq('paid_specialty', false)
+        .neq('specialty_status', 'Picked Up'),
+      processor.id
+    ),
   ]);
 
   const countOrThrow = (label: string, res: any) => {
@@ -2537,9 +2599,14 @@ export async function getDashboardSummary() {
   };
 
   const calledRows = calledQueueRes.data || [];
+  const ownerRows = ownerRowsRes.data || [];
   if (calledQueueRes.error) {
     console.error('called queue dashboard error', calledQueueRes.error);
     throw calledQueueRes.error;
+  }
+  if (ownerRowsRes.error) {
+    console.error('owner dashboard row error', ownerRowsRes.error);
+    throw ownerRowsRes.error;
   }
 
   const calledQueue = calledRows.filter((r: any) => {
@@ -2549,6 +2616,33 @@ export async function getDashboardSummary() {
     return meatInQueue || capeInQueue || webbsInQueue;
   }).length;
 
+  const readyForPickup = ownerRows.filter((r: any) => {
+    const meatInQueue = meatReady(r.status) && !r.picked_up_processing;
+    const capeInQueue = capeReady(r.caping_status) && !r.picked_up_cape;
+    const webbsInQueue = webbsReady(r.webbs_status) && !r.picked_up_webbs;
+    const specialtyInQueue = !!r.specialty_products && specialtyReady(r.specialty_status);
+    return meatInQueue || capeInQueue || webbsInQueue || specialtyInQueue;
+  }).length;
+
+  const processingDurations = ownerRows
+    .map((r: any) => diffHours(r.processing_started_at, r.processing_finished_at))
+    .filter((v: number | null): v is number => typeof v === 'number');
+
+  const readyAges = ownerRows
+    .filter((r: any) => meatReady(r.status) && !r.picked_up_processing && r.processing_finished_at)
+    .map((r: any) => diffDays(r.processing_finished_at, nowIso()))
+    .filter((v: number | null): v is number => typeof v === 'number');
+
+  const avgProcessingHours =
+    processingDurations.length > 0
+      ? processingDurations.reduce((sum, value) => sum + value, 0) / processingDurations.length
+      : null;
+  const avgReadyAgeDays =
+    readyAges.length > 0
+      ? readyAges.reduce((sum, value) => sum + value, 0) / readyAges.length
+      : null;
+  const oldestReadyDays = readyAges.length > 0 ? Math.max(...readyAges) : null;
+
   return {
     pendingTags: countOrThrow('pendingTags', pendingTagsRes),
     printQueue: countOrThrow('printQueue', printQueueRes),
@@ -2556,6 +2650,13 @@ export async function getDashboardSummary() {
     todayDropoffs: countOrThrow('todayDropoffs', todayDropoffsRes),
     specialtyOpen: countOrThrow('specialtyOpen', specialtyOpenRes),
     calledQueue,
+    readyForPickup,
+    recentIntakes7d: countOrThrow('recentIntakes7d', recentIntakesRes),
+    unpaidProcessing: countOrThrow('unpaidProcessing', unpaidProcessingRes),
+    unpaidSpecialty: countOrThrow('unpaidSpecialty', unpaidSpecialtyRes),
+    avgProcessingHours,
+    avgReadyAgeDays,
+    oldestReadyDays,
   };
 }
 

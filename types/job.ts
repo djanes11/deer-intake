@@ -115,6 +115,8 @@ export interface Job {
   webbsDeliveredSmsSentAt: string | null;
   paidProcessingAt: string | null;
   paidSpecialtyAt: string | null;
+  processingStartedAt?: string | null;
+  processingFinishedAt?: string | null;
 
   // Pickup
   pickedUpProcessing: boolean;

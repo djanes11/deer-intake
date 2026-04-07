@@ -389,6 +389,7 @@ function IntakePage() {
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
   const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
@@ -419,6 +420,7 @@ function IntakePage() {
         if (j?.ok) {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+          setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
           setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         }
       })
@@ -450,6 +452,11 @@ function IntakePage() {
     }));
     setWebbsModalOpen(false);
   }, [webbsEnabled]);
+
+  useEffect(() => {
+    if (smsEnabled || !job.prefSMS) return;
+    setContactMethod(job.email ? 'email' : 'call');
+  }, [smsEnabled, job.prefSMS, job.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const name = String(job.customer || '').trim();
@@ -1854,6 +1861,7 @@ if (fresh?.exists && fresh.job) {
                     name="preferred-contact-staff"
                     checked={!!job.prefSMS}
                     onChange={() => setContactMethod('sms')}
+                    disabled={!smsEnabled}
                   />
                   <span>Text (SMS)</span>
                 </label>
@@ -1884,6 +1892,7 @@ if (fresh?.exists && fresh.job) {
 
             <div className="c12 muted" style={{ fontSize: 13 }}>
               We will use the selected method only. Phone calls are always made by a person.
+              {!smsEnabled ? ' Text updates are not included for this processor’s current plan.' : ''}
             </div>
           </div>
         </section>

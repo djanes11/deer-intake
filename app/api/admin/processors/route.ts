@@ -7,6 +7,7 @@ import { requireStaffAccess } from '@/lib/staffAuth';
 import { isPlatformAdmin } from '@/lib/staffContext';
 import { SITE } from '@/lib/config';
 import { DEFAULT_SITE_PRICING } from '@/lib/pricing';
+import { normalizeProcessorFeatures } from '@/lib/siteSettings';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17,14 +18,7 @@ function getSupabase() {
 }
 
 function normalizeFeatures(raw: any) {
-  return {
-    plan:
-      raw?.plan === 'basic' || raw?.plan === 'texting' || raw?.plan === 'custom'
-        ? raw.plan
-        : 'basic',
-    smsEnabled: raw?.smsEnabled !== false,
-    webbsEnabled: raw?.webbsEnabled !== false,
-  };
+  return normalizeProcessorFeatures(raw);
 }
 
 function normalizeText(raw: unknown) {

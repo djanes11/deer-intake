@@ -297,6 +297,12 @@ function StaffHome({
     gap: 12,
     marginTop: 8,
   };
+  const ownerGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+    gap: 12,
+    marginBottom: 16,
+  };
 
   const row: React.CSSProperties = {
     display: 'grid',
@@ -315,6 +321,8 @@ function StaffHome({
     borderRadius: 999,
     background: color,
   });
+  const fmtHours = (v: number | null | undefined) => (typeof v === 'number' ? `${v.toFixed(1)} hr` : '-');
+  const fmtDays = (v: number | null | undefined) => (typeof v === 'number' ? `${v.toFixed(1)} d` : '-');
 
   return (
     <main className="watermark" style={shell}>
@@ -424,6 +432,57 @@ function StaffHome({
           </Link>
         ))}
       </div>
+
+      {role === 'admin' ? (
+        <section style={{ ...card, marginBottom: 16 }}>
+          <div style={{ ...mini, color: '#c88a3d' }}>Owner Snapshot</div>
+          <div style={{ display: 'grid', gap: 6, marginTop: 6, marginBottom: 12, color: '#d7c3a0' }}>
+            <div style={{ fontWeight: 900, fontSize: 22 }}>Today’s business view</div>
+            <div style={{ opacity: 0.84 }}>Quick counts for pickup readiness, open balances, and recent intake volume.</div>
+          </div>
+          <div style={ownerGrid}>
+            {[
+              { label: 'Ready for Pickup', value: dashboard?.readyForPickup ?? 0 },
+              { label: 'Unpaid Processing', value: dashboard?.unpaidProcessing ?? 0 },
+              { label: 'Unpaid Specialty', value: dashboard?.unpaidSpecialty ?? 0 },
+              { label: 'Intakes (Last 7 Days)', value: dashboard?.recentIntakes7d ?? 0 },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  border: '1px solid rgba(200,138,61,.14)',
+                  borderRadius: 14,
+                  padding: 14,
+                  background: 'rgba(14,13,12,.88)',
+                }}
+              >
+                <div style={{ ...mini, color: '#b7a98d' }}>{item.label}</div>
+                <div style={{ fontSize: 30, fontWeight: 950, marginTop: 6 }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ ...ownerGrid, marginTop: 12, marginBottom: 0 }}>
+            {[
+              { label: 'Avg Processing Time', value: fmtHours((dashboard as any)?.avgProcessingHours) },
+              { label: 'Avg Ready Hold Time', value: fmtDays((dashboard as any)?.avgReadyAgeDays) },
+              { label: 'Oldest Ready Deer', value: fmtDays((dashboard as any)?.oldestReadyDays) },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  border: '1px solid rgba(200,138,61,.14)',
+                  borderRadius: 14,
+                  padding: 14,
+                  background: 'rgba(14,13,12,.88)',
+                }}
+              >
+                <div style={{ ...mini, color: '#b7a98d' }}>{item.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 950, marginTop: 6 }}>{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div style={trio}>
         <div style={{ ...card, gridColumn: 'span 2' }}>
