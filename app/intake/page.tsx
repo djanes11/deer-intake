@@ -1437,7 +1437,7 @@ if (fresh?.exists && fresh.job) {
             </div>
           </div>
 
-          {customerMatches.length > 0 ? (
+          {customerLookupVisible && customerMatches.length > 0 ? (
             <div className="historyPanel">
               <div className="historyPanelTitle">Recent customer history</div>
               <div className="historyPanelList">
