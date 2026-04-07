@@ -37,6 +37,30 @@ function normalizeEmail(raw: unknown) {
   return normalizeText(raw).toLowerCase();
 }
 
+function normalizeBillingStatus(raw: unknown) {
+  const v = normalizeText(raw).toLowerCase();
+  return ['setup', 'trial', 'active', 'past_due', 'paused', 'internal'].includes(v) ? v : 'setup';
+}
+
+function normalizeBillingCycle(raw: unknown) {
+  const v = normalizeText(raw).toLowerCase();
+  return ['monthly', 'seasonal', 'annual', 'custom'].includes(v) ? v : 'monthly';
+}
+
+function normalizeMoney(raw: unknown) {
+  const text = normalizeText(raw);
+  if (!text) return null;
+  const n = Number(text.replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizeIsoDate(raw: unknown) {
+  const text = normalizeText(raw);
+  if (!text) return null;
+  const d = new Date(text);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function nextSiteSettingsId(supabase: ReturnType<typeof getSupabase>) {
   return supabase
     .from('site_settings')
@@ -98,7 +122,7 @@ export async function GET(req: Request) {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('processors')
-      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,created_at,updated_at')
+      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,billing_notes,created_at,updated_at')
       .order('slug', { ascending: true });
     if (error) throw error;
 
@@ -113,6 +137,13 @@ export async function GET(req: Request) {
         publicHostname: String(row.public_hostname || ''),
         staffHostname: String(row.staff_hostname || ''),
         features: normalizeFeatures(row.features || {}),
+        billingStatus: normalizeBillingStatus(row.billing_status),
+        billingCycle: normalizeBillingCycle(row.billing_cycle),
+        monthlyPrice: row.monthly_price == null ? null : Number(row.monthly_price),
+        trialEndsAt: row.trial_ends_at || null,
+        subscriptionStartedAt: row.subscription_started_at || null,
+        goLiveAt: row.go_live_at || null,
+        billingNotes: String(row.billing_notes || ''),
         createdAt: row.created_at || null,
         updatedAt: row.updated_at || null,
       })),
@@ -141,6 +172,13 @@ export async function POST(req: Request) {
       const publicHostname = normalizeText(body?.publicHostname).toLowerCase() || null;
       const staffHostname = normalizeText(body?.staffHostname).toLowerCase() || null;
       const features = normalizeFeatures(body?.features || {});
+      const billingStatus = normalizeBillingStatus(body?.billingStatus);
+      const billingCycle = normalizeBillingCycle(body?.billingCycle);
+      const monthlyPrice = normalizeMoney(body?.monthlyPrice);
+      const trialEndsAt = normalizeIsoDate(body?.trialEndsAt);
+      const subscriptionStartedAt = normalizeIsoDate(body?.subscriptionStartedAt);
+      const goLiveAt = normalizeIsoDate(body?.goLiveAt);
+      const billingNotes = normalizeText(body?.billingNotes) || null;
       const firstAdminEmail = normalizeEmail(body?.firstAdminEmail);
       const firstAdminPassword = normalizeText(body?.firstAdminPassword);
 
@@ -172,9 +210,16 @@ export async function POST(req: Request) {
           public_maps_url: '',
           location_label: '',
           features,
+          billing_status: billingStatus,
+          billing_cycle: billingCycle,
+          monthly_price: monthlyPrice,
+          trial_ends_at: trialEndsAt,
+          subscription_started_at: subscriptionStartedAt,
+          go_live_at: goLiveAt,
+          billing_notes: billingNotes,
           updated_at: new Date().toISOString(),
         })
-        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,created_at,updated_at')
+        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,billing_notes,created_at,updated_at')
         .single();
       if (createProcessorError) throw createProcessorError;
 
@@ -232,6 +277,13 @@ export async function POST(req: Request) {
           publicHostname: String(createdProcessor.public_hostname || ''),
           staffHostname: String(createdProcessor.staff_hostname || ''),
           features: normalizeFeatures(createdProcessor.features || {}),
+          billingStatus: normalizeBillingStatus(createdProcessor.billing_status),
+          billingCycle: normalizeBillingCycle(createdProcessor.billing_cycle),
+          monthlyPrice: createdProcessor.monthly_price == null ? null : Number(createdProcessor.monthly_price),
+          trialEndsAt: createdProcessor.trial_ends_at || null,
+          subscriptionStartedAt: createdProcessor.subscription_started_at || null,
+          goLiveAt: createdProcessor.go_live_at || null,
+          billingNotes: String(createdProcessor.billing_notes || ''),
           createdAt: createdProcessor.created_at || null,
           updatedAt: createdProcessor.updated_at || null,
         },
@@ -243,6 +295,13 @@ export async function POST(req: Request) {
       public_hostname: String(body?.publicHostname || '').trim().toLowerCase() || null,
       staff_hostname: String(body?.staffHostname || '').trim().toLowerCase() || null,
       features: normalizeFeatures(body?.features || {}),
+      billing_status: normalizeBillingStatus(body?.billingStatus),
+      billing_cycle: normalizeBillingCycle(body?.billingCycle),
+      monthly_price: normalizeMoney(body?.monthlyPrice),
+      trial_ends_at: normalizeIsoDate(body?.trialEndsAt),
+      subscription_started_at: normalizeIsoDate(body?.subscriptionStartedAt),
+      go_live_at: normalizeIsoDate(body?.goLiveAt),
+      billing_notes: normalizeText(body?.billingNotes) || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -250,7 +309,7 @@ export async function POST(req: Request) {
       .from('processors')
       .update(payload)
       .eq('id', id)
-      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,created_at,updated_at')
+      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,billing_notes,created_at,updated_at')
       .single();
     if (error) throw error;
 
@@ -265,6 +324,13 @@ export async function POST(req: Request) {
         publicHostname: String(data.public_hostname || ''),
         staffHostname: String(data.staff_hostname || ''),
         features: normalizeFeatures(data.features || {}),
+        billingStatus: normalizeBillingStatus(data.billing_status),
+        billingCycle: normalizeBillingCycle(data.billing_cycle),
+        monthlyPrice: data.monthly_price == null ? null : Number(data.monthly_price),
+        trialEndsAt: data.trial_ends_at || null,
+        subscriptionStartedAt: data.subscription_started_at || null,
+        goLiveAt: data.go_live_at || null,
+        billingNotes: String(data.billing_notes || ''),
         createdAt: data.created_at || null,
         updatedAt: data.updated_at || null,
       },

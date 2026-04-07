@@ -19,6 +19,9 @@ type ProcessorSummary = {
   plan: 'basic' | 'texting' | 'custom';
   smsEnabled: boolean;
   webbsEnabled: boolean;
+  billingStatus: 'setup' | 'trial' | 'active' | 'past_due' | 'paused' | 'internal';
+  billingCycle: 'monthly' | 'seasonal' | 'annual' | 'custom';
+  monthlyPrice: number | null;
 };
 
 function getSupabase() {
@@ -32,6 +35,18 @@ function normalizePlan(raw: any): ProcessorSummary['plan'] {
   return raw === 'texting' || raw === 'custom' ? raw : 'basic';
 }
 
+function normalizeBillingStatus(raw: any): ProcessorSummary['billingStatus'] {
+  return ['setup', 'trial', 'active', 'past_due', 'paused', 'internal'].includes(String(raw || ''))
+    ? (String(raw) as ProcessorSummary['billingStatus'])
+    : 'setup';
+}
+
+function estimatedMrrFor(row: ProcessorSummary) {
+  if (row.monthlyPrice == null) return 0;
+  if (row.billingStatus !== 'active') return 0;
+  return row.billingCycle === 'monthly' ? row.monthlyPrice : 0;
+}
+
 async function loadAdminDashboard() {
   const supabase = getSupabase();
 
@@ -39,7 +54,7 @@ async function loadAdminDashboard() {
     await Promise.all([
       supabase
         .from('processors')
-        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features')
+        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price')
         .order('slug', { ascending: true }),
       supabase
         .from('processor_users')
@@ -69,6 +84,11 @@ async function loadAdminDashboard() {
       plan: normalizePlan(rawFeatures.plan),
       smsEnabled: rawFeatures.smsEnabled !== false,
       webbsEnabled: rawFeatures.webbsEnabled !== false,
+      billingStatus: normalizeBillingStatus(row.billing_status),
+      billingCycle: ['monthly', 'seasonal', 'annual', 'custom'].includes(String(row.billing_cycle || ''))
+        ? (String(row.billing_cycle) as ProcessorSummary['billingCycle'])
+        : 'monthly',
+      monthlyPrice: row.monthly_price == null ? null : Number(row.monthly_price),
     };
   });
 
@@ -81,6 +101,16 @@ async function loadAdminDashboard() {
     { basic: 0, texting: 0, custom: 0 } as Record<ProcessorSummary['plan'], number>
   );
 
+  const billingMix = rows.reduce(
+    (acc, row) => {
+      acc[row.billingStatus] += 1;
+      return acc;
+    },
+    { setup: 0, trial: 0, active: 0, past_due: 0, paused: 0, internal: 0 } as Record<ProcessorSummary['billingStatus'], number>
+  );
+
+  const estimatedMrr = rows.reduce((sum, row) => sum + estimatedMrrFor(row), 0);
+
   return {
     processors: rows,
     totalProcessors: rows.length,
@@ -88,6 +118,8 @@ async function loadAdminDashboard() {
     staffUsers: staffCount || 0,
     recentIntakes: recentIntakes || 0,
     planMix,
+    billingMix,
+    estimatedMrr,
   };
 }
 
@@ -206,6 +238,7 @@ export default async function PlatformAdminHome() {
           { label: 'Active Processors', value: dashboard.activeProcessors },
           { label: 'Staff Memberships', value: dashboard.staffUsers },
           { label: 'Intakes (Last 7 Days)', value: dashboard.recentIntakes },
+          { label: 'Estimated MRR', value: `$${dashboard.estimatedMrr.toFixed(0)}` },
         ].map((item) => (
           <div key={item.label} style={statCard}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
@@ -270,6 +303,18 @@ export default async function PlatformAdminHome() {
             </div>
           </div>
         </div>
+
+        <div style={panel}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Billing Mix</div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Setup</span><strong>{dashboard.billingMix.setup}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Trial</span><strong>{dashboard.billingMix.trial}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Active</span><strong>{dashboard.billingMix.active}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Past Due</span><strong>{dashboard.billingMix.past_due}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Paused</span><strong>{dashboard.billingMix.paused}</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span>Internal</span><strong>{dashboard.billingMix.internal}</strong></div>
+          </div>
+        </div>
       </section>
 
       <section style={panel}>
@@ -302,6 +347,7 @@ export default async function PlatformAdminHome() {
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <span style={badge('#e2e8f0', '#0f172a')}>{processor.plan}</span>
+                <span style={badge('#fff7ed', '#9a3412')}>{processor.billingStatus.replace('_', ' ')}</span>
                 <span style={processor.smsEnabled ? badge('#dbeafe', '#1d4ed8') : badge('#e5e7eb', '#4b5563')}>
                   SMS {processor.smsEnabled ? 'on' : 'off'}
                 </span>
@@ -313,6 +359,7 @@ export default async function PlatformAdminHome() {
               <div style={{ fontSize: 14, color: '#334155', display: 'grid', gap: 6 }}>
                 <div><strong>Public:</strong> {processor.publicHostname || '-'}</div>
                 <div><strong>Staff:</strong> {processor.staffHostname || '-'}</div>
+                <div><strong>Billing:</strong> {processor.monthlyPrice != null ? `$${processor.monthlyPrice.toFixed(2)}/${processor.billingCycle}` : '-'}</div>
               </div>
             </article>
           ))}

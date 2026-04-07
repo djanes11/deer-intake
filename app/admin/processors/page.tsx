@@ -16,6 +16,13 @@ type ProcessorRow = {
     smsEnabled: boolean;
     webbsEnabled: boolean;
   };
+  billingStatus: 'setup' | 'trial' | 'active' | 'past_due' | 'paused' | 'internal';
+  billingCycle: 'monthly' | 'seasonal' | 'annual' | 'custom';
+  monthlyPrice: number | null;
+  trialEndsAt?: string | null;
+  subscriptionStartedAt?: string | null;
+  goLiveAt?: string | null;
+  billingNotes?: string;
   updatedAt?: string | null;
 };
 
@@ -38,6 +45,13 @@ type CreateProcessorForm = {
   firstAdminEmail: string;
   firstAdminPassword: string;
   features: ProcessorRow['features'];
+  billingStatus: ProcessorRow['billingStatus'];
+  billingCycle: ProcessorRow['billingCycle'];
+  monthlyPrice: string;
+  trialEndsAt: string;
+  subscriptionStartedAt: string;
+  goLiveAt: string;
+  billingNotes: string;
 };
 
 function normalizedFeaturesForPlan(features: ProcessorRow['features']) {
@@ -59,7 +73,18 @@ const EMPTY_CREATE_FORM: CreateProcessorForm = {
     smsEnabled: false,
     webbsEnabled: false,
   },
+  billingStatus: 'setup',
+  billingCycle: 'monthly',
+  monthlyPrice: '',
+  trialEndsAt: '',
+  subscriptionStartedAt: '',
+  goLiveAt: '',
+  billingNotes: '',
 };
+
+function dateInputValue(v?: string | null) {
+  return v ? String(v).slice(0, 10) : '';
+}
 
 export default function AdminProcessorsPage() {
   const [rows, setRows] = useState<ProcessorRow[]>([]);
