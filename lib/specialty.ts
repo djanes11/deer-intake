@@ -128,6 +128,28 @@ export function specialtyBreakdown(
   catalogInput?: SpecialtyCatalogItem[] | null,
 ) {
   const selected = specialtySelections(job, pricingInput, catalogInput);
+  if (selected.length && (!catalogInput || !catalogInput.length)) {
+    return selected.map((item) => ({
+      key: item.slug,
+      slug: item.slug,
+      name: item.name,
+      label: item.name,
+      shortName: item.shortName,
+      shortLabel: item.shortName,
+      unit: item.unit,
+      priceType: item.priceType,
+      price: item.pricePerUnit,
+      active: true,
+      sortOrder: item.sortOrder,
+      legacyFieldKey: item.legacyFieldKey ?? null,
+      category: 'custom' as const,
+      pounds: item.quantity,
+      quantity: item.quantity,
+      pricePerLb: item.pricePerUnit,
+      pricePerUnit: item.pricePerUnit,
+      total: item.total,
+    }));
+  }
   const catalog = specialtyCatalog(catalogInput, pricingInput);
   const bySlug = new Map(selected.map((item) => [item.slug, item]));
 
