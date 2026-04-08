@@ -7,6 +7,8 @@ import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/a
 import type { Job } from '@/lib/api';
 import { getJob, searchJobs, tokenHeader } from '@/lib/api';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
+import { specialtyBreakdown } from '@/lib/specialty';
+import { filterVisibleAddOnItems, normalizeJobAddOnItems } from '@/lib/processorCatalog';
 
 const API_RESEND = '/api/v2/reports/resend-notification';
 const API_RESET = '/api/v2/reports/reset-notification';
@@ -240,6 +242,24 @@ export default function SearchPage() {
         .filter(Boolean)
         .join(' | ')
     : '-';
+  const selectedSearchAddOns = useMemo(() => {
+    if (!selectedJob) return [];
+    return filterVisibleAddOnItems(
+      normalizeJobAddOnItems(
+        selectedJob.addOnItems ||
+          selectedJob.add_on_items ||
+          [
+            selectedJob.beefFat ? { slug: 'beef-fat', name: 'Beef Fat', selected: true, price: 5, sortOrder: 10, legacyBooleanKey: 'beefFat' } : null,
+            selectedJob.webbsOrder ? { slug: 'webbs-order', name: 'Webbs Add-On', selected: true, price: 20, sortOrder: 20, legacyBooleanKey: 'webbsOrder' } : null,
+          ].filter(Boolean)
+      ).filter((item) => item.selected),
+      webbsEnabled
+    );
+  }, [selectedJob, webbsEnabled]);
+  const selectedSearchSpecialtyItems = useMemo(() => {
+    if (!selectedJob) return [];
+    return specialtyBreakdown(selectedJob).filter((item) => item.pounds > 0);
+  }, [selectedJob]);
   const quickFacts = selectedJob
     ? [
         { label: 'Preferred Contact', value: preferredContact },
@@ -534,7 +554,20 @@ export default function SearchPage() {
                     </div>
 
                     <DetailBox title="Order Details">
-                      <div><strong>Specialty:</strong> {selectedJob.specialtyProducts ? 'Selected' : 'Not selected'}</div>
+                      <div><strong>Specialty:</strong> {selectedSearchSpecialtyItems.length ? `${selectedSearchSpecialtyItems.length} products selected` : 'Not selected'}</div>
+                      <div><strong>Add-ons:</strong> {selectedSearchAddOns.length ? selectedSearchAddOns.map((item) => item.name).join(', ') : 'No add-ons selected'}</div>
+                      {selectedSearchSpecialtyItems.length ? (
+                        <div style={{ paddingTop: 6 }}>
+                          <strong>Specialty items:</strong>
+                          <div style={{ display: 'grid', gap: 4, marginTop: 6 }}>
+                            {selectedSearchSpecialtyItems.map((item) => (
+                              <div key={`${item.key}-${item.pounds}`} style={{ color: '#374151' }}>
+                                {item.label}: {item.pounds} lb
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
                       {webbsEnabled ? (
                         <>
                           <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>

@@ -2,6 +2,8 @@
 
 import React from 'react';
 import type { CSSProperties } from 'react';
+import { specialtyBreakdown } from '@/lib/specialty';
+import { filterVisibleAddOnItems, normalizeJobAddOnItems } from '@/lib/processorCatalog';
 
 type Row = Record<string, any>;
 
@@ -60,8 +62,6 @@ export default function ButcherOverlay({
   const steaksPerPack = String(get('Steaks per Package', 'Steaks Per Package', 'steaksPerPackage') ?? '').trim();
   const burgerSize = String(get('Burger Size', 'burgerSize') ?? '').trim();
   const backstrapPrep = String(get('Backstrap Prep', 'backstrapPrep') ?? '').trim();
-  const beefFat = isOn(get('Beef Fat', 'beefFat'));
-
   const hindRoastCount = String(get('Hind Roast Count', 'hindRoastCount') ?? '').trim();
   const frontRoastCount = String(get('Front Roast Count', 'frontRoastCount') ?? '').trim();
 
@@ -78,19 +78,21 @@ export default function ButcherOverlay({
     isOn(get('Front - None', 'frontNone')) ? 'None' : '',
   ].filter(Boolean);
 
-  const specialtyItems = [
-    ['Original Summer Sausage', get('Original Summer Sausage (lb)', 'originalSummerSausageLbs')],
-    ['Summer Sausage + Cheese', get('Summer Sausage + Cheese (lb)', 'summerSausageCheeseLbs')],
-    ['Jalapeno Summer Sausage + Cheddar', get('Jalapeno Summer Sausage + Cheddar (lb)', 'jalapenoSummerSausageCheeseLbs')],
-    ['Original Snack Stix', get('Original Snack Stix (lb)', 'originalSnackSticksLbs')],
-    ['Original Snack Stix + Cheddar', get('Original Snack Stix + Cheddar (lb)', 'originalSnackSticksCheeseLbs')],
-    ['Jalapeno Snack Stix + Cheddar', get('Jalapeno Snack Stix + Cheddar (lb)', 'jalapenoSnackSticksCheeseLbs')],
-  ]
-    .map(([label, pounds]) => {
-      const value = Number(pounds ?? 0) || 0;
-      return value > 0 ? `${label}: ${value} lb` : '';
-    })
-    .filter(Boolean);
+  const addOnItems = filterVisibleAddOnItems(
+    normalizeJobAddOnItems(
+      row.addOnItems ||
+        row.add_on_items ||
+        [
+          isOn(get('Beef Fat', 'beefFat')) ? { slug: 'beef-fat', name: 'Beef Fat', selected: true, price: 5, sortOrder: 10, legacyBooleanKey: 'beefFat' } : null,
+          isOn(get('Webbs Order', 'webbsOrder')) ? { slug: 'webbs-order', name: 'Webbs Add-On', selected: true, price: 20, sortOrder: 20, legacyBooleanKey: 'webbsOrder' } : null,
+        ].filter(Boolean)
+    ).filter((item) => item.selected),
+    webbsEnabled
+  ).map((item) => `${item.name}${Number(item.price) > 0 ? ` (+$${Number(item.price).toFixed(2)})` : ''}`);
+
+  const specialtyItems = specialtyBreakdown(row as Record<string, any>)
+    .filter((item) => item.pounds > 0)
+    .map((item) => `${item.label}: ${item.pounds} lb`);
 
   const webbsItemsRaw = get('Webbs Items', 'webbsItems');
   const webbsItemsText = (() => {
@@ -243,8 +245,24 @@ export default function ButcherOverlay({
             <div style={CARD}>
               <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>Add-ons / Notes</div>
               <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ fontSize: 28, fontWeight: 800 }}>
-                  Beef Fat: <span style={{ color: beefFat ? '#8df2a8' : '#c7d4dd' }}>{beefFat ? 'YES' : 'NO'}</span>
+                <div
+                  style={{
+                    display: 'grid',
+                    gap: 10,
+                    padding: '10px 12px',
+                    borderRadius: 14,
+                    background: 'rgba(34,197,94,.08)',
+                    border: '1px solid rgba(34,197,94,.22)',
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#9fb0bb', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                    Selected Add-Ons
+                  </div>
+                  {(addOnItems.length ? addOnItems : ['No add-ons selected']).map((item) => (
+                    <div key={item} style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.18 }}>
+                      {item}
+                    </div>
+                  ))}
                 </div>
                 {notes ? (
                   <div

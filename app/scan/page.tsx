@@ -212,6 +212,7 @@ export default function ScanPage() {
       'Burger Size': j.burgerSize ?? '',
       'Steaks per Package': j.steaksPerPackage ?? '',
       'Beef Fat': j.beefFat ?? false,
+      addOnItems: j.addOnItems ?? [],
 
       'Hind Roast Count': j.hindRoastCount ?? '',
       'Front Roast Count': j.frontRoastCount ?? '',
@@ -236,6 +237,7 @@ export default function ScanPage() {
       'Paid Specialty At': j.paidSpecialtyAt ?? '',
 
       'Specialty Products': j.specialtyProducts ?? false,
+      specialtyItems: j.specialtyItems ?? [],
       'Specialty Pounds': j.specialtyPounds ?? '',
       'Original Summer Sausage (lb)': j.originalSummerSausageLbs ?? '',
       'Summer Sausage + Cheese (lb)': j.summerSausageCheeseLbs ?? '',
