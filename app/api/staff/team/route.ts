@@ -169,8 +169,11 @@ export async function POST(req: Request) {
       if (!password || password.length < 8) return NextResponse.json({ ok: false, error: 'Password must be at least 8 characters.' }, { status: 400 });
       if (role === 'admin') return NextResponse.json({ ok: false, error: 'Local staff logins can only be Staff or Read-only.' }, { status: 400 });
 
-      const existingResp = await supabase.from('staff_local_users').select('id').eq('processor_id', processor.id).ilike('username', username).maybeSingle();
+      const existingResp = await supabase.from('staff_local_users').select('id,processor_id').ilike('username', username).maybeSingle();
       if (existingResp.error) throw existingResp.error;
+      if (existingResp.data?.id && String(existingResp.data.processor_id) !== String(processor.id)) {
+        return NextResponse.json({ ok: false, error: 'That username is already in use by another processor. Choose a different username.' }, { status: 400 });
+      }
 
       const payload = {
         processor_id: processor.id,

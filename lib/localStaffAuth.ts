@@ -39,26 +39,22 @@ export function verifyLocalPassword(password: string, storedHash: string) {
   return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
-export async function createLocalStaffSession(input: { processorSlug: string; username: string; password: string }) {
+export async function createLocalStaffSession(input: { username: string; password: string }) {
   const supabase = getSupabase();
-  const slug = String(input.processorSlug || '').trim().toLowerCase();
   const username = normalizeUsername(input.username);
   const password = String(input.password || '');
-  if (!slug || !username || !password) throw new Error('Processor, username, and password are required.');
-
-  const processorResp = await supabase.from('processors').select('id,slug').eq('slug', slug).eq('active', true).maybeSingle();
-  if (processorResp.error) throw processorResp.error;
-  if (!processorResp.data?.id) throw new Error('Processor not found.');
+  if (!username || !password) throw new Error('Username and password are required.');
 
   const userResp = await supabase
     .from('staff_local_users')
-    .select('id,processor_id,username,password_hash,role,active')
-    .eq('processor_id', processorResp.data.id)
+    .select('id,processor_id,username,password_hash,role,active,processors!inner(id,slug,active)')
     .ilike('username', username)
     .maybeSingle();
   if (userResp.error) throw userResp.error;
-  const localUser = userResp.data;
+  const localUser: any = userResp.data;
+  const processor = Array.isArray(localUser?.processors) ? localUser.processors[0] : localUser?.processors;
   if (!localUser?.id || !localUser.active) throw new Error('Invalid username or password.');
+  if (!processor?.id || processor?.active === false) throw new Error('This staff login is not active right now.');
   if (!verifyLocalPassword(password, String(localUser.password_hash || ''))) throw new Error('Invalid username or password.');
 
   const sessionToken = crypto.randomBytes(48).toString('hex');
@@ -80,7 +76,7 @@ export async function createLocalStaffSession(input: { processorSlug: string; us
     session: {
       localUserId: String(localUser.id),
       processorId: String(localUser.processor_id),
-      processorSlug: String(processorResp.data.slug),
+      processorSlug: String(processor.slug),
       username: String(localUser.username),
       role: String(localUser.role) as 'staff' | 'readonly',
       active: !!localUser.active,

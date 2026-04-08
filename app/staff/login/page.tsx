@@ -12,9 +12,6 @@ export default function StaffLoginPage() {
   const next = useMemo(() => searchParams.get('next') || '/', [searchParams]);
   const [mode, setMode] = useState<'admin' | 'staff'>('admin');
   const [email, setEmail] = useState('');
-  const [processorSlug, setProcessorSlug] = useState('');
-  const [processors, setProcessors] = useState<Array<{ slug: string; name: string }>>([]);
-  const [processorListError, setProcessorListError] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -56,24 +53,6 @@ export default function StaffLoginPage() {
     };
   }, [next, router]);
 
-  useEffect(() => {
-    const loadProcessors = async () => {
-      try {
-        const res = await fetch('/api/staff/processors', { cache: 'no-store' });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json?.ok) throw new Error('Unable to load processors.');
-        const rows = Array.isArray(json?.processors) ? json.processors : [];
-        setProcessors(rows);
-        if (!processorSlug && rows[0]?.slug) {
-          setProcessorSlug(String(rows[0].slug));
-        }
-      } catch {
-        setProcessorListError(true);
-      }
-    };
-    void loadProcessors();
-  }, []);
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -96,7 +75,6 @@ export default function StaffLoginPage() {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
-            processorSlug,
             username,
             password,
           }),
@@ -161,7 +139,7 @@ export default function StaffLoginPage() {
               },
               {
                 title: 'Staff Login',
-                body: 'Best for front counter and production-floor staff using a simple processor, username, and password login created by the processor admin.',
+                body: 'Best for front counter and production-floor staff using a simple username and password login created by the processor admin.',
               },
             ].map((item) => (
               <div
@@ -202,7 +180,7 @@ export default function StaffLoginPage() {
             <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>
               {mode === 'admin'
                 ? 'Use your staff email and password to manage the processor, settings, reports, and team access.'
-                : 'Choose your processor, then enter the local username and password your processor admin created for you.'}
+                : 'Enter the username and password your processor admin created for you.'}
             </p>
           </div>
 
@@ -285,41 +263,7 @@ export default function StaffLoginPage() {
           ) : (
             <>
               <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#475569', fontSize: 14, lineHeight: 1.5 }}>
-                Local staff logins are created by a processor admin. Choose your processor, then use the username and password they gave you.
-              </div>
-              <div style={{ display: 'grid', gap: 6 }}>
-                <label style={{ fontWeight: 800, color: '#0f172a' }}>Processor</label>
-                {processors.length ? (
-                  <select
-                    value={processorSlug}
-                    onChange={(e) => setProcessorSlug(e.target.value)}
-                    required
-                    style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
-                  >
-                    {processors.map((processor) => (
-                      <option key={processor.slug} value={processor.slug}>
-                        {processor.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    autoComplete="organization"
-                    value={processorSlug}
-                    onChange={(e) => setProcessorSlug(e.target.value)}
-                    placeholder="processor code"
-                    required
-                    style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
-                  />
-                )}
-                <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
-                  {processors.length
-                    ? 'If you work for more than one processor, pick the one you are signing into right now.'
-                    : processorListError
-                      ? 'Processor list unavailable right now. Enter the processor code your admin gave you.'
-                      : 'Loading processor list...'}
-                </div>
+                Local staff logins are created by a processor admin. Use the username and password they gave you.
               </div>
               <div style={{ display: 'grid', gap: 6 }}>
                 <label style={{ fontWeight: 800, color: '#0f172a' }}>Username</label>

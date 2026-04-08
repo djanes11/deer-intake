@@ -228,7 +228,7 @@ export default function StaffTeamPage() {
 
       <div style={{ padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #d6dee8', color: '#475569', lineHeight: 1.5 }}>
         Recommended setup: keep <strong>owners/managers</strong> on email logins so they can reset their own password, and create
-        <strong> local logins</strong> for seasonal staff, family members, or anyone who just needs a simple username and password.
+        <strong> local logins</strong> for seasonal staff, family members, or anyone who just needs a simple username and password. Local usernames are unique across the platform, so choose something distinctive for your shop.
       </div>
 
       <section
@@ -329,7 +329,7 @@ export default function StaffTeamPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-                placeholder="frontdesk"
+                placeholder="mcafee-frontdesk"
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
@@ -358,7 +358,7 @@ export default function StaffTeamPage() {
             </button>
           </div>
           <div style={{ color: '#64748b', fontSize: 14 }}>
-            Best for seasonal help, family members, or shop staff who just need a simple username and password. Usernames are unique inside this processor.
+            Best for seasonal help, family members, or shop staff who just need a simple username and password. Usernames are unique across all processors, so it helps to use a shop-specific name like <strong>mcafee-frontdesk</strong>.
           </div>
         </div>
       </section>
