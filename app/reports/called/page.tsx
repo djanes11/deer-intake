@@ -3,10 +3,29 @@
 import { useEffect, useMemo, useState } from 'react';
 import { searchJobs, saveJob } from '@/lib/api';
 import { specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { formatDisplayDateTime } from '@/lib/dateFormat';
 
 export const dynamic = 'force-dynamic';
 
-/* ---------- price helpers ---------- */
+type Track = 'meat' | 'cape' | 'webbs';
+
+type Row = {
+  tag: string;
+  confirmation: string;
+  customer: string;
+  phone: string;
+  track: Track;
+  calledAt?: string;
+  readyAt?: string;
+  priceProc: number;
+  priceSpec: number;
+  totalDue: number;
+  paidProcessing?: boolean;
+  paidSpecialty?: boolean;
+  pickedUp?: boolean;
+  pickedUpAt?: string;
+};
+
 function normProc(s?: string) {
   const v = String(s || '').toLowerCase();
   if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
@@ -17,6 +36,7 @@ function normProc(s?: string) {
   if (v.includes('standard')) return 'Standard Processing';
   return '';
 }
+
 function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean) {
   const p = normProc(proc);
   const base =
@@ -27,38 +47,35 @@ function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean
   if (!base) return 0;
   return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
 }
+
 function specialtyPrice(row: any) {
   if (!row?.specialtyProducts) return 0;
   return calcSpecialtyPrice(row);
 }
 
-/* ---------- types ---------- */
-type Track = 'meat' | 'cape' | 'webbs';
-type Row = {
-  tag: string;
-  customer: string;
-  phone: string;
-  track: Track;
-  calledAt?: string;
-  priceProc: number;
-  priceSpec: number;
-  paidProcessing?: boolean;
-  pickedUp?: boolean;
-};
-
-/* ---------- helpers ---------- */
-function isCalled(s?: string) {
-  return String(s || '').trim().toLowerCase() === 'called';
+function money(value: number | null | undefined) {
+  return `$${Number(value || 0).toFixed(2)}`;
 }
 
-/**
- * Pulls "Called" items from Supabase via /api/v2/jobs
- * Requires backend support: searchJobs('@recall') returns rows.
- */
+function isCalled(value?: string) {
+  return String(value || '').trim().toLowerCase() === 'called';
+}
+
+function ageSince(value?: string) {
+  if (!value) return '-';
+  const when = new Date(value);
+  if (Number.isNaN(when.getTime())) return '-';
+  const ms = Date.now() - when.getTime();
+  if (ms < 0) return '-';
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
 async function fetchCalled(): Promise<Row[]> {
   const res = await searchJobs('@recall');
   const rows = (Array.isArray(res?.rows) ? res.rows : []) as any[];
-
   const out: Row[] = [];
 
   for (const r of rows) {
@@ -67,50 +84,116 @@ async function fetchCalled(): Promise<Row[]> {
 
     const customer = String(r?.customer ?? r?.Customer ?? r?.['Customer Name'] ?? '').trim();
     const phone = String(r?.phone ?? r?.Phone ?? '').trim();
+    const confirmation = String(r?.confirmation ?? r?.Confirmation ?? '').trim();
 
     const status = String(r?.status ?? r?.Status ?? '').trim();
     const capingStatus = String(r?.capingStatus ?? r?.['Caping Status'] ?? '').trim();
     const webbsStatus = String(r?.webbsStatus ?? r?.['Webbs Status'] ?? '').trim();
 
     const calledAt =
-      String(r?.lastCallAt ?? r?.lastCalledAt ?? r?.['Last Call At'] ?? r?.calledAt ?? '').trim();
+      String(r?.lastCallAt ?? r?.lastCalledAt ?? r?.['Last Call At'] ?? r?.calledAt ?? '').trim() || undefined;
 
-    const priceProc = suggestedProcessingPrice(
+    const savedProc = Number(
+      r?.priceProcessing ??
+      r?.price_processing ??
+      r?.processingPrice ??
+      r?.['Processing Price'] ??
+      0
+    ) || 0;
+    const savedSpec = Number(
+      r?.priceSpecialty ??
+      r?.price_specialty ??
+      r?.specialtyPrice ??
+      r?.['Specialty Price'] ??
+      0
+    ) || 0;
+
+    const priceProc = savedProc || suggestedProcessingPrice(
       r?.processType ?? r?.['Process Type'],
       !!(r?.beefFat ?? r?.['Beef Fat']),
       !!(r?.webbsOrder ?? r?.['Webbs Order'])
     );
-    const priceSpec = specialtyPrice(r);
+    const priceSpec = savedSpec || specialtyPrice(r);
 
-    const paidProcessing = !!(r?.paidProcessing ?? r?.['Paid Processing']);
-    const pickedUpProcessing = !!(r?.pickedUpProcessing ?? r?.['Picked Up - Processing']);
-    const pickedUpCape = !!(r?.pickedUpCape ?? r?.['Picked Up - Cape']);
-    const pickedUpWebbs = !!(r?.pickedUpWebbs ?? r?.['Picked Up - Webbs']);
+    const paidProcessing = !!(r?.paidProcessing ?? r?.paid_processing ?? r?.['Paid Processing']);
+    const paidSpecialty = !!(r?.paidSpecialty ?? r?.paid_specialty ?? r?.['Paid Specialty']);
+    const pickedUpProcessing = !!(r?.pickedUpProcessing ?? r?.picked_up_processing ?? r?.['Picked Up - Processing']);
+    const pickedUpCape = !!(r?.pickedUpCape ?? r?.picked_up_cape ?? r?.['Picked Up - Cape']);
+    const pickedUpWebbs = !!(r?.pickedUpWebbs ?? r?.picked_up_webbs ?? r?.['Picked Up - Webbs']);
+
+    const pickedUpProcessingAt = String(r?.pickedUpProcessingAt ?? r?.picked_up_processing_at ?? '').trim() || undefined;
+    const pickedUpCapeAt = String(r?.pickedUpCapeAt ?? r?.picked_up_cape_at ?? '').trim() || undefined;
+    const pickedUpWebbsAt = String(r?.pickedUpWebbsAt ?? r?.picked_up_webbs_at ?? '').trim() || undefined;
+
+    const processingFinishedAt = String(r?.processingFinishedAt ?? r?.processing_finished_at ?? '').trim() || undefined;
 
     if (isCalled(status)) {
-      out.push({ tag, customer, phone, track: 'meat', calledAt, priceProc, priceSpec, paidProcessing, pickedUp: pickedUpProcessing });
+      out.push({
+        tag,
+        confirmation,
+        customer,
+        phone,
+        track: 'meat',
+        calledAt,
+        readyAt: processingFinishedAt || calledAt,
+        priceProc,
+        priceSpec,
+        totalDue: (paidProcessing ? 0 : priceProc) + (paidSpecialty ? 0 : priceSpec),
+        paidProcessing,
+        paidSpecialty,
+        pickedUp: pickedUpProcessing,
+        pickedUpAt: pickedUpProcessingAt,
+      });
     }
     if (isCalled(capingStatus)) {
-      out.push({ tag, customer, phone, track: 'cape', calledAt, priceProc, priceSpec, pickedUp: pickedUpCape });
+      out.push({
+        tag,
+        confirmation,
+        customer,
+        phone,
+        track: 'cape',
+        calledAt,
+        readyAt: calledAt,
+        priceProc,
+        priceSpec,
+        totalDue: 0,
+        paidProcessing,
+        paidSpecialty,
+        pickedUp: pickedUpCape,
+        pickedUpAt: pickedUpCapeAt,
+      });
     }
     if (isCalled(webbsStatus)) {
-      out.push({ tag, customer, phone, track: 'webbs', calledAt, priceProc, priceSpec, pickedUp: pickedUpWebbs });
+      out.push({
+        tag,
+        confirmation,
+        customer,
+        phone,
+        track: 'webbs',
+        calledAt,
+        readyAt: calledAt,
+        priceProc,
+        priceSpec,
+        totalDue: 0,
+        paidProcessing,
+        paidSpecialty,
+        pickedUp: pickedUpWebbs,
+        pickedUpAt: pickedUpWebbsAt,
+      });
     }
   }
 
   const order: Record<Track, number> = { meat: 0, cape: 1, webbs: 2 };
   out.sort((a, b) => {
     const at = (a.calledAt || '').localeCompare(b.calledAt || '');
-    if (at !== 0) return -at; // newest first
+    if (at !== 0) return -at;
     return order[a.track] - order[b.track];
   });
 
   return out;
 }
 
-/* ---------- actions ---------- */
 async function markPaid(tag: string) {
-  // meat track only
   return saveJob({ tag, paidProcessing: true } as any);
 }
 
@@ -126,7 +209,6 @@ async function markPickedUp(tag: string, track: Track) {
   return saveJob({ tag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now } as any);
 }
 
-/* ---------- UI ---------- */
 function TrackBadge({ track }: { track: Track | string }) {
   const t = String(track || '').toLowerCase();
   const label = t === 'webbs' ? 'Webbs' : t === 'cape' ? 'Cape' : 'Meat';
@@ -156,6 +238,16 @@ function TrackBadge({ track }: { track: Track | string }) {
   );
 }
 
+function PaymentBadge({ row }: { row: Row }) {
+  if (row.track !== 'meat') {
+    return <span className="badge neutral">Included</span>;
+  }
+  if (row.totalDue > 0) {
+    return <span className="badge warn">{money(row.totalDue)} due</span>;
+  }
+  return <span className="badge ok">Paid</span>;
+}
+
 export default function CalledPickupQueue() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,6 +261,21 @@ export default function CalledPickupQueue() {
     () => rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
     [rows, selectedKey]
   );
+
+  const summary = useMemo(() => {
+    const openRows = rows.filter((row) => !row.pickedUp);
+    const readyUnpaid = openRows.filter((row) => row.track === 'meat' && row.totalDue > 0);
+    const pickedUpRows = rows.filter((row) => row.pickedUp);
+    return {
+      openCount: openRows.length,
+      readyUnpaidCount: readyUnpaid.length,
+      readyUnpaidTotal: readyUnpaid.reduce((sum, row) => sum + row.totalDue, 0),
+      pickedUpTodayCount: pickedUpRows.filter((row) => {
+        if (!row.pickedUpAt) return false;
+        return row.pickedUpAt.slice(0, 10) === new Date().toISOString().slice(0, 10);
+      }).length,
+    };
+  }, [rows]);
 
   async function load() {
     setLoading(true);
@@ -212,8 +319,7 @@ export default function CalledPickupQueue() {
   }, []);
 
   const canUpdate = staffRole === 'admin' || staffRole === 'staff';
-
-  const gridCols = '0.7fr 1.2fr 1.1fr 0.7fr 0.9fr 0.7fr 0.7fr 0.6fr 0.7fr';
+  const gridCols = '0.8fr 1.5fr 0.8fr 0.9fr 1fr 0.9fr 0.8fr 0.8fr';
 
   function openIntake(tag: string) {
     const url = canUpdate ? `/intake?tag=${encodeURIComponent(tag)}` : `/intake/${encodeURIComponent(tag)}`;
@@ -221,151 +327,444 @@ export default function CalledPickupQueue() {
   }
 
   return (
-    <main style={{ maxWidth: 1200, margin: '18px auto', padding: '0 14px 40px' }}>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <h2 style={{ margin: 0, flex: '1 1 auto', color: '#e5e7eb' }}>Called — Pickup Queue</h2>
-          <button onClick={load} className="btn small">{loading ? 'Refreshing…' : 'Refresh'}</button>
+    <main style={{ maxWidth: 1240, margin: '18px auto', padding: '0 14px 40px', display: 'grid', gap: 14 }}>
+      <section
+        style={{
+          padding: '18px 20px',
+          borderRadius: 18,
+          background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+          color: '#f8fafc',
+          border: '1px solid #334155',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 420px' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#cbd5e1' }}>
+              Pickup Workflow
+            </div>
+            <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Called Pickup Queue</h1>
+            <div style={{ color: 'rgba(248,250,252,.84)', maxWidth: 760, lineHeight: 1.5 }}>
+              Review what is ready, see whether money is still owed, and move each meat, cape, or Webbs track through pickup with less guesswork.
+            </div>
+          </div>
+          <button onClick={load} className="btn small">{loading ? 'Refreshing...' : 'Refresh'}</button>
         </div>
+      </section>
 
-        {err && <div className="err" style={{ marginBottom: 8 }}>{err}</div>}
-        {!canUpdate && (
-          <div className="card" style={{ marginBottom: 10, background: '#eef2ff', borderColor: '#c7d2fe', color: '#3730a3', fontWeight: 700 }}>
-            Read-only access: you can review this queue and open printable intake details, but only Staff or Admin can mark items paid or picked up.
-          </div>
-        )}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div className="metric-card">
+          <div className="metric-label">Open Pickup Items</div>
+          <div className="metric-value">{summary.openCount}</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Ready & Unpaid</div>
+          <div className="metric-value">{summary.readyUnpaidCount}</div>
+          <div className="metric-sub">{money(summary.readyUnpaidTotal)} still open</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Picked Up Today</div>
+          <div className="metric-value">{summary.pickedUpTodayCount}</div>
+        </div>
+      </section>
 
-        {loading ? (
-          <div className="muted">Loading…</div>
-        ) : rows.length === 0 ? (
-          <div className="empty">Nobody currently in Called.</div>
-        ) : (
-          <div className="table">
-            <div className="thead" style={{ gridTemplateColumns: gridCols }}>
-              <div>Tag</div>
-              <div>Name</div>
-              <div>Phone</div>
-              <div>Track</div>
-              <div>Called At</div>
-              <div>Proc $</div>
-              <div>Spec $</div>
-              <div>Paid?</div>
-              <div>Picked Up</div>
+      {err && <div className="err">{err}</div>}
+      {!canUpdate && (
+        <div className="card readonly-banner">
+          Read-only access: you can review this queue and open printable intake details, but only Staff or Admin can mark processing paid or complete pickup actions.
+        </div>
+      )}
+
+      {selected ? (
+        <section className="selected-card">
+          <div className="selected-top">
+            <div>
+              <div className="selected-eyebrow">Selected Pickup</div>
+              <div className="selected-title">
+                {selected.customer || 'Unknown customer'}
+                <span className="selected-tag">Tag {selected.tag}</span>
+              </div>
+              <div className="selected-meta">
+                <span>Confirmation {selected.confirmation || '-'}</span>
+                <span>{selected.phone || 'No phone'}</span>
+                <span>{selected.calledAt ? `Called ${formatDisplayDateTime(selected.calledAt)}` : 'Not stamped yet'}</span>
+              </div>
             </div>
+            <TrackBadge track={selected.track} />
+          </div>
 
-            {rows.map((r, i) => {
-              const key = `${r.tag}|${r.track}`;
-              const isSel = key === selectedKey;
-              return (
-                <div
-                  key={`${r.tag}:${r.track}:${r.calledAt || ''}`}
-                  className={`trow ${isSel ? 'selected' : ''} ${i % 2 ? 'odd' : ''}`}
-                  onClick={() => setSelectedKey(key)}
-                  style={{ gridTemplateColumns: gridCols }}
-                  title="Click to select"
-                >
-                  <div>
-                    <a
-                      href={canUpdate ? `/intake?tag=${encodeURIComponent(r.tag)}` : `/intake/${encodeURIComponent(r.tag)}`}
-                      target="_blank"
-                      rel="noopener"
-                      onClick={(e) => { e.stopPropagation(); openIntake(r.tag); }}
-                    >
-                      {r.tag || '—'}
-                    </a>
-                  </div>
-                  <div>{r.customer || ''}</div>
-                  <div>{r.phone || ''}</div>
-                  <div><TrackBadge track={r.track} /></div>
-                  <div>{r.calledAt || ''}</div>
-                  <div className="num">${r.priceProc.toFixed(2)}</div>
-                  <div className="num">${r.priceSpec.toFixed(2)}</div>
-                  <div>{r.track === 'meat' ? (r.paidProcessing ? <span className="badge ok">Paid</span> : <span className="badge">No</span>) : <span className="muted">—</span>}</div>
-                  <div>{r.pickedUp ? <span className="badge ok">Yes</span> : <span className="badge">No</span>}</div>
+          <div className="selected-grid">
+            <div className="fact">
+              <div className="fact-label">Balance</div>
+              <div className="fact-value">{selected.track === 'meat' ? money(selected.totalDue) : 'Included'}</div>
+              <div className="fact-sub">
+                {selected.track === 'meat'
+                  ? `Processing ${money(selected.paidProcessing ? 0 : selected.priceProc)} | Specialty ${money(selected.paidSpecialty ? 0 : selected.priceSpec)}`
+                  : 'No pickup balance on this track'}
+              </div>
+            </div>
+            <div className="fact">
+              <div className="fact-label">Payment</div>
+              <div className="fact-value">
+                {selected.track === 'meat'
+                  ? selected.totalDue > 0 ? 'Collect at pickup' : 'Already paid'
+                  : 'Not required'}
+              </div>
+              <div className="fact-sub">
+                {selected.track === 'meat'
+                  ? selected.totalDue > 0 ? 'Mark paid before or during handoff.' : 'Safe to hand off when picked up.'
+                  : 'Cape and Webbs tracks do not carry a separate balance here.'}
+              </div>
+            </div>
+            <div className="fact">
+              <div className="fact-label">Waiting</div>
+              <div className="fact-value">{ageSince(selected.calledAt)}</div>
+              <div className="fact-sub">
+                {selected.calledAt ? formatDisplayDateTime(selected.calledAt) : 'No called timestamp'}
+              </div>
+            </div>
+            <div className="fact">
+              <div className="fact-label">Pickup Status</div>
+              <div className="fact-value">{selected.pickedUp ? 'Picked up' : 'Awaiting pickup'}</div>
+              <div className="fact-sub">
+                {selected.pickedUpAt ? formatDisplayDateTime(selected.pickedUpAt) : 'Still in called queue'}
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {loading ? (
+        <div className="empty">Loading...</div>
+      ) : rows.length === 0 ? (
+        <div className="empty">Nobody currently in Called.</div>
+      ) : (
+        <div className="table-wrap">
+          <div className="thead" style={{ gridTemplateColumns: gridCols }}>
+            <div>Tag</div>
+            <div>Customer</div>
+            <div>Track</div>
+            <div>Called</div>
+            <div>Balance</div>
+            <div>Payment</div>
+            <div>Waiting</div>
+            <div>Pickup</div>
+          </div>
+
+          {rows.map((r, i) => {
+            const key = `${r.tag}|${r.track}`;
+            const isSel = key === selectedKey;
+            return (
+              <div
+                key={`${r.tag}:${r.track}:${r.calledAt || ''}`}
+                className={`trow ${isSel ? 'selected' : ''} ${i % 2 ? 'odd' : ''}`}
+                onClick={() => setSelectedKey(key)}
+                style={{ gridTemplateColumns: gridCols }}
+                title="Click to select"
+              >
+                <div>
+                  <a
+                    href={canUpdate ? `/intake?tag=${encodeURIComponent(r.tag)}` : `/intake/${encodeURIComponent(r.tag)}`}
+                    target="_blank"
+                    rel="noopener"
+                    onClick={(e) => { e.stopPropagation(); openIntake(r.tag); }}
+                  >
+                    {r.tag || '-'}
+                  </a>
                 </div>
-              );
-            })}
+                <div className="customer-cell">
+                  <div className="customer-name">{r.customer || '-'}</div>
+                  <div className="customer-sub">
+                    Confirmation {r.confirmation || '-'}
+                    {r.phone ? ` | ${r.phone}` : ''}
+                  </div>
+                </div>
+                <div><TrackBadge track={r.track} /></div>
+                <div>{r.calledAt ? formatDisplayDateTime(r.calledAt) : '-'}</div>
+                <div className="balance-cell">
+                  <div className="balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
+                  {r.track === 'meat' ? (
+                    <div className="balance-sub">
+                      Proc {money(r.paidProcessing ? 0 : r.priceProc)} | Spec {money(r.paidSpecialty ? 0 : r.priceSpec)}
+                    </div>
+                  ) : (
+                    <div className="balance-sub">No charge on this track</div>
+                  )}
+                </div>
+                <div><PaymentBadge row={r} /></div>
+                <div>{ageSince(r.calledAt)}</div>
+                <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge">Waiting</span>}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="toolbar">
+        <div className="toolbar-inner">
+          <div className="sel">
+            {selected ? (
+              <>
+                <span className="pill">#{selected.tag}</span>{' '}
+                <span className="pill small">{selected.track === 'meat' ? 'Meat' : selected.track === 'cape' ? 'Cape' : 'Webbs'}</span>{' '}
+                <span className="muted">{selected.customer || '-'}</span>{' '}
+                <span className="muted">| Due {selected.track === 'meat' ? money(selected.totalDue) : 'Included'}</span>
+              </>
+            ) : (
+              <span className="muted">Select a row to take action</span>
+            )}
           </div>
-        )}
 
-        <div className="toolbar">
-          <div className="toolbar-inner">
-            <div className="sel">
-              {selected ? (
-                <>
-                  <span className="pill">#{selected.tag}</span>{' '}
-                  <span className="pill small">{selected.track === 'meat' ? 'Meat' : selected.track === 'cape' ? 'Cape' : 'Webbs'}</span>{' '}
-                  <span className="muted">{selected.customer || '—'}</span>{' '}
-                  {selected.calledAt ? <span className="muted">• {selected.calledAt}</span> : null}
-                  <span className="muted"> • Proc {selected.priceProc.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-                  <span className="muted"> • Spec {selected.priceSpec.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</span>
-                </>
-              ) : (
-                <span className="muted">Select a row to take action</span>
-              )}
-            </div>
+          <div className="toolbar-actions">
+            <button
+              className="btn secondary small"
+              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}` || selected?.track !== 'meat' || !!selected?.paidProcessing}
+              title={!canUpdate ? 'Only Staff or Admin can mark processing as paid.' : undefined}
+              onClick={async () => {
+                if (!selected) return;
+                setBusy(`paid:${selected.tag}`);
+                try {
+                  await markPaid(selected.tag);
+                  await load();
+                } finally {
+                  setBusy('');
+                }
+              }}
+            >
+              {busy === `paid:${selected?.tag}` ? 'Saving...' : selected?.track === 'meat' && selected?.totalDue > 0 ? `Mark Paid ${money(selected?.priceProc || 0)}` : 'Mark Paid'}
+            </button>
 
-            <div className="toolbar-actions">
-              <button
-                className="btn secondary small"
-                disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}` || selected?.track !== 'meat' || !!selected?.paidProcessing}
-                title={!canUpdate ? 'Only Staff or Admin can mark processing as paid.' : undefined}
-                onClick={async () => {
-                  if (!selected) return;
-                  setBusy(`paid:${selected.tag}`);
-                  try {
-                    await markPaid(selected.tag);
-                    await load();
-                  } finally {
-                    setBusy('');
-                  }
-                }}
-              >
-                {busy === `paid:${selected?.tag}` ? 'Saving…' : 'Mark Paid'}
-              </button>
-
-              <button
-                className="btn small"
-                disabled={!canUpdate || !selected || busy === `pu:${selected?.tag}:${selected?.track}` || !!selected?.pickedUp}
-                title={!canUpdate ? 'Only Staff or Admin can mark items picked up.' : undefined}
-                onClick={async () => {
-                  if (!selected) return;
-                  setBusy(`pu:${selected.tag}:${selected.track}`);
-                  try {
-                    await markPickedUp(selected.tag, selected.track);
-                    await load();
-                  } finally {
-                    setBusy('');
-                  }
-                }}
-              >
-                {busy === `pu:${selected?.tag}:${selected?.track}` ? 'Saving…' : 'Picked Up'}
-              </button>
-            </div>
+            <button
+              className="btn small"
+              disabled={!canUpdate || !selected || busy === `pu:${selected?.tag}:${selected?.track}` || !!selected?.pickedUp}
+              title={!canUpdate ? 'Only Staff or Admin can mark items picked up.' : undefined}
+              onClick={async () => {
+                if (!selected) return;
+                setBusy(`pu:${selected.tag}:${selected.track}`);
+                try {
+                  await markPickedUp(selected.tag, selected.track);
+                  await load();
+                } finally {
+                  setBusy('');
+                }
+              }}
+            >
+              {busy === `pu:${selected?.tag}:${selected?.track}` ? 'Saving...' : selected?.pickedUp ? 'Picked Up' : `Mark ${selected?.track === 'meat' ? 'Picked Up' : 'Handed Off'}`}
+            </button>
           </div>
         </div>
       </div>
 
       <style jsx>{`
-        .table { background:#101715; border:1px solid #1f2c24; border-radius:12px; overflow:hidden; color:#e5e7eb; }
-        .thead { display:grid; gap:8px; font-weight:800; padding:12px 12px; border-bottom:1px solid #1f2c24; background:#0c120f; font-size:15px; }
-        .trow { display:grid; gap:8px; align-items:center; padding:12px 12px; border-bottom:1px solid #152019; background:#101715; cursor:pointer; }
-        .trow.odd { background:#122019; }
-        .trow.selected { outline:2px solid #1f6f3e; outline-offset:-2px; background:#062d25 !important; }
-        a { color:#9fe3b4; font-weight:800; text-decoration:underline; }
-        .num { font-variant-numeric: tabular-nums; text-align:right; }
-        .badge { display:inline-block; padding:2px 8px; border-radius:999px; background:#1f2937; color:#fff; font-weight:800; font-size:12px; }
-        .badge.ok { background:#235532; }
-        .muted { color:#9ca3af; }
-        .empty { background:#101715; border:1px solid #1f2c24; color:#e5e7eb; border-radius:12px; padding:12px; }
-        .btn { padding:8px 12px; border:1px solid #235532; border-radius:10px; background:#2f6f3f; color:#fff; font-weight:800; cursor:pointer; }
-        .btn.secondary { background:#101715; color:#e5e7eb; border-color:#304336; }
-        .btn.small { padding:6px 10px; font-size:14px; }
-        .btn:disabled { opacity:.6; cursor:not-allowed; }
-        .toolbar { position: sticky; bottom: 0; z-index: 15; margin-top: 10px; background: #0b0f12; border-top: 1px solid #111827; box-shadow: 0 -8px 30px rgba(0,0,0,.25); }
-        .toolbar-inner { max-width: 1150px; margin: 0 auto; padding: 10px 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; color:#e5e7eb; }
-        .pill { display:inline-block; padding:2px 8px; border-radius:999px; background:#111827; color:#e5e7eb; font-weight:800; }
-        .pill.small { padding:2px 8px; }
+        .metric-card {
+          border: 1px solid rgba(154, 116, 60, 0.18);
+          border-radius: 16px;
+          padding: 16px;
+          background: rgba(14, 13, 12, 0.88);
+          color: #f8fafc;
+        }
+        .metric-label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b7a98d;
+        }
+        .metric-value {
+          font-size: 28px;
+          font-weight: 950;
+          margin-top: 8px;
+        }
+        .metric-sub {
+          margin-top: 4px;
+          color: #b7a98d;
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .readonly-banner {
+          background: #eef2ff;
+          border-color: #c7d2fe;
+          color: #3730a3;
+          font-weight: 700;
+        }
+        .selected-card {
+          border: 1px solid #304336;
+          border-radius: 18px;
+          background: linear-gradient(180deg, rgba(14, 17, 15, 0.96) 0%, rgba(10, 12, 11, 0.98) 100%);
+          color: #f8fafc;
+          padding: 18px;
+          display: grid;
+          gap: 16px;
+        }
+        .selected-top {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: flex-start;
+          flex-wrap: wrap;
+        }
+        .selected-eyebrow {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b7a98d;
+        }
+        .selected-title {
+          margin-top: 6px;
+          font-size: 28px;
+          font-weight: 950;
+          line-height: 1.05;
+        }
+        .selected-tag {
+          margin-left: 10px;
+          font-size: 14px;
+          color: #cbd5e1;
+          font-weight: 800;
+        }
+        .selected-meta {
+          margin-top: 8px;
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+          color: rgba(248, 250, 252, 0.8);
+          font-size: 14px;
+        }
+        .selected-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 12px;
+        }
+        .fact {
+          border: 1px solid rgba(154, 116, 60, 0.16);
+          border-radius: 14px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.03);
+        }
+        .fact-label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b7a98d;
+        }
+        .fact-value {
+          margin-top: 8px;
+          font-size: 22px;
+          font-weight: 900;
+        }
+        .fact-sub {
+          margin-top: 6px;
+          color: #cbd5e1;
+          font-size: 13px;
+          line-height: 1.4;
+        }
+        .table-wrap {
+          background: #101715;
+          border: 1px solid #1f2c24;
+          border-radius: 12px;
+          overflow: hidden;
+          color: #e5e7eb;
+        }
+        .thead {
+          display: grid;
+          gap: 8px;
+          font-weight: 800;
+          padding: 12px 12px;
+          border-bottom: 1px solid #1f2c24;
+          background: #0c120f;
+          font-size: 15px;
+        }
+        .trow {
+          display: grid;
+          gap: 8px;
+          align-items: center;
+          padding: 12px 12px;
+          border-bottom: 1px solid #152019;
+          background: #101715;
+          cursor: pointer;
+        }
+        .trow.odd { background: #122019; }
+        .trow.selected { outline: 2px solid #1f6f3e; outline-offset: -2px; background: #062d25 !important; }
+        a { color: #9fe3b4; font-weight: 800; text-decoration: underline; }
+        .customer-cell { display: grid; gap: 4px; }
+        .customer-name { font-weight: 850; }
+        .customer-sub, .balance-sub { color: #9ca3af; font-size: 13px; }
+        .balance-main { font-weight: 900; }
+        .badge {
+          display: inline-block;
+          padding: 3px 9px;
+          border-radius: 999px;
+          background: #1f2937;
+          color: #fff;
+          font-weight: 800;
+          font-size: 12px;
+        }
+        .badge.ok { background: #235532; }
+        .badge.warn { background: #9a3412; }
+        .badge.neutral { background: #374151; }
+        .muted { color: #9ca3af; }
+        .empty {
+          background: #101715;
+          border: 1px solid #1f2c24;
+          color: #e5e7eb;
+          border-radius: 12px;
+          padding: 12px;
+        }
+        .err {
+          background: #fff1f2;
+          border: 1px solid #fecdd3;
+          color: #be123c;
+          border-radius: 12px;
+          padding: 12px;
+          font-weight: 800;
+        }
+        .btn {
+          padding: 8px 12px;
+          border: 1px solid #235532;
+          border-radius: 10px;
+          background: #2f6f3f;
+          color: #fff;
+          font-weight: 800;
+          cursor: pointer;
+        }
+        .btn.secondary { background: #101715; color: #e5e7eb; border-color: #304336; }
+        .btn.small { padding: 6px 10px; font-size: 14px; }
+        .btn:disabled { opacity: .6; cursor: not-allowed; }
+        .toolbar {
+          position: sticky;
+          bottom: 0;
+          z-index: 15;
+          margin-top: 10px;
+          background: #0b0f12;
+          border-top: 1px solid #111827;
+          box-shadow: 0 -8px 30px rgba(0,0,0,.25);
+        }
+        .toolbar-inner {
+          max-width: 1190px;
+          margin: 0 auto;
+          padding: 10px 12px;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          justify-content: space-between;
+          color: #e5e7eb;
+          flex-wrap: wrap;
+        }
+        .pill {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: #111827;
+          color: #e5e7eb;
+          font-weight: 800;
+        }
+        .pill.small { padding: 2px 8px; }
+        .toolbar-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
       `}</style>
     </main>
   );
