@@ -115,66 +115,186 @@ export default function StaffLoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: 460, margin: '48px auto', padding: '0 16px' }}>
-      <div className="card" style={{ padding: 20, display: 'grid', gap: 14 }}>
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
-            Wild Game Butcher Board
+    <main style={{ maxWidth: 1080, margin: '34px auto', padding: '0 16px' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(280px, 0.95fr) minmax(360px, 460px)',
+          gap: 20,
+          alignItems: 'stretch',
+        }}
+      >
+        <section
+          style={{
+            borderRadius: 24,
+            padding: 28,
+            border: '1px solid rgba(200,138,61,.18)',
+            background:
+              'radial-gradient(circle at top right, rgba(200,138,61,.16) 0%, transparent 30%), linear-gradient(180deg, rgba(21,20,19,.96) 0%, rgba(13,12,11,.98) 100%)',
+            color: '#f5ecd8',
+            display: 'grid',
+            gap: 18,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <img
+              src="/wgbb-logo.png"
+              alt="Wild Game Butcher Board"
+              style={{ width: 72, height: 72, objectFit: 'contain', borderRadius: 18, boxShadow: '0 10px 24px rgba(0,0,0,.28)' }}
+            />
+            <div style={{ display: 'grid', gap: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#d1b07a' }}>
+                Staff Portal
+              </div>
+              <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.02, color: '#fff7e8' }}>Wild Game Butcher Board</h1>
+              <div style={{ color: 'rgba(245,236,216,.78)', fontSize: 15 }}>
+                Deer processing operations, intake, and pickup workflow in one place.
+              </div>
+            </div>
           </div>
-          <h1 style={{ margin: '6px 0 0', fontSize: 30 }}>Staff Login</h1>
-          <p className="muted" style={{ marginTop: 8 }}>
-            Use an email login for processor owners and admins, or a simple username login for regular shop staff.
-          </p>
-        </div>
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button type="button" className="btn" style={{ opacity: mode === 'admin' ? 1 : 0.72 }} onClick={() => setMode('admin')}>
-            Processor Admin
-          </button>
-          <button type="button" className="btn secondary" style={{ opacity: mode === 'staff' ? 1 : 0.82 }} onClick={() => setMode('staff')}>
-            Staff Login
-          </button>
-        </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {[
+              {
+                title: 'Processor Admin Login',
+                body: 'Best for owners and managers who need email recovery, public site settings, staff management, and business reporting.',
+              },
+              {
+                title: 'Staff Login',
+                body: 'Best for front counter and production-floor staff using a simple processor, username, and password login created by the processor admin.',
+              },
+            ].map((item) => (
+              <div
+                key={item.title}
+                style={{
+                  padding: 16,
+                  borderRadius: 16,
+                  background: 'rgba(255,255,255,.04)',
+                  border: '1px solid rgba(255,255,255,.08)',
+                  display: 'grid',
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: 17, color: '#fff7e8' }}>{item.title}</div>
+                <div style={{ lineHeight: 1.5, color: 'rgba(245,236,216,.78)' }}>{item.body}</div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-        <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+        <section
+          className="card"
+          style={{
+            padding: 22,
+            display: 'grid',
+            gap: 16,
+            borderRadius: 24,
+            border: '1px solid rgba(200,138,61,.18)',
+            background: 'rgba(255,255,255,.97)',
+            boxShadow: '0 18px 44px rgba(15,23,42,.14)',
+          }}
+        >
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8a5a20' }}>
+              Secure Sign In
+            </div>
+            <div style={{ fontSize: 30, fontWeight: 950, color: '#111827' }}>{mode === 'admin' ? 'Processor Admin Login' : 'Staff Login'}</div>
+            <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>
+              {mode === 'admin'
+                ? 'Use your staff email and password to manage the processor, settings, reports, and team access.'
+                : 'Choose your processor, then enter the local username and password your processor admin created for you.'}
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: 8,
+              padding: 6,
+              borderRadius: 16,
+              background: '#f6efe3',
+              border: '1px solid #ead9bf',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMode('admin')}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 12,
+                border: mode === 'admin' ? '1px solid #c88a3d' : '1px solid transparent',
+                background: mode === 'admin' ? '#fffaf2' : 'transparent',
+                color: mode === 'admin' ? '#111827' : '#6b7280',
+                fontWeight: 900,
+                cursor: 'pointer',
+                boxShadow: mode === 'admin' ? '0 6px 18px rgba(200,138,61,.12)' : 'none',
+              }}
+            >
+              Processor Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('staff')}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 12,
+                border: mode === 'staff' ? '1px solid #c88a3d' : '1px solid transparent',
+                background: mode === 'staff' ? '#fffaf2' : 'transparent',
+                color: mode === 'staff' ? '#111827' : '#6b7280',
+                fontWeight: 900,
+                cursor: 'pointer',
+                boxShadow: mode === 'staff' ? '0 6px 18px rgba(200,138,61,.12)' : 'none',
+              }}
+            >
+              Staff Login
+            </button>
+          </div>
+
+          <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
           {mode === 'admin' ? (
             <>
-              <div style={{ padding: 10, borderRadius: 12, background: '#f8fafc', color: '#475569', fontSize: 14, lineHeight: 1.45 }}>
+              <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#475569', fontSize: 14, lineHeight: 1.5 }}>
                 Processor admins use email and password so they can recover their own access and manage the rest of the team.
               </div>
-              <div>
-                <label>Staff email</label>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Staff email</label>
                 <input
                   type="email"
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@processor.com"
                   required
+                  style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
                 />
               </div>
-              <div>
-                <label>Password</label>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Password</label>
                 <input
                   type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                   required
+                  style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
                 />
               </div>
             </>
           ) : (
             <>
-              <div style={{ padding: 10, borderRadius: 12, background: '#f8fafc', color: '#475569', fontSize: 14, lineHeight: 1.45 }}>
+              <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#475569', fontSize: 14, lineHeight: 1.5 }}>
                 Local staff logins are created by a processor admin. Choose your processor, then use the username and password they gave you.
               </div>
-              <div>
-                <label>Processor</label>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Processor</label>
                 {processors.length ? (
                   <select
                     value={processorSlug}
                     onChange={(e) => setProcessorSlug(e.target.value)}
                     required
+                    style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
                   >
                     {processors.map((processor) => (
                       <option key={processor.slug} value={processor.slug}>
@@ -190,6 +310,7 @@ export default function StaffLoginPage() {
                     onChange={(e) => setProcessorSlug(e.target.value)}
                     placeholder="processor code"
                     required
+                    style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
                   />
                 )}
                 <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
@@ -200,30 +321,50 @@ export default function StaffLoginPage() {
                       : 'Loading processor list...'}
                 </div>
               </div>
-              <div>
-                <label>Username</label>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Username</label>
                 <input
                   type="text"
                   autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your username"
                   required
+                  style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
                 />
               </div>
-              <div>
-                <label>Password</label>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Password</label>
                 <input
                   type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
                   required
+                  style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
                 />
               </div>
             </>
           )}
-          {error ? <div style={{ color: '#b91c1c', fontSize: 14 }}>{error}</div> : null}
-          <button className="btn" type="submit" disabled={busy}>
+          {error ? (
+            <div style={{ color: '#b91c1c', fontSize: 14, fontWeight: 700, padding: 12, borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
+              {error}
+            </div>
+          ) : null}
+          <button
+            className="btn"
+            type="submit"
+            disabled={busy}
+            style={{
+              width: '100%',
+              justifyContent: 'center',
+              padding: '14px 16px',
+              borderRadius: 14,
+              fontSize: 16,
+              fontWeight: 900,
+            }}
+          >
             {busy ? 'Signing In...' : 'Sign In'}
           </button>
           {mode === 'admin' ? (
@@ -233,11 +374,12 @@ export default function StaffLoginPage() {
               </Link>
             </div>
           ) : (
-            <div style={{ color: '#64748b', fontSize: 14 }}>
+            <div style={{ color: '#64748b', fontSize: 14, lineHeight: 1.5 }}>
               If you forget a local staff password, ask a processor admin to reset it from <strong>Staff Team</strong>.
             </div>
           )}
-        </form>
+          </form>
+        </section>
       </div>
     </main>
   );

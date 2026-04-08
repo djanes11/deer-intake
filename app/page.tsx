@@ -483,6 +483,7 @@ function StaffHome({
   });
   const fmtHours = (v: number | null | undefined) => (typeof v === 'number' ? `${v.toFixed(1)} hr` : '-');
   const fmtDays = (v: number | null | undefined) => (typeof v === 'number' ? `${v.toFixed(1)} d` : '-');
+  const fmtMoney = (v: number | null | undefined) => (typeof v === 'number' ? `$${v.toFixed(2)}` : '$0.00');
 
   return (
     <main className="watermark" style={shell}>
@@ -610,6 +611,8 @@ function StaffHome({
               { label: 'Unpaid Processing', value: dashboard?.unpaidProcessing ?? 0 },
               { label: 'Unpaid Specialty', value: dashboard?.unpaidSpecialty ?? 0 },
               { label: 'Intakes (Last 7 Days)', value: dashboard?.recentIntakes7d ?? 0 },
+              { label: 'Open Balance', value: fmtMoney(((dashboard as any)?.openProcessingAmount ?? 0) + ((dashboard as any)?.openSpecialtyAmount ?? 0)) },
+              { label: 'Ready & Unpaid', value: fmtMoney((dashboard as any)?.readyUnpaidAmount ?? 0) },
             ].map((item) => (
               <div
                 key={item.label}
@@ -646,23 +649,42 @@ function StaffHome({
             ))}
           </div>
           <div style={{ marginTop: 14 }}>
-            <Link
-              href="/reports/owner-insights"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 14px',
-                borderRadius: 10,
-                textDecoration: 'none',
-                fontWeight: 900,
-                color: '#f1e7cf',
-                border: '1px solid rgba(200,138,61,.24)',
-                background: 'rgba(21,20,19,.92)',
-              }}
-            >
-              Open detailed owner insights
-            </Link>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Link
+                href="/reports/owner-insights"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  textDecoration: 'none',
+                  fontWeight: 900,
+                  color: '#f1e7cf',
+                  border: '1px solid rgba(200,138,61,.24)',
+                  background: 'rgba(21,20,19,.92)',
+                }}
+              >
+                Open detailed owner insights
+              </Link>
+              <Link
+                href="/reports/balances"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  textDecoration: 'none',
+                  fontWeight: 900,
+                  color: '#f1e7cf',
+                  border: '1px solid rgba(88,141,102,.24)',
+                  background: 'rgba(21,20,19,.92)',
+                }}
+              >
+                Open balance report
+              </Link>
+            </div>
           </div>
         </section>
       ) : null}
