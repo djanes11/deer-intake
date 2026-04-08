@@ -46,6 +46,42 @@ export default async function Home() {
 function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPublicSiteSettings>> | null }) {
   const pricing = settings?.pricing;
   const branding = settings?.branding;
+  const features = settings?.features;
+  const hours = settings?.hours || [];
+  const pricingRows = [
+    { label: 'Standard Processing', value: pricing?.standard_processing_price ?? 130, note: 'Base deer processing' },
+    { label: 'Caped', value: pricing?.caped_price ?? 150, note: 'Includes cape handling' },
+    { label: 'Cape & Donate', value: pricing?.cape_donate_price ?? 50, note: 'Cape work with meat donation' },
+    { label: 'Beef Fat Add-On', value: pricing?.beef_fat_add_on ?? 5, note: 'Added to burger on request', prefix: '+' },
+    ...(features?.webbsEnabled
+      ? [{ label: 'Webbs Add-On', value: pricing?.webbs_add_on ?? 20, note: 'Optional custom add-on', prefix: '+' as const }]
+      : []),
+  ];
+  const serviceHighlights = [
+    {
+      title: 'After-hours drop-off',
+      body: 'Submit your intake online, leave your deer with your confirmation details, and staff will assign the permanent tag the next morning.',
+    },
+    {
+      title: features?.smsEnabled ? 'Text or email updates' : 'Status updates online',
+      body: features?.smsEnabled
+        ? 'Choose how you want to hear from the processor when your order moves forward or is ready for pickup.'
+        : 'Check your status online anytime and choose the best contact method this processor offers.',
+    },
+    {
+      title: 'Clear pickup expectations',
+      body: 'Customers can track progress, review hours, and pick up quickly once they are notified that the order is ready.',
+    },
+  ];
+  const businessDetails = [
+    branding?.locationLabel ? { label: 'Location', value: branding.locationLabel } : null,
+    branding?.phoneDisplay ? { label: 'Phone', value: branding.phoneDisplay, href: branding.phoneE164 ? `tel:${branding.phoneE164}` : undefined } : null,
+    branding?.email ? { label: 'Email', value: branding.email, href: `mailto:${branding.email}` } : null,
+    branding?.address
+      ? { label: 'Address', value: branding.address, href: branding.mapsUrl || undefined }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: string; href?: string }>;
+  const formatMoney = (value: number, prefix = '') => `${prefix}$${value.toFixed(2)}`;
   const colors = {
     bg: '#120f0d',
     panel: 'rgba(21,20,19,.96)',
@@ -86,6 +122,31 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
     fontWeight: 900,
   };
   const subtitle: React.CSSProperties = { margin: '0 0 18px', color: colors.sub, maxWidth: 720 };
+  const statGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: 10,
+    marginTop: 18,
+  };
+  const statCard: React.CSSProperties = {
+    padding: '12px 14px',
+    borderRadius: 14,
+    border: `1px solid ${colors.panelBorder}`,
+    background: 'rgba(17,16,15,.88)',
+  };
+  const statTitle: React.CSSProperties = {
+    color: colors.brand,
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: '.06em',
+    textTransform: 'uppercase',
+  };
+  const statBody: React.CSSProperties = {
+    marginTop: 6,
+    color: colors.text,
+    fontWeight: 800,
+    lineHeight: 1.4,
+  };
 
   const ctas: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 10 };
   const cta = (primary = false): React.CSSProperties => ({
@@ -114,6 +175,26 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
     padding: 16,
   };
   const h3: React.CSSProperties = { fontWeight: 900, fontSize: 18, marginBottom: 8, color: colors.accent };
+  const supportList: React.CSSProperties = {
+    display: 'grid',
+    gap: 10,
+    marginTop: 8,
+  };
+  const supportRow: React.CSSProperties = {
+    display: 'grid',
+    gap: 4,
+    padding: '10px 12px',
+    borderRadius: 12,
+    border: `1px solid ${colors.panelBorder}`,
+    background: 'rgba(18,24,22,.78)',
+  };
+  const supportLabel: React.CSSProperties = {
+    color: colors.brand,
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: '.06em',
+    textTransform: 'uppercase',
+  };
 
   const list: React.CSSProperties = { display: 'grid', gap: 10, marginTop: 8 };
   const row: React.CSSProperties = {
@@ -143,10 +224,10 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
     <main style={shell}>
       <section style={hero} aria-label="Hero">
         <div style={eyebrow}>Welcome</div>
-        <h1 style={title}>{branding?.tagline || 'Fast, clean, professional-done right.'}</h1>
+        <h1 style={title}>{branding?.tagline || 'Professional wild game processing, with a cleaner customer experience.'}</h1>
         <p style={subtitle}>
-          Submit your intake, choose your cuts and specialty products, and track progress online.
-          We&apos;ll use your selected contact method when your order is updated.
+          Submit your intake, choose your cuts, and check status online without guessing what happens next.
+          {branding?.name ? ` ${branding.name}` : ' This processor'} will use your selected contact method when your order is updated.
         </p>
         <div style={ctas}>
           <Link href={settings?.public_intake_enabled ? '/overnight' : '/hours'} style={cta(true)}>
@@ -154,45 +235,74 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
           </Link>
           <Link href="/status" style={cta(false)}>Check Your Status</Link>
         </div>
+        <div style={statGrid}>
+          {serviceHighlights.map((item) => (
+            <div key={item.title} style={statCard}>
+              <div style={statTitle}>{item.title}</div>
+              <div style={statBody}>{item.body}</div>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section style={twoCol} aria-label="Info">
         <div style={panel}>
           <div style={h3}>How it Works</div>
           <ol style={{ margin: 0, padding: '0 0 0 18px', lineHeight: 1.6 }}>
-            <li>Arrive during business hours or use our public intake form for after-hours drop-off.</li>
-            <li>Fill out the intake form and choose your cuts and specialty items.</li>
-            <li>Track progress on the Status page. We&apos;ll use your chosen contact method for updates.</li>
-            <li>Pick up quickly when notified.</li>
+            <li>Use the public intake form before or during drop-off so the shop has your information and cut selections right away.</li>
+            <li>Include your confirmation number and leave your deer with your name and phone details for easy matching.</li>
+            <li>Staff assigns the permanent tag, reviews your order, and updates status as work moves forward.</li>
+            <li>Check status online anytime and pick up promptly once you are notified.</li>
           </ol>
           <div style={{ height: 12 }} />
           <Link href="/faq-public" style={cta(false)}>Read the FAQ</Link>
         </div>
 
         <aside style={panel} aria-label="Hours & Location">
-          <div style={h3}>Pickup Hours</div>
+          <div style={h3}>Hours & Contact</div>
           <div style={list}>
-            {(settings?.hours || []).map((h) => (
+            {hours.map((h) => (
               <div style={row} key={`${h.label}:${h.value}`}>
                 <div style={dot(colors.green)} />
                 <div>{h.label}: {h.value}</div>
               </div>
             ))}
           </div>
-          <div style={{ height: 10 }} />
+          {businessDetails.length ? (
+            <div style={supportList}>
+              {businessDetails.map((item) => (
+                item.href ? (
+                  <Link key={`${item.label}:${item.value}`} href={item.href} style={{ ...supportRow, textDecoration: 'none', color: colors.text }}>
+                    <span style={supportLabel}>{item.label}</span>
+                    <span>{item.value}</span>
+                  </Link>
+                ) : (
+                  <div key={`${item.label}:${item.value}`} style={supportRow}>
+                    <span style={supportLabel}>{item.label}</span>
+                    <span>{item.value}</span>
+                  </div>
+                )
+              ))}
+            </div>
+          ) : null}
         </aside>
       </section>
 
       <section aria-label="Pricing" style={{ marginTop: 12 }}>
         <div style={panel}>
           <div style={h3}>Pricing</div>
-          <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
-            <li><strong>Standard Processing</strong>: ${pricing?.standard_processing_price.toFixed(2) ?? '130.00'}</li>
-            <li><strong>Caped</strong>: ${pricing?.caped_price.toFixed(2) ?? '150.00'}</li>
-            <li><strong>Cape &amp; Donate</strong>: ${pricing?.cape_donate_price.toFixed(2) ?? '50.00'}</li>
-            <li><strong>Beef Fat Add-On</strong>: +${pricing?.beef_fat_add_on.toFixed(2) ?? '5.00'}</li>
-            <li><strong>Webbs Add-On</strong>: +${pricing?.webbs_add_on.toFixed(2) ?? '20.00'}</li>
-          </ul>
+          <div style={{ ...twoCol, marginTop: 0 }}>
+            {pricingRows.map((item) => (
+              <div key={item.label} style={{ ...supportRow, background: 'rgba(18,24,22,.88)' }}>
+                <span style={supportLabel}>{item.label}</span>
+                <span style={{ fontWeight: 900, fontSize: 20 }}>{formatMoney(item.value, item.prefix)}</span>
+                <span style={{ color: colors.sub, fontSize: 13 }}>{item.note}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 12, color: colors.sub, fontSize: 13, lineHeight: 1.5 }}>
+            Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.
+          </div>
         </div>
       </section>
 

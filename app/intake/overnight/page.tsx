@@ -343,6 +343,16 @@ function OvernightIntakePage() {
     return out;
   }, [job.front, job.frontRoastCount]);
   const preferredContact = job.prefSMS ? 'Text (SMS)' : job.prefCall ? 'Phone Call' : job.prefEmail ? 'Email' : 'Not selected';
+  const intakeHighlights = [
+    'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
+    'Staff will assign the permanent deer tag after reviewing the drop-off.',
+    `Updates will be sent by ${preferredContact.toLowerCase()} when available for this processor.`,
+  ];
+  const reviewChecks = [
+    'Customer name and confirmation number match your state check-in',
+    'Drop-off details and process type are correct',
+    'Cuts, specialty items, and contact preference look right',
+  ];
 
   const procNorm = normProc(job.processType);
   const capingFlow = procNorm === 'Caped' || procNorm === 'Cape & Donate';
@@ -729,17 +739,25 @@ function OvernightIntakePage() {
             <h2>Deer Intake Form</h2>
             <p>
               We&apos;ll walk you through this one step at a time. Required items are checked before you move on so
-              your deer can be processed without delays.
+              the processor has everything needed to tag, process, and contact you without delays.
             </p>
           </div>
           <div className="hero-card">
-            <div className="hero-card-title">Before you submit</div>
+            <div className="hero-card-title">Before you drop off</div>
             <ul>
               <li>Use your 13-digit GoOutdoorsIN confirmation number</li>
-              <li>Leave a note with your name, phone, and confirmation digits</li>
-              <li>Front desk will assign the real deer tag in the morning</li>
+              <li>Leave a note with your name, phone, and confirmation digits on the deer</li>
+              <li>Staff will assign the permanent deer tag after reviewing the intake</li>
             </ul>
           </div>
+        </div>
+        <div className="intakeHighlights" role="status" aria-live="polite">
+          {intakeHighlights.map((item) => (
+            <div key={item} className="intakeHighlight">
+              <span className="intakeHighlightDot" aria-hidden="true" />
+              <span>{item}</span>
+            </div>
+          ))}
         </div>
         {!intakeEnabled ? (
           <div
@@ -805,13 +823,13 @@ function OvernightIntakePage() {
         <div className="summary">
           <div className="row">
             <div className="col">
-              <label>Tag Number</label>
+              <label>Assigned Tag</label>
               <input value={''} onChange={() => {}} placeholder="Assigned by staff" disabled />
-              <div className="muted" style={{ fontSize: 12 }}>Front desk will assign your tag in the morning.</div>
+              <div className="muted" style={{ fontSize: 12 }}>This form saves your order first. Staff adds the permanent tag after review.</div>
             </div>
 
             <div className="col price">
-              <label>Processing Price</label>
+              <label>Processing Estimate</label>
               <div className="money">{processingPrice.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>
                 {webbsEnabled ? 'Proc. type + beef fat + Webbs fee' : 'Proc. type + beef fat'}
@@ -819,7 +837,7 @@ function OvernightIntakePage() {
             </div>
 
             <div className="col price">
-              <label>Specialty Price</label>
+              <label>Specialty Estimate</label>
               <div className="money">{specialtyPrice.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
             </div>
@@ -1511,7 +1529,18 @@ function OvernightIntakePage() {
         {step.key === 'review' && (
           <section>
             <h3>Review</h3>
-            <Hint>Double-check everything below. If it looks right, submit.</Hint>
+            <Hint>Double-check everything below. If it looks right, submit and leave your deer with your confirmation details attached.</Hint>
+            <div className="reviewPrep">
+              <div className="reviewPrepTitle">Before you submit, confirm these three things:</div>
+              <div className="reviewPrepList">
+                {reviewChecks.map((item) => (
+                  <div key={item} className="reviewPrepItem">
+                    <span className="reviewPrepDot" aria-hidden="true" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="reviewMobile" style={{ marginTop: 12 }}>
               <div className="reviewSummaryGrid">
                 <div className="reviewCard">
@@ -1790,6 +1819,9 @@ function OvernightIntakePage() {
               {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
               {' '}with your deer at drop-off.
             </p>
+            <p style={{ marginTop: 10, lineHeight: 1.6 }}>
+              Staff will review your intake, assign the permanent tag, and use your selected contact method when an update is available.
+            </p>
             <div className="thanksList">
               <div>1. Staff will review your intake and assign the real deer tag.</div>
               <div>2. Use this confirmation number on the status page until that tag is assigned.</div>
@@ -1893,6 +1925,31 @@ function OvernightIntakePage() {
           line-height: 1.5;
         }
         .thanksActions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
+        .intakeHighlights {
+          display: grid;
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .intakeHighlight {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          gap: 10px;
+          align-items: start;
+          padding: 10px 12px;
+          border: 1px solid #dce7df;
+          border-radius: 12px;
+          background: #f7faf8;
+          color: #173321;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .intakeHighlightDot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: #406c4d;
+          margin-top: 5px;
+        }
         .reviewSheetFrame {
           max-width: 100%;
           overflow-x: auto;
@@ -1923,6 +1980,41 @@ function OvernightIntakePage() {
           letter-spacing: .06em;
           color: #406c4d;
           margin-bottom: 8px;
+        }
+        .reviewPrep {
+          margin-top: 12px;
+          border: 1px solid #dce7df;
+          border-radius: 14px;
+          background: #f7faf8;
+          padding: 12px;
+        }
+        .reviewPrepTitle {
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+          color: #406c4d;
+          margin-bottom: 8px;
+        }
+        .reviewPrepList {
+          display: grid;
+          gap: 8px;
+        }
+        .reviewPrepItem {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          gap: 10px;
+          align-items: start;
+          color: #173321;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .reviewPrepDot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: #406c4d;
+          margin-top: 5px;
         }
         .reviewLine {
           font-size: 14px;
