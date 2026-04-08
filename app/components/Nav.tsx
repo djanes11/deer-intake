@@ -189,6 +189,11 @@ export default function Nav() {
                     Notifications
                   </Link>
                   {canManageSettings ? (
+                    <Link href="/reports/balances" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                      Balances
+                    </Link>
+                  ) : null}
+                  {canManageSettings ? (
                     <Link href="/reports/owner-insights" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                       Owner Insights
                     </Link>
