@@ -379,7 +379,7 @@ export default function SearchPage() {
             {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
 
             {!loading && !err && (
-              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div className="card search-results-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <table className="table search-results-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
@@ -693,8 +693,8 @@ export default function SearchPage() {
           box-shadow: inset 5px 0 0 #2f7d42;
         }
 
-        .search-results-col :global(.card) {
-          max-height: calc(100vh - 220px);
+        .search-results-card {
+          max-height: calc(100vh - 300px);
           overflow: auto;
         }
 
@@ -715,7 +715,7 @@ export default function SearchPage() {
             margin-left: 0;
           }
 
-          .search-results-col :global(.card) {
+          .search-results-card {
             max-height: none;
             overflow: visible;
           }
