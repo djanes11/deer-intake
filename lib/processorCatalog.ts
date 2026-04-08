@@ -194,6 +194,13 @@ export function normalizeAddOnCatalog(input: unknown, pricing?: PricingLike | nu
     .sort((a, b) => a!.sortOrder - b!.sortOrder) as AddOnCatalogItem[];
 }
 
+export function filterVisibleAddOnItems<T extends { legacyBooleanKey?: 'beefFat' | 'webbsOrder' | null }>(
+  items: T[],
+  webbsEnabled: boolean,
+): T[] {
+  return items.filter((item) => item.legacyBooleanKey !== 'webbsOrder' || !webbsEnabled);
+}
+
 export function normalizeJobAddOnItems(input: unknown): JobAddOnItem[] {
   if (!Array.isArray(input)) return [];
   return input

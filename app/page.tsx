@@ -7,6 +7,7 @@ import { headers } from 'next/headers';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
 import { getStaffIdentity, getStaffProcessorContext } from '@/lib/staffContext';
+import { filterVisibleAddOnItems } from '@/lib/processorCatalog';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 const ADMIN_HOSTNAME = (process.env.ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
@@ -54,8 +55,10 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
       value: Number(item.basePrice || 0),
       note: item.triggersCapeWorkflow ? 'Includes cape workflow' : item.donationOnly ? 'Donation option' : 'Base processing option',
     }))),
-    ...((settings?.addOnCatalog || [])
-      .filter((item) => item.active && (item.legacyBooleanKey !== 'webbsOrder' || features?.webbsEnabled))
+    ...(filterVisibleAddOnItems(
+      (settings?.addOnCatalog || []).filter((item) => item.active),
+      features?.webbsEnabled !== false,
+    )
       .map((item) => ({
         label: item.name,
         value: Number(item.price || 0),

@@ -9,6 +9,7 @@ import {
   defaultAddOnCatalog,
   defaultNotificationTemplates,
   defaultProcessCatalog,
+  filterVisibleAddOnItems,
   normalizeAddOnCatalog,
   normalizeNotificationTemplates,
   normalizeProcessCatalog,
@@ -423,6 +424,14 @@ export default function AdminSettingsPage() {
     );
   }
 
+  const visibleAddOnRows = addOnDraftRows(s.addOnCatalog, s.pricing)
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => filterVisibleAddOnItems([item], s.features?.webbsEnabled !== false).length > 0);
+  const visibleActiveAddOnCount = filterVisibleAddOnItems(
+    normalizeAddOnCatalog(s.addOnCatalog, s.pricing).filter((item) => item.active),
+    s.features?.webbsEnabled !== false
+  ).length;
+
   const sectionTabs = [
     { key: 'branding', label: 'Branding & Contact' },
     { key: 'intake', label: 'Public Intake' },
@@ -492,7 +501,7 @@ export default function AdminSettingsPage() {
           { label: 'Public intake', value: s.public_intake_enabled ? 'Live' : 'Off', note: 'Customer drop-off form status' },
           { label: 'Banner', value: s.banner_enabled ? 'Shown' : 'Hidden', note: 'Public alert messaging' },
           { label: 'Process types', value: String(normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length), note: 'Selectable on intake forms' },
-          { label: 'Add-ons', value: String(normalizeAddOnCatalog(s.addOnCatalog, s.pricing).filter((item) => item.active).length), note: 'Optional extras on intake forms' },
+          { label: 'Add-ons', value: String(visibleActiveAddOnCount), note: 'Optional extras on intake forms' },
           { label: 'Specialty items', value: String(normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length), note: 'Shown on intake forms' },
         ].map((item) => (
           <div
@@ -805,7 +814,7 @@ export default function AdminSettingsPage() {
             Control which process options appear on intake forms, what they are called, and what base price they use.
           </div>
           {processDraftRows(s.processCatalog, s.pricing).map((item, index) => (
-            <div key={`${item.slug || 'new'}-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div key={`process-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 0.8fr', gap: 10 }}>
                 <input value={item.name} onChange={(e) => updateProcessTypeItem(index, 'name', e.target.value)} placeholder="Display name" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
                 <input value={item.slug} onChange={(e) => updateProcessTypeItem(index, 'slug', e.target.value)} placeholder="slug" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
@@ -830,10 +839,15 @@ export default function AdminSettingsPage() {
         <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Add-Ons</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            Add optional extras to the intake form and control their pricing. Legacy workflow items like beef fat and Webbs can stay mapped here too.
+            Add optional extras to the intake form and control their pricing. Dedicated custom workflows stay out of this generic list so staff do not see duplicate choices.
           </div>
-          {addOnDraftRows(s.addOnCatalog, s.pricing).map((item, index) => (
-            <div key={`${item.slug || 'new'}-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          {s.features?.webbsEnabled ? (
+            <div style={{ padding: 12, borderRadius: 12, background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', fontSize: 13, fontWeight: 700 }}>
+              Webbs is using the dedicated custom workflow for this processor, so it is hidden from the generic add-on list. Keep using the Webbs pricing field in the Pricing section for that workflow.
+            </div>
+          ) : null}
+          {visibleAddOnRows.map(({ item, index }) => (
+            <div key={`addon-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 0.8fr auto', gap: 10 }}>
                 <input value={item.name} onChange={(e) => updateAddOnItem(index, 'name', e.target.value)} placeholder="Display name" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
                 <input value={item.slug} onChange={(e) => updateAddOnItem(index, 'slug', e.target.value)} placeholder="slug" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
@@ -864,7 +878,7 @@ export default function AdminSettingsPage() {
 
           {specialtyDraftRows(s.specialtyCatalog, s.pricing).map((item, index) => (
             <div
-              key={item.id || `${item.slug}-${index}`}
+              key={`specialty-${index}`}
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(120px, 1fr) minmax(100px, 0.8fr) auto auto auto',

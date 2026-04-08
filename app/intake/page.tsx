@@ -15,6 +15,7 @@ import {
   defaultAddOnCatalog,
   defaultProcessCatalog,
   deriveSelectedAddOnItems,
+  filterVisibleAddOnItems,
   normalizeAddOnCatalog,
   normalizeJobAddOnItems,
   normalizeProcessCatalog,
@@ -753,10 +754,15 @@ useEffect(() => {
   );
   const activeAddOnCatalog = useMemo(
     () =>
-      normalizeAddOnCatalog(addOnCatalog, pricing).filter(
-        (item) => item.active && (item.legacyBooleanKey !== 'webbsOrder' || webbsEnabled),
+      filterVisibleAddOnItems(
+        normalizeAddOnCatalog(addOnCatalog, pricing).filter((item) => item.active),
+        webbsEnabled,
       ),
     [addOnCatalog, pricing, webbsEnabled]
+  );
+  const pricedAddOnCatalog = useMemo(
+    () => normalizeAddOnCatalog(addOnCatalog, pricing).filter((item) => item.active),
+    [addOnCatalog, pricing]
   );
   const selectedAddOnItems = useMemo(
     () =>
@@ -780,9 +786,9 @@ useEffect(() => {
           webbsOrder: job.webbsOrder,
         },
         activeProcessCatalog,
-        activeAddOnCatalog,
+        pricedAddOnCatalog,
       ),
-    [job.processType, job.addOnItems, job.beefFat, job.webbsOrder, activeProcessCatalog, activeAddOnCatalog, selectedAddOnItems]
+    [job.processType, job.addOnItems, job.beefFat, job.webbsOrder, activeProcessCatalog, pricedAddOnCatalog, selectedAddOnItems]
   );
 
   const specialtyPriceAuto = useMemo(() => {

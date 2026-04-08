@@ -18,7 +18,7 @@ import {
   webbsOrderSummary,
   webbsOrderTotalLbs,
 } from '@/lib/webbs';
-import { calcCatalogProcessingPrice, deriveSelectedAddOnItems } from '@/lib/processorCatalog';
+import { calcCatalogProcessingPrice, deriveSelectedAddOnItems, filterVisibleAddOnItems } from '@/lib/processorCatalog';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 // ---- Config/env ----
@@ -150,6 +150,7 @@ export default async function IntakeView({
       },
       settings.addOnCatalog,
     );
+    const visibleAddOnItems = filterVisibleAddOnItems(selectedAddOnItems, webbsEnabled);
     const processingAuto = calcCatalogProcessingPrice(
       {
         processType: job?.processType,
@@ -361,9 +362,15 @@ export default async function IntakeView({
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
               <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steaks per Package" value={job?.steaksPerPackage || ''} /></div>
               <div className="c3" style={{gridColumn:'span 3'}}><Field label="Burger Size" value={job?.burgerSize || ''} /></div>
-              <div className="c3" style={{gridColumn:'span 3'}}>
-                <label style={{ fontSize:12, fontWeight:700, color:'#0b0f12', display:'block', marginBottom:4 }}>Beef Fat</label>
-                <Check on={!!job?.beefFat} text="Add (+$5)" />
+              <div className="c6" style={{gridColumn:'span 6'}}>
+                <Field
+                  label="Selected Add-Ons"
+                  value={
+                    visibleAddOnItems.length
+                      ? visibleAddOnItems.map((item) => `${item.name}${item.price ? ` (+$${Number(item.price).toFixed(2)})` : ''}`).join('\n')
+                      : 'No add-ons selected'
+                  }
+                />
               </div>
             </div>
           </section>
