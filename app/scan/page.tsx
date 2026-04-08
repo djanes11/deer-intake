@@ -35,6 +35,11 @@ export default function ScanPage() {
     const v = String(s ?? '').toLowerCase();
     return v.includes('finished') || v.includes('ready');
   };
+  const nextScanGuide = [
+    'Cape orders: first scan finishes cape work, second starts processing, third finishes processing.',
+    'Non-cape orders: first scan starts processing, second finishes processing.',
+    'If the scanner misses a tag, type it manually below and submit one scan.',
+  ];
 
   // ===== Canon headers (kept so overlay can stay dumb) =====
   const HEADERS = [
@@ -387,7 +392,44 @@ export default function ScanPage() {
 
   return (
     <main style={{ maxWidth: 880, margin: '0 auto', padding: '24px 16px' }}>
-      <h1 style={{ margin: '0 0 12px', fontSize: 48, lineHeight: 1.1 }}>Scan</h1>
+      <div
+        style={{
+          display: 'grid',
+          gap: 14,
+          marginBottom: 16,
+          padding: 18,
+          borderRadius: 18,
+          background: 'linear-gradient(135deg, rgba(18,34,23,.98) 0%, rgba(34,65,45,.98) 100%)',
+          border: '1px solid rgba(200,138,61,.18)',
+          color: '#f8fafc',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: '#b9ddc2' }}>Scan Workflow</div>
+          <h1 style={{ margin: '6px 0 0', fontSize: 48, lineHeight: 1.1 }}>Processing Scanner</h1>
+          <p style={{ margin: '10px 0 0', maxWidth: 680, color: 'rgba(248,250,252,.86)', lineHeight: 1.6 }}>
+            Use this screen during production to advance deer through cape and meat processing in the correct order. The page listens for barcode scans automatically.
+          </p>
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gap: 8,
+            padding: 14,
+            borderRadius: 14,
+            border: '1px solid rgba(255,255,255,.14)',
+            background: 'rgba(255,255,255,.08)',
+          }}
+        >
+          <div style={{ fontWeight: 900 }}>How scans progress</div>
+          {nextScanGuide.map((item) => (
+            <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start', color: 'rgba(248,250,252,.92)', lineHeight: 1.5 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 999, background: '#c88a3d', marginTop: 6 }} />
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* visible status panel */}
       <div
@@ -405,7 +447,7 @@ export default function ScanPage() {
         }}
       >
         <div style={{ fontSize: 16, opacity: 0.9 }}>Ready to scan</div>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last: ${lastTag}` : 'Awaiting tag...'}</div>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last scanned: ${lastTag}` : 'Awaiting tag...'}</div>
       </div>
 
       <div
@@ -420,10 +462,10 @@ export default function ScanPage() {
         }}
       >
         <div style={{ fontSize: 14, fontWeight: 800, opacity: 0.86, textTransform: 'uppercase', letterSpacing: '.05em' }}>
-          Enter Tag
+          Manual Tag Entry
         </div>
         <div className="muted" style={{ fontSize: 14 }}>
-          If the scanner is not working or you just want to type the tag in, enter it here and submit one scan.
+          If the scanner is not working or you want to retry a tag by hand, enter it here and submit one scan.
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
