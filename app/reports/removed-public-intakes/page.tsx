@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { tokenHeader } from '@/lib/api';
+import { formatDisplayDate, formatDisplayDateTime as formatUiDateTime } from '@/lib/dateFormat';
 
 type Row = {
   id?: string | null;
@@ -176,12 +177,9 @@ export default function RemovedPublicIntakesPage() {
 }
 
 function fmtShortDate(v: string | null | undefined) {
-  if (!v) return '-';
-  return String(v).slice(0, 10);
+  return formatDisplayDate(v);
 }
 
 function fmtDateTime(v: string | null | undefined) {
-  if (!v) return '-';
-  const d = new Date(String(v));
-  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString();
+  return formatUiDateTime(v);
 }

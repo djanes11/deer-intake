@@ -7,6 +7,7 @@ export const revalidate = 0;
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { getStaffProcessorContext, isPlatformAdmin } from '@/lib/staffContext';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -39,9 +40,7 @@ function diffDays(a: string | null | undefined, b: string | null | undefined) {
 }
 
 function fmtDate(v: string | null | undefined) {
-  if (!v) return '-';
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString();
+  return formatDisplayDateTime(v);
 }
 
 function fmtHours(v: number | null | undefined) {
@@ -237,7 +236,7 @@ export default async function OwnerInsightsPage() {
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', color: '#64748b', fontSize: 13 }}>
                     <span>Started: {fmtDate(row.processing_started_at)}</span>
                     <span>Finished: {fmtDate(row.processing_finished_at)}</span>
-                    <span>Dropped off: {fmtDate(row.dropoff_date)}</span>
+                    <span>Dropped off: {formatDisplayDate(row.dropoff_date)}</span>
                   </div>
                 </div>
               ))}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { tokenHeader } from '@/lib/api';
 
 type ProcessorRow = {
@@ -689,9 +690,9 @@ export default function AdminProcessorsPage() {
                   </span>
                 </div>
                 <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.55 }}>
-                  Setup complete: {row.setupCompletedAt ? new Date(row.setupCompletedAt).toLocaleDateString() : 'Not marked yet'}.
-                  {row.billingStatus === 'trial' && row.trialEndsAt ? ` Trial ends ${new Date(row.trialEndsAt).toLocaleDateString()}.` : ''}
-                  {row.goLiveAt ? ` Go live ${new Date(row.goLiveAt).toLocaleDateString()}.` : ''}
+                  Setup complete: {row.setupCompletedAt ? formatDisplayDate(row.setupCompletedAt) : 'Not marked yet'}.
+                  {row.billingStatus === 'trial' && row.trialEndsAt ? ` Trial ends ${formatDisplayDate(row.trialEndsAt)}.` : ''}
+                  {row.goLiveAt ? ` Go live ${formatDisplayDate(row.goLiveAt)}.` : ''}
                 </div>
               </div>
 
@@ -766,7 +767,7 @@ export default function AdminProcessorsPage() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ fontSize: 13, color: '#64748b' }}>
-                  Updated: {row.updatedAt ? new Date(row.updatedAt).toLocaleString() : 'Never'}
+                  Updated: {row.updatedAt ? formatDisplayDateTime(row.updatedAt) : 'Never'}
                 </div>
                 <button className="btn" type="button" onClick={() => void saveRow(row)} disabled={savingId === row.id}>
                   {savingId === row.id ? 'Saving...' : 'Save Processor'}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { tokenHeader } from '@/lib/api';
 
 type TeamMembership = {
@@ -350,7 +351,7 @@ export default function StaffTeamPage() {
                       {row.accountType === 'local' ? 'Local staff login' : 'Email login'}
                     </div>
                     <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                      Last sign-in: {row.lastSignInAt ? new Date(row.lastSignInAt).toLocaleString() : row.accountType === 'local' ? 'Not tracked yet' : 'Never'}
+                      Last sign-in: {row.lastSignInAt ? formatDisplayDateTime(row.lastSignInAt) : row.accountType === 'local' ? 'Not tracked yet' : 'Never'}
                     </div>
                   </div>
                   <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
@@ -398,10 +399,10 @@ export default function StaffTeamPage() {
                     Joined:{' '}
                     {row.accountType === 'email'
                       ? row.authCreatedAt
-                        ? new Date(row.authCreatedAt).toLocaleDateString()
+                        ? formatDisplayDate(row.authCreatedAt)
                         : 'Pending invite'
                       : row.createdAt
-                        ? new Date(row.createdAt).toLocaleDateString()
+                        ? formatDisplayDate(row.createdAt)
                         : 'Recently created'}
                   </div>
 

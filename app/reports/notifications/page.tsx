@@ -7,6 +7,7 @@ export const revalidate = 0;
 import { createClient } from '@supabase/supabase-js';
 import { getDefaultProcessorContext } from '@/lib/processorContext';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
+import { formatDisplayDateTime } from '@/lib/dateFormat';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,9 +32,7 @@ const EVENT_LABELS: Record<string, string> = {
 };
 
 function fmtDate(v: string) {
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return v;
-  return d.toLocaleString();
+  return formatDisplayDateTime(v);
 }
 
 function normalizeEmailActivities(rows: any[]): ActivityRow[] {

@@ -6,6 +6,7 @@ import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import type { Job } from '@/lib/api';
 import { getJob, searchJobs, tokenHeader } from '@/lib/api';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 
 const API_RESEND = '/api/v2/reports/resend-notification';
 const API_RESET = '/api/v2/reports/reset-notification';
@@ -416,7 +417,7 @@ export default function SearchPage() {
                           </div>
                         </td>
                         <td>{r.phone || '-'}</td>
-                        <td>{r.dropoff || '-'}</td>
+                        <td>{formatDisplayDate(r.dropoff || '')}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -440,7 +441,7 @@ export default function SearchPage() {
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', opacity: 0.66 }}>Drop-off</div>
-                            <div style={{ marginTop: 2, fontWeight: 700 }}>{r.dropoff || '-'}</div>
+                            <div style={{ marginTop: 2, fontWeight: 700 }}>{formatDisplayDate(r.dropoff || '')}</div>
                           </div>
                         </div>
                         <div style={{ display: 'grid', gap: 4 }}>
@@ -547,7 +548,7 @@ export default function SearchPage() {
                       <div><strong>Preferred:</strong> {preferredContact}</div>
                       <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
                       <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
-                      <div><strong>Drop-off:</strong> {selectedJob.dropoff || '-'}</div>
+                      <div><strong>Drop-off:</strong> {formatDisplayDate(selectedJob.dropoff || '')}</div>
                       <div><strong>Address:</strong> {[selectedJob.address, selectedJob.city, selectedJob.state, selectedJob.zip].filter(Boolean).join(', ') || '-'}</div>
                     </DetailBox>
 
@@ -752,9 +753,7 @@ export default function SearchPage() {
 }
 
 function fmtDate(v: any) {
-  if (!v) return '-';
-  const d = new Date(String(v));
-  return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString();
+  return formatDisplayDateTime(v == null ? undefined : String(v));
 }
 
 function labelForEvent(event: string) {

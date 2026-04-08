@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { tokenHeader } from '@/lib/api';
 
 type ProcessorOption = {
@@ -298,7 +299,7 @@ export default function AdminUsersPage() {
                         <div>
                           <div style={{ fontWeight: 900, color: '#0f172a' }}>{row.email}</div>
                           <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                            Last sign-in: {row.lastSignInAt ? new Date(row.lastSignInAt).toLocaleString() : 'Never'}
+                            Last sign-in: {row.lastSignInAt ? formatDisplayDateTime(row.lastSignInAt) : 'Never'}
                           </div>
                         </div>
                         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
@@ -321,7 +322,7 @@ export default function AdminUsersPage() {
                           </select>
                         </label>
                         <div style={{ fontSize: 13, color: '#64748b', alignSelf: 'end' }}>
-                          Created: {row.authCreatedAt ? new Date(row.authCreatedAt).toLocaleDateString() : 'Unknown'}
+                          Created: {row.authCreatedAt ? formatDisplayDate(row.authCreatedAt) : 'Unknown'}
                         </div>
                       </div>
 

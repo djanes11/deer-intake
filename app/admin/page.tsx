@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { getStaffIdentity, isPlatformAdmin } from '@/lib/staffContext';
+import { formatDisplayDate } from '@/lib/dateFormat';
 
 type ProcessorSummary = {
   id: string;
@@ -345,7 +346,7 @@ export default async function PlatformAdminHome() {
                   <div>
                     <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
                     <div style={{ color: '#64748b', fontSize: 13 }}>
-                      Ends {processor.trialEndsAt ? new Date(processor.trialEndsAt).toLocaleDateString() : '-'}
+                      Ends {processor.trialEndsAt ? formatDisplayDate(processor.trialEndsAt) : '-'}
                     </div>
                   </div>
                   <strong style={{ color: processor.daysLeft <= 2 ? '#b91c1c' : '#9a3412' }}>
@@ -400,7 +401,7 @@ export default async function PlatformAdminHome() {
                 <div>
                   <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
                   <div style={{ color: '#64748b', fontSize: 13 }}>
-                    Setup completed {processor.setupCompletedAt ? new Date(processor.setupCompletedAt).toLocaleDateString() : '-'}
+                    Setup completed {processor.setupCompletedAt ? formatDisplayDate(processor.setupCompletedAt) : '-'}
                   </div>
                 </div>
                 <span style={{ color: '#9a3412', fontWeight: 900 }}>Ready for trial review</span>
