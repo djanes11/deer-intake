@@ -379,7 +379,7 @@ export default function SearchPage() {
             {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
 
             {!loading && !err && (
-              <div className="card search-results-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div className="card search-results-card" style={{ padding: 0 }}>
                 <table className="table search-results-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
