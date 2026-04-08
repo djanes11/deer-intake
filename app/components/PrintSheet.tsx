@@ -17,6 +17,7 @@ import {
   webbsAllocationTotalPercent,
   webbsOrderTotalLbs,
 } from '@/lib/webbs';
+import { normalizeJobAddOnItems } from '@/lib/processorCatalog';
 
 type AnyRec = Record<string, any>;
 
@@ -146,6 +147,31 @@ export default function PrintSheet({ tag, job, hideHeader, webbsEnabled = true }
     jpick(job, ['Beef Fat','beefFat','beef_fat']),
     jpick(job, ['Webbs Order','webbsOrder','webbs_order'])
   ), [job?.['Process Type'], job?.processType, job?.process_type, job?.['Beef Fat'], job?.beefFat, job?.beef_fat, job?.['Webbs Order'], job?.webbsOrder, job?.webbs_order]);
+  const addOnItems = useMemo(
+    () =>
+      normalizeJobAddOnItems(
+        jpick(job, ['addOnItems', 'add_on_items']) ||
+          [
+            truthy('Beef Fat', 'beefFat', 'beef_fat')
+              ? { slug: 'beef-fat', name: 'Beef Fat', selected: true, price: 5, sortOrder: 10, legacyBooleanKey: 'beefFat' }
+              : null,
+            truthy('Webbs Order', 'webbsOrder', 'webbs_order')
+              ? { slug: 'webbs-order', name: 'Webbs Add-On', selected: true, price: 20, sortOrder: 20, legacyBooleanKey: 'webbsOrder' }
+              : null,
+          ].filter(Boolean)
+      ).filter((item) => item.selected && (item.legacyBooleanKey !== 'webbsOrder' || webbsEnabled)),
+    [
+      job?.addOnItems,
+      job?.add_on_items,
+      job?.['Beef Fat'],
+      job?.beefFat,
+      job?.beef_fat,
+      job?.['Webbs Order'],
+      job?.webbsOrder,
+      job?.webbs_order,
+      webbsEnabled,
+    ]
+  );
 
   const specialtyItems = useMemo(() => specialtyBreakdown(job), [
     job?.originalSummerSausageLbs,
@@ -491,9 +517,9 @@ pages.forEach(p => {
         </div>
 
         <div className="col-4 box">
-          <div className="label">Beef Fat</div>
+          <div className="label">Add-Ons</div>
           <div className="val">
-            <strong className="check">{truthy('Beef Fat','beefFat','beef_fat') ? CHK : BOX}</strong> Adds $5
+            {addOnItems.length ? addOnItems.map((item) => `${item.name}${item.price ? ` (+${money(item.price)})` : ''}`).join(' | ') : 'No add-ons'}
           </div>
         </div>
       </div>

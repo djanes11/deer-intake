@@ -1710,7 +1710,9 @@ function OvernightIntakePage() {
                   <div className="reviewLine">Steaks per pack: {job.steaksPerPackage || '-'}</div>
                   <div className="reviewLine">Burger size: {job.burgerSize || '-'}</div>
                   <div className="reviewLine">Backstrap: {job.backstrapPrep || '-'}</div>
-                  <div className="reviewLine">Beef fat: {job.beefFat ? 'Yes' : 'No'}</div>
+                  <div className="reviewLine">
+                    Add-ons: {selectedAddOnItems.length ? selectedAddOnItems.map((item) => `${item.name}${item.price ? ` (+$${Number(item.price || 0).toFixed(2)})` : ''}`).join(' | ') : 'No add-ons'}
+                  </div>
                 </div>
                 <div className="reviewCard">
                   <div className="reviewCardTitle">Extras & Contact</div>
