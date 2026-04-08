@@ -234,6 +234,13 @@ export default function SearchPage() {
   const canShowResults = q.trim().length > 0;
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageNotifications = staffRole === 'admin';
+  const resultSummary = loading
+    ? 'Searching...'
+    : !canShowResults
+      ? 'Search by tag, name, phone, or confirmation number.'
+      : rows.length === 0
+        ? 'No matching deer found.'
+        : `${rows.length} matching ${rows.length === 1 ? 'deer' : 'deer'} found.`;
 
   const resendNotification = async (event: ResendEventKey) => {
     if (!selectedTag) return;
@@ -318,21 +325,22 @@ export default function SearchPage() {
         Type a <b>tag</b>, <b>name</b>, <b>phone</b>, or status text. Shortcuts: <code>@report</code> (ready to call) | <code>@recall</code> (called).
       </p>
 
-      <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+      <div className="card search-toolbar" style={{ padding: 12, marginBottom: 16 }}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
           }}
-          style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+          style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
         >
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. 12345 or Jane Doe or (555) 123-4567"
+            placeholder="e.g. 12345, 13-digit confirmation, Jane Doe, or (555) 123-4567"
             aria-label="Search query"
-            style={{ flex: 1 }}
+            style={{ flex: 1, minWidth: 240 }}
           />
           <button className="btn" type="submit">Search</button>
+          <div className="search-toolbar-summary">{resultSummary}</div>
         </form>
       </div>
 
@@ -345,6 +353,15 @@ export default function SearchPage() {
       {canShowResults && (
         <div className="search-layout">
           <section className="search-results-col">
+            <div className="card results-summary-card" style={{ padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>Results</div>
+              <div style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}>
+                {resultSummary}
+              </div>
+              <div className="muted" style={{ marginTop: 6 }}>
+                Single-click a row for preview. Double-click to open the full record.
+              </div>
+            </div>
             {loading && <div className="card">Loading...</div>}
             {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
 
@@ -379,7 +396,12 @@ export default function SearchPage() {
                         title="Click for preview, double-click to open"
                       >
                         <td><strong>{r.tag}</strong></td>
-                        <td>{r.customer || '-'}</td>
+                        <td>
+                          <div style={{ fontWeight: 800 }}>{r.customer || '-'}</div>
+                          <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>
+                            {r.confirmation ? `Confirmation ${r.confirmation}` : 'No confirmation recorded'}
+                          </div>
+                        </td>
                         <td>{r.phone || '-'}</td>
                         <td>{r.dropoff || '-'}</td>
                       </tr>
@@ -401,24 +423,27 @@ export default function SearchPage() {
                     {selectedJob?.confirmation ? ` | Confirmation ${selectedJob.confirmation}` : ''}
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button className="btn" type="button" onClick={() => selectedTag && openTag(selectedTag)} disabled={!selectedTag}>
-                    {canEdit ? 'Open Intake' : 'Open Details'}
-                  </button>
-                  <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
-                    {printing === selectedTag ? 'Preparing...' : 'Print'}
-                  </button>
-                  <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>
-                    Deer Label
-                  </button>
-                  {canPrintCapeLabel(selectedJob) ? (
-                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'cape')} disabled={!selectedTag || printing === selectedTag}>
-                      Cape Label
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.72, textTransform: 'uppercase', letterSpacing: '.04em' }}>Actions</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button className="btn" type="button" onClick={() => selectedTag && openTag(selectedTag)} disabled={!selectedTag}>
+                      {canEdit ? 'Open Intake' : 'Open Details'}
                     </button>
-                  ) : null}
-                  <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
-                    Package Label
-                  </button>
+                    <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
+                      {printing === selectedTag ? 'Preparing...' : 'Print'}
+                    </button>
+                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>
+                      Deer Label
+                    </button>
+                    {canPrintCapeLabel(selectedJob) ? (
+                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'cape')} disabled={!selectedTag || printing === selectedTag}>
+                        Cape Label
+                      </button>
+                    ) : null}
+                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
+                      Package Label
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -536,6 +561,13 @@ export default function SearchPage() {
           display: none;
         }
 
+        .search-toolbar-summary {
+          margin-left: auto;
+          font-size: 13px;
+          color: rgba(255,255,255,.72);
+          font-weight: 700;
+        }
+
         .search-layout {
           display: grid;
           grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.95fr);
@@ -545,6 +577,10 @@ export default function SearchPage() {
 
         .search-results-col {
           min-width: 0;
+        }
+
+        .results-summary-card {
+          background: rgba(21,20,19,.92);
         }
 
         .search-results-col :global(.card) {
@@ -562,6 +598,11 @@ export default function SearchPage() {
         @media (max-width: 1100px) {
           .search-layout {
             grid-template-columns: 1fr;
+          }
+
+          .search-toolbar-summary {
+            width: 100%;
+            margin-left: 0;
           }
 
           .search-results-col :global(.card) {

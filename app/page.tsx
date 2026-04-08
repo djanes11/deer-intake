@@ -329,6 +329,23 @@ function StaffHome({
   role: 'admin' | 'staff' | 'readonly' | null;
 }) {
   const canEdit = role === 'admin' || role === 'staff';
+  const roleLabel = role === 'admin' ? 'Admin' : role === 'staff' ? 'Staff' : role === 'readonly' ? 'Read-only' : 'Unknown';
+  const primaryActions = canEdit
+    ? [
+        { label: 'New Intake', href: '/intake', detail: 'Start a new deer intake form', accent: '#5b7a62' },
+        { label: 'Scan Tags', href: '/scan', detail: 'Move deer through scan-based workflow', accent: '#c88a3d' },
+        { label: 'Search Jobs', href: '/search', detail: 'Look up deer, print, and review status', accent: '#8fb3a8' },
+      ]
+    : [
+        { label: 'Search Jobs', href: '/search', detail: 'Open deer details, print sheets, and view status', accent: '#8fb3a8' },
+        { label: 'Call Report', href: '/reports/calls', detail: 'Review ready-to-call deer without editing them', accent: '#5b7a62' },
+        { label: 'Print Queue', href: '/reports/print-queue', detail: 'Print intake sheets and label stock', accent: '#c88a3d' },
+      ];
+  const queueHighlights = [
+    { label: 'Needs Tags', value: dashboard?.pendingTags ?? 0, hint: 'Public intake drop-offs waiting on staff tag assignment', href: '/overnight/review' },
+    { label: 'Ready to Call', value: dashboard?.calledQueue ?? 0, hint: 'Orders ready for customer contact or pickup follow-up', href: '/reports/calls' },
+    { label: 'Print Queue', value: dashboard?.printQueue ?? 0, hint: 'Sheets marked for printing or reprinting', href: '/reports/print-queue' },
+  ];
   const shell: React.CSSProperties = {
     maxWidth: 1100,
     margin: '26px auto',
@@ -369,11 +386,35 @@ function StaffHome({
     fontSize: 11,
     color: '#c88a3d',
   };
+  const roleBadge: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '10px 12px',
+    borderRadius: 999,
+    border: '1px solid rgba(143,179,168,.2)',
+    background: 'rgba(17,16,15,.84)',
+    color: '#dfe9dd',
+    fontSize: 13,
+    fontWeight: 800,
+  };
+  const roleLabelStyle: React.CSSProperties = {
+    textTransform: 'uppercase',
+    letterSpacing: '.06em',
+    fontSize: 11,
+    color: '#8fb3a8',
+  };
 
-  const trio: React.CSSProperties = {
+  const primaryGrid: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
     gap: 16,
+  };
+  const splitGrid: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.8fr) minmax(280px, 1fr)',
+    gap: 16,
+    marginBottom: 16,
   };
   const statsGrid: React.CSSProperties = {
     display: 'grid',
@@ -452,77 +493,81 @@ function StaffHome({
               Staff Dashboard
             </div>
             <h1 style={title}>Wild Game Butcher Board</h1>
+            <p style={subtitle}>
+              Quick access to the highest-value actions for {processorName || 'this processor'}, with a role-aware view of what needs attention today.
+            </p>
           </div>
-          <div style={processorBadge} aria-label="Current processor">
-            <span style={processorLabel}>Processor</span>
-            <span>{processorName || 'Unassigned'}</span>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={processorBadge} aria-label="Current processor">
+              <span style={processorLabel}>Processor</span>
+              <span>{processorName || 'Unassigned'}</span>
+            </div>
+            <div style={roleBadge} aria-label="Current role">
+              <span style={roleLabelStyle}>Access</span>
+              <span>{roleLabel}</span>
+            </div>
           </div>
         </div>
-        <p style={subtitle}>
-          Pick what you want to do. Quick access to the most common actions for this processor.
-        </p>
       </div>
 
-      <div style={{ ...trio, marginBottom: 16 }}>
-        {canEdit ? (
-          <Link href="/intake" style={linkStyle}>
-            <div style={card}>
-              <div style={mini}>Intake</div>
-              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-                New Intake form
-              </div>
-              <div style={{ opacity: 0.8, marginTop: 4 }}>
-                Start a new Intake Form
-              </div>
-            </div>
-          </Link>
-        ) : (
-          <div style={{ ...card, opacity: 0.7 }}>
-            <div style={mini}>Intake</div>
-            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-              View-only Access
-            </div>
-            <div style={{ opacity: 0.8, marginTop: 4 }}>
-              Your role can search, print, and view reports, but cannot edit intake records.
-            </div>
+      <section style={{ ...card, marginBottom: 16 }}>
+        <div style={{ ...mini, color: '#c88a3d' }}>Primary Actions</div>
+        <div style={{ display: 'grid', gap: 6, marginTop: 6, marginBottom: 14 }}>
+          <div style={{ fontWeight: 900, fontSize: 24 }}>Start with the work that moves the day forward</div>
+          <div style={{ opacity: 0.82 }}>
+            {canEdit
+              ? 'Create new intakes, scan deer through production, or jump straight into search to reprint, review, and update records.'
+              : 'Your access is focused on viewing, printing, and monitoring progress. Search and reports will be your main tools.'}
           </div>
-        )}
+        </div>
+        <div style={primaryGrid}>
+          {primaryActions.map((action) => (
+            <Link key={action.label} href={action.href} style={linkStyle}>
+              <div style={{ ...card, padding: 18, background: 'rgba(14,13,12,.9)', borderColor: 'rgba(200,138,61,.12)' }}>
+                <div style={{ ...mini, color: action.accent }}>{action.label}</div>
+                <div style={{ fontWeight: 900, fontSize: 20, marginTop: 8 }}>{action.label}</div>
+                <div style={{ opacity: 0.8, marginTop: 6, lineHeight: 1.5 }}>{action.detail}</div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-        {canEdit ? (
-          <Link href="/scan" style={linkStyle}>
-            <div style={card}>
-              <div style={mini}>Scan</div>
-              <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-                Scan Tags
-              </div>
-              <div style={{ opacity: 0.8, marginTop: 4 }}>
-                Update status by scanning a barcode
-              </div>
-            </div>
-          </Link>
-        ) : (
-          <div style={{ ...card, opacity: 0.7 }}>
-            <div style={mini}>Scan</div>
-            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-              Status Updates Restricted
-            </div>
-            <div style={{ opacity: 0.8, marginTop: 4 }}>
-              Only Admin and Staff roles can scan tags or advance processing status.
-            </div>
+      <div style={splitGrid}>
+        <section style={card}>
+          <div style={{ ...mini, color: '#8fb3a8' }}>Queue Snapshot</div>
+          <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
+            {queueHighlights.map((item) => (
+              <Link key={item.label} href={item.href} style={linkStyle}>
+                <div style={{ ...row, gridTemplateColumns: '1fr auto', background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+                  <div style={{ display: 'grid', gap: 4 }}>
+                    <div style={{ fontWeight: 900 }}>{item.label}</div>
+                    <div style={{ opacity: 0.78, fontSize: 13, lineHeight: 1.45 }}>{item.hint}</div>
+                  </div>
+                  <div style={{ fontSize: 30, fontWeight: 950 }}>{item.value}</div>
+                </div>
+              </Link>
+            ))}
           </div>
-        )}
+        </section>
 
-        <Link href="/search" style={linkStyle}>
-          <div style={card}>
-            <div style={mini}>Search</div>
-            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-              Search Jobs
+        <section style={card}>
+          <div style={{ ...mini, color: '#8fb3a8' }}>Today’s Focus</div>
+          <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+            <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+              <div style={dot('#5b7a62')} />
+              <div>Use <strong>Search</strong> for reprints, customer lookups, and quick detail review.</div>
             </div>
-            <div style={{ opacity: 0.8, marginTop: 4 }}>
-              Find by name, tag, or phone #
+            <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+              <div style={dot('#c88a3d')} />
+              <div>{canEdit ? 'Scan workflow will advance cape and processing status in order based on the deer’s setup.' : 'Read-only access still lets you print sheets and labels without changing statuses.'}</div>
+            </div>
+            <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+              <div style={dot('#8fb3a8')} />
+              <div>{role === 'admin' ? 'Owner Snapshot below highlights pickup readiness, open balances, and processing timing.' : 'Use reports below to review what is ready, called, or waiting on action.'}</div>
             </div>
           </div>
-        </Link>
+        </section>
       </div>
 
       <div style={statsGrid}>
@@ -613,7 +658,7 @@ function StaffHome({
         </section>
       ) : null}
 
-      <div style={trio}>
+      <div style={splitGrid}>
         <div style={{ ...card, gridColumn: 'span 2' }}>
           <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>
             Reports
@@ -658,7 +703,7 @@ function StaffHome({
         </div>
 
         <div style={card}>
-          <div style={mini}>Help</div>
+          <div style={mini}>Reference</div>
           <Link href="/tips" style={linkStyle}>
             <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
               Tip Sheet
