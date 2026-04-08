@@ -234,6 +234,19 @@ export default function SearchPage() {
   const canShowResults = q.trim().length > 0;
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageNotifications = staffRole === 'admin';
+  const statusSummary = selectedJob
+    ? [selectedJob.status || 'No meat status', selectedJob.capingStatus ? `Cape: ${selectedJob.capingStatus}` : null]
+        .filter(Boolean)
+        .join(' | ')
+    : '-';
+  const quickFacts = selectedJob
+    ? [
+        { label: 'Preferred Contact', value: preferredContact },
+        { label: 'Payment', value: paymentSummary },
+        { label: 'Last Printed', value: fmtDate(selectedJob.intakeSheetPrintedAt) },
+        { label: 'Last Updated', value: fmtDate(selectedJob.updatedAt) },
+      ]
+    : [];
   const resultSummary = loading
     ? 'Searching...'
     : !canShowResults
@@ -367,7 +380,7 @@ export default function SearchPage() {
 
             {!loading && !err && (
               <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table className="table" style={{ width: '100%' }}>
+                <table className="table search-results-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
                       <th style={{ width: 100 }}>Tag</th>
@@ -408,6 +421,39 @@ export default function SearchPage() {
                     ))}
                   </tbody>
                 </table>
+                <div className="search-results-mobile">
+                  {rows.length === 0 ? (
+                    <div style={{ padding: 14 }}>No results.</div>
+                  ) : (
+                    rows.map((r) => (
+                      <button
+                        key={`mobile-${r.tag}`}
+                        type="button"
+                        onClick={() => void loadDetails(r.tag!)}
+                        onDoubleClick={() => openTag(r.tag!)}
+                        className={`search-result-mobile-card ${r.tag === selectedTag ? 'selected' : ''}`}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
+                          <div>
+                            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', opacity: 0.66 }}>Tag</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, marginTop: 2 }}>{r.tag || '-'}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', opacity: 0.66 }}>Drop-off</div>
+                            <div style={{ marginTop: 2, fontWeight: 700 }}>{r.dropoff || '-'}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gap: 4 }}>
+                          <div style={{ fontWeight: 800 }}>{r.customer || '-'}</div>
+                          <div className="muted" style={{ fontSize: 13 }}>{r.phone || '-'}</div>
+                          <div className="muted" style={{ fontSize: 12 }}>
+                            {r.confirmation ? `Confirmation ${r.confirmation}` : 'No confirmation recorded'}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -459,18 +505,54 @@ export default function SearchPage() {
               {selectedJob ? (
                 <>
                   <div style={{ display: 'grid', gap: 12 }}>
+                    <DetailBox title="Quick Summary">
+                      <div><strong>Status:</strong> {statusSummary}</div>
+                      <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
+                      <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
+                      <div><strong>Confirmation:</strong> {selectedJob.confirmation || '-'}</div>
+                    </DetailBox>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                      {quickFacts.map((fact) => (
+                        <div
+                          key={fact.label}
+                          style={{
+                            border: '1px solid #d1d5db',
+                            borderRadius: 14,
+                            padding: 12,
+                            background: '#ffffff',
+                            color: '#111827',
+                            display: 'grid',
+                            gap: 6,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#6b7280' }}>{fact.label}</div>
+                          <div style={{ fontWeight: 900, lineHeight: 1.4 }}>{fact.value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <DetailBox title="Order Details">
+                      <div><strong>Specialty:</strong> {selectedJob.specialtyProducts ? 'Selected' : 'Not selected'}</div>
+                      {webbsEnabled ? (
+                        <>
+                          <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
+                          <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? webbsStyleLabel(selectedJob.webbsOrderStyle) : 'No Webbs order'}</div>
+                        </>
+                      ) : null}
+                      <div><strong>Pending intake removed:</strong> {fmtDate(selectedJob.pendingDeletedAt)}</div>
+                    </DetailBox>
+
                     <DetailBox title="Contact">
                       <div><strong>Preferred:</strong> {preferredContact}</div>
                       <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
                       <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
-                      <div><strong>Status:</strong> {selectedJob.status || '-'}</div>
+                      <div><strong>Drop-off:</strong> {selectedJob.dropoff || '-'}</div>
+                      <div><strong>Address:</strong> {[selectedJob.address, selectedJob.city, selectedJob.state, selectedJob.zip].filter(Boolean).join(', ') || '-'}</div>
                     </DetailBox>
 
-                    <DetailBox title="Payment & Print">
-                      <div><strong>Payment:</strong> {paymentSummary}</div>
-                      <div><strong>Last printed:</strong> {fmtDate(selectedJob.intakeSheetPrintedAt)}</div>
+                    <DetailBox title="Print Control">
                       <div><strong>Print count:</strong> {selectedJob.intakeSheetPrintCount ?? 0}</div>
-                      <div><strong>Last updated:</strong> {fmtDate(selectedJob.updatedAt)}</div>
                       <div style={{ paddingTop: 6 }}>
                         <button className="btn" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob.intakeSheetPrintedAt}>
                           Mark Unprinted
@@ -478,26 +560,20 @@ export default function SearchPage() {
                       </div>
                       {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
                     </DetailBox>
-
-                    <DetailBox title={webbsEnabled ? 'Webbs & Specialty' : 'Specialty'}>
-                      {webbsEnabled ? (
-                        <>
-                          <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
-                          <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? webbsStyleLabel(selectedJob.webbsOrderStyle) : 'No Webbs order'}</div>
-                        </>
-                      ) : null}
-                      <div><strong>Specialty:</strong> {selectedJob.specialtyProducts ? 'Selected' : 'Not selected'}</div>
-                    </DetailBox>
-
-                    <DetailBox title="Last Actions">
-                      <div><strong>Last notification:</strong> {fmtDate(latestNotificationAt)}</div>
-                      <div><strong>Last drop-off text/email:</strong> {fmtDate(selectedJob.dropoffSmsSentAt || selectedJob.dropoffEmailSentAt)}</div>
-                      <div><strong>Pending intake removed:</strong> {fmtDate(selectedJob.pendingDeletedAt)}</div>
-                    </DetailBox>
                   </div>
 
                   <div style={{ display: 'grid', gap: 8 }}>
                     <div style={{ fontWeight: 900, fontSize: 18 }}>Notification History</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                      <div style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, color: '#111827' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#6b7280' }}>Last Notification</div>
+                        <div style={{ fontWeight: 900, marginTop: 6 }}>{fmtDate(latestNotificationAt)}</div>
+                      </div>
+                      <div style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, color: '#111827' }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#6b7280' }}>Last Drop-Off Message</div>
+                        <div style={{ fontWeight: 900, marginTop: 6 }}>{fmtDate(selectedJob.dropoffSmsSentAt || selectedJob.dropoffEmailSentAt)}</div>
+                      </div>
+                    </div>
                     {!canManageNotifications ? (
                       <div className="muted" style={{ fontSize: 13 }}>
                         Notification timestamps are visible here, but only Admin users can resend messages or reset sent flags.
@@ -506,7 +582,18 @@ export default function SearchPage() {
                     <div style={{ display: 'grid', gap: 8 }}>
                       {notificationRows.map((row) => (
                         <div key={row.label} style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, display: 'grid', gap: 8, color: '#111827' }}>
-                          <div style={{ fontWeight: 900, color: '#111827' }}>{row.label}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ fontWeight: 900, color: '#111827' }}>{row.label}</div>
+                            {(row.email || row.sms) ? (
+                              <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', background: '#ecfdf5', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: 999 }}>
+                                Sent
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', padding: '4px 8px', borderRadius: 999 }}>
+                                Not sent yet
+                              </div>
+                            )}
+                          </div>
                           <div style={{ display: 'grid', gap: 6 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                               <span style={{ color: '#4b5563', fontWeight: 700 }}>Email</span>
@@ -583,6 +670,29 @@ export default function SearchPage() {
           background: rgba(21,20,19,.92);
         }
 
+        .search-results-mobile {
+          display: none;
+        }
+
+        .search-result-mobile-card {
+          width: 100%;
+          display: grid;
+          gap: 10px;
+          text-align: left;
+          padding: 14px;
+          border: 0;
+          border-top: 1px solid rgba(255,255,255,.08);
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+        }
+
+        .search-result-mobile-card.selected {
+          background: #dcfce7;
+          color: #111827;
+          box-shadow: inset 5px 0 0 #2f7d42;
+        }
+
         .search-results-col :global(.card) {
           max-height: calc(100vh - 220px);
           overflow: auto;
@@ -614,6 +724,16 @@ export default function SearchPage() {
             position: static;
             max-height: none;
             overflow: visible;
+          }
+        }
+
+        @media (max-width: 760px) {
+          .search-results-table {
+            display: none;
+          }
+
+          .search-results-mobile {
+            display: block;
           }
         }
 
