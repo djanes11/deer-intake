@@ -97,6 +97,33 @@ function specialtyDraftRows(input: SpecialtyCatalogItem[] | undefined | null, pr
   }));
 }
 
+function processDraftRows(input: ProcessTypeCatalogItem[] | undefined | null, pricing: SitePricing): ProcessTypeCatalogItem[] {
+  const rows = Array.isArray(input) ? input : [];
+  const fallback = defaultProcessCatalog(pricing);
+  return rows.map((item, index) => ({
+    slug: String(item?.slug || ''),
+    name: String(item?.name || ''),
+    basePrice: Number.isFinite(Number(item?.basePrice)) ? Number(item?.basePrice) : Number(fallback[index]?.basePrice ?? 0),
+    active: item?.active !== false,
+    sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item?.sortOrder) : (index + 1) * 10,
+    triggersCapeWorkflow: !!item?.triggersCapeWorkflow,
+    donationOnly: !!item?.donationOnly,
+  }));
+}
+
+function addOnDraftRows(input: AddOnCatalogItem[] | undefined | null, pricing: SitePricing): AddOnCatalogItem[] {
+  const rows = Array.isArray(input) ? input : [];
+  const fallback = defaultAddOnCatalog(pricing);
+  return rows.map((item, index) => ({
+    slug: String(item?.slug || ''),
+    name: String(item?.name || ''),
+    price: Number.isFinite(Number(item?.price)) ? Number(item?.price) : Number(fallback[index]?.price ?? 0),
+    active: item?.active !== false,
+    sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item?.sortOrder) : (index + 1) * 10,
+    legacyBooleanKey: item?.legacyBooleanKey ?? null,
+  }));
+}
+
 export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
@@ -120,8 +147,8 @@ export default function AdminSettingsPage() {
       ...(j.settings as SiteSettings),
       hours: normalizeHours(j?.settings?.hours),
       pricing: normalizePricing(j?.settings),
-      processCatalog: normalizeProcessCatalog(j?.settings?.processCatalog, normalizePricing(j?.settings)),
-      addOnCatalog: normalizeAddOnCatalog(j?.settings?.addOnCatalog, normalizePricing(j?.settings)),
+      processCatalog: processDraftRows(normalizeProcessCatalog(j?.settings?.processCatalog, normalizePricing(j?.settings)), normalizePricing(j?.settings)),
+      addOnCatalog: addOnDraftRows(normalizeAddOnCatalog(j?.settings?.addOnCatalog, normalizePricing(j?.settings)), normalizePricing(j?.settings)),
       specialtyCatalog: specialtyDraftRows(
         normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
         normalizePricing(j?.settings),
@@ -163,8 +190,8 @@ export default function AdminSettingsPage() {
         ...(j.settings as SiteSettings),
         hours: normalizeHours(j?.settings?.hours),
         pricing: normalizePricing(j?.settings),
-        processCatalog: normalizeProcessCatalog(j?.settings?.processCatalog, normalizePricing(j?.settings)),
-        addOnCatalog: normalizeAddOnCatalog(j?.settings?.addOnCatalog, normalizePricing(j?.settings)),
+        processCatalog: processDraftRows(normalizeProcessCatalog(j?.settings?.processCatalog, normalizePricing(j?.settings)), normalizePricing(j?.settings)),
+        addOnCatalog: addOnDraftRows(normalizeAddOnCatalog(j?.settings?.addOnCatalog, normalizePricing(j?.settings)), normalizePricing(j?.settings)),
         specialtyCatalog: specialtyDraftRows(
           normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
           normalizePricing(j?.settings),
@@ -203,7 +230,7 @@ export default function AdminSettingsPage() {
 
   const updateProcessTypeItem = (index: number, key: keyof ProcessTypeCatalogItem, value: string | boolean) => {
     if (!s) return;
-    const current = normalizeProcessCatalog(s.processCatalog, s.pricing);
+    const current = processDraftRows(s.processCatalog, s.pricing);
     const next = current.map((item, i) =>
       i === index
         ? {
@@ -228,7 +255,7 @@ export default function AdminSettingsPage() {
 
   const addProcessType = () => {
     if (!s) return;
-    const current = normalizeProcessCatalog(s.processCatalog, s.pricing);
+    const current = processDraftRows(s.processCatalog, s.pricing);
     setS({
       ...s,
       processCatalog: [
@@ -240,12 +267,12 @@ export default function AdminSettingsPage() {
 
   const removeProcessType = (index: number) => {
     if (!s) return;
-    setS({ ...s, processCatalog: normalizeProcessCatalog(s.processCatalog, s.pricing).filter((_, i) => i !== index) });
+    setS({ ...s, processCatalog: processDraftRows(s.processCatalog, s.pricing).filter((_, i) => i !== index) });
   };
 
   const updateAddOnItem = (index: number, key: keyof AddOnCatalogItem, value: string | boolean) => {
     if (!s) return;
-    const current = normalizeAddOnCatalog(s.addOnCatalog, s.pricing);
+    const current = addOnDraftRows(s.addOnCatalog, s.pricing);
     const next = current.map((item, i) =>
       i === index
         ? {
@@ -270,7 +297,11 @@ export default function AdminSettingsPage() {
 
   const addAddOn = () => {
     if (!s) return;
-    const current = normalizeAddOnCatalog(s.addOnCatalog, s.pricing);
+    const current = addOnDraftRows(s.addOnCatalog, s.pricing);
+    if (current.some((item) => !String(item.name || '').trim() && !String(item.slug || '').trim())) {
+      setS({ ...s, addOnCatalog: current });
+      return;
+    }
     setS({
       ...s,
       addOnCatalog: [
@@ -282,7 +313,7 @@ export default function AdminSettingsPage() {
 
   const removeAddOn = (index: number) => {
     if (!s) return;
-    setS({ ...s, addOnCatalog: normalizeAddOnCatalog(s.addOnCatalog, s.pricing).filter((_, i) => i !== index) });
+    setS({ ...s, addOnCatalog: addOnDraftRows(s.addOnCatalog, s.pricing).filter((_, i) => i !== index) });
   };
 
   const updateNotificationTemplate = (
@@ -773,7 +804,7 @@ export default function AdminSettingsPage() {
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Control which process options appear on intake forms, what they are called, and what base price they use.
           </div>
-          {normalizeProcessCatalog(s.processCatalog, s.pricing).map((item, index) => (
+          {processDraftRows(s.processCatalog, s.pricing).map((item, index) => (
             <div key={`${item.slug || 'new'}-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 0.8fr', gap: 10 }}>
                 <input value={item.name} onChange={(e) => updateProcessTypeItem(index, 'name', e.target.value)} placeholder="Display name" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
@@ -801,7 +832,7 @@ export default function AdminSettingsPage() {
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Add optional extras to the intake form and control their pricing. Legacy workflow items like beef fat and Webbs can stay mapped here too.
           </div>
-          {normalizeAddOnCatalog(s.addOnCatalog, s.pricing).map((item, index) => (
+          {addOnDraftRows(s.addOnCatalog, s.pricing).map((item, index) => (
             <div key={`${item.slug || 'new'}-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 0.8fr auto', gap: 10 }}>
                 <input value={item.name} onChange={(e) => updateAddOnItem(index, 'name', e.target.value)} placeholder="Display name" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
