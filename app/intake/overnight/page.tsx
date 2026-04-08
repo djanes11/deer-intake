@@ -9,6 +9,17 @@ import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/
 import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
 import {
+  AddOnCatalogItem,
+  ProcessTypeCatalogItem,
+  calcCatalogProcessingPrice,
+  defaultAddOnCatalog,
+  defaultProcessCatalog,
+  deriveSelectedAddOnItems,
+  normalizeAddOnCatalog,
+  normalizeJobAddOnItems,
+  normalizeProcessCatalog,
+} from '@/lib/processorCatalog';
+import {
   WEBBS_GROUPS,
   type WebbsAllocationItem,
   type WebbsOrderItem,
@@ -58,14 +69,9 @@ type Job = {
   dropoff?: string; // yyyy-mm-dd
   sex?: '' | 'Buck' | 'Doe' | 'Antlerless';
   howKilled?: '' | 'Gun' | 'Archery' | 'Vehicle';
-  processType?:
-    | ''
-    | 'Standard Processing'
-    | 'Caped'
-    | 'Skull-Cap'
-    | 'European'
-    | 'Cape & Donate'
-    | 'Donate';
+  processType?: string;
+  processTypeSlug?: string | null;
+  processTypeRequiresCape?: boolean | null;
 
   status?: string;       // hidden in UI
   capingStatus?: string; // hidden in UI
@@ -78,6 +84,14 @@ type Job = {
   burgerSize?: string;
   steaksPerPackage?: string;
   beefFat?: boolean;
+  addOnItems?: Array<{
+    slug: string;
+    name: string;
+    selected: boolean;
+    price: number;
+    sortOrder: number;
+    legacyBooleanKey?: 'beefFat' | 'webbsOrder' | null;
+  }>;
 
   hindRoastCount?: string;
   frontRoastCount?: string;
@@ -218,6 +232,7 @@ function OvernightIntakePage() {
     },
 
     beefFat: false,
+    addOnItems: [],
     webbsOrder: false,
     webbsOrderMode: 'online',
     webbsOrderStyle: 'itemized_lbs',
@@ -259,6 +274,8 @@ function OvernightIntakePage() {
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
+  const [processCatalog, setProcessCatalog] = useState<ProcessTypeCatalogItem[]>(defaultProcessCatalog(DEFAULT_SITE_PRICING));
+  const [addOnCatalog, setAddOnCatalog] = useState<AddOnCatalogItem[]>(defaultAddOnCatalog(DEFAULT_SITE_PRICING));
   const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
@@ -283,6 +300,8 @@ function OvernightIntakePage() {
       .then((j) => {
         if (j?.ok) {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
+          setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
+          setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
           setSpecialtyCatalog(normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
           setIntakeEnabled(!!j?.settings?.public_intake_enabled);
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
@@ -295,9 +314,42 @@ function OvernightIntakePage() {
       .catch(() => {});
   }, []);
 
+  const activeProcessCatalog = useMemo(
+    () => normalizeProcessCatalog(processCatalog, pricing).filter((item) => item.active),
+    [processCatalog, pricing]
+  );
+  const activeAddOnCatalog = useMemo(
+    () =>
+      normalizeAddOnCatalog(addOnCatalog, pricing).filter(
+        (item) => item.active && (item.legacyBooleanKey !== 'webbsOrder' || webbsEnabled),
+      ),
+    [addOnCatalog, pricing, webbsEnabled]
+  );
+  const selectedAddOnItems = useMemo(
+    () =>
+      deriveSelectedAddOnItems(
+        {
+          addOnItems: job.addOnItems,
+          beefFat: job.beefFat,
+          webbsOrder: job.webbsOrder,
+        },
+        activeAddOnCatalog,
+      ),
+    [job.addOnItems, job.beefFat, job.webbsOrder, activeAddOnCatalog]
+  );
   const processingPrice = useMemo(
-    () => calcProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder, pricing),
-    [job.processType, job.beefFat, job.webbsOrder, pricing]
+    () =>
+      calcCatalogProcessingPrice(
+        {
+          processType: job.processType,
+          addOnItems: selectedAddOnItems,
+          beefFat: job.beefFat,
+          webbsOrder: job.webbsOrder,
+        },
+        activeProcessCatalog,
+        activeAddOnCatalog,
+      ),
+    [job.processType, job.addOnItems, job.beefFat, job.webbsOrder, activeProcessCatalog, activeAddOnCatalog, selectedAddOnItems]
   );
 
   const specialtyPrice = useMemo(() => {
@@ -450,6 +502,8 @@ function OvernightIntakePage() {
         if (!j?.ok || !j?.settings) return;
         setIntakeEnabled(j.settings.public_intake_enabled !== false);
         setClosureMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
+        setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
+        setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
       })
@@ -608,6 +662,7 @@ function OvernightIntakePage() {
     }
 
     const pnorm = normProc(job.processType);
+    const selectedProcessType = activeProcessCatalog.find((item) => item.name === job.processType || item.slug === String(job.processType || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
 
     // IMPORTANT: public/overnight has no tag. Send empty string (not null).
     const payload: Job = {
@@ -642,6 +697,9 @@ function OvernightIntakePage() {
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
+      addOnItems: normalizeJobAddOnItems(selectedAddOnItems),
+      processTypeSlug: selectedProcessType?.slug || null,
+      processTypeRequiresCape: !!selectedProcessType?.triggersCapeWorkflow,
       specialtyItems: job.specialtyProducts ? normalizeJobSpecialtyItems((job as any).specialtyItems) : [],
 
       originalSummerSausageLbs: job.specialtyProducts ? String(toInt(job.originalSummerSausageLbs)) : '',
@@ -696,6 +754,32 @@ function OvernightIntakePage() {
       }
       return next;
     });
+
+  const setAddOnSelected = (slug: string, selected: boolean) => {
+    if (locked) return;
+    setJob((prev) => {
+      const catalogItem = activeAddOnCatalog.find((item) => item.slug === slug);
+      if (!catalogItem) return prev;
+      const nextItems = normalizeJobAddOnItems(prev.addOnItems).filter((item) => item.slug !== slug);
+      if (selected) {
+        nextItems.push({
+          slug: catalogItem.slug,
+          name: catalogItem.name,
+          selected: true,
+          price: catalogItem.price,
+          sortOrder: catalogItem.sortOrder,
+          legacyBooleanKey: catalogItem.legacyBooleanKey ?? null,
+        });
+      }
+      const next = {
+        ...prev,
+        addOnItems: nextItems.sort((a, b) => a.sortOrder - b.sortOrder),
+      };
+      if (catalogItem.legacyBooleanKey === 'beefFat') next.beefFat = selected;
+      if (catalogItem.legacyBooleanKey === 'webbsOrder') next.webbsOrder = selected;
+      return next;
+    });
+  };
 
   const setSpecialtyQuantity = (slug: string, rawValue: string) => {
     if (locked) return;
@@ -878,7 +962,7 @@ function OvernightIntakePage() {
               <label>Processing Estimate</label>
               <div className="money">{processingPrice.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>
-                {webbsEnabled ? 'Proc. type + beef fat + Webbs fee' : 'Proc. type + beef fat'}
+                  Base process type + selected add-ons
               </div>
             </div>
 
@@ -1251,12 +1335,9 @@ function OvernightIntakePage() {
                   disabled={locked}
                 >
                   <option value="">--</option>
-                  <option>Standard Processing</option>
-                  <option>Caped</option>
-                  <option>Skull-Cap</option>
-                  <option>European</option>
-                  <option>Cape & Donate</option>
-                  <option>Donate</option>
+                  {activeProcessCatalog.map((item) => (
+                    <option key={item.slug} value={item.name}>{item.name}</option>
+                  ))}
                 </select>
                 {errors.processType ? <div className="errText">{errors.processType}</div> : null}
               </div>
@@ -1358,13 +1439,30 @@ function OvernightIntakePage() {
                   </select>
                 </div>
 
-                <div className="pkg beefFat">
-                  <label className="chk tight pkg-beef">
-                    <Hint>Beef Fat added to Burger Meat</Hint>
-                    <input type="checkbox" checked={!!job.beefFat} onChange={(e) => setVal('beefFat', e.target.checked)} disabled={locked} />
-                    <span>Beef fat</span>
-                    <span className="muted"> (+$5)</span>
-                  </label>
+                <div className="pkg" style={{ gridColumn: '1 / -1' }}>
+                  <label>Add-Ons</label>
+                  <div className="checks">
+                    {activeAddOnCatalog.map((item) => {
+                      const checked = selectedAddOnItems.some((selected) => selected.slug === item.slug);
+                      return (
+                        <label className="chk tight" key={item.slug}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setAddOnSelected(item.slug, e.target.checked);
+                              if (item.legacyBooleanKey === 'webbsOrder' && e.target.checked) {
+                                setWebbsModalOpen(true);
+                              }
+                            }}
+                            disabled={locked}
+                          />
+                          <span>{item.name}</span>
+                          <span className="muted"> (+${Number(item.price || 0).toFixed(2)})</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </section>

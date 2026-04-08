@@ -7,6 +7,11 @@ import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
 import { normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { normalizePricing } from '@/lib/pricing';
 import { normalizeSpecialtyCatalog } from '@/lib/specialtyCatalog';
+import {
+  normalizeAddOnCatalog,
+  normalizeNotificationTemplates,
+  normalizeProcessCatalog,
+} from '@/lib/processorCatalog';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { writeAuditEntry } from '@/lib/auditLog';
 
@@ -65,6 +70,9 @@ export async function GET(req: Request) {
             branding,
             features: normalizeProcessorFeatures(rawFeatures),
             specialtyCatalog,
+            processCatalog: normalizeProcessCatalog((data as any)?.process_catalog, normalizePricing(data)),
+            addOnCatalog: normalizeAddOnCatalog((data as any)?.add_on_catalog, normalizePricing(data)),
+            notificationTemplates: normalizeNotificationTemplates((data as any)?.notification_templates, branding.name),
           },
         });
       }
@@ -77,6 +85,9 @@ export async function GET(req: Request) {
         branding,
         features: defaultPublicSiteSettings().features,
         specialtyCatalog: defaultPublicSiteSettings().specialtyCatalog,
+        processCatalog: defaultPublicSiteSettings().processCatalog,
+        addOnCatalog: defaultPublicSiteSettings().addOnCatalog,
+        notificationTemplates: defaultPublicSiteSettings().notificationTemplates,
       },
     });
   } catch (e: any) {
@@ -100,6 +111,9 @@ export async function POST(req: Request) {
       banner_enabled: !!body.banner_enabled,
       banner_message: String(body.banner_message || ''),
       hours: normalizeHours(body.hours),
+      process_catalog: normalizeProcessCatalog(body?.processCatalog, body),
+      add_on_catalog: normalizeAddOnCatalog(body?.addOnCatalog, body),
+      notification_templates: normalizeNotificationTemplates(body?.notificationTemplates, body?.branding?.name || defaults.name),
       ...normalizePricing(body),
     };
 
@@ -229,6 +243,9 @@ export async function POST(req: Request) {
       },
       features: processorPayload.features,
       specialtyCatalog: normalizeSpecialtyCatalog(body?.specialtyCatalog, payload),
+      processCatalog: normalizeProcessCatalog(body?.processCatalog, payload),
+      addOnCatalog: normalizeAddOnCatalog(body?.addOnCatalog, payload),
+      notificationTemplates: normalizeNotificationTemplates(body?.notificationTemplates, processorPayload.public_name || defaults.name),
     };
 
     await writeAuditEntry({
@@ -244,6 +261,8 @@ export async function POST(req: Request) {
         bannerEnabled: !!payload.banner_enabled,
         brandingName: merged.branding.name,
         specialtyItems: merged.specialtyCatalog.length,
+        processTypes: merged.processCatalog.length,
+        addOns: merged.addOnCatalog.length,
       },
     });
 

@@ -19,6 +19,8 @@ export interface Job {
   dropoff: string | null;      // ISO date string
   sex: string | null;
   processType: string | null;
+  processTypeSlug?: string | null;
+  processTypeRequiresCape?: boolean | null;
 
   // Statuses
   status: string | null;
@@ -32,6 +34,14 @@ export interface Job {
   burgerSize: string | null;
   steaksPerPackage: string | null;
   beefFat: boolean;
+  addOnItems?: Array<{
+    slug: string;
+    name: string;
+    selected: boolean;
+    price: number;
+    sortOrder: number;
+    legacyBooleanKey?: 'beefFat' | 'webbsOrder' | null;
+  }>;
 
   hindRoastCount: string | null;
   frontRoastCount: string | null;

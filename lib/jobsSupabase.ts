@@ -6,6 +6,16 @@ import { sendEmail } from '@/lib/email';
 import { normalizeUsPhone, sendSms } from '@/lib/sms';
 import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
 import { getProcessorSpecialtyCatalog, normalizeJobSpecialtyItems, SpecialtyLegacyFieldKey } from '@/lib/specialtyCatalog';
+import {
+  calcCatalogProcessingPrice,
+  deriveSelectedAddOnItems,
+  normalizeNotificationTemplates,
+  normalizeProcessCatalog,
+  normalizeJobAddOnItems,
+  processTypeNeedsCapeWorkflow,
+  renderNotificationTemplate,
+  resolveProcessType,
+} from '@/lib/processorCatalog';
 import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrderStyle } from '@/lib/webbs';
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
@@ -50,25 +60,93 @@ async function getNotificationBranding() {
   return {
     businessName: String(settings.branding.name || 'Game Butcher Board'),
     phoneDisplay: String(settings.branding.phoneDisplay || ''),
+    notificationTemplates: normalizeNotificationTemplates(settings.notificationTemplates, String(settings.branding.name || 'Game Butcher Board')),
   };
 }
 
-function buildIntakeEmail(opts: { name: string; tag: string; link: string; businessName: string; phoneDisplay: string }) {
-  const name = opts.name || 'there';
+function notificationVars(opts: {
+  name?: string;
+  tag?: string;
+  link?: string;
+  paidProcessing?: boolean;
+  processingPrice?: number;
+  paidSpecialty?: boolean;
+  specialtyPrice?: number;
+  businessName: string;
+  phoneDisplay?: string;
+}) {
+  const phoneDisplay = String(opts.phoneDisplay || '').trim();
   return {
-    subject: `We received your deer (${opts.tag})`,
-    html: [
-      `<p>Hi ${escapeHtml(name)}</p>`,
-      `<p>We received your deer (${escapeHtml(opts.tag)})</p>`,
-      opts.link ? `<p><a href="${opts.link}" target="_blank" rel="noopener">Click here to view your intake form</a></p>` : '',
-      `<p>If you need to make any updates or have questions, please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''}.</p>`,
-    ].join(''),
-    text:
-      `Hi ${name}\n` +
-      `We received your deer (${opts.tag})\n` +
-      (opts.link ? `Click here to view your intake form: ${opts.link}\n` : '') +
-      `If you need to make any updates or have questions, please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''}\n`,
+    name: String(opts.name || 'there'),
+    tag: String(opts.tag || ''),
+    businessName: String(opts.businessName || 'Game Butcher Board'),
+    phoneDisplay,
+    phoneSuffix: phoneDisplay ? ` at ${phoneDisplay}` : '',
+    intakeLink: String(opts.link || ''),
+    intakeLinkLine: opts.link ? `Click here to view your intake form: ${opts.link}` : '',
+    statusUrl: statusPageLink(),
+    statusLine: statusPageLink() ? `Status: ${statusPageLink()}` : '',
+    pickupHours: '6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.',
+    processingDueLine: opts.paidProcessing
+      ? 'Regular processing: PAID'
+      : `Amount still owed (regular processing): $${Number(opts.processingPrice || 0).toFixed(2)}`,
+    specialtyDueLine: opts.paidSpecialty
+      ? 'Specialty products: PAID'
+      : `Amount still owed (specialty products): $${Number(opts.specialtyPrice || 0).toFixed(2)}`,
   };
+}
+
+function buildNotificationEmail(
+  eventKey: keyof ReturnType<typeof normalizeNotificationTemplates>,
+  opts: {
+    name?: string;
+    tag?: string;
+    link?: string;
+    paidProcessing?: boolean;
+    processingPrice?: number;
+    paidSpecialty?: boolean;
+    specialtyPrice?: number;
+    businessName: string;
+    phoneDisplay?: string;
+    notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
+  },
+) {
+  const vars = notificationVars(opts);
+  const templates = opts.notificationTemplates || normalizeNotificationTemplates({}, vars.businessName);
+  const template = templates[eventKey];
+  return {
+    subject: renderNotificationTemplate(template.emailSubject, vars),
+    html: renderNotificationTemplate(template.emailBody, vars)
+      .split(/\n{2,}/)
+      .filter(Boolean)
+      .map((line) => `<p>${escapeHtml(line).replace(/\n/g, '<br/>')}</p>`)
+      .join(''),
+    text: renderNotificationTemplate(template.emailBody, vars),
+  };
+}
+
+function buildNotificationSms(
+  eventKey: keyof ReturnType<typeof normalizeNotificationTemplates>,
+  opts: {
+    name?: string;
+    tag?: string;
+    link?: string;
+    paidProcessing?: boolean;
+    processingPrice?: number;
+    paidSpecialty?: boolean;
+    specialtyPrice?: number;
+    businessName: string;
+    phoneDisplay?: string;
+    notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
+  },
+) {
+  const vars = notificationVars(opts);
+  const templates = opts.notificationTemplates || normalizeNotificationTemplates({}, vars.businessName);
+  return renderNotificationTemplate(templates[eventKey].smsBody, vars).replace(/\s+/g, ' ').trim();
+}
+
+function buildIntakeEmail(opts: { name: string; tag: string; link: string; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationEmail('intake', opts);
 }
 
 /** Only send customer-facing emails once we have a real tag (prevents overnight/no-tag duplicates). */
@@ -85,91 +163,32 @@ function makePendingTag(confirmation13: string) {
 }
 
 
-function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number; businessName: string; phoneDisplay: string }) {
-  const name = opts.name || 'there';
-  const paid = !!opts.paidProcessing;
-  const price = Number(opts.processingPrice || 0);
-
-  const payBlock = paid
-    ? `<div style="padding:10px 12px;border:1px solid #16a34a;border-radius:10px;background:#f0fdf4;"><b>Regular processing:</b> PAID</div>`
-    : `<div style="padding:10px 12px;border:1px solid #dc2626;border-radius:10px;background:#fef2f2;"><b>Amount still owed (regular processing):</b> $${price.toFixed(2)}</div>`;
-
-  return {
-    subject: `Finished & ready for pickup (${opts.tag})`,
-    html: [
-      `<p>Hi ${escapeHtml(name)}</p>`,
-      `<p>Your regular processing is finished and ready for pickup.</p>`,
-      payBlock,
-      `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.</p>`,
-      `<p>Please bring a cooler or box to transport your meat.</p>`,
-      `<p><i>Reminder:</i> This update is for your regular processing only. We'll reach out separately about any additional order items.</p>`,
-    ].join(''),
-    text:
-      `Hi ${name}\n` +
-      `Your regular processing is finished and ready for pickup.\n\n` +
-      (paid ? 'Regular processing: PAID' : `Amount still owed (regular processing): $${price.toFixed(2)}`) +
-      `\n\nPickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions. Also, check our Facebook for any temporary closures.\n` +
-      `Please bring a cooler or box to transport your meat.\n` +
-      `Reminder: This update is for your regular processing only. We'll reach out separately about any additional order items.\n`,
-  };
+function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationEmail('meat_finished', opts);
 }
 
-function buildIntakeSms(opts: { tag: string; statusUrl: string; businessName: string }) {
-  const tag = String(opts.tag || '').trim();
-  const statusUrl = String(opts.statusUrl || '').trim();
-  const parts = [
-    `${opts.businessName}: Deer tagged ${tag}.`,
-    statusUrl ? `Status: ${statusUrl}` : '',
-  ].filter(Boolean);
-  return parts.join(' ');
+function buildIntakeSms(opts: { tag: string; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationSms('intake', opts);
 }
 
-function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string; businessName: string }) {
-  return [
-    `${opts.businessName}: Meat ready for pickup. ${opts.tag}.`,
-    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
-  ].filter(Boolean).join(' ');
+function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationSms('meat_finished', opts);
 }
 
-function buildCapeFinishedSms(opts: { tag: string; statusUrl: string; businessName: string }) {
-  return [
-    `${opts.businessName}: Cape ready for pickup. ${opts.tag}.`,
-    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
-  ].filter(Boolean).join(' ');
+function buildCapeFinishedSms(opts: { tag: string; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationSms('cape_finished', opts);
 }
 
-function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string; businessName: string }) {
-  return [
-    `${opts.businessName}: Specialty ready for pickup. ${opts.tag}.`,
-    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
-  ].filter(Boolean).join(' ');
+function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationSms('specialty_finished', opts);
 }
 
-function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string; businessName: string }) {
-  return [
-    `${opts.businessName}: Webbs delivered. ${opts.tag}.`,
-    opts.statusUrl ? `Status: ${opts.statusUrl}` : '',
-  ].filter(Boolean).join(' ');
+function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationSms('webbs_delivered', opts);
 }
 
-function buildCapeFinishedEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string }) {
-  const name = opts.name || 'there';
-  return {
-    subject: `Cape finished & ready for pickup (${opts.tag})`,
-    html: [
-      `<p>Hi ${escapeHtml(name)}</p>`,
-      `<p>Your cape is finished and ready for pickup.</p>`,
-      `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions.</p>`,
-    ].join(''),
-    text:
-      `Hi ${name}\n` +
-      `Your cape is finished and ready for pickup.\n\n` +
-      `Pickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions.\n`,
-  };
+function buildCapeFinishedEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationEmail('cape_finished', opts);
 }
 
 function buildSpecialtyFinishedEmail(opts: {
@@ -179,48 +198,13 @@ function buildSpecialtyFinishedEmail(opts: {
   specialtyPrice: number;
   businessName: string;
   phoneDisplay: string;
+  notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
 }) {
-  const name = opts.name || 'there';
-  const paid = !!opts.paidSpecialty;
-  const price = Number(opts.specialtyPrice || 0);
-  const payBlock = paid
-    ? `<div style="padding:10px 12px;border:1px solid #16a34a;border-radius:10px;background:#f0fdf4;"><b>Specialty products:</b> PAID</div>`
-    : `<div style="padding:10px 12px;border:1px solid #dc2626;border-radius:10px;background:#fef2f2;"><b>Amount still owed (specialty products):</b> $${price.toFixed(2)}</div>`;
-
-  return {
-    subject: `Specialty products finished (${opts.tag})`,
-    html: [
-      `<p>Hi ${escapeHtml(name)}</p>`,
-      `<p>Your specialty products are finished and ready for pickup.</p>`,
-      payBlock,
-      `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions.</p>`,
-    ].join(''),
-    text:
-      `Hi ${name}\n` +
-      `Your specialty products are finished and ready for pickup.\n\n` +
-      (paid ? 'Specialty products: PAID' : `Amount still owed (specialty products): $${price.toFixed(2)}`) +
-      `\n\nPickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions.\n`,
-  };
+  return buildNotificationEmail('specialty_finished', opts);
 }
 
-function buildWebbsDeliveredEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string }) {
-  const name = opts.name || 'there';
-  return {
-    subject: `Webbs order delivered (${opts.tag})`,
-    html: [
-      `<p>Hi ${escapeHtml(name)}</p>`,
-      `<p>Your Webbs order has been delivered and is ready for pickup.</p>`,
-      `<p><b>Pickup hours:</b> 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.</p>`,
-      `<p>Please contact ${escapeHtml(opts.businessName)}${opts.phoneDisplay ? ` at ${escapeHtml(opts.phoneDisplay)}` : ''} to confirm your pickup time or ask any questions.</p>`,
-    ].join(''),
-    text:
-      `Hi ${name}\n` +
-      `Your Webbs order has been delivered and is ready for pickup.\n\n` +
-      `Pickup hours: 6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.\n` +
-      `Please contact ${opts.businessName}${opts.phoneDisplay ? ` at ${opts.phoneDisplay}` : ''} to confirm your pickup time or ask any questions.\n`,
-  };
+function buildWebbsDeliveredEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationEmail('webbs_delivered', opts);
 }
 
 function statusIsFinishedLike(v: any) {
@@ -229,8 +213,7 @@ function statusIsFinishedLike(v: any) {
 }
 
 function processTypeNeedsCape(processType: any) {
-  const p = normProc(processType);
-  return p === 'Caped' || p === 'Cape & Donate';
+  return processTypeNeedsCapeWorkflow(processType);
 }
 
 
@@ -515,6 +498,7 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
     link,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   await sendEmail({
@@ -549,6 +533,7 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
     tag: String(locked.tag || ''),
     statusUrl: statusPageLink(),
     businessName: branding.businessName,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   const result = await sendSms({
@@ -632,6 +617,7 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     processingPrice: price,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   await sendEmail({
@@ -682,6 +668,7 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
     processingPrice: price,
     statusUrl: statusPageLink(),
     businessName: branding.businessName,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -697,7 +684,7 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
 
 async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
-  if (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status)) return;
+  if (!processTypeNeedsCapeWorkflow(row.process_type, undefined, row.process_type_requires_cape) || !capeReady(row.caping_status)) return;
   const alreadyStamped = !!row.cape_finished_email_sent_at;
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
@@ -717,6 +704,7 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
     tag: String(locked.tag || ''),
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   await sendEmail({
@@ -729,7 +717,7 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
 
 async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
-  if (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status)) return;
+  if (!processTypeNeedsCapeWorkflow(row.process_type, undefined, row.process_type_requires_cape) || !capeReady(row.caping_status)) return;
   if (preferredNotificationChannel(row) !== 'sms') return;
   const alreadyStamped = !!row.cape_finished_sms_sent_at;
   if (alreadyStamped) return;
@@ -752,6 +740,7 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
     tag: String(locked.tag || ''),
     statusUrl: statusPageLink(),
     businessName: branding.businessName,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -807,6 +796,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
     specialtyPrice: price,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   await sendEmail({
@@ -869,6 +859,7 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
     specialtyPrice: price,
     statusUrl: statusPageLink(),
     businessName: branding.businessName,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -904,6 +895,7 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
     tag: String(locked.tag || ''),
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   await sendEmail({
@@ -939,6 +931,7 @@ async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
     tag: String(locked.tag || ''),
     statusUrl: statusPageLink(),
     businessName: branding.businessName,
+    notificationTemplates: branding.notificationTemplates,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -1051,7 +1044,7 @@ export async function resendCustomerNotification(params: {
   if (event === 'meat_finished' && !statusIsFinishedLike(row.status)) {
     return { ok: false, error: 'Processing is not marked finished or ready yet.' };
   }
-  if (event === 'cape_finished' && (!processTypeNeedsCape(row.process_type) || !capeReady(row.caping_status))) {
+  if (event === 'cape_finished' && (!processTypeNeedsCapeWorkflow(row.process_type, undefined, row.process_type_requires_cape) || !capeReady(row.caping_status))) {
     return { ok: false, error: 'Cape is not marked finished or ready yet.' };
   }
   if (event === 'specialty_finished' && (!row.specialty_products || !specialtyReady(row.specialty_status))) {
@@ -1077,6 +1070,7 @@ export async function resendCustomerNotification(params: {
         link,
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
       await supabaseServer.from('jobs').update({
@@ -1097,6 +1091,7 @@ export async function resendCustomerNotification(params: {
         processingPrice: price,
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
@@ -1108,6 +1103,7 @@ export async function resendCustomerNotification(params: {
         tag: String(row.tag || ''),
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
@@ -1124,6 +1120,7 @@ export async function resendCustomerNotification(params: {
         specialtyPrice: price,
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
@@ -1135,6 +1132,7 @@ export async function resendCustomerNotification(params: {
         tag: String(row.tag || ''),
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
@@ -1151,7 +1149,7 @@ export async function resendCustomerNotification(params: {
   let body = '';
   if (event === 'dropoff_tagged') {
     const branding = await getNotificationBranding();
-    body = buildIntakeSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName });
+    body = buildIntakeSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
   }
   if (event === 'meat_finished') {
     const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
@@ -1163,11 +1161,12 @@ export async function resendCustomerNotification(params: {
       processingPrice: price,
       statusUrl: statusPageLink(),
       businessName: branding.businessName,
+      notificationTemplates: branding.notificationTemplates,
     });
   }
   if (event === 'cape_finished') {
     const branding = await getNotificationBranding();
-    body = buildCapeFinishedSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName });
+    body = buildCapeFinishedSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
   }
   if (event === 'specialty_finished') {
     const computed = calcSpecialtyPriceFromLbs(row, await getCurrentPricing());
@@ -1180,11 +1179,12 @@ export async function resendCustomerNotification(params: {
       specialtyPrice: price,
       statusUrl: statusPageLink(),
       businessName: branding.businessName,
+      notificationTemplates: branding.notificationTemplates,
     });
   }
   if (event === 'webbs_delivered') {
     const branding = await getNotificationBranding();
-    body = buildWebbsDeliveredSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName });
+    body = buildWebbsDeliveredSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
   }
 
   const result = await sendSms({ to: phone, body });
@@ -1302,6 +1302,8 @@ function mapDbRowToJob(row: any, specialtyItems: any[] = []): Job {
     dropoff: row.dropoff_date,
     sex: row.deer_sex,
     processType: row.process_type,
+    processTypeSlug: row.process_type_slug ?? null,
+    processTypeRequiresCape: row.process_type_requires_cape ?? null,
 
     // Statuses
     status: row.status,
@@ -1315,6 +1317,7 @@ function mapDbRowToJob(row: any, specialtyItems: any[] = []): Job {
     burgerSize: row.burger_size,
     steaksPerPackage: row.steaks_per_package,
     beefFat: !!row.beef_fat,
+    addOnItems: normalizeJobAddOnItems(row.add_on_items),
 
     hindRoastCount: row.hind_roast_count != null ? String(row.hind_roast_count) : null,
     frontRoastCount: row.front_roast_count != null ? String(row.front_roast_count) : null,
@@ -1750,7 +1753,10 @@ function calcSpecialtyPriceFromLbs(job: Partial<Job>, pricing?: Partial<SitePric
 export async function saveJob(job: Partial<Job>, options?: { processorContext?: ProcessorContext | null }) {
   const supabaseServer = getSupabaseServer();
   const processor = options?.processorContext || (await getDefaultProcessorContext());
-  const pricing = await getCurrentPricing();
+  const settings = await getPublicSiteSettings();
+  const pricing = settings.pricing;
+  const processCatalog = normalizeProcessCatalog(settings.processCatalog, pricing);
+  const addOnCatalog = settings.addOnCatalog;
   const specialtyCatalog = await getProcessorSpecialtyCatalog(processor.id, pricing);
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
@@ -1871,11 +1877,24 @@ let tagToStore: string;
 
 
 
-  const computedProcessingPrice = calcProcessingPrice(
-    effectiveJob.processType,
-    !!effectiveJob.beefFat,
-    !!effectiveJob.webbsOrder,
-    pricing,
+  const selectedProcessType = resolveProcessType(effectiveJob.processType, processCatalog);
+  const addOnItems = deriveSelectedAddOnItems(
+    {
+      addOnItems: (effectiveJob as any).addOnItems,
+      beefFat: effectiveJob.beefFat,
+      webbsOrder: effectiveJob.webbsOrder,
+    },
+    addOnCatalog,
+  );
+  const computedProcessingPrice = calcCatalogProcessingPrice(
+    {
+      processType: effectiveJob.processType,
+      addOnItems,
+      beefFat: effectiveJob.beefFat,
+      webbsOrder: effectiveJob.webbsOrder,
+    },
+    processCatalog,
+    addOnCatalog,
   );
   const normalizedSpecialtyItems = normalizeJobSpecialtyItems((effectiveJob as any).specialtyItems);
   const specialtyItems =
@@ -1932,6 +1951,8 @@ let tagToStore: string;
     county_killed: effectiveJob.county ?? null,
     deer_sex: effectiveJob.sex ?? null,
     process_type: effectiveJob.processType ?? null,
+    process_type_slug: selectedProcessType?.slug ?? (effectiveJob as any).processTypeSlug ?? null,
+    process_type_requires_cape: selectedProcessType?.triggersCapeWorkflow ?? !!(effectiveJob as any).processTypeRequiresCape,
     dropoff_date: effectiveJob.dropoff ?? null,
 
     status: effectiveJob.status ?? null,
@@ -1944,6 +1965,7 @@ let tagToStore: string;
     burger_size: effectiveJob.burgerSize ?? null,
     steaks_per_package: effectiveJob.steaksPerPackage ?? null,
     beef_fat: effectiveJob.beefFat ?? false,
+    add_on_items: normalizeJobAddOnItems(addOnItems),
 
     hind_roast_count: intOrNull(effectiveJob.hindRoastCount),
     front_roast_count: intOrNull(effectiveJob.frontRoastCount),
@@ -2122,7 +2144,7 @@ export async function progressJob(tag: string) {
 
   let nextStatus: string | null = null;
   let progressedField: 'status' | 'caping_status' | null = null;
-  const needsCape = processTypeNeedsCape(job.process_type);
+  const needsCape = processTypeNeedsCapeWorkflow(job.process_type, undefined, job.process_type_requires_cape);
   const capeAlreadyFinished = capeReady(curCapeStatusRaw);
 
   // Cape flow:

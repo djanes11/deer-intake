@@ -11,6 +11,17 @@ import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/
 import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
 import {
+  calcCatalogProcessingPrice,
+  defaultAddOnCatalog,
+  defaultProcessCatalog,
+  deriveSelectedAddOnItems,
+  normalizeAddOnCatalog,
+  normalizeJobAddOnItems,
+  normalizeProcessCatalog,
+  ProcessTypeCatalogItem,
+  AddOnCatalogItem,
+} from '@/lib/processorCatalog';
+import {
   WEBBS_GROUPS,
   type WebbsAllocationItem,
   type WebbsOrderItem,
@@ -58,14 +69,9 @@ type Job = {
   county?: string;
   dropoff?: string; // yyyy-mm-dd
   sex?: '' | 'Buck' | 'Doe' | 'Antlerless';
-  processType?:
-    | ''
-    | 'Standard Processing'
-    | 'Caped'
-    | 'Skull-Cap'
-    | 'European'
-    | 'Cape & Donate'
-    | 'Donate';
+  processType?: string;
+  processTypeSlug?: string | null;
+  processTypeRequiresCape?: boolean | null;
 
   status?: string; // regular status
   capingStatus?: string; // only shown if Caped / Cape & Donate
@@ -78,6 +84,14 @@ type Job = {
   burgerSize?: string;
   steaksPerPackage?: string;
   beefFat?: boolean;
+  addOnItems?: Array<{
+    slug: string;
+    name: string;
+    selected: boolean;
+    price: number;
+    sortOrder: number;
+    legacyBooleanKey?: 'beefFat' | 'webbsOrder' | null;
+  }>;
 
   hindRoastCount?: string;
   frontRoastCount?: string;
@@ -194,6 +208,7 @@ function snapshotJob(j: Job) {
     burgerSize: j.burgerSize ?? '',
     steaksPerPackage: j.steaksPerPackage ?? '',
     beefFat: !!j.beefFat,
+    addOnItems: normalizeJobAddOnItems((j as any).addOnItems),
 
     hindRoastCount: j.hindRoastCount ?? '',
     frontRoastCount: j.frontRoastCount ?? '',
@@ -387,6 +402,7 @@ function IntakePage() {
 
     specialtyProducts: false,
     specialtyItems: [],
+    addOnItems: [],
 
     howKilled: '',
 
@@ -418,6 +434,8 @@ function IntakePage() {
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
+  const [processCatalog, setProcessCatalog] = useState<ProcessTypeCatalogItem[]>(defaultProcessCatalog(DEFAULT_SITE_PRICING));
+  const [addOnCatalog, setAddOnCatalog] = useState<AddOnCatalogItem[]>(defaultAddOnCatalog(DEFAULT_SITE_PRICING));
   const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
@@ -450,6 +468,8 @@ function IntakePage() {
       .then((j) => {
         if (j?.ok) {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
+          setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
+          setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
           setSpecialtyCatalog(normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
@@ -634,6 +654,7 @@ useEffect(() => {
               'Front - None': false,
             },
             beefFat: false,
+            addOnItems: [],
             webbsOrder: false,
             webbsItems: [],
             Paid: false,
@@ -698,6 +719,7 @@ useEffect(() => {
             paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
             specialtyProducts: asBool(j.specialtyProducts),
             specialtyItems: normalizeJobSpecialtyItems((j as any).specialtyItems),
+            addOnItems: normalizeJobAddOnItems((j as any).addOnItems),
 
             howKilled: j.howKilled || j['How Killed'] || '',
 
@@ -725,9 +747,42 @@ useEffect(() => {
     })();
   }, [tagFromUrl]);
 
+  const activeProcessCatalog = useMemo(
+    () => normalizeProcessCatalog(processCatalog, pricing).filter((item) => item.active),
+    [processCatalog, pricing]
+  );
+  const activeAddOnCatalog = useMemo(
+    () =>
+      normalizeAddOnCatalog(addOnCatalog, pricing).filter(
+        (item) => item.active && (item.legacyBooleanKey !== 'webbsOrder' || webbsEnabled),
+      ),
+    [addOnCatalog, pricing, webbsEnabled]
+  );
+  const selectedAddOnItems = useMemo(
+    () =>
+      deriveSelectedAddOnItems(
+        {
+          addOnItems: job.addOnItems,
+          beefFat: job.beefFat,
+          webbsOrder: job.webbsOrder,
+        },
+        activeAddOnCatalog,
+      ),
+    [job.addOnItems, job.beefFat, job.webbsOrder, activeAddOnCatalog]
+  );
   const processingPriceAuto = useMemo(
-    () => calcProcessingPrice(job.processType, !!job.beefFat, !!job.webbsOrder, pricing),
-    [job.processType, job.beefFat, job.webbsOrder, pricing]
+    () =>
+      calcCatalogProcessingPrice(
+        {
+          processType: job.processType,
+          addOnItems: selectedAddOnItems,
+          beefFat: job.beefFat,
+          webbsOrder: job.webbsOrder,
+        },
+        activeProcessCatalog,
+        activeAddOnCatalog,
+      ),
+    [job.processType, job.addOnItems, job.beefFat, job.webbsOrder, activeProcessCatalog, activeAddOnCatalog, selectedAddOnItems]
   );
 
   const specialtyPriceAuto = useMemo(() => {
@@ -928,6 +983,7 @@ useEffect(() => {
     }
 
     const pnorm = normProc(job.processType);
+    const selectedProcessType = activeProcessCatalog.find((item) => item.name === job.processType || item.slug === String(job.processType || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
 
     const payload: Job = {
       ...job,
@@ -970,6 +1026,9 @@ useEffect(() => {
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
+      addOnItems: normalizeJobAddOnItems(selectedAddOnItems),
+      processTypeSlug: selectedProcessType?.slug || null,
+      processTypeRequiresCape: !!selectedProcessType?.triggersCapeWorkflow,
       specialtyItems: job.specialtyProducts ? normalizeJobSpecialtyItems((job as any).specialtyItems) : [],
       howKilled: job.howKilled || '',
 
@@ -996,7 +1055,7 @@ useEffect(() => {
       setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
 
       // Re-load after save (use the standardized tag from payload)
-      if (payload.tag) {
+    if (payload.tag) {
         const fresh = await getJob(payload.tag);
 if (fresh?.exists && fresh.job) {
   const j: any = fresh.job;
@@ -1009,6 +1068,7 @@ if (fresh?.exists && fresh.job) {
     webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
     paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
     paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
+    addOnItems: normalizeJobAddOnItems((j as any).addOnItems),
 
     prefEmail:  asBool(j.prefEmail),
     prefSMS:    asBool(j.prefSMS),
@@ -1102,6 +1162,41 @@ if (fresh?.exists && fresh.job) {
         next.specialty_price_override = null;
       }
 
+      return next;
+    });
+
+  const setAddOnSelected = (slug: string, selected: boolean) =>
+    setJob((p) => {
+      const catalogItem = activeAddOnCatalog.find((item) => item.slug === slug);
+      if (!catalogItem) return p;
+      const current = normalizeJobAddOnItems(p.addOnItems);
+      const nextItems = current.filter((item) => item.slug !== slug);
+      if (selected) {
+        nextItems.push({
+          slug: catalogItem.slug,
+          name: catalogItem.name,
+          selected: true,
+          price: catalogItem.price,
+          sortOrder: catalogItem.sortOrder,
+          legacyBooleanKey: catalogItem.legacyBooleanKey ?? null,
+        });
+      }
+      const next: Job = {
+        ...p,
+        addOnItems: nextItems.sort((a, b) => a.sortOrder - b.sortOrder),
+        processing_price_override: null,
+      };
+      if (catalogItem.legacyBooleanKey === 'beefFat') next.beefFat = selected;
+      if (catalogItem.legacyBooleanKey === 'webbsOrder') {
+        next.webbsOrder = selected;
+        if (!selected) {
+          next.webbsOrderStyle = 'itemized_lbs';
+          next.webbsItems = [];
+          next.webbsAllocations = [];
+          next.webbsPaperFormCompleted = false;
+          next.webbsPounds = '';
+        }
+      }
       return next;
     });
 
@@ -1211,7 +1306,7 @@ if (fresh?.exists && fresh.job) {
               <label>Processing Price</label>
               <div className="money">{processingPriceUsed.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>
-                {webbsEnabled ? 'Proc. type + beef fat + Webbs fee' : 'Proc. type + beef fat'}
+                Base process type + selected add-ons
               </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' • override active' : ''}
@@ -1605,12 +1700,9 @@ if (fresh?.exists && fresh.job) {
                 className="w-full min-w-[10rem]"
               >
                 <option value="">—</option>
-                <option>Standard Processing</option>
-                <option>Caped</option>
-                <option>Skull-Cap</option>
-                <option>European</option>
-                <option>Cape & Donate</option>
-                <option>Donate</option>
+                {activeProcessCatalog.map((item) => (
+                  <option key={item.slug} value={item.name}>{item.name}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -1739,16 +1831,29 @@ if (fresh?.exists && fresh.job) {
                 <option>2 lb</option>
               </select>
             </div>
-            <div className="c4 rowInline">
-              <label className="chk tight">
-                <input
-                  type="checkbox"
-                  checked={!!job.beefFat}
-                  onChange={(e) => setVal('beefFat', e.target.checked)}
-                />
-                <span>Beef fat</span>
-                <span className="muted"> (+$5)</span>
-              </label>
+            <div className="c12">
+              <label>Add-Ons</label>
+              <div className="checks">
+                {activeAddOnCatalog.map((item) => {
+                  const checked = selectedAddOnItems.some((selected) => selected.slug === item.slug);
+                  return (
+                    <label className="chk" key={item.slug}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => {
+                          setAddOnSelected(item.slug, e.target.checked);
+                          if (item.legacyBooleanKey === 'webbsOrder' && e.target.checked) {
+                            setWebbsModalOpen(true);
+                          }
+                        }}
+                      />
+                      <span>{item.name}</span>
+                      <span className="muted"> (+${Number(item.price || 0).toFixed(2)})</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </section>

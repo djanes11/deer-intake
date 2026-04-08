@@ -18,7 +18,7 @@ import {
   webbsOrderSummary,
   webbsOrderTotalLbs,
 } from '@/lib/webbs';
-import { calcProcessingPrice } from '@/lib/pricing';
+import { calcCatalogProcessingPrice, deriveSelectedAddOnItems } from '@/lib/processorCatalog';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 // ---- Config/env ----
@@ -142,11 +142,23 @@ export default async function IntakeView({
     }
 
     // --- Pricing (auto vs override) ---
-    const processingAuto = calcProcessingPrice(
-      job?.processType,
-      !!job?.beefFat,
-      !!job?.webbsOrder,
-      settings.pricing,
+    const selectedAddOnItems = deriveSelectedAddOnItems(
+      {
+        addOnItems: (job as any)?.addOnItems,
+        beefFat: !!job?.beefFat,
+        webbsOrder: !!job?.webbsOrder,
+      },
+      settings.addOnCatalog,
+    );
+    const processingAuto = calcCatalogProcessingPrice(
+      {
+        processType: job?.processType,
+        addOnItems: selectedAddOnItems,
+        beefFat: !!job?.beefFat,
+        webbsOrder: !!job?.webbsOrder,
+      },
+      settings.processCatalog,
+      settings.addOnCatalog,
     );
 
     const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job, settings.pricing, settings.specialtyCatalog) : 0;
@@ -217,7 +229,7 @@ export default async function IntakeView({
                 <div className="muted" style={{fontSize:12}}>
                   {processingOverride !== null
                     ? `Auto would be: $${processingAuto.toFixed(2)}`
-                    : webbsEnabled ? 'Proc. type + beef fat + Webbs fee' : 'Proc. type + beef fat'}
+                    : 'Base process type + selected add-ons'}
                 </div>
               </div>
 

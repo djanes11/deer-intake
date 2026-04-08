@@ -49,13 +49,19 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const features = settings?.features;
   const hours = settings?.hours || [];
   const pricingRows = [
-    { label: 'Standard Processing', value: pricing?.standard_processing_price ?? 130, note: 'Base deer processing' },
-    { label: 'Caped', value: pricing?.caped_price ?? 150, note: 'Includes cape handling' },
-    { label: 'Cape & Donate', value: pricing?.cape_donate_price ?? 50, note: 'Cape work with meat donation' },
-    { label: 'Beef Fat Add-On', value: pricing?.beef_fat_add_on ?? 5, note: 'Added to burger on request', prefix: '+' },
-    ...(features?.webbsEnabled
-      ? [{ label: 'Webbs Add-On', value: pricing?.webbs_add_on ?? 20, note: 'Optional custom add-on', prefix: '+' as const }]
-      : []),
+    ...((settings?.processCatalog || []).filter((item) => item.active).map((item) => ({
+      label: item.name,
+      value: Number(item.basePrice || 0),
+      note: item.triggersCapeWorkflow ? 'Includes cape workflow' : item.donationOnly ? 'Donation option' : 'Base processing option',
+    }))),
+    ...((settings?.addOnCatalog || [])
+      .filter((item) => item.active && (item.legacyBooleanKey !== 'webbsOrder' || features?.webbsEnabled))
+      .map((item) => ({
+        label: item.name,
+        value: Number(item.price || 0),
+        note: 'Optional add-on',
+        prefix: '+' as const,
+      }))),
   ];
   const serviceHighlights = [
     {
@@ -295,7 +301,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
             {pricingRows.map((item) => (
               <div key={item.label} style={{ ...supportRow, background: 'rgba(18,24,22,.88)' }}>
                 <span style={supportLabel}>{item.label}</span>
-                <span style={{ fontWeight: 900, fontSize: 20 }}>{formatMoney(item.value, item.prefix)}</span>
+                <span style={{ fontWeight: 900, fontSize: 20 }}>{formatMoney(item.value, 'prefix' in item ? String(item.prefix || '') : '')}</span>
                 <span style={{ color: colors.sub, fontSize: 13 }}>{item.note}</span>
               </div>
             ))}

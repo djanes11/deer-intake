@@ -5,6 +5,17 @@ import { headers } from 'next/headers';
 import { SITE } from '@/lib/config';
 import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
 import { defaultSpecialtyCatalog, getProcessorSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
+import {
+  AddOnCatalogItem,
+  defaultAddOnCatalog,
+  defaultNotificationTemplates,
+  defaultProcessCatalog,
+  normalizeAddOnCatalog,
+  normalizeNotificationTemplates,
+  normalizeProcessCatalog,
+  NotificationTemplateSet,
+  ProcessTypeCatalogItem,
+} from '@/lib/processorCatalog';
 import { getDefaultProcessorContext, getProcessorContextForHostname } from '@/lib/processorContext';
 
 export type PublicHourRow = {
@@ -36,7 +47,10 @@ export type PublicSiteSettings = {
   banner_message: string;
   hours: PublicHourRow[];
   pricing: SitePricing;
+  processCatalog: ProcessTypeCatalogItem[];
+  addOnCatalog: AddOnCatalogItem[];
   specialtyCatalog: SpecialtyCatalogItem[];
+  notificationTemplates: NotificationTemplateSet;
   branding: PublicBrandingSettings;
   features: ProcessorFeatureSettings;
   updated_at?: string | null;
@@ -85,7 +99,10 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
     banner_message: '',
     hours: fallbackHours(),
     pricing: DEFAULT_SITE_PRICING,
+    processCatalog: defaultProcessCatalog(DEFAULT_SITE_PRICING),
+    addOnCatalog: defaultAddOnCatalog(DEFAULT_SITE_PRICING),
     specialtyCatalog: defaultSpecialtyCatalog(DEFAULT_SITE_PRICING),
+    notificationTemplates: defaultNotificationTemplates(String(SITE.name || 'Game Butcher Board')),
     branding: {
       name: String(SITE.name || 'Game Butcher Board'),
       locationLabel: String((SITE as any).locationLabel || ''),
@@ -128,7 +145,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       : await getDefaultProcessorContext();
     let query = supabase
       .from('site_settings')
-      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb');
+      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates');
 
     query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
 
@@ -139,7 +156,10 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
     let branding = defaultPublicSiteSettings().branding;
     let features = defaultPublicSiteSettings().features;
     const pricing = normalizePricing(data);
+    let processCatalog = normalizeProcessCatalog((data as any).process_catalog, pricing);
+    let addOnCatalog = normalizeAddOnCatalog((data as any).add_on_catalog, pricing);
     const specialtyCatalog = await getProcessorSpecialtyCatalog(processor.id, pricing);
+    let notificationTemplates = normalizeNotificationTemplates((data as any).notification_templates, branding.name);
     if (processor.id) {
       const { data: processorRow, error: processorError } = await supabase
         .from('processors')
@@ -161,6 +181,13 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
         };
         const rawFeatures = (processorRow as any).features || {};
         features = normalizeProcessorFeatures(rawFeatures);
+        addOnCatalog = normalizeAddOnCatalog(
+          addOnCatalog.map((item) =>
+            item.legacyBooleanKey === 'webbsOrder' ? { ...item, active: item.active && features.webbsEnabled } : item
+          ),
+          pricing,
+        );
+        notificationTemplates = normalizeNotificationTemplates((data as any).notification_templates, branding.name);
       }
     }
 
@@ -170,7 +197,10 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       banner_message: String(data.banner_message || ''),
       hours: normalizeHours(data.hours),
       pricing,
+      processCatalog,
+      addOnCatalog,
       specialtyCatalog,
+      notificationTemplates,
       branding,
       features,
       updated_at: data.updated_at ?? null,
