@@ -68,13 +68,7 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [section, setSection] = useState<'branding' | 'intake' | 'banner' | 'hours' | 'pricing' | 'notifications'>('branding');
-  const [smsTo, setSmsTo] = useState('');
-  const [smsBody, setSmsBody] = useState('Wild Game Butcher Board test SMS. If you got this, Twilio is wired correctly.');
-  const [smsBusy, setSmsBusy] = useState(false);
-  const [smsMsg, setSmsMsg] = useState('');
-  const [smsHealthBusy, setSmsHealthBusy] = useState(false);
-  const [smsHealthMsg, setSmsHealthMsg] = useState('');
+  const [section, setSection] = useState<'branding' | 'intake' | 'banner' | 'hours' | 'pricing'>('branding');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -156,50 +150,6 @@ export default function AdminSettingsPage() {
     setS({ ...s, hours: nextHours });
   };
 
-  const sendTestSms = async () => {
-    setSmsBusy(true);
-    setSmsMsg('');
-    try {
-      const res = await fetch('/api/admin/test-sms', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ to: smsTo, message: smsBody }),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!j?.ok) throw new Error(j?.error || `HTTP ${res.status}`);
-      const status = j?.status ? ` (${j.status})` : '';
-      setSmsMsg(`SMS sent to ${j.to}${status}`);
-    } catch (e: any) {
-      setSmsMsg(String(e?.message || e));
-    } finally {
-      setSmsBusy(false);
-    }
-  };
-
-  const checkSmsHealth = async () => {
-    setSmsHealthBusy(true);
-    setSmsHealthMsg('');
-    try {
-      const res = await fetch('/api/admin/twilio-health', { headers, cache: 'no-store' });
-      const j = await res.json().catch(() => ({}));
-      if (j?.ok) {
-        const status = j?.twilioAccountStatus ? `Twilio account status: ${j.twilioAccountStatus}. ` : '';
-        const enabled = j?.enabled ? 'SMS enabled. ' : 'SMS disabled. ';
-        const allowlist = Array.isArray(j?.allowlist) && j.allowlist.length
-          ? `Allowlist restricted to: ${j.allowlist.join(', ')}`
-          : 'Allowlist: unrestricted (all numbers can be sent texts)';
-        setSmsHealthMsg(`${status}${enabled}${allowlist}`);
-      } else {
-        const code = j?.code ? ` (${j.code})` : '';
-        setSmsHealthMsg(`${j?.error || `HTTP ${res.status}`}${code}`);
-      }
-    } catch (e: any) {
-      setSmsHealthMsg(String(e?.message || e));
-    } finally {
-      setSmsHealthBusy(false);
-    }
-  };
-
   if (!s) {
     return (
       <div
@@ -225,7 +175,6 @@ export default function AdminSettingsPage() {
     { key: 'banner', label: 'Banner' },
     { key: 'hours', label: 'Hours' },
     { key: 'pricing', label: 'Pricing' },
-    { key: 'notifications', label: 'Notifications' },
   ] as const;
   const sectionCard: React.CSSProperties = {
     border: '1px solid #d6dee8',
@@ -588,95 +537,6 @@ export default function AdminSettingsPage() {
               Reset Pricing Defaults
             </button>
           </div>
-        </div>
-        )}
-
-        {section === 'notifications' && (
-        <div style={sectionCard}>
-          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>SMS Testing</div>
-          {!smsPlanEnabled ? (
-            <div style={{ padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #d6dee8', color: '#475569', lineHeight: 1.55 }}>
-              This processor is not on a texting-enabled plan, so SMS testing is hidden here. Upgrade the processor to the <strong>Texting</strong> or <strong>Custom</strong> tier from <a href="/admin/processors" style={{ color: '#1d4ed8', fontWeight: 800 }}>Processor Management</a> if you want to turn texting on.
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-                This is a staff-only Twilio test tool. It still respects your SMS env guard and allowlist, so it is safe to
-                wire before turning live texting on.
-              </div>
-              <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-                If <code>TWILIO_SMS_ALLOWLIST</code> is blank, texting is unrestricted and can go to any valid number.
-                Keep <code>TWILIO_SMS_ENABLED</code> as your main on/off switch.
-              </div>
-
-              <div style={{ display: 'grid', gap: 10 }}>
-                <div>
-                  <div style={{ fontWeight: 900, marginBottom: 6, color: '#0f172a' }}>Test phone number</div>
-                  <input
-                    value={smsTo}
-                    onChange={(e) => setSmsTo(e.target.value)}
-                    placeholder="+15024092686"
-                    style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', width: '100%' }}
-                  />
-                </div>
-
-                <div>
-                  <div style={{ fontWeight: 900, marginBottom: 6, color: '#0f172a' }}>Test message</div>
-                  <textarea
-                    rows={3}
-                    value={smsBody}
-                    onChange={(e) => setSmsBody(e.target.value)}
-                    style={{ padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', width: '100%' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={checkSmsHealth}
-                  disabled={smsHealthBusy}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    border: '1px solid #cbd5e1',
-                    background: '#f8fafc',
-                    color: '#0f172a',
-                    fontWeight: 800,
-                    cursor: smsHealthBusy ? 'wait' : 'pointer',
-                  }}
-                >
-                  {smsHealthBusy ? 'Checking...' : 'Check Twilio Health'}
-                </button>
-                <button
-                  type="button"
-                  onClick={sendTestSms}
-                  disabled={smsBusy}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: 10,
-                    border: '1px solid #235532',
-                    background: smsBusy ? '#94a3b8' : '#2f6f3f',
-                    color: '#fff',
-                    fontWeight: 800,
-                    cursor: smsBusy ? 'wait' : 'pointer',
-                  }}
-                >
-                  {smsBusy ? 'Sending...' : 'Send Test SMS'}
-                </button>
-                {smsMsg ? (
-                  <div style={{ fontSize: 13, fontWeight: 900, color: smsMsg.toLowerCase().includes('sent') ? '#166534' : '#991b1b' }}>
-                    {smsMsg}
-                  </div>
-                ) : null}
-                {smsHealthMsg ? (
-                  <div style={{ fontSize: 13, fontWeight: 800, color: smsHealthMsg.toLowerCase().includes('status:') ? '#166534' : '#991b1b' }}>
-                    {smsHealthMsg}
-                  </div>
-                ) : null}
-              </div>
-            </>
-          )}
         </div>
         )}
 
