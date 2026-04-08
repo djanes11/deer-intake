@@ -113,6 +113,8 @@ export default function AdminProcessorsPage() {
   const [msg, setMsg] = useState('');
   const [savingId, setSavingId] = useState('');
   const [creating, setCreating] = useState(false);
+  const [mode, setMode] = useState<'list' | 'create'>('list');
+  const [selectedId, setSelectedId] = useState('');
   const [createForm, setCreateForm] = useState<CreateProcessorForm>(EMPTY_CREATE_FORM);
   const [createdSummary, setCreatedSummary] = useState<CreatedProcessorSummary | null>(null);
 
@@ -133,6 +135,7 @@ export default function AdminProcessorsPage() {
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
         setRows(json.rows || []);
+        if ((json.rows || [])[0]?.id) setSelectedId((prev) => prev || json.rows[0].id);
       } catch (e: any) {
         setMsg(String(e?.message || e));
       } finally {
@@ -186,6 +189,8 @@ export default function AdminProcessorsPage() {
         firstAdminEmail: payload.firstAdminEmail,
         firstAdminCreated: !!json.firstAdminCreated,
       });
+      setMode('list');
+      setSelectedId(json.row.id);
       setCreateForm(EMPTY_CREATE_FORM);
       setMsg(
         json.firstAdminCreated
@@ -218,6 +223,29 @@ export default function AdminProcessorsPage() {
       setSavingId('');
     }
   };
+  const selectedRow = rows.find((row) => row.id === selectedId) || rows[0] || null;
+  const updateSelectedRow = (patch: Partial<ProcessorRow>) => {
+    if (!selectedRow) return;
+    updateRow(selectedRow.id, patch);
+  };
+  const updateSelectedFeatures = (patch: Partial<ProcessorRow['features']>) => {
+    if (!selectedRow) return;
+    updateFeatures(selectedRow.id, patch);
+  };
+  const summaryCards = [
+    { label: 'Processors', value: rows.length, note: 'Total processors in the platform' },
+    { label: 'Active', value: rows.filter((row) => row.active).length, note: 'Currently enabled processors' },
+    { label: 'Trials', value: rows.filter((row) => row.billingStatus === 'trial').length, note: 'Processors in trial status' },
+  ];
+  const navButton = (active: boolean): React.CSSProperties => ({
+    padding: '10px 14px',
+    borderRadius: 999,
+    border: `1px solid ${active ? '#bfdbfe' : '#d6dee8'}`,
+    background: active ? '#eff6ff' : '#ffffff',
+    color: active ? '#1d4ed8' : '#334155',
+    fontWeight: 800,
+    cursor: 'pointer',
+  });
 
   return (
     <main style={{ maxWidth: 1180, margin: '24px auto', padding: '0 16px 40px', display: 'grid', gap: 16 }}>
@@ -244,6 +272,42 @@ export default function AdminProcessorsPage() {
           {msg}
         </div>
       ) : null}
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {summaryCards.map((item) => (
+          <div
+            key={item.label}
+            style={{
+              border: '1px solid #d6dee8',
+              borderRadius: 14,
+              background: '#ffffff',
+              padding: 16,
+              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+              display: 'grid',
+              gap: 6,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>{item.label}</div>
+            <div style={{ fontSize: 30, fontWeight: 950, color: '#0f172a' }}>{item.value}</div>
+            <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.45 }}>{item.note}</div>
+          </div>
+        ))}
+      </section>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button type="button" onClick={() => setMode('list')} style={navButton(mode === 'list')}>
+          Processor List
+        </button>
+        <button type="button" onClick={() => setMode('create')} style={navButton(mode === 'create')}>
+          Onboard New Processor
+        </button>
+      </div>
 
       {createdSummary ? (
         <section
@@ -386,6 +450,7 @@ export default function AdminProcessorsPage() {
         </section>
       ) : null}
 
+      {mode === 'create' ? (
       <section
         style={{
           border: '1px solid #d6dee8',
@@ -609,14 +674,85 @@ export default function AdminProcessorsPage() {
           </button>
         </div>
       </section>
-
-      {loading ? (
-        <div className="card" style={{ padding: 18 }}>Loading processors...</div>
       ) : (
-        <div style={{ display: 'grid', gap: 14 }}>
-          {rows.map((row) => (
+      <>
+        {loading ? (
+          <div className="card" style={{ padding: 18 }}>Loading processors...</div>
+        ) : !selectedRow ? (
+          <div className="card" style={{ padding: 18 }}>No processors yet.</div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '320px minmax(0, 1fr)',
+              gap: 16,
+              alignItems: 'start',
+            }}
+          >
+            <aside
+              style={{
+                border: '1px solid #d6dee8',
+                borderRadius: 16,
+                padding: 18,
+                background: '#ffffff',
+                boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+                display: 'grid',
+                gap: 12,
+              }}
+            >
+              <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Processors</div>
+              <div style={{ color: '#475569', lineHeight: 1.5 }}>
+                Choose one processor to edit its hostnames, features, and lifecycle details.
+              </div>
+              {rows.map((row) => {
+                const tone = lifecycleTone(row.billingStatus);
+                const selected = row.id === selectedRow.id;
+                return (
+                  <button
+                    key={row.id}
+                    type="button"
+                    onClick={() => setSelectedId(row.id)}
+                    style={{
+                      textAlign: 'left',
+                      border: `1px solid ${selected ? '#bfdbfe' : '#d6dee8'}`,
+                      borderRadius: 14,
+                      padding: 14,
+                      background: selected ? '#eff6ff' : '#f8fafc',
+                      cursor: 'pointer',
+                      display: 'grid',
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'start' }}>
+                      <div style={{ fontWeight: 900, color: '#0f172a' }}>{row.name}</div>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '4px 8px',
+                          borderRadius: 999,
+                          fontSize: 11,
+                          fontWeight: 900,
+                          background: tone.bg,
+                          color: tone.fg,
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {row.billingStatus.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: 13 }}>Slug: {row.slug}</div>
+                    <div style={{ color: '#64748b', fontSize: 13 }}>
+                      {row.features.plan.charAt(0).toUpperCase() + row.features.plan.slice(1)} plan
+                      {' • '}
+                      {row.active ? 'Active' : 'Inactive'}
+                    </div>
+                  </button>
+                );
+              })}
+            </aside>
+
             <section
-              key={row.id}
               style={{
                 border: '1px solid #d6dee8',
                 borderRadius: 16,
@@ -629,13 +765,13 @@ export default function AdminProcessorsPage() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
                 <div>
-                  <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>{row.name}</div>
+                  <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>{selectedRow.name}</div>
                   <div style={{ color: '#475569', marginTop: 4 }}>
-                    Slug: <code>{row.slug}</code>
+                    Slug: <code>{selectedRow.slug}</code>
                   </div>
                 </div>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-                  <input type="checkbox" checked={row.active} onChange={(e) => updateRow(row.id, { active: e.target.checked })} />
+                  <input type="checkbox" checked={selectedRow.active} onChange={(e) => updateSelectedRow({ active: e.target.checked })} />
                   Processor active
                 </label>
               </div>
@@ -643,29 +779,29 @@ export default function AdminProcessorsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Public hostname</span>
-                  <input value={row.publicHostname} onChange={(e) => updateRow(row.id, { publicHostname: e.target.value })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                  <input value={selectedRow.publicHostname} onChange={(e) => updateSelectedRow({ publicHostname: e.target.value })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Staff hostname</span>
-                  <input value={row.staffHostname} onChange={(e) => updateRow(row.id, { staffHostname: e.target.value })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                  <input value={selectedRow.staffHostname} onChange={(e) => updateSelectedRow({ staffHostname: e.target.value })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                 </label>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Plan tier</span>
-                  <select value={row.features.plan} onChange={(e) => updateFeatures(row.id, { plan: e.target.value as ProcessorRow['features']['plan'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
+                  <select value={selectedRow.features.plan} onChange={(e) => updateSelectedFeatures({ plan: e.target.value as ProcessorRow['features']['plan'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
                     <option value="basic">Basic</option>
                     <option value="texting">Texting</option>
                     <option value="custom">Custom</option>
                   </select>
                 </label>
                 <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-                  <input type="checkbox" checked={row.features.smsEnabled} onChange={(e) => updateFeatures(row.id, { smsEnabled: e.target.checked })} disabled />
+                  <input type="checkbox" checked={selectedRow.features.smsEnabled} onChange={(e) => updateSelectedFeatures({ smsEnabled: e.target.checked })} disabled />
                   SMS enabled
                 </label>
                 <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
-                  <input type="checkbox" checked={row.features.webbsEnabled} onChange={(e) => updateFeatures(row.id, { webbsEnabled: e.target.checked })} disabled={row.features.plan !== 'custom'} />
+                  <input type="checkbox" checked={selectedRow.features.webbsEnabled} onChange={(e) => updateSelectedFeatures({ webbsEnabled: e.target.checked })} disabled={selectedRow.features.plan !== 'custom'} />
                   Webbs/custom workflow enabled
                 </label>
               </div>
@@ -681,25 +817,25 @@ export default function AdminProcessorsPage() {
                       borderRadius: 999,
                       fontSize: 12,
                       fontWeight: 900,
-                      background: lifecycleTone(row.billingStatus).bg,
-                      color: lifecycleTone(row.billingStatus).fg,
+                      background: lifecycleTone(selectedRow.billingStatus).bg,
+                      color: lifecycleTone(selectedRow.billingStatus).fg,
                       textTransform: 'capitalize',
                     }}
                   >
-                    {row.billingStatus.replace('_', ' ')}
+                    {selectedRow.billingStatus.replace('_', ' ')}
                   </span>
                 </div>
                 <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.55 }}>
-                  Setup complete: {row.setupCompletedAt ? formatDisplayDate(row.setupCompletedAt) : 'Not marked yet'}.
-                  {row.billingStatus === 'trial' && row.trialEndsAt ? ` Trial ends ${formatDisplayDate(row.trialEndsAt)}.` : ''}
-                  {row.goLiveAt ? ` Go live ${formatDisplayDate(row.goLiveAt)}.` : ''}
+                  Setup complete: {selectedRow.setupCompletedAt ? formatDisplayDate(selectedRow.setupCompletedAt) : 'Not marked yet'}.
+                  {selectedRow.billingStatus === 'trial' && selectedRow.trialEndsAt ? ` Trial ends ${formatDisplayDate(selectedRow.trialEndsAt)}.` : ''}
+                  {selectedRow.goLiveAt ? ` Go live ${formatDisplayDate(selectedRow.goLiveAt)}.` : ''}
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing status</span>
-                  <select value={row.billingStatus} onChange={(e) => updateRow(row.id, { billingStatus: e.target.value as ProcessorRow['billingStatus'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
+                  <select value={selectedRow.billingStatus} onChange={(e) => updateSelectedRow({ billingStatus: e.target.value as ProcessorRow['billingStatus'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
                     <option value="setup">Setup</option>
                     <option value="trial">Trial</option>
                     <option value="active">Active</option>
@@ -710,7 +846,7 @@ export default function AdminProcessorsPage() {
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing cycle</span>
-                  <select value={row.billingCycle} onChange={(e) => updateRow(row.id, { billingCycle: e.target.value as ProcessorRow['billingCycle'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
+                  <select value={selectedRow.billingCycle} onChange={(e) => updateSelectedRow({ billingCycle: e.target.value as ProcessorRow['billingCycle'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
                     <option value="monthly">Monthly</option>
                     <option value="seasonal">Seasonal</option>
                     <option value="annual">Annual</option>
@@ -719,27 +855,27 @@ export default function AdminProcessorsPage() {
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Monthly price</span>
-                  <input value={row.monthlyPrice ?? ''} onChange={(e) => updateRow(row.id, { monthlyPrice: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} placeholder="199" />
+                  <input value={selectedRow.monthlyPrice ?? ''} onChange={(e) => updateSelectedRow({ monthlyPrice: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} placeholder="199" />
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Setup completed</span>
-                  <input type="date" value={dateInputValue(row.setupCompletedAt)} onChange={(e) => updateRow(row.id, { setupCompletedAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                  <input type="date" value={dateInputValue(selectedRow.setupCompletedAt)} onChange={(e) => updateSelectedRow({ setupCompletedAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Trial ends</span>
-                  <input type="date" value={dateInputValue(row.trialEndsAt)} onChange={(e) => updateRow(row.id, { trialEndsAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                  <input type="date" value={dateInputValue(selectedRow.trialEndsAt)} onChange={(e) => updateSelectedRow({ trialEndsAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Go live</span>
-                  <input type="date" value={dateInputValue(row.goLiveAt)} onChange={(e) => updateRow(row.id, { goLiveAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
+                  <input type="date" value={dateInputValue(selectedRow.goLiveAt)} onChange={(e) => updateSelectedRow({ goLiveAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                 </label>
               </div>
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button className="btn secondary" type="button" onClick={() => updateRow(row.id, { setupCompletedAt: dateInputValue(new Date().toISOString()) })}>
+                <button className="btn secondary" type="button" onClick={() => updateSelectedRow({ setupCompletedAt: dateInputValue(new Date().toISOString()) })}>
                   Mark Setup Complete
                 </button>
-                <button className="btn secondary" type="button" onClick={() => updateRow(row.id, { goLiveAt: dateInputValue(new Date().toISOString()) })}>
+                <button className="btn secondary" type="button" onClick={() => updateSelectedRow({ goLiveAt: dateInputValue(new Date().toISOString()) })}>
                   Mark Go Live
                 </button>
               </div>
@@ -747,8 +883,8 @@ export default function AdminProcessorsPage() {
               <label style={{ display: 'grid', gap: 6 }}>
                 <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing notes</span>
                 <textarea
-                  value={row.billingNotes || ''}
-                  onChange={(e) => updateRow(row.id, { billingNotes: e.target.value })}
+                  value={selectedRow.billingNotes || ''}
+                  onChange={(e) => updateSelectedRow({ billingNotes: e.target.value })}
                   rows={3}
                   style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', resize: 'vertical' }}
                   placeholder="Internal notes about onboarding, pricing, or follow-up."
@@ -756,26 +892,27 @@ export default function AdminProcessorsPage() {
               </label>
 
               <div style={{ fontSize: 13, color: '#64748b' }}>
-                {row.features.plan === 'basic'
+                {selectedRow.features.plan === 'basic'
                   ? 'Basic keeps the core deer-processing workflow only.'
-                  : row.features.plan === 'texting'
+                  : selectedRow.features.plan === 'texting'
                     ? 'Texting includes SMS notifications but no custom workflows.'
-                    : row.features.webbsEnabled
+                    : selectedRow.features.webbsEnabled
                       ? 'Custom includes texting plus Webbs/custom workflow access.'
                       : 'Custom includes texting and can optionally turn on Webbs/custom workflows.'}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ fontSize: 13, color: '#64748b' }}>
-                  Updated: {row.updatedAt ? formatDisplayDateTime(row.updatedAt) : 'Never'}
+                  Updated: {selectedRow.updatedAt ? formatDisplayDateTime(selectedRow.updatedAt) : 'Never'}
                 </div>
-                <button className="btn" type="button" onClick={() => void saveRow(row)} disabled={savingId === row.id}>
-                  {savingId === row.id ? 'Saving...' : 'Save Processor'}
+                <button className="btn" type="button" onClick={() => void saveRow(selectedRow)} disabled={savingId === selectedRow.id}>
+                  {savingId === selectedRow.id ? 'Saving...' : 'Save Processor'}
                 </button>
               </div>
             </section>
-          ))}
-        </div>
+          </div>
+        )}
+      </>
       )}
     </main>
   );

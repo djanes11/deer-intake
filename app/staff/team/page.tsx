@@ -33,6 +33,10 @@ function teamLabel(row: TeamMembership) {
   return row.accountType === 'local' ? row.username : row.email;
 }
 
+function teamTypeLabel(row: TeamMembership) {
+  return row.accountType === 'local' ? 'Local login' : 'Email login';
+}
+
 export default function StaffTeamPage() {
   const [processorSlug, setProcessorSlug] = useState('');
   const [memberships, setMemberships] = useState<TeamMembership[]>([]);
@@ -188,6 +192,10 @@ export default function StaffTeamPage() {
     display: 'grid',
     gap: 16,
   };
+  const adminCount = memberships.filter((row) => row.role === 'admin').length;
+  const localCount = memberships.filter((row) => row.accountType === 'local').length;
+  const activeCount = memberships.filter((row) => row.active).length;
+  const inactiveCount = memberships.length - activeCount;
 
   return (
     <main style={shell}>
@@ -222,6 +230,37 @@ export default function StaffTeamPage() {
         Recommended setup: keep <strong>owners/managers</strong> on email logins so they can reset their own password, and create
         <strong> local logins</strong> for seasonal staff, family members, or anyone who just needs a simple username and password.
       </div>
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {[
+          { label: 'Active logins', value: activeCount, note: inactiveCount ? `${inactiveCount} inactive` : 'No inactive users' },
+          { label: 'Processor admins', value: adminCount, note: 'Email-based accounts with recovery' },
+          { label: 'Local staff logins', value: localCount, note: 'Simple usernames for day-to-day use' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              border: '1px solid #d6dee8',
+              borderRadius: 14,
+              background: '#ffffff',
+              padding: 16,
+              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+              display: 'grid',
+              gap: 6,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>{item.label}</div>
+            <div style={{ fontSize: 30, fontWeight: 950, color: '#0f172a' }}>{item.value}</div>
+            <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.45 }}>{item.note}</div>
+          </div>
+        ))}
+      </section>
 
       {message ? (
         <div style={{ padding: 12, borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontWeight: 800 }}>
@@ -326,6 +365,9 @@ export default function StaffTeamPage() {
 
       <section style={cardStyle}>
         <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Current Team</div>
+        <div style={{ color: '#475569', lineHeight: 1.5 }}>
+          Save changes after adjusting a role, turning access on or off, or resetting a local password.
+        </div>
         {loading ? (
           <div>Loading team...</div>
         ) : memberships.length === 0 ? (
@@ -346,9 +388,38 @@ export default function StaffTeamPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontWeight: 900, color: '#0f172a' }}>{teamLabel(row)}</div>
-                    <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
-                      {row.accountType === 'local' ? 'Local staff login' : 'Email login'}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <div style={{ fontWeight: 900, color: '#0f172a' }}>{teamLabel(row)}</div>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: '.05em',
+                          textTransform: 'uppercase',
+                          color: row.accountType === 'local' ? '#92400e' : '#1d4ed8',
+                          background: row.accountType === 'local' ? '#fff7ed' : '#eff6ff',
+                          border: `1px solid ${row.accountType === 'local' ? '#fed7aa' : '#bfdbfe'}`,
+                          padding: '4px 8px',
+                          borderRadius: 999,
+                        }}
+                      >
+                        {teamTypeLabel(row)}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: '.05em',
+                          textTransform: 'uppercase',
+                          color: row.active ? '#166534' : '#991b1b',
+                          background: row.active ? '#ecfdf5' : '#fef2f2',
+                          border: `1px solid ${row.active ? '#bbf7d0' : '#fecaca'}`,
+                          padding: '4px 8px',
+                          borderRadius: 999,
+                        }}
+                      >
+                        {row.active ? 'Active' : 'Inactive'}
+                      </span>
                     </div>
                     <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
                       Last sign-in: {row.lastSignInAt ? formatDisplayDateTime(row.lastSignInAt) : row.accountType === 'local' ? 'Not tracked yet' : 'Never'}
@@ -363,7 +434,7 @@ export default function StaffTeamPage() {
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: row.accountType === 'local' ? '180px minmax(220px, 1fr) 1fr auto' : '220px 1fr auto',
+                    gridTemplateColumns: row.accountType === 'local' ? 'minmax(180px, 220px) minmax(220px, 1fr) minmax(140px, 1fr) auto' : 'minmax(180px, 220px) minmax(140px, 1fr) auto',
                     gap: 12,
                     alignItems: 'end',
                   }}
@@ -395,15 +466,18 @@ export default function StaffTeamPage() {
                     </label>
                   ) : null}
 
-                  <div style={{ color: '#64748b', fontSize: 13 }}>
-                    Joined:{' '}
-                    {row.accountType === 'email'
-                      ? row.authCreatedAt
-                        ? formatDisplayDate(row.authCreatedAt)
-                        : 'Pending invite'
-                      : row.createdAt
-                        ? formatDisplayDate(row.createdAt)
-                        : 'Recently created'}
+                  <div style={{ display: 'grid', gap: 4, color: '#64748b', fontSize: 13 }}>
+                    <div>
+                      Joined:{' '}
+                      {row.accountType === 'email'
+                        ? row.authCreatedAt
+                          ? formatDisplayDate(row.authCreatedAt)
+                          : 'Pending invite'
+                        : row.createdAt
+                          ? formatDisplayDate(row.createdAt)
+                          : 'Recently created'}
+                    </div>
+                    <div>Access: {row.role === 'readonly' ? 'Read-only' : row.role === 'admin' ? 'Admin' : 'Staff'}</div>
                   </div>
 
                   <button className="btn" type="button" onClick={() => void saveMembership(row)} disabled={savingId === row.id}>

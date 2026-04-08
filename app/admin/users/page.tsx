@@ -42,6 +42,10 @@ const EMPTY_FORM: FormState = {
   platformAdmin: false,
 };
 
+function roleLabel(role: MembershipRow['role']) {
+  return role === 'readonly' ? 'Read-only' : role === 'admin' ? 'Admin' : 'Staff';
+}
+
 export default function AdminUsersPage() {
   const [processors, setProcessors] = useState<ProcessorOption[]>([]);
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
@@ -83,6 +87,8 @@ export default function AdminUsersPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeProcessors = processors.filter((processor) => processor.active);
+  const activeMemberships = memberships.filter((row) => row.active).length;
+  const adminMemberships = memberships.filter((row) => row.role === 'admin').length;
 
   const groupedMemberships = memberships.reduce<Record<string, MembershipRow[]>>((acc, row) => {
     const key = row.processorName || row.processorSlug || 'Unassigned';
@@ -189,6 +195,37 @@ export default function AdminUsersPage() {
         <strong> Staff Team</strong> screen.
       </div>
 
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {[
+          { label: 'Processors', value: activeProcessors.length, note: 'Currently active processors' },
+          { label: 'Active memberships', value: activeMemberships, note: `${memberships.length - activeMemberships} inactive` },
+          { label: 'Admin accounts', value: adminMemberships, note: 'Processor or platform admins' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              border: '1px solid #d6dee8',
+              borderRadius: 14,
+              background: '#ffffff',
+              padding: 16,
+              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+              display: 'grid',
+              gap: 6,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>{item.label}</div>
+            <div style={{ fontSize: 30, fontWeight: 950, color: '#0f172a' }}>{item.value}</div>
+            <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.45 }}>{item.note}</div>
+          </div>
+        ))}
+      </section>
+
       {message ? (
         <div style={{ padding: 12, borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontWeight: 800 }}>
           {message}
@@ -202,6 +239,9 @@ export default function AdminUsersPage() {
 
       <section style={panel}>
         <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Create Email-Based Staff User</div>
+        <div style={{ color: '#475569', lineHeight: 1.5 }}>
+          Use this for processor owners, first admins, or platform-managed accounts. Regular shop staff should usually be created from that processor&apos;s Staff Team screen.
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <label style={{ display: 'grid', gap: 6 }}>
             <span style={{ fontWeight: 800, color: '#0f172a' }}>Email</span>
@@ -259,11 +299,6 @@ export default function AdminUsersPage() {
           />
           Also grant platform admin access
         </label>
-
-        <div style={{ color: '#475569', fontSize: 14 }}>
-          Use this for processor owners, first admins, or platform-managed accounts. Regular staff can usually be created later by the processor admin.
-        </div>
-
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button className="btn" type="button" onClick={() => void createUser()} disabled={creating}>
             {creating ? 'Creating...' : 'Create Staff User'}
@@ -273,6 +308,9 @@ export default function AdminUsersPage() {
 
       <section style={panel}>
         <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Current Memberships</div>
+        <div style={{ color: '#475569', lineHeight: 1.5 }}>
+          Review processor access here. Save changes after updating a role or turning access on or off.
+        </div>
         {loading ? (
           <div>Loading users...</div>
         ) : memberships.length === 0 ? (
@@ -297,7 +335,24 @@ export default function AdminUsersPage() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                         <div>
-                          <div style={{ fontWeight: 900, color: '#0f172a' }}>{row.email}</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ fontWeight: 900, color: '#0f172a' }}>{row.email}</div>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 800,
+                                letterSpacing: '.05em',
+                                textTransform: 'uppercase',
+                                color: row.active ? '#166534' : '#991b1b',
+                                background: row.active ? '#ecfdf5' : '#fef2f2',
+                                border: `1px solid ${row.active ? '#bbf7d0' : '#fecaca'}`,
+                                padding: '4px 8px',
+                                borderRadius: 999,
+                              }}
+                            >
+                              {row.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
                           <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
                             Last sign-in: {row.lastSignInAt ? formatDisplayDateTime(row.lastSignInAt) : 'Never'}
                           </div>
@@ -321,8 +376,9 @@ export default function AdminUsersPage() {
                             <option value="readonly">Read-only</option>
                           </select>
                         </label>
-                        <div style={{ fontSize: 13, color: '#64748b', alignSelf: 'end' }}>
-                          Created: {row.authCreatedAt ? formatDisplayDate(row.authCreatedAt) : 'Unknown'}
+                        <div style={{ display: 'grid', gap: 4, fontSize: 13, color: '#64748b', alignSelf: 'end' }}>
+                          <div>Created: {row.authCreatedAt ? formatDisplayDate(row.authCreatedAt) : 'Unknown'}</div>
+                          <div>Access: {roleLabel(row.role)}</div>
                         </div>
                       </div>
 

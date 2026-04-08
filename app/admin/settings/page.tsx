@@ -68,6 +68,7 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [section, setSection] = useState<'branding' | 'intake' | 'banner' | 'hours' | 'pricing' | 'notifications'>('branding');
   const [smsTo, setSmsTo] = useState('');
   const [smsBody, setSmsBody] = useState('Wild Game Butcher Board test SMS. If you got this, Twilio is wired correctly.');
   const [smsBusy, setSmsBusy] = useState(false);
@@ -218,6 +219,32 @@ export default function AdminSettingsPage() {
   }
 
   const smsPlanEnabled = s.features?.smsEnabled !== false;
+  const sectionTabs = [
+    { key: 'branding', label: 'Branding & Contact' },
+    { key: 'intake', label: 'Public Intake' },
+    { key: 'banner', label: 'Banner' },
+    { key: 'hours', label: 'Hours' },
+    { key: 'pricing', label: 'Pricing' },
+    { key: 'notifications', label: 'Notifications' },
+  ] as const;
+  const sectionCard: React.CSSProperties = {
+    border: '1px solid #d6dee8',
+    borderRadius: 16,
+    padding: 18,
+    background: '#ffffff',
+    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+    display: 'grid',
+    gap: 12,
+  };
+  const sectionButton = (active: boolean): React.CSSProperties => ({
+    padding: '10px 14px',
+    borderRadius: 999,
+    border: `1px solid ${active ? '#bfd2c2' : '#d6dee8'}`,
+    background: active ? '#eef8f0' : '#ffffff',
+    color: active ? '#173321' : '#334155',
+    fontWeight: 800,
+    cursor: 'pointer',
+  });
 
   return (
     <div
@@ -247,18 +274,53 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 12,
+        }}
+      >
+        {[
+          { label: 'Public intake', value: s.public_intake_enabled ? 'Live' : 'Off', note: 'Customer drop-off form status' },
+          { label: 'Banner', value: s.banner_enabled ? 'Shown' : 'Hidden', note: 'Public alert messaging' },
+          { label: 'Texting', value: smsPlanEnabled ? 'Enabled' : 'Off', note: 'Plan-level SMS availability' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              border: '1px solid #d6dee8',
+              borderRadius: 14,
+              background: '#ffffff',
+              padding: 16,
+              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
+              display: 'grid',
+              gap: 6,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>{item.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 950, color: '#0f172a' }}>{item.value}</div>
+            <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.45 }}>{item.note}</div>
+          </div>
+        ))}
+      </section>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {sectionTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setSection(tab.key)}
+            style={sectionButton(section === tab.key)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <div style={{ display: 'grid', gap: 14 }}>
-        <div
-          style={{
-            border: '1px solid #d6dee8',
-            borderRadius: 16,
-            padding: 18,
-            background: '#ffffff',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-            display: 'grid',
-            gap: 12,
-          }}
-        >
+        {section === 'branding' && (
+        <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Brand & Contact</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             These details show up on the public site for this processor. Plan tiers and feature access now live on the processor management page.
@@ -303,18 +365,10 @@ export default function AdminSettingsPage() {
             ))}
           </div>
         </div>
+        )}
 
-        <div
-          style={{
-            border: '1px solid #d6dee8',
-            borderRadius: 16,
-            padding: 18,
-            background: '#ffffff',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-            display: 'grid',
-            gap: 12,
-          }}
-        >
+        {section === 'intake' && (
+        <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Public Intake</div>
           <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900, color: '#0f172a' }}>
             <input
@@ -346,18 +400,10 @@ export default function AdminSettingsPage() {
             Need to change plan tier, SMS access, Webbs access, or hostnames? Use <a href="/admin/processors" style={{ color: '#1d4ed8', fontWeight: 800 }}>Processor Management</a>.
           </div>
         </div>
+        )}
 
-        <div
-          style={{
-            border: '1px solid #d6dee8',
-            borderRadius: 16,
-            padding: 18,
-            background: '#ffffff',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-            display: 'grid',
-            gap: 12,
-          }}
-        >
+        {section === 'banner' && (
+        <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Banner</div>
           <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 900, color: '#0f172a' }}>
             <input
@@ -411,18 +457,10 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </div>
+        )}
 
-        <div
-          style={{
-            border: '1px solid #d6dee8',
-            borderRadius: 16,
-            padding: 18,
-            background: '#ffffff',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-            display: 'grid',
-            gap: 12,
-          }}
-        >
+        {section === 'hours' && (
+        <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Pickup Hours</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             These rows show on the public Hours page and any public page that uses the public hours feed.
@@ -489,18 +527,10 @@ export default function AdminSettingsPage() {
             </button>
           </div>
         </div>
+        )}
 
-        <div
-          style={{
-            border: '1px solid #d6dee8',
-            borderRadius: 16,
-            padding: 18,
-            background: '#ffffff',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-            display: 'grid',
-            gap: 12,
-          }}
-        >
+        {section === 'pricing' && (
+        <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Pricing</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             These values drive the intake totals, specialty totals, print sheet pricing, and customer-facing pricing copy.
@@ -559,18 +589,10 @@ export default function AdminSettingsPage() {
             </button>
           </div>
         </div>
+        )}
 
-        <div
-          style={{
-            border: '1px solid #d6dee8',
-            borderRadius: 16,
-            padding: 18,
-            background: '#ffffff',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
-            display: 'grid',
-            gap: 12,
-          }}
-        >
+        {section === 'notifications' && (
+        <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>SMS Testing</div>
           {!smsPlanEnabled ? (
             <div style={{ padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #d6dee8', color: '#475569', lineHeight: 1.55 }}>
@@ -656,6 +678,7 @@ export default function AdminSettingsPage() {
             </>
           )}
         </div>
+        )}
 
         <div
           style={{
