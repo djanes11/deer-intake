@@ -66,6 +66,29 @@ function normalizeHours(hours: any): HourRow[] {
   return rows.length ? rows : DEFAULT_HOURS;
 }
 
+function specialtyDraftRows(input: SpecialtyCatalogItem[] | undefined | null, pricing: SitePricing): SpecialtyCatalogItem[] {
+  const rows = Array.isArray(input) ? input : [];
+  const hasBlankDraft = rows.some((item) => !String(item?.name || '').trim() && !String(item?.slug || '').trim());
+  const normalized = normalizeSpecialtyCatalog(
+    rows.filter((item) => String(item?.name || '').trim() || String(item?.slug || '').trim()),
+    pricing,
+  );
+  if (!hasBlankDraft) return normalized;
+  return [
+    ...normalized,
+    {
+      slug: '',
+      name: '',
+      shortName: '',
+      unit: 'lb',
+      priceType: 'per_lb',
+      price: 0,
+      active: true,
+      sortOrder: (normalized.length + 1) * 10,
+    },
+  ];
+}
+
 export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
@@ -157,7 +180,7 @@ export default function AdminSettingsPage() {
 
   const updateSpecialtyItem = (index: number, key: keyof SpecialtyCatalogItem, value: string | boolean) => {
     if (!s) return;
-    const next = normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).map((item, i) =>
+    const next = specialtyDraftRows(s.specialtyCatalog, s.pricing).map((item, i) =>
       i === index
         ? {
             ...item,
@@ -170,7 +193,11 @@ export default function AdminSettingsPage() {
 
   const addSpecialtyItem = () => {
     if (!s) return;
-    const current = normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing);
+    const current = specialtyDraftRows(s.specialtyCatalog, s.pricing);
+    if (current.some((item) => !String(item.name || '').trim() && !String(item.slug || '').trim())) {
+      setS({ ...s, specialtyCatalog: current });
+      return;
+    }
     setS({
       ...s,
       specialtyCatalog: [
@@ -191,7 +218,7 @@ export default function AdminSettingsPage() {
 
   const removeSpecialtyItem = (index: number) => {
     if (!s) return;
-    const current = normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing);
+    const current = specialtyDraftRows(s.specialtyCatalog, s.pricing);
     setS({ ...s, specialtyCatalog: current.filter((_, i) => i !== index) });
   };
 
@@ -590,7 +617,7 @@ export default function AdminSettingsPage() {
             Control which specialty products appear on the intake forms for this processor and how much each one costs per pound.
           </div>
 
-          {normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).map((item, index) => (
+          {specialtyDraftRows(s.specialtyCatalog, s.pricing).map((item, index) => (
             <div
               key={item.id || `${item.slug}-${index}`}
               style={{
