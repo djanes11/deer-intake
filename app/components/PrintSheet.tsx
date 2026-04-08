@@ -374,13 +374,30 @@ return () => {
         else if (h0 > 940) mode = 't1';
         (document.documentElement as any).dataset.tight = mode;
       }
-      const MM_PER_IN = 25.4, DPI = 96, MARGIN_MM = 5;
-const printable = Math.round(11 * DPI - 2 * MARGIN_MM * (DPI / MM_PER_IN));
-pages.forEach(p => {
-  const h = p.scrollHeight;
-  (p as HTMLElement).style.setProperty('--print-scale', '1');
-  (p as HTMLElement).dataset.overflow = h > printable ? '1' : '0';
-});
+      const MM_PER_IN = 25.4;
+      const DPI = 96;
+      const MARGIN_MM = 6.5;
+      const SAFETY_PX = 6;
+      const printable = Math.round(11 * DPI - 2 * MARGIN_MM * (DPI / MM_PER_IN)) - SAFETY_PX;
+
+      pages.forEach((p) => {
+        const page = p as HTMLElement;
+        page.style.setProperty('--print-scale', '1');
+        page.dataset.overflow = '0';
+      });
+
+      requestAnimationFrame(() => {
+        pages.forEach((p) => {
+          const page = p as HTMLElement;
+          const h = page.scrollHeight;
+          const needsShrink = h > printable;
+          const rawScale = needsShrink ? printable / h : 1;
+          const scale = Math.max(0.82, Math.min(1, Number(rawScale.toFixed(3))));
+
+          page.style.setProperty('--print-scale', String(scale));
+          page.dataset.overflow = scale < 0.999 ? '1' : '0';
+        });
+      });
 
     };
     adjust();

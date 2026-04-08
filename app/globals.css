@@ -1835,3 +1835,13 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 
   @page { margin: 6.5mm; } /* your current safe margin */
 }
+
+@media print {
+  /* Apply the measured one-page fit scale when a sheet runs tall. */
+  .printsheet .page {
+    --print-scale: 1;
+    zoom: var(--print-scale);
+    transform: scale(var(--print-scale)) !important;
+    transform-origin: top center !important;
+  }
+}
