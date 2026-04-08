@@ -2835,7 +2835,7 @@ export async function getDashboardSummary() {
     withProcessorFilter(
       supabaseServer
         .from('jobs')
-        .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at')
+        .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at,price_processing,price_specialty,paid_processing,paid_specialty')
         .limit(2000),
       processor.id
     ),
@@ -2899,6 +2899,28 @@ export async function getDashboardSummary() {
     return meatInQueue || capeInQueue || webbsInQueue || specialtyInQueue;
   }).length;
 
+  const openProcessingAmount = ownerRows.reduce((sum: number, r: any) => {
+    if (r.paid_processing) return sum;
+    return sum + (Number(r.price_processing ?? 0) || 0);
+  }, 0);
+
+  const openSpecialtyAmount = ownerRows.reduce((sum: number, r: any) => {
+    if (!r.specialty_products || r.paid_specialty) return sum;
+    return sum + (Number(r.price_specialty ?? 0) || 0);
+  }, 0);
+
+  const readyUnpaidRows = ownerRows.filter((r: any) => {
+    const meatReadyUnpaid = meatReady(r.status) && !r.picked_up_processing && !r.paid_processing;
+    const specialtyReadyUnpaid = !!r.specialty_products && specialtyReady(r.specialty_status) && !r.paid_specialty;
+    return meatReadyUnpaid || specialtyReadyUnpaid;
+  });
+
+  const readyUnpaidAmount = readyUnpaidRows.reduce((sum: number, r: any) => {
+    const meatOwed = !r.paid_processing ? Number(r.price_processing ?? 0) || 0 : 0;
+    const specialtyOwed = !!r.specialty_products && !r.paid_specialty ? Number(r.price_specialty ?? 0) || 0 : 0;
+    return sum + meatOwed + specialtyOwed;
+  }, 0);
+
   const processingDurations = ownerRows
     .map((r: any) => diffHours(r.processing_started_at, r.processing_finished_at))
     .filter((v: number | null): v is number => typeof v === 'number');
@@ -2929,6 +2951,10 @@ export async function getDashboardSummary() {
     recentIntakes7d: countOrThrow('recentIntakes7d', recentIntakesRes),
     unpaidProcessing: countOrThrow('unpaidProcessing', unpaidProcessingRes),
     unpaidSpecialty: countOrThrow('unpaidSpecialty', unpaidSpecialtyRes),
+    openProcessingAmount,
+    openSpecialtyAmount,
+    readyUnpaidCount: readyUnpaidRows.length,
+    readyUnpaidAmount,
     avgProcessingHours,
     avgReadyAgeDays,
     oldestReadyDays,
