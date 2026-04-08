@@ -6,7 +6,7 @@ export const revalidate = 0;
 
 import crypto from 'crypto';
 import { getJobByTag } from '@/lib/jobsSupabase';
-import { SPECIALTY_ITEMS, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import {
   hasWebbsOrder,
   normalizeWebbsOrderStyle,
@@ -149,7 +149,8 @@ export default async function IntakeView({
       settings.pricing,
     );
 
-    const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job, settings.pricing) : 0;
+    const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job, settings.pricing, settings.specialtyCatalog) : 0;
+    const specialtyItems = specialtyBreakdown(job, settings.pricing, settings.specialtyCatalog).filter((item) => item.pounds > 0);
     const webbsItems = webbsOrderSummary(job?.webbsItems);
     const webbsItemTotal = webbsOrderTotalLbs(job?.webbsItems);
     const webbsAllocations = webbsAllocationSummary(job?.webbsAllocations);
@@ -372,9 +373,9 @@ export default async function IntakeView({
               </div>
               {job?.specialtyProducts && (
                 <>
-                  {SPECIALTY_ITEMS.map((item) => (
+                  {specialtyItems.map((item) => (
                     <div className="c4" style={{gridColumn:'span 4'}} key={item.key}>
-                      <Field label={item.label} value={String((job as any)?.[item.key] ?? '')} />
+                      <Field label={item.label} value={`${item.pounds} lb`} />
                     </div>
                   ))}
                 </>

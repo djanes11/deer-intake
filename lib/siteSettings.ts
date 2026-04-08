@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { SITE } from '@/lib/config';
 import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
+import { defaultSpecialtyCatalog, getProcessorSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { getDefaultProcessorContext, getProcessorContextForHostname } from '@/lib/processorContext';
 
 export type PublicHourRow = {
@@ -35,6 +36,7 @@ export type PublicSiteSettings = {
   banner_message: string;
   hours: PublicHourRow[];
   pricing: SitePricing;
+  specialtyCatalog: SpecialtyCatalogItem[];
   branding: PublicBrandingSettings;
   features: ProcessorFeatureSettings;
   updated_at?: string | null;
@@ -83,6 +85,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
     banner_message: '',
     hours: fallbackHours(),
     pricing: DEFAULT_SITE_PRICING,
+    specialtyCatalog: defaultSpecialtyCatalog(DEFAULT_SITE_PRICING),
     branding: {
       name: String(SITE.name || 'Game Butcher Board'),
       locationLabel: String((SITE as any).locationLabel || ''),
@@ -135,6 +138,8 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
 
     let branding = defaultPublicSiteSettings().branding;
     let features = defaultPublicSiteSettings().features;
+    const pricing = normalizePricing(data);
+    const specialtyCatalog = await getProcessorSpecialtyCatalog(processor.id, pricing);
     if (processor.id) {
       const { data: processorRow, error: processorError } = await supabase
         .from('processors')
@@ -164,7 +169,8 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       banner_enabled: !!data.banner_enabled,
       banner_message: String(data.banner_message || ''),
       hours: normalizeHours(data.hours),
-      pricing: normalizePricing(data),
+      pricing,
+      specialtyCatalog,
       branding,
       features,
       updated_at: data.updated_at ?? null,

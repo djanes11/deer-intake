@@ -14,16 +14,17 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 type OrderRow = {
+  id: string;
   tag: string;
   customer_name: string | null;
   dropoff_date: string | null;
   specialty_status: string | null;
-  original_summer_sausage_lbs: number | null;
-  summer_sausage_cheese_lbs: number | null;
-  jalapeno_summer_sausage_cheese_lbs: number | null;
-  original_snack_sticks_lbs: number | null;
-  original_snack_sticks_cheese_lbs: number | null;
-  jalapeno_snack_sticks_cheese_lbs: number | null;
+  specialtyItems?: Array<{
+    slug: string;
+    name: string;
+    shortName: string;
+    quantity: number;
+  }>;
 };
 
 const styles: Record<string, React.CSSProperties> = {
@@ -73,7 +74,7 @@ export default async function SpecialtyReport() {
   let query = supabase
     .from('jobs')
     .select(
-      'tag,customer_name,dropoff_date,specialty_status,original_summer_sausage_lbs,summer_sausage_cheese_lbs,jalapeno_summer_sausage_cheese_lbs,original_snack_sticks_lbs,original_snack_sticks_cheese_lbs,jalapeno_snack_sticks_cheese_lbs'
+      'id,tag,customer_name,dropoff_date,specialty_status'
     )
     .eq('specialty_products', true)
     .in('specialty_status', ['Dropped Off', 'In Progress']);
@@ -87,6 +88,28 @@ export default async function SpecialtyReport() {
     .order('tag', { ascending: true });
 
   const rows = ((data as any) || []) as OrderRow[];
+  const jobIds = rows.map((row) => row.id).filter(Boolean);
+  let itemMap = new Map<string, OrderRow['specialtyItems']>();
+  if (jobIds.length) {
+    const { data: itemRows, error: itemsError } = await supabase
+      .from('job_specialty_items')
+      .select('job_id,item_slug,item_name,short_name,quantity,sort_order')
+      .in('job_id', jobIds)
+      .order('sort_order', { ascending: true });
+    if (itemsError) throw itemsError;
+    itemMap = new Map<string, OrderRow['specialtyItems']>();
+    for (const item of itemRows || []) {
+      const key = String((item as any).job_id || '');
+      const list = itemMap.get(key) || [];
+      list.push({
+        slug: String((item as any).item_slug || ''),
+        name: String((item as any).item_name || ''),
+        shortName: String((item as any).short_name || ''),
+        quantity: Number((item as any).quantity ?? 0),
+      });
+      itemMap.set(key, list);
+    }
+  }
 
   return (
     <div style={styles.page}>
@@ -96,7 +119,12 @@ export default async function SpecialtyReport() {
       {error && <div style={styles.err}>Load failed: {String((error as any)?.message || error)}</div>}
 
       {/* Client renders tiles + table so totals update instantly when a row is removed */}
-      <SpecialtyOrdersClient initialRows={rows} />
+      <SpecialtyOrdersClient
+        initialRows={rows.map((row) => ({
+          ...row,
+          specialtyItems: itemMap.get(String(row.id)) || [],
+        }))}
+      />
     </div>
   );
 }

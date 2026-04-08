@@ -7,7 +7,8 @@ import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
-import { SPECIALTY_ITEMS, specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
 import {
   WEBBS_GROUPS,
@@ -89,6 +90,20 @@ type Job = {
   backstrapThicknessOther?: string;
 
   specialtyProducts?: boolean;
+  specialtyItems?: Array<{
+    id?: string | null;
+    catalogId?: string | null;
+    slug: string;
+    name: string;
+    shortName: string;
+    unit: 'lb';
+    priceType: 'per_lb';
+    quantity: number;
+    pricePerUnit: number;
+    total: number;
+    sortOrder: number;
+    legacyFieldKey?: string | null;
+  }>;
   originalSummerSausageLbs?: string | number;
   summerSausageCheeseLbs?: string | number;
   jalapenoSummerSausageCheeseLbs?: string | number;
@@ -201,6 +216,7 @@ function snapshotJob(j: Job) {
     backstrapThicknessOther: j.backstrapThicknessOther ?? '',
 
     specialtyProducts: !!j.specialtyProducts,
+    specialtyItems: normalizeJobSpecialtyItems((j as any).specialtyItems),
     originalSummerSausageLbs: String((j as any).originalSummerSausageLbs ?? ''),
     summerSausageCheeseLbs: String(j.summerSausageCheeseLbs ?? ''),
     jalapenoSummerSausageCheeseLbs: String((j as any).jalapenoSummerSausageCheeseLbs ?? ''),
@@ -370,6 +386,7 @@ function IntakePage() {
     paidSpecialty: false,
 
     specialtyProducts: false,
+    specialtyItems: [],
 
     howKilled: '',
 
@@ -401,6 +418,7 @@ function IntakePage() {
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
+  const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
@@ -432,6 +450,7 @@ function IntakePage() {
       .then((j) => {
         if (j?.ok) {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
+          setSpecialtyCatalog(normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
           setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
@@ -544,6 +563,34 @@ function IntakePage() {
     !customerSectionComplete;
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
 
+  const setSpecialtyQuantity = (slug: string, rawValue: string) => {
+    const quantity = toInt(rawValue);
+    const catalogItem = activeSpecialtyCatalog.find((item) => item.slug === slug);
+    setJob((prev) => {
+      const nextItems = normalizeJobSpecialtyItems((prev as any).specialtyItems).filter((item) => item.slug !== slug);
+      if (catalogItem && quantity > 0) {
+        nextItems.push({
+          catalogId: catalogItem.id ?? null,
+          slug: catalogItem.slug,
+          name: catalogItem.name,
+          shortName: catalogItem.shortName,
+          unit: 'lb',
+          priceType: 'per_lb',
+          quantity,
+          pricePerUnit: Number(catalogItem.price ?? 0),
+          total: quantity * Number(catalogItem.price ?? 0),
+          sortOrder: catalogItem.sortOrder,
+          legacyFieldKey: catalogItem.legacyFieldKey ?? null,
+        });
+      }
+      const next: Job = { ...prev, specialtyItems: nextItems };
+      if (catalogItem?.legacyFieldKey) {
+        (next as any)[catalogItem.legacyFieldKey] = quantity > 0 ? String(quantity) : '';
+      }
+      return next;
+    });
+  };
+
   // Establish baseline for a brand new job (or when tag query changes)
 useEffect(() => {
   setLastSavedJson(
@@ -650,6 +697,7 @@ useEffect(() => {
             paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
             paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
             specialtyProducts: asBool(j.specialtyProducts),
+            specialtyItems: normalizeJobSpecialtyItems((j as any).specialtyItems),
 
             howKilled: j.howKilled || j['How Killed'] || '',
 
@@ -684,16 +732,12 @@ useEffect(() => {
 
   const specialtyPriceAuto = useMemo(() => {
     if (!job.specialtyProducts) return 0;
-    return calcSpecialtyPrice(job as any, pricing);
+    return calcSpecialtyPrice(job as any, pricing, specialtyCatalog);
   }, [
     job.specialtyProducts,
-    job.originalSummerSausageLbs,
-    job.summerSausageCheeseLbs,
-    job.jalapenoSummerSausageCheeseLbs,
-    job.originalSnackSticksLbs,
-    job.originalSnackSticksCheeseLbs,
-    job.jalapenoSnackSticksCheeseLbs,
+    job.specialtyItems,
     pricing,
+    specialtyCatalog,
   ]);
 
   const processingOverride = toMoneyOrNull((job as any).processing_price_override);
@@ -703,9 +747,13 @@ useEffect(() => {
   const specialtyPriceUsed = specialtyOverride ?? specialtyPriceAuto;
 
   const totalPrice = processingPriceUsed + specialtyPriceUsed;
+  const activeSpecialtyCatalog = useMemo(
+    () => normalizeSpecialtyCatalog(specialtyCatalog, pricing).filter((item) => item.active),
+    [specialtyCatalog, pricing]
+  );
   const specialtyItems = useMemo(
-    () => specialtyBreakdown(job as Record<string, any>, pricing).filter((item) => item.pounds > 0),
-    [job, pricing]
+    () => specialtyBreakdown(job as Record<string, any>, pricing, activeSpecialtyCatalog).filter((item) => item.pounds > 0),
+    [job, pricing, activeSpecialtyCatalog]
   );
   const specialtySummaryText = useMemo(() => {
     if (!job.specialtyProducts) return 'No specialty products selected';
@@ -796,7 +844,19 @@ useEffect(() => {
   useEffect(() => {
     setJob((prev) => {
       if (!asBool(prev.specialtyProducts)) {
-        const next: Job = { ...prev, paidSpecialty: false, specialtyStatus: '', specialty_price_override: null };
+        const next: Job = {
+          ...prev,
+          specialtyItems: [],
+          paidSpecialty: false,
+          specialtyStatus: '',
+          specialty_price_override: null,
+          originalSummerSausageLbs: '',
+          summerSausageCheeseLbs: '',
+          jalapenoSummerSausageCheeseLbs: '',
+          originalSnackSticksLbs: '',
+          originalSnackSticksCheeseLbs: '',
+          jalapenoSnackSticksCheeseLbs: '',
+        };
         const fp = fullPaid(next);
         return { ...next, Paid: fp, paid: fp };
       } else if (!prev.specialtyStatus) {
@@ -910,6 +970,7 @@ useEffect(() => {
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
+      specialtyItems: job.specialtyProducts ? normalizeJobSpecialtyItems((job as any).specialtyItems) : [],
       howKilled: job.howKilled || '',
 
       originalSummerSausageLbs: job.specialtyProducts ? String(toInt(job.originalSummerSausageLbs)) : '',
@@ -1723,6 +1784,7 @@ if (fresh?.exists && fresh.job) {
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setVal('specialtyProducts', checked);
+                    if (!checked) setJob((prev) => ({ ...prev, specialtyItems: [] }));
                     if (checked) setSpecialtyModalOpen(true);
                   }}
                 />
@@ -1747,7 +1809,7 @@ if (fresh?.exists && fresh.job) {
                     <div className="webbsSummaryList">
                       {specialtyItems.map((item) => (
                         <div key={item.key} className="webbsSummaryLine">
-                          {item.label.replace(' (lb)', '')}: {item.pounds} lb
+                          {item.label}: {item.pounds} lb
                         </div>
                       ))}
                     </div>
@@ -2061,49 +2123,34 @@ if (fresh?.exists && fresh.job) {
             </div>
 
             <div className="webbsModalInfo">
-              <span className="badge">Summer Sausage: ${pricing.summer_sausage_price_per_lb.toFixed(2)}/lb</span>
-              <span className="badge">Snack Stix: ${pricing.snack_stix_price_per_lb.toFixed(2)}/lb</span>
+              <span className="badge">Products: {activeSpecialtyCatalog.length}</span>
               <span className="badge">Current Total: ${specialtyPriceUsed.toFixed(2)}</span>
             </div>
 
             <div className="webbsModalBody">
               <div>
-                <div className="webbsGroupTitle">Summer Sausage</div>
+                <div className="webbsGroupTitle">Processor Specialty Catalog</div>
                 <div className="webbsWorksheet">
                   <div className="webbsWorksheetHead">
                     <div>Product</div>
                     <div>Lb</div>
                   </div>
-                  {SPECIALTY_ITEMS.filter((item) => item.category === 'summer').map((item) => (
-                    <div key={item.key} className="webbsWorksheetRow">
-                      <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
+                  {activeSpecialtyCatalog.map((item) => (
+                    <div key={item.slug} className="webbsWorksheetRow">
+                      <div className="webbsWorksheetLabel">
+                        {item.name}
+                        <div className="muted" style={{ marginTop: 4 }}>
+                          ${Number(item.price ?? 0).toFixed(2)}/lb
+                        </div>
+                      </div>
                       <input
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={String((job as any)[item.key] ?? '')}
-                        onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
-                        placeholder="0"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="webbsGroupTitle">Snack Stix</div>
-                <div className="webbsWorksheet">
-                  <div className="webbsWorksheetHead">
-                    <div>Product</div>
-                    <div>Lb</div>
-                  </div>
-                  {SPECIALTY_ITEMS.filter((item) => item.category === 'snack').map((item) => (
-                    <div key={item.key} className="webbsWorksheetRow">
-                      <div className="webbsWorksheetLabel">{item.label.replace(' (lb)', '')}</div>
-                      <input
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={String((job as any)[item.key] ?? '')}
-                        onChange={(e) => setVal(item.key as keyof Job, e.target.value as any)}
+                        value={String(
+                          normalizeJobSpecialtyItems((job as any).specialtyItems).find((entry) => entry.slug === item.slug)?.quantity ??
+                            ((item.legacyFieldKey ? (job as any)[item.legacyFieldKey] : '') || '')
+                        )}
+                        onChange={(e) => setSpecialtyQuantity(item.slug, e.target.value)}
                         placeholder="0"
                       />
                     </div>

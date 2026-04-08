@@ -3,31 +3,27 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { tokenHeader } from '@/lib/api';
-import { SPECIALTY_ITEMS } from '@/lib/specialty';
 
 type OrderRow = {
+  id: string;
   tag: string;
   customer_name: string | null;
   dropoff_date: string | null;
   specialty_status: string | null;
-  original_summer_sausage_lbs: number | null;
-  summer_sausage_cheese_lbs: number | null;
-  jalapeno_summer_sausage_cheese_lbs: number | null;
-  original_snack_sticks_lbs: number | null;
-  original_snack_sticks_cheese_lbs: number | null;
-  jalapeno_snack_sticks_cheese_lbs: number | null;
+  specialtyItems?: Array<{
+    slug: string;
+    name: string;
+    shortName: string;
+    quantity: number;
+  }>;
 };
 
 function n(v: any) {
   const x = Number(v ?? 0);
   return Number.isFinite(x) ? x : 0;
 }
-function fmt1(v: any) {
-  return n(v).toFixed(1);
-}
 
 const styles: Record<string, React.CSSProperties> = {
-  // Tiles
   kpiGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 12 },
   card: {
     background: '#ffffff',
@@ -38,8 +34,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   label: { fontSize: 12, fontWeight: 900, color: '#334155', marginBottom: 6 },
   value: { fontSize: 22, fontWeight: 950 as any, color: '#0f172a' },
-
-  // Table
   wrap: {
     marginTop: 12,
     background: '#fff',
@@ -70,10 +64,7 @@ const styles: Record<string, React.CSSProperties> = {
   orderCell: { display: 'grid', gap: 4, minWidth: 260 },
   orderLine: { display: 'flex', justifyContent: 'space-between', gap: 12, fontWeight: 700, color: '#334155' },
   orderTotal: { display: 'flex', justifyContent: 'space-between', gap: 12, paddingTop: 6, borderTop: '1px solid #e5e7eb', fontWeight: 900, color: '#0f172a' },
-  right: { textAlign: 'right' },
   link: { color: '#155acb', fontWeight: 900, textDecoration: 'none' },
-
-  // Buttons / messages
   btn: {
     padding: '6px 10px',
     borderRadius: 10,
@@ -103,41 +94,24 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
   const [err, setErr] = useState<string>('');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
-  const totals = useMemo(() => {
-    return rows.reduce(
-      (a, r) => {
-        a.originalSummerSausageLbs += n(r.original_summer_sausage_lbs);
-        a.summerSausageCheeseLbs += n(r.summer_sausage_cheese_lbs);
-        a.jalapenoSummerSausageCheeseLbs += n(r.jalapeno_summer_sausage_cheese_lbs);
-        a.originalSnackSticksLbs += n(r.original_snack_sticks_lbs);
-        a.originalSnackSticksCheeseLbs += n(r.original_snack_sticks_cheese_lbs);
-        a.jalapenoSnackSticksCheeseLbs += n(r.jalapeno_snack_sticks_cheese_lbs);
-        a.jobs += 1;
-        return a;
-      },
-      {
-        originalSummerSausageLbs: 0,
-        summerSausageCheeseLbs: 0,
-        jalapenoSummerSausageCheeseLbs: 0,
-        originalSnackSticksLbs: 0,
-        originalSnackSticksCheeseLbs: 0,
-        jalapenoSnackSticksCheeseLbs: 0,
-        jobs: 0,
+  const aggregated = useMemo(() => {
+    const bySlug = new Map<string, { name: string; shortName: string; total: number }>();
+    let totalPounds = 0;
+    for (const row of rows) {
+      for (const item of row.specialtyItems || []) {
+        totalPounds += n(item.quantity);
+        const current = bySlug.get(item.slug) || { name: item.name, shortName: item.shortName, total: 0 };
+        current.total += n(item.quantity);
+        bySlug.set(item.slug, current);
       }
-    );
+    }
+    return {
+      totalPounds,
+      items: Array.from(bySlug.entries())
+        .map(([slug, item]) => ({ slug, ...item }))
+        .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)),
+    };
   }, [rows]);
-
-  const summerSausageTotal =
-    totals.originalSummerSausageLbs +
-    totals.summerSausageCheeseLbs +
-    totals.jalapenoSummerSausageCheeseLbs;
-
-  const snackStixTotal =
-    totals.originalSnackSticksLbs +
-    totals.originalSnackSticksCheeseLbs +
-    totals.jalapenoSnackSticksCheeseLbs;
-
-  const allSpecialtyTotal = summerSausageTotal + snackStixTotal;
 
   React.useEffect(() => {
     fetch('/api/admin/staff-context', { cache: 'no-store' })
@@ -155,21 +129,14 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
     setErr('');
     setMsg('');
     setBusyTag(tag);
-
     try {
       const res = await fetch('/api/specialty/mark-finished', {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...tokenHeader() },
         body: JSON.stringify({ tag }),
       });
-
       const j = await res.json().catch(() => ({}));
-
-      if (!res.ok || !j?.ok) {
-        throw new Error(`HTTP ${res.status}: ${j?.error || 'Update failed'}`);
-      }
-
-      // remove row -> tiles recalc instantly
+      if (!res.ok || !j?.ok) throw new Error(`HTTP ${res.status}: ${j?.error || 'Update failed'}`);
       setRows((prev) => prev.filter((r) => r.tag !== tag));
       setMsg(`Marked ${tag} specialty as Finished`);
       setTimeout(() => setMsg(''), 1500);
@@ -190,49 +157,43 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
         </div>
       )}
 
-      {/* TOP TILES — now tied to rows state so it auto updates */}
       <div style={styles.kpiGrid}>
         <div style={styles.card}>
-          <div style={styles.label}>Summer Sausage Total</div>
-          <div style={styles.value}>{summerSausageTotal.toFixed(1)} lb</div>
-        </div>
-        <div style={styles.card}>
-          <div style={styles.label}>Snack Stix Total</div>
-          <div style={styles.value}>{snackStixTotal.toFixed(1)} lb</div>
-        </div>
-        <div style={styles.card}>
           <div style={styles.label}>All Specialty</div>
-          <div style={styles.value}>{allSpecialtyTotal.toFixed(1)} lb</div>
+          <div style={styles.value}>{aggregated.totalPounds.toFixed(1)} lb</div>
         </div>
         <div style={styles.card}>
           <div style={styles.label}>Open Jobs</div>
-          <div style={styles.value}>{totals.jobs}</div>
+          <div style={styles.value}>{rows.length}</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Configured Items In Queue</div>
+          <div style={styles.value}>{aggregated.items.length}</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Largest Open Item</div>
+          <div style={styles.value}>{aggregated.items[0] ? `${aggregated.items[0].total.toFixed(1)} lb` : '0.0 lb'}</div>
         </div>
       </div>
 
-      <div style={{ ...styles.kpiGrid, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+      <div style={{ ...styles.kpiGrid, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         <div style={styles.card}>
-          <div style={styles.label}>Summer Sausage Breakdown</div>
-          {SPECIALTY_ITEMS.slice(0, 3).map((item) => (
-            <div key={item.key} style={styles.orderLine}>
-              <span>{item.shortLabel}</span>
-              <span>{n((totals as any)[item.key]).toFixed(1)} lb</span>
-            </div>
-          ))}
-        </div>
-        <div style={styles.card}>
-          <div style={styles.label}>Snack Stix Breakdown</div>
-          {SPECIALTY_ITEMS.slice(3).map((item) => (
-            <div key={item.key} style={styles.orderLine}>
-              <span>{item.shortLabel}</span>
-              <span>{n((totals as any)[item.key]).toFixed(1)} lb</span>
-            </div>
-          ))}
+          <div style={styles.label}>Specialty Breakdown</div>
+          {aggregated.items.length ? (
+            aggregated.items.map((item) => (
+              <div key={item.slug} style={styles.orderLine}>
+                <span>{item.shortName || item.name}</span>
+                <span>{item.total.toFixed(1)} lb</span>
+              </div>
+            ))
+          ) : (
+            <div style={{ color: '#475569', lineHeight: 1.5 }}>No open specialty items right now.</div>
+          )}
         </div>
         <div style={styles.card}>
           <div style={styles.label}>Report Notes</div>
           <div style={{ color: '#475569', lineHeight: 1.5 }}>
-            Each row now shows one compact specialty summary instead of six separate pound columns.
+            This report now reflects the processor&apos;s live specialty catalog instead of six hardcoded columns.
           </div>
         </div>
       </div>
@@ -249,12 +210,10 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
               <th style={styles.th}>Actions</th>
             </tr>
           </thead>
-
           <tbody>
             {rows.map((r) => (
               <tr key={r.tag}>
                 <td style={styles.td}>
-                  {/* staff intake edit page */}
                   <Link style={styles.link} href={`${canUpdate ? '/intake?tag=' : '/intake/'}${encodeURIComponent(r.tag)}`}>
                     {r.tag}
                   </Link>
@@ -264,17 +223,15 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                 <td style={styles.td}>{r.specialty_status || ''}</td>
                 <td style={styles.td}>
                   <div style={styles.orderCell}>
-                    {SPECIALTY_ITEMS.filter((item) => n((r as any)[item.dbKey]) > 0).map((item) => (
-                      <div key={item.key} style={styles.orderLine}>
-                        <span>{item.shortLabel}</span>
-                        <span>{fmt1((r as any)[item.dbKey])} lb</span>
+                    {(r.specialtyItems || []).map((item) => (
+                      <div key={item.slug} style={styles.orderLine}>
+                        <span>{item.shortName || item.name}</span>
+                        <span>{n(item.quantity).toFixed(1)} lb</span>
                       </div>
                     ))}
                     <div style={styles.orderTotal}>
                       <span>Total</span>
-                      <span>
-                        {SPECIALTY_ITEMS.reduce((sum, item) => sum + n((r as any)[item.dbKey]), 0).toFixed(1)} lb
-                      </span>
+                      <span>{(r.specialtyItems || []).reduce((sum, item) => sum + n(item.quantity), 0).toFixed(1)} lb</span>
                     </div>
                   </div>
                 </td>
@@ -291,28 +248,6 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                 </td>
               </tr>
             ))}
-
-            {/* optional footer totals row */}
-            <tr>
-              <td style={{ ...styles.td, borderBottom: 0 }} colSpan={4}>
-                Totals (open)
-              </td>
-              <td style={{ ...styles.td, borderBottom: 0 }}>
-                <div style={styles.orderCell}>
-                  {SPECIALTY_ITEMS.map((item) => (
-                    <div key={item.key} style={styles.orderLine}>
-                      <span>{item.shortLabel}</span>
-                      <span>{n((totals as any)[item.key]).toFixed(1)} lb</span>
-                    </div>
-                  ))}
-                  <div style={styles.orderTotal}>
-                    <span>Total</span>
-                    <span>{allSpecialtyTotal.toFixed(1)} lb</span>
-                  </div>
-                </div>
-              </td>
-              <td style={{ ...styles.td, borderBottom: 0 }} />
-            </tr>
           </tbody>
         </table>
       </div>

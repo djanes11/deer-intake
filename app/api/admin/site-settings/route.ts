@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
 import { normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { normalizePricing } from '@/lib/pricing';
+import { normalizeSpecialtyCatalog } from '@/lib/specialtyCatalog';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { writeAuditEntry } from '@/lib/auditLog';
 
@@ -28,6 +29,16 @@ export async function GET(req: Request) {
     const defaults = defaultPublicSiteSettings().branding;
     let branding = defaults;
     if (processor.id) {
+      const specialtyCatalog = normalizeSpecialtyCatalog(
+        (
+          await supabase
+            .from('processor_specialty_items')
+            .select('id,slug,name,short_name,unit,price_type,price,active,sort_order,legacy_field_key')
+            .eq('processor_id', processor.id)
+            .order('sort_order', { ascending: true })
+        ).data || [],
+        normalizePricing(data),
+      );
       const { data: processorRow, error: processorError } = await supabase
         .from('processors')
         .select('name,public_name,public_tagline,logo_url,support_phone_display,support_phone_e164,support_email,public_address,public_maps_url,location_label,features')
@@ -53,6 +64,7 @@ export async function GET(req: Request) {
             ...data,
             branding,
             features: normalizeProcessorFeatures(rawFeatures),
+            specialtyCatalog,
           },
         });
       }
@@ -64,6 +76,7 @@ export async function GET(req: Request) {
         ...data,
         branding,
         features: defaultPublicSiteSettings().features,
+        specialtyCatalog: defaultPublicSiteSettings().specialtyCatalog,
       },
     });
   } catch (e: any) {
@@ -149,6 +162,56 @@ export async function POST(req: Request) {
         .update(processorPayload)
         .eq('id', processor.id);
       if (processorError) throw processorError;
+
+      const specialtyCatalog = normalizeSpecialtyCatalog(body?.specialtyCatalog, payload);
+      const existingCatalogRes = await supabase
+        .from('processor_specialty_items')
+        .select('id')
+        .eq('processor_id', processor.id);
+      if (existingCatalogRes.error) throw existingCatalogRes.error;
+
+      const keepIds = new Set((specialtyCatalog.map((item) => item.id).filter(Boolean) as string[]).map(String));
+      for (const row of existingCatalogRes.data || []) {
+        const existingId = String((row as any).id || '');
+        if (!keepIds.has(existingId)) {
+          const { error: deleteError } = await supabase
+            .from('processor_specialty_items')
+            .delete()
+            .eq('processor_id', processor.id)
+            .eq('id', existingId);
+          if (deleteError) throw deleteError;
+        }
+      }
+
+      for (const item of specialtyCatalog) {
+        const rowPayload = {
+          processor_id: processor.id,
+          slug: item.slug,
+          name: item.name,
+          short_name: item.shortName,
+          unit: item.unit,
+          price_type: item.priceType,
+          price: item.price,
+          active: item.active,
+          sort_order: item.sortOrder,
+          legacy_field_key: item.legacyFieldKey ?? null,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (item.id) {
+          const { error: updateError } = await supabase
+            .from('processor_specialty_items')
+            .update(rowPayload)
+            .eq('id', item.id)
+            .eq('processor_id', processor.id);
+          if (updateError) throw updateError;
+        } else {
+          const { error: insertError } = await supabase
+            .from('processor_specialty_items')
+            .insert(rowPayload);
+          if (insertError) throw insertError;
+        }
+      }
     }
 
     const merged = {
@@ -165,6 +228,7 @@ export async function POST(req: Request) {
         mapsUrl: processorPayload.public_maps_url,
       },
       features: processorPayload.features,
+      specialtyCatalog: normalizeSpecialtyCatalog(body?.specialtyCatalog, payload),
     };
 
     await writeAuditEntry({
@@ -179,6 +243,7 @@ export async function POST(req: Request) {
         publicIntakeEnabled: !!payload.public_intake_enabled,
         bannerEnabled: !!payload.banner_enabled,
         brandingName: merged.branding.name,
+        specialtyItems: merged.specialtyCatalog.length,
       },
     });
 

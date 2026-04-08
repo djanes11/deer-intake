@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { tokenHeader } from '@/lib/api';
 import { DEFAULT_SITE_PRICING, SitePricing, formatMoney, normalizePricing } from '@/lib/pricing';
+import { defaultSpecialtyCatalog, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 
 type HourRow = {
   label: string;
@@ -27,6 +28,7 @@ type SiteSettings = {
   banner_message: string;
   hours: HourRow[];
   pricing: SitePricing;
+  specialtyCatalog: SpecialtyCatalogItem[];
   branding: BrandingSettings;
   features?: {
     plan: 'basic' | 'texting' | 'custom';
@@ -68,7 +70,7 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [section, setSection] = useState<'branding' | 'intake' | 'banner' | 'hours' | 'pricing'>('branding');
+  const [section, setSection] = useState<'branding' | 'intake' | 'banner' | 'hours' | 'pricing' | 'specialty'>('branding');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -87,6 +89,7 @@ export default function AdminSettingsPage() {
       ...(j.settings as SiteSettings),
       hours: normalizeHours(j?.settings?.hours),
       pricing: normalizePricing(j?.settings),
+      specialtyCatalog: normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
       branding: {
         ...DEFAULT_BRANDING,
         ...(j?.settings?.branding || {}),
@@ -107,6 +110,7 @@ export default function AdminSettingsPage() {
         ...s,
         hours: normalizeHours(s.hours).filter((row) => row.label.trim() || row.value.trim()),
         ...normalizePricing(s.pricing),
+        specialtyCatalog: normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing),
       };
       const res = await fetch('/api/admin/site-settings', {
         method: 'POST',
@@ -119,6 +123,7 @@ export default function AdminSettingsPage() {
         ...(j.settings as SiteSettings),
         hours: normalizeHours(j?.settings?.hours),
         pricing: normalizePricing(j?.settings),
+        specialtyCatalog: normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
         branding: {
           ...DEFAULT_BRANDING,
           ...(j?.settings?.branding || {}),
@@ -150,6 +155,46 @@ export default function AdminSettingsPage() {
     setS({ ...s, hours: nextHours });
   };
 
+  const updateSpecialtyItem = (index: number, key: keyof SpecialtyCatalogItem, value: string | boolean) => {
+    if (!s) return;
+    const next = normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).map((item, i) =>
+      i === index
+        ? {
+            ...item,
+            [key]: key === 'price' || key === 'sortOrder' ? Number(value) : value,
+          }
+        : item
+    );
+    setS({ ...s, specialtyCatalog: next });
+  };
+
+  const addSpecialtyItem = () => {
+    if (!s) return;
+    const current = normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing);
+    setS({
+      ...s,
+      specialtyCatalog: [
+        ...current,
+        {
+          slug: '',
+          name: '',
+          shortName: '',
+          unit: 'lb',
+          priceType: 'per_lb',
+          price: 0,
+          active: true,
+          sortOrder: (current.length + 1) * 10,
+        },
+      ],
+    });
+  };
+
+  const removeSpecialtyItem = (index: number) => {
+    if (!s) return;
+    const current = normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing);
+    setS({ ...s, specialtyCatalog: current.filter((_, i) => i !== index) });
+  };
+
   if (!s) {
     return (
       <div
@@ -168,13 +213,13 @@ export default function AdminSettingsPage() {
     );
   }
 
-  const smsPlanEnabled = s.features?.smsEnabled !== false;
   const sectionTabs = [
     { key: 'branding', label: 'Branding & Contact' },
     { key: 'intake', label: 'Public Intake' },
     { key: 'banner', label: 'Banner' },
     { key: 'hours', label: 'Hours' },
     { key: 'pricing', label: 'Pricing' },
+    { key: 'specialty', label: 'Specialty Products' },
   ] as const;
   const sectionCard: React.CSSProperties = {
     border: '1px solid #d6dee8',
@@ -233,7 +278,7 @@ export default function AdminSettingsPage() {
         {[
           { label: 'Public intake', value: s.public_intake_enabled ? 'Live' : 'Off', note: 'Customer drop-off form status' },
           { label: 'Banner', value: s.banner_enabled ? 'Shown' : 'Hidden', note: 'Public alert messaging' },
-          { label: 'Texting', value: smsPlanEnabled ? 'Enabled' : 'Off', note: 'Plan-level SMS availability' },
+          { label: 'Specialty items', value: String(normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length), note: 'Shown on intake forms' },
         ].map((item) => (
           <div
             key={item.label}
@@ -491,8 +536,6 @@ export default function AdminSettingsPage() {
             ['cape_donate_price', 'Cape & Donate'],
             ['beef_fat_add_on', 'Beef Fat Add-On'],
             ['webbs_add_on', 'Webbs Add-On'],
-            ['summer_sausage_price_per_lb', 'Summer Sausage Price / lb'],
-            ['snack_stix_price_per_lb', 'Snack Stix Price / lb'],
           ].map(([key, label]) => (
             <div
               key={key}
@@ -535,6 +578,110 @@ export default function AdminSettingsPage() {
               }}
             >
               Reset Pricing Defaults
+            </button>
+          </div>
+        </div>
+        )}
+
+        {section === 'specialty' && (
+        <div style={sectionCard}>
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Specialty Products</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+            Control which specialty products appear on the intake forms for this processor and how much each one costs per pound.
+          </div>
+
+          {normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).map((item, index) => (
+            <div
+              key={item.id || `${item.slug}-${index}`}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(140px, 1.2fr) minmax(120px, 1fr) minmax(100px, 0.8fr) auto auto auto',
+                gap: 10,
+                alignItems: 'center',
+                padding: 12,
+                borderRadius: 12,
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <input
+                value={item.name}
+                onChange={(e) => updateSpecialtyItem(index, 'name', e.target.value)}
+                placeholder="Display name"
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+              <input
+                value={item.shortName}
+                onChange={(e) => updateSpecialtyItem(index, 'shortName', e.target.value)}
+                placeholder="Short label"
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+              <input
+                inputMode="decimal"
+                value={String(item.price ?? '')}
+                onChange={(e) => updateSpecialtyItem(index, 'price', e.target.value)}
+                placeholder="0.00"
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+              <div style={{ fontSize: 13, fontWeight: 800, color: '#475569', minWidth: 72 }}>
+                {formatMoney(Number(item.price ?? 0))}/lb
+              </div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <input
+                  type="checkbox"
+                  checked={item.active}
+                  onChange={(e) => updateSpecialtyItem(index, 'active', e.target.checked)}
+                />
+                Active
+              </label>
+              <button
+                type="button"
+                onClick={() => removeSpecialtyItem(index)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #fecaca',
+                  background: '#fff1f2',
+                  color: '#b91c1c',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={addSpecialtyItem}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#0f172a',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Add Specialty Item
+            </button>
+            <button
+              type="button"
+              onClick={() => setS({ ...s, specialtyCatalog: defaultSpecialtyCatalog(s.pricing) })}
+              style={{
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#0f172a',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Reset Default Catalog
             </button>
           </div>
         </div>

@@ -57,6 +57,20 @@ export interface Job {
   // Specialty
   specialtyProducts: boolean;
   specialtyPounds: number;
+  specialtyItems?: Array<{
+    id?: string | null;
+    catalogId?: string | null;
+    slug: string;
+    name: string;
+    shortName: string;
+    unit: 'lb';
+    priceType: 'per_lb';
+    quantity: number;
+    pricePerUnit: number;
+    total: number;
+    sortOrder: number;
+    legacyFieldKey?: string | null;
+  }>;
   originalSummerSausageLbs: number;
   summerSausageCheeseLbs: number;
   jalapenoSummerSausageCheeseLbs: number;

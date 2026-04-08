@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
 import { normalizeUsPhone, sendSms } from '@/lib/sms';
 import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
+import { getProcessorSpecialtyCatalog, normalizeJobSpecialtyItems, SpecialtyLegacyFieldKey } from '@/lib/specialtyCatalog';
 import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrderStyle } from '@/lib/webbs';
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
@@ -250,6 +251,137 @@ function numOrNull(v: any): number | null {
 function numOrZero(v: any): number {
   const n = numOrNull(v);
   return n === null ? 0 : n;
+}
+
+function specialtyLegacyValues(items: Array<{ legacyFieldKey?: string | null; quantity: number }>) {
+  const out: Record<SpecialtyLegacyFieldKey, number> = {
+    originalSummerSausageLbs: 0,
+    summerSausageCheeseLbs: 0,
+    jalapenoSummerSausageCheeseLbs: 0,
+    originalSnackSticksLbs: 0,
+    originalSnackSticksCheeseLbs: 0,
+    jalapenoSnackSticksCheeseLbs: 0,
+  };
+  for (const item of items) {
+    const key = item.legacyFieldKey as SpecialtyLegacyFieldKey | undefined;
+    if (key && key in out) out[key] += numOrZero(item.quantity);
+  }
+  return out;
+}
+
+async function loadJobSpecialtyItemsMap(supabaseServer: any, jobIds: string[]) {
+  if (!jobIds.length) return new Map<string, any[]>();
+  const { data, error } = await supabaseServer
+    .from('job_specialty_items')
+    .select('id,job_id,processor_specialty_item_id,item_slug,item_name,short_name,unit,price_type,quantity,unit_price,total_price,sort_order')
+    .in('job_id', jobIds)
+    .order('sort_order', { ascending: true });
+  if (error) {
+    console.error('loadJobSpecialtyItemsMap error', error);
+    throw error;
+  }
+  const out = new Map<string, any[]>();
+  for (const row of data || []) {
+    const key = String((row as any).job_id || '');
+    const list = out.get(key) || [];
+    list.push({
+      id: (row as any).id,
+      catalogId: (row as any).processor_specialty_item_id,
+      slug: (row as any).item_slug,
+      name: (row as any).item_name,
+      shortName: (row as any).short_name,
+      unit: (row as any).unit,
+      priceType: (row as any).price_type,
+      quantity: Number((row as any).quantity ?? 0),
+      pricePerUnit: Number((row as any).unit_price ?? 0),
+      total: Number((row as any).total_price ?? 0),
+      sortOrder: Number((row as any).sort_order ?? 0),
+    });
+    out.set(key, list);
+  }
+  return out;
+}
+
+async function syncJobSpecialtyItems(
+  supabaseServer: any,
+  params: {
+    jobId: string;
+    processorId?: string | null;
+    specialtyItems: Array<{
+      id?: string | null;
+      catalogId?: string | null;
+      slug: string;
+      name: string;
+      shortName: string;
+      unit: string;
+      priceType: string;
+      quantity: number;
+      pricePerUnit: number;
+      total: number;
+      sortOrder: number;
+    }>;
+  },
+) {
+  const { jobId, processorId, specialtyItems } = params;
+  const { data: existing, error: existingError } = await supabaseServer
+    .from('job_specialty_items')
+    .select('id,item_slug')
+    .eq('job_id', jobId);
+  if (existingError) throw existingError;
+
+  const existingMap = new Map<string, string>();
+  for (const row of existing || []) {
+    existingMap.set(String((row as any).item_slug || '').toLowerCase(), String((row as any).id));
+  }
+
+  const keepIds = new Set<string>();
+  for (const item of specialtyItems) {
+    const payload = {
+      job_id: jobId,
+      ...(processorId ? { processor_id: processorId } : {}),
+      processor_specialty_item_id: item.catalogId ?? null,
+      item_slug: item.slug,
+      item_name: item.name,
+      short_name: item.shortName,
+      unit: item.unit,
+      price_type: item.priceType,
+      quantity: item.quantity,
+      unit_price: item.pricePerUnit,
+      total_price: item.total,
+      sort_order: item.sortOrder,
+      updated_at: nowIso(),
+    };
+    const existingId = item.id || existingMap.get(item.slug.toLowerCase());
+    if (existingId) {
+      keepIds.add(String(existingId));
+      const { error: updateError } = await supabaseServer
+        .from('job_specialty_items')
+        .update(payload)
+        .eq('id', existingId)
+        .eq('job_id', jobId);
+      if (updateError) throw updateError;
+    } else {
+      const { data: inserted, error: insertError } = await supabaseServer
+        .from('job_specialty_items')
+        .insert(payload)
+        .select('id')
+        .single();
+      if (insertError) throw insertError;
+      keepIds.add(String((inserted as any)?.id || ''));
+    }
+  }
+
+  for (const row of existing || []) {
+    const id = String((row as any).id || '');
+    if (!keepIds.has(id)) {
+      const { error: deleteError } = await supabaseServer
+        .from('job_specialty_items')
+        .delete()
+        .eq('id', id)
+        .eq('job_id', jobId);
+      if (deleteError) throw deleteError;
+    }
+  }
 }
 
 function intOrNull(v: any): number | null {
@@ -1150,7 +1282,7 @@ function stampLine(prefix: string, notes: string) {
 /* ---------------- mapping ---------------- */
 
 // Map DB row to Job (what your frontend expects)
-function mapDbRowToJob(row: any): Job {
+function mapDbRowToJob(row: any, specialtyItems: any[] = []): Job {
   const j: any = {
     id: row.id,
     row: undefined, // only used for Sheets, not Supabase
@@ -1205,8 +1337,11 @@ function mapDbRowToJob(row: any): Job {
     backstrapThicknessOther: row.backstrap_thickness_other,
 
     // Specialty
-    specialtyProducts: !!row.specialty_products,
-    specialtyPounds: Number(row.specialty_pounds ?? 0),
+    specialtyProducts: !!row.specialty_products || specialtyItems.length > 0,
+    specialtyPounds: specialtyItems.length
+      ? specialtyItems.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0)
+      : Number(row.specialty_pounds ?? 0),
+    specialtyItems,
     originalSummerSausageLbs: Number(row.original_summer_sausage_lbs ?? row.summer_sausage_lbs ?? 0),
     summerSausageCheeseLbs: Number(row.summer_sausage_cheese_lbs ?? 0),
     jalapenoSummerSausageCheeseLbs: Number(row.jalapeno_summer_sausage_cheese_lbs ?? row.sliced_jerky_lbs ?? 0),
@@ -1385,7 +1520,12 @@ export async function getJobByTag(tag: string) {
     return { ok: true, exists: false as const, job: null as Job | null };
   }
 
-  return { ok: true, exists: true as const, job: mapDbRowToJob(data) };
+  const specialtyItemsMap = await loadJobSpecialtyItemsMap(supabaseServer, [String(data.id)]);
+  return {
+    ok: true,
+    exists: true as const,
+    job: mapDbRowToJob(data, specialtyItemsMap.get(String(data.id)) || []),
+  };
 }
 
 /* ---------------- search (now supports @report + @recall) ---------------- */
@@ -1611,6 +1751,7 @@ export async function saveJob(job: Partial<Job>, options?: { processorContext?: 
   const supabaseServer = getSupabaseServer();
   const processor = options?.processorContext || (await getDefaultProcessorContext());
   const pricing = await getCurrentPricing();
+  const specialtyCatalog = await getProcessorSpecialtyCatalog(processor.id, pricing);
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
   // Overnight/public submission has no tag yet: store a unique placeholder tag and mark requires_tag=true.
@@ -1736,7 +1877,34 @@ let tagToStore: string;
     !!effectiveJob.webbsOrder,
     pricing,
   );
+  const normalizedSpecialtyItems = normalizeJobSpecialtyItems((effectiveJob as any).specialtyItems);
+  const specialtyItems =
+    normalizedSpecialtyItems.length > 0
+      ? normalizedSpecialtyItems
+      : (effectiveJob.specialtyProducts
+          ? specialtyCatalog
+              .map((item) => {
+                const quantity = item.legacyFieldKey
+                  ? numOrZero((effectiveJob as any)[item.legacyFieldKey])
+                  : 0;
+                return {
+                  catalogId: item.id ?? null,
+                  slug: item.slug,
+                  name: item.name,
+                  shortName: item.shortName,
+                  unit: item.unit,
+                  priceType: item.priceType,
+                  quantity,
+                  pricePerUnit: item.price,
+                  total: quantity * item.price,
+                  sortOrder: item.sortOrder,
+                  legacyFieldKey: item.legacyFieldKey ?? null,
+                };
+              })
+              .filter((item) => item.quantity > 0)
+          : []);
   const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(effectiveJob, pricing);
+  const specialtyTotals = specialtyLegacyValues(specialtyItems);
 
   const processingOverride = numOrNull(
     (effectiveJob as any).processing_price_override ?? (effectiveJob as any).processingPriceOverride
@@ -1794,16 +1962,16 @@ let tagToStore: string;
     backstrap_thickness: effectiveJob.backstrapThickness ?? null,
     backstrap_thickness_other: effectiveJob.backstrapThicknessOther ?? null,
 
-    specialty_products: effectiveJob.specialtyProducts ?? false,
-    specialty_pounds: specialtyTotalLbs(effectiveJob as Record<string, any>),
-    original_summer_sausage_lbs: numOrZero((effectiveJob as any).originalSummerSausageLbs),
-    summer_sausage_lbs: numOrZero((effectiveJob as any).originalSummerSausageLbs),
-    summer_sausage_cheese_lbs: numOrZero(effectiveJob.summerSausageCheeseLbs),
-    jalapeno_summer_sausage_cheese_lbs: numOrZero((effectiveJob as any).jalapenoSummerSausageCheeseLbs),
-    sliced_jerky_lbs: numOrZero((effectiveJob as any).jalapenoSummerSausageCheeseLbs),
-    original_snack_sticks_lbs: numOrZero((effectiveJob as any).originalSnackSticksLbs),
-    original_snack_sticks_cheese_lbs: numOrZero((effectiveJob as any).originalSnackSticksCheeseLbs),
-    jalapeno_snack_sticks_cheese_lbs: numOrZero((effectiveJob as any).jalapenoSnackSticksCheeseLbs),
+    specialty_products: specialtyItems.length > 0 || effectiveJob.specialtyProducts === true,
+    specialty_pounds: specialtyItems.reduce((sum, item) => sum + numOrZero(item.quantity), 0),
+    original_summer_sausage_lbs: specialtyTotals.originalSummerSausageLbs,
+    summer_sausage_lbs: specialtyTotals.originalSummerSausageLbs,
+    summer_sausage_cheese_lbs: specialtyTotals.summerSausageCheeseLbs,
+    jalapeno_summer_sausage_cheese_lbs: specialtyTotals.jalapenoSummerSausageCheeseLbs,
+    sliced_jerky_lbs: specialtyTotals.jalapenoSummerSausageCheeseLbs,
+    original_snack_sticks_lbs: specialtyTotals.originalSnackSticksLbs,
+    original_snack_sticks_cheese_lbs: specialtyTotals.originalSnackSticksCheeseLbs,
+    jalapeno_snack_sticks_cheese_lbs: specialtyTotals.jalapenoSnackSticksCheeseLbs,
 
     notes: effectiveJob.notes ?? null,
 
@@ -1889,6 +2057,13 @@ Object.keys(upsertPayload).forEach((k) => {
     throw error;
   }
 
+  if (data?.id) {
+    await syncJobSpecialtyItems(supabaseServer, {
+      jobId: String(data.id),
+      processorId: processor.id,
+      specialtyItems,
+    });
+  }
 
 // ---- Emails (best-effort) ----
   try {
@@ -1902,8 +2077,13 @@ Object.keys(upsertPayload).forEach((k) => {
     console.error('Notification sms failed (non-fatal)', e);
   }
 
-
-  return { ok: true, job: data ? mapDbRowToJob(data) : null };
+  const specialtyItemsMap = data?.id
+    ? await loadJobSpecialtyItemsMap(supabaseServer, [String(data.id)])
+    : new Map<string, any[]>();
+  return {
+    ok: true,
+    job: data ? mapDbRowToJob(data, specialtyItemsMap.get(String(data.id)) || specialtyItems) : null,
+  };
 }
 
 /* ---------------- progress ---------------- */
