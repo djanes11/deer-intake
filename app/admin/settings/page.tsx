@@ -68,25 +68,18 @@ function normalizeHours(hours: any): HourRow[] {
 
 function specialtyDraftRows(input: SpecialtyCatalogItem[] | undefined | null, pricing: SitePricing): SpecialtyCatalogItem[] {
   const rows = Array.isArray(input) ? input : [];
-  const hasBlankDraft = rows.some((item) => !String(item?.name || '').trim() && !String(item?.slug || '').trim());
-  const normalized = normalizeSpecialtyCatalog(
-    rows.filter((item) => String(item?.name || '').trim() || String(item?.slug || '').trim()),
-    pricing,
-  );
-  if (!hasBlankDraft) return normalized;
-  return [
-    ...normalized,
-    {
-      slug: '',
-      name: '',
-      shortName: '',
-      unit: 'lb',
-      priceType: 'per_lb',
-      price: 0,
-      active: true,
-      sortOrder: (normalized.length + 1) * 10,
-    },
-  ];
+  return rows.map((item, index) => ({
+    id: item?.id || null,
+    slug: String(item?.slug || ''),
+    name: String(item?.name || ''),
+    shortName: String(item?.shortName || ''),
+    unit: 'lb',
+    priceType: 'per_lb',
+    price: Number.isFinite(Number(item?.price)) ? Number(item?.price) : 0,
+    active: item?.active !== false,
+    sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item?.sortOrder) : (index + 1) * 10,
+    legacyFieldKey: item?.legacyFieldKey || null,
+  }));
 }
 
 export default function AdminSettingsPage() {
@@ -112,7 +105,10 @@ export default function AdminSettingsPage() {
       ...(j.settings as SiteSettings),
       hours: normalizeHours(j?.settings?.hours),
       pricing: normalizePricing(j?.settings),
-      specialtyCatalog: normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
+      specialtyCatalog: specialtyDraftRows(
+        normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
+        normalizePricing(j?.settings),
+      ),
       branding: {
         ...DEFAULT_BRANDING,
         ...(j?.settings?.branding || {}),
@@ -146,7 +142,10 @@ export default function AdminSettingsPage() {
         ...(j.settings as SiteSettings),
         hours: normalizeHours(j?.settings?.hours),
         pricing: normalizePricing(j?.settings),
-        specialtyCatalog: normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
+        specialtyCatalog: specialtyDraftRows(
+          normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings),
+          normalizePricing(j?.settings),
+        ),
         branding: {
           ...DEFAULT_BRANDING,
           ...(j?.settings?.branding || {}),
@@ -184,10 +183,37 @@ export default function AdminSettingsPage() {
       i === index
         ? {
             ...item,
-            [key]: key === 'price' || key === 'sortOrder' ? Number(value) : value,
+            [key]:
+              key === 'price'
+                ? Number(value || 0)
+                : key === 'sortOrder'
+                  ? Number(value || (i + 1) * 10)
+                  : value,
           }
         : item
     );
+    if (key === 'name') {
+      const current = next[index];
+      if (current && !String(current.slug || '').trim()) {
+        next[index] = {
+          ...current,
+          slug: String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, ''),
+        };
+      }
+    }
+    if (key === 'shortName') {
+      const current = next[index];
+      if (current && !String(current.name || '').trim() && String(value || '').trim()) {
+        next[index] = {
+          ...current,
+          name: String(value || '').trim(),
+        };
+      }
+    }
     setS({ ...s, specialtyCatalog: next });
   };
 
