@@ -22,7 +22,7 @@ function getSupabase() {
 }
 
 function normalizeUsername(raw: unknown) {
-  return String(raw || '').trim().toLowerCase();
+  return String(raw || '').trim().toLowerCase().replace(/\s+/g, '');
 }
 
 export function hashLocalPassword(password: string) {
