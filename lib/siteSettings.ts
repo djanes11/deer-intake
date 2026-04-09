@@ -44,6 +44,19 @@ export type ProcessorFeatureSettings = {
   webbsEnabled: boolean;
 };
 
+export type PublicFaqItem = {
+  question: string;
+  answer: string;
+};
+
+export type PublicCopySettings = {
+  intakeHighlights: string[];
+  reviewChecklist: string[];
+  pickupInstructions: string;
+  thankYouMessage: string;
+  faqItems: PublicFaqItem[];
+};
+
 export type PublicSiteSettings = {
   public_intake_enabled: boolean;
   banner_enabled: boolean;
@@ -58,6 +71,7 @@ export type PublicSiteSettings = {
   features: ProcessorFeatureSettings;
   cutOptions: CutOptionSettings;
   stateFormType: StateFormType;
+  publicCopy: PublicCopySettings;
   updated_at?: string | null;
 };
 
@@ -124,7 +138,61 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
     },
     cutOptions: normalizeCutOptionSettings({}),
     stateFormType: 'indiana',
+    publicCopy: {
+      intakeHighlights: [
+        'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
+        'Staff will assign the permanent deer tag after reviewing the drop-off.',
+      ],
+      reviewChecklist: [
+        'Customer name and confirmation number match your state check-in',
+        'Drop-off details and process type are correct',
+        'Cuts, specialty items, and contact preference look right',
+      ],
+      pickupInstructions:
+        'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
+      thankYouMessage:
+        'Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.',
+      faqItems: [
+        {
+          question: 'How do I use the Public Intake Form?',
+          answer: 'Use the public intake guide for step-by-step instructions, after-hours drop-off expectations, and what to do after you submit.',
+        },
+        {
+          question: 'Where are you located?',
+          answer: 'Use the address and map link on this site for directions to the shop.',
+        },
+        {
+          question: 'How will I know my deer is ready?',
+          answer: 'We will use the contact method you selected on your intake form for updates, and you can also check status online.',
+        },
+      ],
+    },
     updated_at: null,
+  };
+}
+
+export function normalizePublicCopy(input: any): PublicCopySettings {
+  const defaults = defaultPublicSiteSettings().publicCopy;
+  const normalizeLines = (value: unknown, fallback: string[]) => {
+    if (!Array.isArray(value)) return fallback;
+    const rows = value.map((item) => String(item || '').trim()).filter(Boolean);
+    return rows.length ? rows : fallback;
+  };
+  const faqItems = Array.isArray(input?.faqItems)
+    ? input.faqItems
+        .map((item: any) => ({
+          question: String(item?.question || '').trim(),
+          answer: String(item?.answer || '').trim(),
+        }))
+        .filter((item: PublicFaqItem) => item.question && item.answer)
+    : defaults.faqItems;
+
+  return {
+    intakeHighlights: normalizeLines(input?.intakeHighlights, defaults.intakeHighlights),
+    reviewChecklist: normalizeLines(input?.reviewChecklist, defaults.reviewChecklist),
+    pickupInstructions: String(input?.pickupInstructions || '').trim() || defaults.pickupInstructions,
+    thankYouMessage: String(input?.thankYouMessage || '').trim() || defaults.thankYouMessage,
+    faqItems: faqItems.length ? faqItems : defaults.faqItems,
   };
 }
 
@@ -152,7 +220,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       : await getDefaultProcessorContext();
     let query = supabase
       .from('site_settings')
-      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings,state_form_type');
+      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings,state_form_type,public_copy');
 
     query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
 
@@ -212,6 +280,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       features,
       cutOptions: normalizeCutOptionSettings((data as any).cut_option_settings),
       stateFormType: normalizeStateFormType((data as any).state_form_type),
+      publicCopy: normalizePublicCopy((data as any).public_copy),
       updated_at: data.updated_at ?? null,
     };
   } catch {

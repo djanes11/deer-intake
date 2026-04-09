@@ -38,6 +38,19 @@ type BrandingSettings = {
   mapsUrl: string;
 };
 
+type PublicFaqItem = {
+  question: string;
+  answer: string;
+};
+
+type PublicCopySettings = {
+  intakeHighlights: string[];
+  reviewChecklist: string[];
+  pickupInstructions: string;
+  thankYouMessage: string;
+  faqItems: PublicFaqItem[];
+};
+
 type SiteSettings = {
   public_intake_enabled: boolean;
   banner_enabled: boolean;
@@ -56,6 +69,7 @@ type SiteSettings = {
     showRoastCounts: boolean;
   };
   stateFormType: StateFormType;
+  publicCopy: PublicCopySettings;
   features?: {
     plan: 'basic' | 'texting' | 'custom';
     smsEnabled: boolean;
@@ -81,6 +95,36 @@ const DEFAULT_BRANDING: BrandingSettings = {
   email: '',
   address: '10977 Buffalo Trace Rd, Palmyra, IN 47164',
   mapsUrl: '',
+};
+
+const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
+  intakeHighlights: [
+    'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
+    'Staff will assign the permanent deer tag after reviewing the drop-off.',
+  ],
+  reviewChecklist: [
+    'Customer name and confirmation number match your state check-in',
+    'Drop-off details and process type are correct',
+    'Cuts, specialty items, and contact preference look right',
+  ],
+  pickupInstructions:
+    'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
+  thankYouMessage:
+    'Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.',
+  faqItems: [
+    {
+      question: 'How do I use the Public Intake Form?',
+      answer: 'Use the public intake guide for step-by-step instructions, after-hours drop-off expectations, and what to do after you submit.',
+    },
+    {
+      question: 'Where are you located?',
+      answer: 'Use the address and map link on this site for directions to the shop.',
+    },
+    {
+      question: 'How will I know my deer is ready?',
+      answer: 'We will use the contact method you selected on your intake form for updates, and you can also check status online.',
+    },
+  ],
 };
 
 function normalizeHours(hours: any): HourRow[] {
@@ -139,7 +183,7 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [section, setSection] = useState<'branding' | 'intake' | 'banner' | 'hours' | 'pricing' | 'processes' | 'addons' | 'specialty' | 'notifications'>('branding');
+  const [section, setSection] = useState<'branding' | 'intake' | 'copy' | 'banner' | 'hours' | 'pricing' | 'processes' | 'addons' | 'specialty' | 'notifications'>('branding');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -167,6 +211,7 @@ export default function AdminSettingsPage() {
       notificationTemplates: normalizeNotificationTemplates(j?.settings?.notificationTemplates, j?.settings?.branding?.name || DEFAULT_BRANDING.name),
       cutOptions: normalizeCutOptionSettings(j?.settings?.cutOptions),
       stateFormType: j?.settings?.stateFormType || 'indiana',
+      publicCopy: j?.settings?.publicCopy || DEFAULT_PUBLIC_COPY,
       branding: {
         ...DEFAULT_BRANDING,
         ...(j?.settings?.branding || {}),
@@ -212,6 +257,7 @@ export default function AdminSettingsPage() {
         notificationTemplates: normalizeNotificationTemplates(j?.settings?.notificationTemplates, j?.settings?.branding?.name || DEFAULT_BRANDING.name),
         cutOptions: normalizeCutOptionSettings(j?.settings?.cutOptions),
         stateFormType: j?.settings?.stateFormType || 'indiana',
+        publicCopy: j?.settings?.publicCopy || DEFAULT_PUBLIC_COPY,
         branding: {
           ...DEFAULT_BRANDING,
           ...(j?.settings?.branding || {}),
@@ -449,6 +495,7 @@ export default function AdminSettingsPage() {
   const sectionTabs = [
     { key: 'branding', label: 'Branding & Contact' },
     { key: 'intake', label: 'Public Intake' },
+    { key: 'copy', label: 'Public Copy & FAQ' },
     { key: 'banner', label: 'Banner' },
     { key: 'hours', label: 'Hours' },
     { key: 'pricing', label: 'Pricing' },
@@ -517,6 +564,7 @@ export default function AdminSettingsPage() {
           { label: 'Process types', value: String(normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length), note: 'Selectable on intake forms' },
           { label: 'Add-ons', value: String(visibleActiveAddOnCount), note: 'Optional extras on intake forms' },
           { label: 'Specialty items', value: String(normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length), note: 'Shown on intake forms' },
+          { label: 'Public FAQs', value: String((s.publicCopy?.faqItems || []).length), note: 'Shop-specific help on the public site' },
         ].map((item) => (
           <div
             key={item.label}
@@ -695,6 +743,166 @@ export default function AdminSettingsPage() {
           </div>
           <div style={{ fontSize: 13, color: '#475569' }}>
             Need to change plan tier, SMS access, Webbs access, or hostnames? Use <a href="/admin/processors" style={{ color: '#1d4ed8', fontWeight: 800 }}>Processor Management</a>.
+          </div>
+        </div>
+        )}
+
+        {section === 'copy' && (
+        <div style={sectionCard}>
+          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Public Copy & FAQ</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+            Customize the wording customers see during public intake, after they submit, and on the public FAQ page.
+          </div>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Intake intro highlights</span>
+            <textarea
+              rows={4}
+              value={(s.publicCopy?.intakeHighlights || []).join('\n')}
+              onChange={(e) =>
+                setS({
+                  ...s,
+                  publicCopy: {
+                    ...DEFAULT_PUBLIC_COPY,
+                    ...s.publicCopy,
+                    intakeHighlights: e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+                  },
+                })
+              }
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="One highlight per line"
+            />
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Review checklist</span>
+            <textarea
+              rows={4}
+              value={(s.publicCopy?.reviewChecklist || []).join('\n')}
+              onChange={(e) =>
+                setS({
+                  ...s,
+                  publicCopy: {
+                    ...DEFAULT_PUBLIC_COPY,
+                    ...s.publicCopy,
+                    reviewChecklist: e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+                  },
+                })
+              }
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+              placeholder="One checklist item per line"
+            />
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Pickup instructions</span>
+            <textarea
+              rows={3}
+              value={s.publicCopy?.pickupInstructions || ''}
+              onChange={(e) =>
+                setS({
+                  ...s,
+                  publicCopy: {
+                    ...DEFAULT_PUBLIC_COPY,
+                    ...s.publicCopy,
+                    pickupInstructions: e.target.value,
+                  },
+                })
+              }
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            />
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Thank-you message</span>
+            <textarea
+              rows={4}
+              value={s.publicCopy?.thankYouMessage || ''}
+              onChange={(e) =>
+                setS({
+                  ...s,
+                  publicCopy: {
+                    ...DEFAULT_PUBLIC_COPY,
+                    ...s.publicCopy,
+                    thankYouMessage: e.target.value,
+                  },
+                })
+              }
+              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
+            />
+          </label>
+
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Public FAQ Items</div>
+            {(s.publicCopy?.faqItems || []).map((item, index) => (
+              <div key={`faq-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <input
+                  value={item.question}
+                  onChange={(e) => {
+                    const next = [...(s.publicCopy?.faqItems || [])];
+                    next[index] = { ...next[index], question: e.target.value };
+                    setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, faqItems: next } });
+                  }}
+                  placeholder="Question"
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+                <textarea
+                  rows={3}
+                  value={item.answer}
+                  onChange={(e) => {
+                    const next = [...(s.publicCopy?.faqItems || [])];
+                    next[index] = { ...next[index], answer: e.target.value };
+                    setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, faqItems: next } });
+                  }}
+                  placeholder="Answer"
+                  style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setS({
+                        ...s,
+                        publicCopy: {
+                          ...DEFAULT_PUBLIC_COPY,
+                          ...s.publicCopy,
+                          faqItems: (s.publicCopy?.faqItems || []).filter((_, i) => i !== index),
+                        },
+                      })
+                    }
+                    style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', color: '#991b1b', fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Remove FAQ
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() =>
+                  setS({
+                    ...s,
+                    publicCopy: {
+                      ...DEFAULT_PUBLIC_COPY,
+                      ...s.publicCopy,
+                      faqItems: [...(s.publicCopy?.faqItems || []), { question: '', answer: '' }],
+                    },
+                  })
+                }
+                style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}
+              >
+                Add FAQ Item
+              </button>
+              <button
+                type="button"
+                onClick={() => setS({ ...s, publicCopy: DEFAULT_PUBLIC_COPY })}
+                style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a', fontWeight: 800, cursor: 'pointer' }}
+              >
+                Reset Public Copy Defaults
+              </button>
+            </div>
           </div>
         </div>
         )}

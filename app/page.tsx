@@ -302,13 +302,13 @@ function MarketingLanding() {
       </section>
 
       <section style={{ ...panel, marginTop: 12, padding: 28, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(320px, .9fr)', gap: 22, alignItems: 'stretch' }}>
-          <div style={{ display: 'grid', gap: 16 }}>
+        <div style={{ display: 'grid', gap: 20, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gap: 14 }}>
             <div style={eyebrow}>Deer Processing Software</div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(32px, 6vw, 48px)', lineHeight: 1.03, fontWeight: 950, color: '#fff7e8', maxWidth: 760 }}>
+            <h1 style={{ margin: 0, fontSize: 'clamp(30px, 5vw, 46px)', lineHeight: 1.04, fontWeight: 950, color: '#fff7e8', maxWidth: 760 }}>
               Software for deer processors who need the whole shop to run smoother.
             </h1>
-            <div style={{ color: 'rgba(245,236,216,.84)', fontSize: 16, lineHeight: 1.55, maxWidth: 700 }}>
+            <div style={{ color: 'rgba(245,236,216,.84)', fontSize: 15, lineHeight: 1.5, maxWidth: 700 }}>
               Wild Game Butcher Board brings together public intake, staff workflow, scan-based production, thermal labels, customer communication, pickup tracking, and owner reporting in one system.
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -327,103 +327,83 @@ function MarketingLanding() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 4 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 2 }}>
               {proofPoints.map((item) => (
-                <div key={item.value} style={{ padding: '4px 2px' }}>
-                  <div style={{ fontSize: 21, fontWeight: 950, color: '#fff7e8' }}>{item.value}</div>
-                  <div style={{ marginTop: 4, color: 'rgba(245,236,216,.74)', lineHeight: 1.45, fontSize: 14 }}>{item.label}</div>
+                <div key={item.value} style={{ ...sectionCard, padding: 14 }}>
+                  <div style={{ fontSize: 18, fontWeight: 950, color: '#fff7e8', lineHeight: 1.15 }}>{item.value}</div>
+                  <div style={{ marginTop: 5, color: 'rgba(245,236,216,.74)', lineHeight: 1.45, fontSize: 13 }}>{item.label}</div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
+      </section>
 
-          <div style={{ display: 'grid', gap: 12, alignSelf: 'stretch' }}>
-            {previewCards.map((card) => (
-              <div key={card.title} style={{ ...sectionCard, padding: 14 }}>
-                <div style={{ display: 'grid', gap: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>{card.label}</div>
-                  {card.image ? (
-                    <div
+      <section style={{ display: 'grid', gap: 12, marginTop: 18 }}>
+        <div style={eyebrow}>Product Views</div>
+        <div style={{ fontSize: 28, fontWeight: 950, color: '#fff7e8' }}>See the actual workflow, not mockups</div>
+        <div style={{ color: 'rgba(245,236,216,.76)', lineHeight: 1.55, fontSize: 15, maxWidth: 780 }}>
+          These are real screens from the platform. The goal is simple: customers enter cleaner information, staff move faster, and the butcher floor has what it needs without extra paperwork.
+        </div>
+        <div style={{ display: 'grid', gap: 14 }}>
+          {previewCards.map((card, index) => (
+            <div
+              key={card.title}
+              style={{
+                ...sectionCard,
+                padding: 16,
+                display: 'grid',
+                gridTemplateColumns: index === 0 ? 'minmax(0, 1.2fr) minmax(300px, .8fr)' : 'minmax(0, 1fr) minmax(300px, .8fr)',
+                gap: 16,
+                alignItems: 'start',
+              }}
+            >
+              <div
+                style={{
+                  borderRadius: 18,
+                  border: '1px solid rgba(255,255,255,.08)',
+                  background: 'linear-gradient(180deg, rgba(37,34,31,.96) 0%, rgba(16,15,14,.98) 100%)',
+                  padding: 12,
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
+                }}
+              >
+                <img
+                  src={card.image}
+                  alt={card.alt || card.title}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: 'auto',
+                    borderRadius: 12,
+                    border: '1px solid rgba(255,255,255,.08)',
+                  }}
+                />
+              </div>
+              <div style={{ display: 'grid', gap: 10, alignContent: 'start' }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>{card.label}</div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#fff7e8', lineHeight: 1.12 }}>{card.title}</div>
+                <div style={{ color: 'rgba(245,236,216,.78)', lineHeight: 1.5, fontSize: 15 }}>{card.body}</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {card.chips.map((chip) => (
+                    <span
+                      key={chip}
                       style={{
-                        borderRadius: 16,
-                        border: '1px solid rgba(255,255,255,.08)',
-                        background: 'linear-gradient(180deg, rgba(37,34,31,.96) 0%, rgba(16,15,14,.98) 100%)',
-                        padding: 10,
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
+                        padding: '6px 10px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(200,138,61,.16)',
+                        background: 'rgba(255,255,255,.03)',
+                        fontSize: 12,
+                        color: 'rgba(245,236,216,.88)',
+                        fontWeight: 700,
                       }}
                     >
-                      <img
-                        src={card.image}
-                        alt={card.alt || card.title}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          aspectRatio: '16 / 10',
-                          objectFit: 'cover',
-                          objectPosition: 'top center',
-                          borderRadius: 12,
-                          border: '1px solid rgba(255,255,255,.08)',
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        borderRadius: 16,
-                        border: '1px solid rgba(255,255,255,.08)',
-                        background: 'linear-gradient(180deg, rgba(37,34,31,.96) 0%, rgba(16,15,14,.98) 100%)',
-                        padding: 16,
-                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
-                        display: 'grid',
-                        gap: 12,
-                      }}
-                    >
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-                        {card.chips.map((chip) => (
-                          <div
-                            key={chip}
-                            style={{
-                              borderRadius: 12,
-                              border: '1px solid rgba(200,138,61,.12)',
-                              background: 'rgba(255,255,255,.03)',
-                              padding: '10px 12px',
-                              fontSize: 13,
-                              fontWeight: 800,
-                              color: '#f5ecd8',
-                              textAlign: 'center',
-                            }}
-                          >
-                            {chip}
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ color: 'rgba(245,236,216,.76)', lineHeight: 1.5, fontSize: 14 }}>{card.body}</div>
-                    </div>
-                  )}
-                  <div style={{ fontSize: 18, fontWeight: 900, color: '#fff7e8', lineHeight: 1.2 }}>{card.title}</div>
-                  <div style={{ color: 'rgba(245,236,216,.78)', lineHeight: 1.45, fontSize: 14 }}>{card.body}</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    {card.chips.map((chip) => (
-                      <span
-                        key={chip}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: 999,
-                          border: '1px solid rgba(200,138,61,.16)',
-                          background: 'rgba(255,255,255,.03)',
-                          fontSize: 12,
-                          color: 'rgba(245,236,216,.88)',
-                          fontWeight: 700,
-                        }}
-                      >
-                        {chip}
-                      </span>
-                    ))}
-                  </div>
+                      {chip}
+                    </span>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </section>
 

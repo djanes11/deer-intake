@@ -285,6 +285,21 @@ function OvernightIntakePage() {
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [stateFormType, setStateFormType] = useState<StateFormType>('indiana');
+  const [publicCopy, setPublicCopy] = useState({
+    intakeHighlights: [
+      'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
+      'Staff will assign the permanent deer tag after reviewing the drop-off.',
+    ],
+    reviewChecklist: [
+      'Customer name and confirmation number match your state check-in',
+      'Drop-off details and process type are correct',
+      'Cuts, specialty items, and contact preference look right',
+    ],
+    pickupInstructions:
+      'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
+    thankYouMessage:
+      'Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.',
+  });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -314,6 +329,7 @@ function OvernightIntakePage() {
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
           setStateFormType((j?.settings?.stateFormType as StateFormType) || 'indiana');
+          setPublicCopy(j?.settings?.publicCopy || publicCopy);
           if (j?.settings?.banner_enabled && j?.settings?.banner_message) {
             setClosureMessage(String(j.settings.banner_message));
           }
@@ -433,14 +449,11 @@ function OvernightIntakePage() {
   }, [job.front, job.frontRoastCount, showFrontShoulderSteaks, showRoastCounts]);
   const preferredContact = job.prefSMS ? 'Text (SMS)' : job.prefCall ? 'Phone Call' : job.prefEmail ? 'Email' : 'Not selected';
   const intakeHighlights = [
-    'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
-    'Staff will assign the permanent deer tag after reviewing the drop-off.',
+    ...(publicCopy.intakeHighlights || []),
     `Updates will be sent by ${preferredContact.toLowerCase()} when available for this processor.`,
   ];
   const reviewChecks = [
-    'Customer name and confirmation number match your state check-in',
-    'Drop-off details and process type are correct',
-    'Cuts, specialty items, and contact preference look right',
+    ...(publicCopy.reviewChecklist || []),
   ];
 
   const procNorm = normProc(job.processType);
@@ -527,6 +540,7 @@ function OvernightIntakePage() {
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
         setStateFormType((j?.settings?.stateFormType as StateFormType) || 'indiana');
+        setPublicCopy(j?.settings?.publicCopy || publicCopy);
       })
       .catch(() => {});
   }, []);
@@ -2041,12 +2055,11 @@ function OvernightIntakePage() {
               <div className="thanksConfValue">{job.confirmation || 'Saved'}</div>
             </div>
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
-              Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.
+              {publicCopy.thankYouMessage}
             </p>
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
-              Leave a note with your <b>full name</b>, <b>phone number</b>, and the <b>last 5 digits</b> of your confirmation number
-              {confirmationLast5 ? <> (<code>{confirmationLast5}</code>)</> : null}
-              {' '}with your deer at drop-off.
+              {publicCopy.pickupInstructions}
+              {confirmationLast5 ? <> The last 5 digits of your confirmation number are <code>{confirmationLast5}</code>.</> : null}
             </p>
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
               Staff will review your intake, assign the permanent tag, and use your selected contact method when an update is available.

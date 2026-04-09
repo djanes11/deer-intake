@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
+import { normalizeHours, defaultPublicSiteSettings, normalizePublicCopy } from '@/lib/siteSettings';
 import { normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { normalizeStateFormType } from '@/lib/stateforms/catalog';
 import { normalizeCutOptionSettings as normalizeCutOptions } from '@/lib/cutOptions';
@@ -77,6 +77,7 @@ export async function GET(req: Request) {
             notificationTemplates: normalizeNotificationTemplates((data as any)?.notification_templates, branding.name),
             cutOptions: normalizeCutOptions((data as any)?.cut_option_settings),
             stateFormType: normalizeStateFormType((data as any)?.state_form_type),
+            publicCopy: normalizePublicCopy((data as any)?.public_copy),
           },
         });
       }
@@ -94,6 +95,7 @@ export async function GET(req: Request) {
         notificationTemplates: defaultPublicSiteSettings().notificationTemplates,
         cutOptions: defaultPublicSiteSettings().cutOptions,
         stateFormType: defaultPublicSiteSettings().stateFormType,
+        publicCopy: defaultPublicSiteSettings().publicCopy,
       },
     });
   } catch (e: any) {
@@ -122,6 +124,7 @@ export async function POST(req: Request) {
       notification_templates: normalizeNotificationTemplates(body?.notificationTemplates, body?.branding?.name || defaults.name),
       cut_option_settings: normalizeCutOptions(body?.cutOptions),
       state_form_type: normalizeStateFormType(body?.stateFormType),
+      public_copy: normalizePublicCopy(body?.publicCopy),
       ...normalizePricing(body),
     };
 
@@ -256,6 +259,7 @@ export async function POST(req: Request) {
       notificationTemplates: normalizeNotificationTemplates(body?.notificationTemplates, processorPayload.public_name || defaults.name),
       cutOptions: normalizeCutOptions(body?.cutOptions),
       stateFormType: normalizeStateFormType(body?.stateFormType),
+      publicCopy: normalizePublicCopy(body?.publicCopy),
     };
 
     await writeAuditEntry({
@@ -271,7 +275,8 @@ export async function POST(req: Request) {
           bannerEnabled: !!payload.banner_enabled,
           brandingName: merged.branding.name,
           stateFormType: merged.stateFormType,
-          specialtyItems: merged.specialtyCatalog.length,
+          publicCopyFaqItems: merged.publicCopy.faqItems.length,
+        specialtyItems: merged.specialtyCatalog.length,
         processTypes: merged.processCatalog.length,
         addOns: merged.addOnCatalog.length,
         cutOptions: merged.cutOptions,
