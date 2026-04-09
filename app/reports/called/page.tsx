@@ -254,13 +254,12 @@ export default function CalledPickupQueue() {
   const [err, setErr] = useState<string>();
   const [busy, setBusy] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string>('');
+  const [search, setSearch] = useState('');
+  const [trackFilter, setTrackFilter] = useState<'all' | Track>('all');
+  const [showPickedUp, setShowPickedUp] = useState(false);
+  const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
-
-  const selected = useMemo(
-    () => rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
-    [rows, selectedKey]
-  );
 
   const summary = useMemo(() => {
     const openRows = rows.filter((row) => !row.pickedUp);
@@ -276,6 +275,24 @@ export default function CalledPickupQueue() {
       }).length,
     };
   }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (!showPickedUp && row.pickedUp) return false;
+      if (trackFilter !== 'all' && row.track !== trackFilter) return false;
+      if (showUnpaidOnly && !(row.track === 'meat' && row.totalDue > 0)) return false;
+      if (!q) return true;
+      return [row.tag, row.customer, row.confirmation, row.phone, row.track].some((value) =>
+        String(value || '').toLowerCase().includes(q)
+      );
+    });
+  }, [rows, search, trackFilter, showPickedUp, showUnpaidOnly]);
+
+  const selected = useMemo(
+    () => filteredRows.find((r) => `${r.tag}|${r.track}` === selectedKey) || rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
+    [filteredRows, rows, selectedKey]
+  );
 
   async function load() {
     setLoading(true);
@@ -367,6 +384,51 @@ export default function CalledPickupQueue() {
         </div>
       </section>
 
+      <section
+        className="pickup-filters"
+        style={{
+          border: '1px solid rgba(154, 116, 60, 0.18)',
+          borderRadius: 16,
+          padding: 16,
+          background: 'rgba(14, 13, 12, 0.88)',
+          display: 'grid',
+          gap: 12,
+          gridTemplateColumns: 'minmax(260px, 1.2fr) minmax(160px, .6fr) auto auto auto',
+          alignItems: 'end',
+        }}
+      >
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="metric-label">Search</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Tag, customer, confirmation, or phone"
+          />
+        </label>
+
+        <label style={{ display: 'grid', gap: 6 }}>
+          <span className="metric-label">Track</span>
+          <select value={trackFilter} onChange={(e) => setTrackFilter(e.target.value as 'all' | Track)}>
+            <option value="all">All Tracks</option>
+            <option value="meat">Meat</option>
+            <option value="cape">Cape</option>
+            {webbsEnabled ? <option value="webbs">Webbs</option> : null}
+          </select>
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 42 }}>
+          <input type="checkbox" checked={showUnpaidOnly} onChange={(e) => setShowUnpaidOnly(e.target.checked)} />
+          <span>Unpaid only</span>
+        </label>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 42 }}>
+          <input type="checkbox" checked={showPickedUp} onChange={(e) => setShowPickedUp(e.target.checked)} />
+          <span>Show picked up</span>
+        </label>
+
+        <div style={{ color: '#b7a98d', fontWeight: 800, textAlign: 'right' }}>{filteredRows.length} shown</div>
+      </section>
+
       {err && <div className="err">{err}</div>}
       {!canUpdate && (
         <div className="card readonly-banner">
@@ -435,7 +497,7 @@ export default function CalledPickupQueue() {
 
       {loading ? (
         <div className="empty">Loading...</div>
-      ) : rows.length === 0 ? (
+      ) : filteredRows.length === 0 ? (
         <div className="empty">Nobody currently in Called.</div>
       ) : (
         <div className="table-wrap">
@@ -450,7 +512,7 @@ export default function CalledPickupQueue() {
             <div>Pickup</div>
           </div>
 
-          {rows.map((r, i) => {
+          {filteredRows.map((r, i) => {
             const key = `${r.tag}|${r.track}`;
             const isSel = key === selectedKey;
             return (
@@ -579,6 +641,10 @@ export default function CalledPickupQueue() {
           color: #b7a98d;
           font-size: 13px;
           font-weight: 700;
+        }
+        .pickup-filters input,
+        .pickup-filters select {
+          width: 100%;
         }
         .readonly-banner {
           background: #eef2ff;
@@ -730,6 +796,11 @@ export default function CalledPickupQueue() {
         .btn.secondary { background: #101715; color: #e5e7eb; border-color: #304336; }
         .btn.small { padding: 6px 10px; font-size: 14px; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
+        @media (max-width: 960px) {
+          .pickup-filters {
+            grid-template-columns: 1fr !important;
+          }
+        }
         .toolbar {
           position: sticky;
           bottom: 0;
