@@ -168,6 +168,18 @@ export default function Nav() {
                 <summary>Reports</summary>
                 <div className="dropdown-menu" role="menu">
                   <details className="dropdown-submenu" open>
+                    <summary>Public Intake</summary>
+                    <div className="dropdown-submenu-body">
+                      <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                        Needs Tag
+                      </Link>
+                      <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                        Removed Public Intakes
+                      </Link>
+                    </div>
+                  </details>
+
+                  <details className="dropdown-submenu" open>
                     <summary>Operations</summary>
                     <div className="dropdown-submenu-body">
                       <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
@@ -184,18 +196,6 @@ export default function Nav() {
                       </Link>
                       <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         State Form
-                      </Link>
-                    </div>
-                  </details>
-
-                  <details className="dropdown-submenu">
-                    <summary>Public Intake</summary>
-                    <div className="dropdown-submenu-body">
-                      <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                        Needs Tag
-                      </Link>
-                      <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                        Removed Public Intakes
                       </Link>
                     </div>
                   </details>
