@@ -10,6 +10,14 @@ import { SITE } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
+function normalizeHost(input: string | null | undefined) {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .split(',')[0]
+    ?.split(':')[0] || '';
+}
+
 export async function generateMetadata() {
   const h = await headers().catch(() => null);
   const host = h ? (h.get('x-forwarded-host') || h.get('host') || '').split(',')[0]?.trim() || '' : '';
@@ -38,6 +46,15 @@ export async function generateMetadata() {
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const h = await headers().catch(() => null);
+  const requestHost = normalizeHost(h ? (h.get('x-forwarded-host') || h.get('host') || '') : '');
+  const marketingHosts = new Set(
+    String(process.env.MARKETING_HOSTNAMES || 'wildgamebutcherboard.com,www.wildgamebutcherboard.com')
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const isMarketingHost = IS_PUBLIC && marketingHosts.has(requestHost);
   const settings = IS_PUBLIC ? await getPublicSiteSettings() : null;
   const bannerText = settings?.banner_enabled
     ? settings.banner_message
@@ -60,7 +77,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </NavGate>
         ) : null}
 
-        {IS_PUBLIC ? (
+        {IS_PUBLIC && !isMarketingHost ? (
           <>
             <CustomerHeader branding={settings?.branding} />
             <AlertBanner

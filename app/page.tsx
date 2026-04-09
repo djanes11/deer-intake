@@ -174,12 +174,6 @@ function MarketingLanding() {
     { value: 'Processor-owned setup', label: 'Customize process types, add-ons, specialty products, pricing, and branding' },
     { value: 'Owner visibility', label: 'Balances, pickup aging, activity history, and processing-time insights' },
   ];
-  const commonProblems = [
-    'Paper forms that have to be retyped the next morning',
-    'Handwritten notes and stickers that get hard to read on the floor',
-    'Customer texts and calls spread across personal phones',
-    'Owners not knowing what is ready, unpaid, or sitting too long',
-  ];
   const faqs = [
     {
       question: 'Can each processor customize offerings and pricing?',
@@ -205,6 +199,26 @@ function MarketingLanding() {
 
   return (
     <main style={shell}>
+      <section style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '16px 0 8px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+          <img
+            src="/wgbb-logo.png"
+            alt="Wild Game Butcher Board"
+            width={48}
+            height={48}
+            style={{ display: 'block', width: 48, height: 48, borderRadius: 10, objectFit: 'cover', boxShadow: '0 10px 24px rgba(0,0,0,.24)' }}
+          />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#d2b27d' }}>Wild Game Butcher Board</div>
+            <div style={{ color: 'rgba(245,236,216,.76)' }}>Deer processing software for processors, staff, and owners</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <a href="#request-demo" style={cta(true)}>Request a Demo</a>
+          <Link href="/staff/login" style={cta(false)}>Staff Login</Link>
+        </div>
+      </section>
+
       <section style={{ ...panel, marginTop: 12, padding: 28, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(320px, .9fr)', gap: 22, alignItems: 'stretch' }}>
           <div style={{ display: 'grid', gap: 16 }}>
@@ -218,7 +232,6 @@ function MarketingLanding() {
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <a href="#request-demo" style={cta(true)}>Request a Demo</a>
               <a href="#how-it-works" style={cta(false)}>See How It Works</a>
-              <Link href="/staff/login" style={cta(false)}>Staff Login</Link>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 6 }}>
               {[
@@ -243,10 +256,15 @@ function MarketingLanding() {
           </div>
 
           <div style={{ ...sectionCard, display: 'grid', gap: 14, alignSelf: 'stretch', position: 'relative' }}>
-            <div style={{ ...eyebrow, color: '#c88a3d' }}>What it replaces</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff7e8' }}>Less juggling between paper, texts, whiteboards, and memory.</div>
+            <div style={{ ...eyebrow, color: '#c88a3d' }}>What processors usually want</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff7e8' }}>A cleaner operation without forcing staff into clunky software.</div>
             <div style={{ display: 'grid', gap: 10 }}>
-              {commonProblems.map((item) => (
+              {[
+                'Public intake before the deer arrives',
+                'Fast staff search, printing, and tag assignment',
+                'Scan-driven production with clear order details',
+                'Visibility into balances, pickup aging, and workflow bottlenecks',
+              ].map((item) => (
                 <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start', padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)' }}>
                   <div style={{ width: 10, height: 10, marginTop: 6, borderRadius: 999, background: '#6a8f70' }} />
                   <div style={{ lineHeight: 1.55 }}>{item}</div>
@@ -254,43 +272,13 @@ function MarketingLanding() {
               ))}
             </div>
             <div style={{ borderRadius: 18, padding: 16, border: '1px solid rgba(200,138,61,.16)', background: 'linear-gradient(180deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.02) 100%)' }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>Platform fit</div>
-              <div style={{ marginTop: 8, fontSize: 18, fontWeight: 900, color: '#fff7e8' }}>Designed for processors that want a cleaner operation without losing the way they already work.</div>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>Best fit</div>
+              <div style={{ marginTop: 8, fontSize: 18, fontWeight: 900, color: '#fff7e8' }}>Built for processors who need customer intake, staff workflow, and owner visibility in one place.</div>
               <div style={{ marginTop: 8, color: 'rgba(245,236,216,.78)', lineHeight: 1.55 }}>
-                Keep the workflow familiar to staff, but give owners better visibility, cleaner customer intake, and a faster production floor.
+                Keep the workflow familiar to staff, while giving owners better visibility and customers a more professional experience.
               </div>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section style={{ display: 'grid', gap: 14, marginTop: 22 }}>
-        <div style={eyebrow}>Why shops switch</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>The biggest gains usually show up in the same places</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
-          {[
-            {
-              title: 'Cleaner drop-off',
-              body: 'Customers arrive with intake already started, staff review it faster, and tags and labels can be printed immediately.',
-            },
-            {
-              title: 'Fewer production mistakes',
-              body: 'Barcode scans, print sheets, butcher overlays, custom specialty items, and visible add-ons make the order easier to follow on the floor.',
-            },
-            {
-              title: 'Better owner visibility',
-              body: 'See open balances, ready-but-unpaid deer, pickup aging, processing time, and activity history without chasing people down.',
-            },
-            {
-              title: 'A better fit for each processor',
-              body: 'Branding, process types, specialty products, add-ons, cut toggles, and pricing can all be adjusted without code changes.',
-            },
-          ].map((item) => (
-            <div key={item.title} style={sectionCard}>
-              <div style={{ fontSize: 20, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
-              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{item.body}</div>
-            </div>
-          ))}
         </div>
       </section>
 
@@ -309,8 +297,25 @@ function MarketingLanding() {
       </section>
 
       <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+        <div style={eyebrow}>Day-To-Day Views</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>A short view of the product without burying you in every feature</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+          {workflowSnapshots.map((item) => (
+            <div key={item.title} style={{ ...sectionCard, minHeight: 200, display: 'grid', alignContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8fb3a8' }}>Example View</div>
+                <div style={{ marginTop: 8, fontSize: 22, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
+                <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{item.body}</div>
+              </div>
+              <div style={{ marginTop: 14, color: '#d2c4ad', fontSize: 14 }}>Useful demo moment for processors comparing your workflow to paper or spreadsheets.</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
         <div style={eyebrow}>Feature Areas</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>Built around the way deer processors actually work</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>The main parts of the platform</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
           {featureGroups.map((group) => (
             <div key={group.title} style={sectionCard}>
@@ -325,51 +330,6 @@ function MarketingLanding() {
               </div>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
-        <div style={eyebrow}>Day-To-Day Views</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>A quick look at the workflows processors care about most</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-          {workflowSnapshots.map((item) => (
-            <div key={item.title} style={{ ...sectionCard, minHeight: 210, display: 'grid', alignContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8fb3a8' }}>Example View</div>
-                <div style={{ marginTop: 8, fontSize: 22, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
-                <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{item.body}</div>
-              </div>
-              <div style={{ marginTop: 14, padding: 12, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', color: '#d2c4ad', fontSize: 14 }}>
-                Strong demo moment: show how this replaces paper intake, handwritten notes, scattered customer texts, and owner guesswork.
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ ...panel, marginTop: 26, padding: 24 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, .95fr) minmax(320px, 1.05fr)', gap: 22, alignItems: 'stretch' }}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div style={eyebrow}>Best Fit</div>
-            <div style={{ fontSize: 34, fontWeight: 950, color: '#fff7e8', lineHeight: 1.08 }}>
-              Built for processors who want to run a tighter, more professional operation without overcomplicating the work for staff.
-            </div>
-            <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.6 }}>
-              Whether the pain point is after-hours intake, specialty tracking, label printing, scan workflow, or owner visibility, the goal is the same: make the processor easier to run.
-            </div>
-          </div>
-          <div style={{ display: 'grid', gap: 12 }}>
-            {[
-              { title: 'For processor owners', body: 'See what is ready, what is unpaid, what is aging, and where the bottlenecks are.' },
-              { title: 'For front-counter staff', body: 'Search faster, print faster, and stop rewriting the same customer and deer details all day.' },
-              { title: 'For the production floor', body: 'Use labels, print sheets, add-ons, specialty details, and scans to keep the order clear while butchering.' },
-            ].map((item) => (
-              <div key={item.title} style={{ ...sectionCard, padding: 16 }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
-                <div style={{ marginTop: 6, color: 'rgba(245,236,216,.78)', lineHeight: 1.55 }}>{item.body}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
