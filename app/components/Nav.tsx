@@ -179,7 +179,7 @@ export default function Nav() {
                     </div>
                   </details>
 
-                  <details className="dropdown-submenu" open>
+                  <details className="dropdown-submenu">
                     <summary>Operations</summary>
                     <div className="dropdown-submenu-body">
                       <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
