@@ -1331,6 +1331,10 @@ export async function sendManualCustomerMessage(params: {
     };
   }
 
+  if (!row.sms_consent) {
+    return { ok: false as const, error: 'This customer has not opted in to text messaging.' };
+  }
+
   const phone = normalizeUsPhone(String(row.phone || ''));
   if (!phone) {
     return { ok: false as const, error: 'This customer does not have a valid phone number for text updates.' };

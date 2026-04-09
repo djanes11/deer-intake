@@ -245,7 +245,7 @@ export default function SearchPage() {
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageNotifications = staffRole === 'admin';
   const canManualEmail = !!selectedJob?.email;
-  const canManualSms = !!selectedJob?.phone;
+  const canManualSms = !!selectedJob?.phone && !!selectedJob?.smsConsent;
   const statusSummary = selectedJob
     ? [selectedJob.status || 'No meat status', selectedJob.capingStatus ? `Cape: ${selectedJob.capingStatus}` : null]
         .filter(Boolean)
@@ -280,12 +280,12 @@ export default function SearchPage() {
       setManualChannel('email');
       return;
     }
-    if (canManualSms) {
-      setManualChannel('sms');
-      return;
-    }
     if (canManualEmail) {
       setManualChannel('email');
+      return;
+    }
+    if (canManualSms) {
+      setManualChannel('sms');
     }
   }, [selectedJob, canManualEmail, canManualSms]);
 
@@ -668,6 +668,11 @@ export default function SearchPage() {
                           <div style={{ fontSize: 13, color: '#4b5563' }}>
                             Destination: {manualChannel === 'email' ? (selectedJob.email || 'No email on file') : (selectedJob.phone || 'No phone on file')}
                           </div>
+                          {!selectedJob.smsConsent ? (
+                            <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.5 }}>
+                              Text message sending is disabled for this deer because the customer has not opted in to SMS.
+                            </div>
+                          ) : null}
                           {manualChannel === 'email' ? (
                             <label style={{ display: 'grid', gap: 6 }}>
                               <span style={{ fontWeight: 800, color: '#111827' }}>Subject</span>
