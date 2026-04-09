@@ -234,16 +234,23 @@ function MarketingLanding() {
     {
       label: 'Public intake',
       title: 'Customers submit before drop-off',
+      image: '/marketing/public-intake.png',
+      alt: 'Public intake form for deer drop-off',
+      body: 'Mobile-friendly intake captures customer info, cuts, extras, and review steps before the deer reaches the shop.',
       chips: ['Mobile-friendly', 'Cuts', 'Specialty', 'Add-ons'],
     },
     {
       label: 'Staff workflow',
       title: 'Search, print, assign tags, and move faster',
+      image: '/marketing/staff-search.png',
+      alt: 'Staff search screen for deer records',
+      body: 'Staff can search by tag, confirmation, name, or phone to reprint paperwork, check balances, and send updates quickly.',
       chips: ['Search', 'Print', 'Labels', 'Queue'],
     },
     {
       label: 'Production floor',
       title: 'Use scans and labels to move deer cleanly through the shop',
+      body: 'Thermal labels, scan-driven cape and processing status, and butcher-facing details keep the production floor moving without handwritten chaos.',
       chips: ['Scan', 'Cape', 'Processing', 'Finished'],
     },
   ];
@@ -333,32 +340,66 @@ function MarketingLanding() {
               <div key={card.title} style={{ ...sectionCard, padding: 14 }}>
                 <div style={{ display: 'grid', gap: 10 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>{card.label}</div>
-                  <div
-                    style={{
-                      borderRadius: 16,
-                      border: '1px solid rgba(255,255,255,.08)',
-                      background: 'linear-gradient(180deg, rgba(37,34,31,.96) 0%, rgba(16,15,14,.98) 100%)',
-                      padding: 12,
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 999, background: '#c88a3d' }} />
-                      <div style={{ width: 8, height: 8, borderRadius: 999, background: '#6a8f70' }} />
-                      <div style={{ width: 8, height: 8, borderRadius: 999, background: 'rgba(255,255,255,.28)' }} />
+                  {card.image ? (
+                    <div
+                      style={{
+                        borderRadius: 16,
+                        border: '1px solid rgba(255,255,255,.08)',
+                        background: 'linear-gradient(180deg, rgba(37,34,31,.96) 0%, rgba(16,15,14,.98) 100%)',
+                        padding: 10,
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
+                      }}
+                    >
+                      <img
+                        src={card.image}
+                        alt={card.alt || card.title}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          aspectRatio: '16 / 10',
+                          objectFit: 'cover',
+                          objectPosition: 'top center',
+                          borderRadius: 12,
+                          border: '1px solid rgba(255,255,255,.08)',
+                        }}
+                      />
                     </div>
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      <div style={{ height: 10, width: '62%', borderRadius: 999, background: 'rgba(255,255,255,.12)' }} />
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 8 }}>
-                        <div style={{ borderRadius: 12, minHeight: 82, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.06)' }} />
-                        <div style={{ display: 'grid', gap: 8 }}>
-                          <div style={{ borderRadius: 12, minHeight: 36, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.06)' }} />
-                          <div style={{ borderRadius: 12, minHeight: 36, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.06)' }} />
-                        </div>
+                  ) : (
+                    <div
+                      style={{
+                        borderRadius: 16,
+                        border: '1px solid rgba(255,255,255,.08)',
+                        background: 'linear-gradient(180deg, rgba(37,34,31,.96) 0%, rgba(16,15,14,.98) 100%)',
+                        padding: 16,
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
+                        display: 'grid',
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                        {card.chips.map((chip) => (
+                          <div
+                            key={chip}
+                            style={{
+                              borderRadius: 12,
+                              border: '1px solid rgba(200,138,61,.12)',
+                              background: 'rgba(255,255,255,.03)',
+                              padding: '10px 12px',
+                              fontSize: 13,
+                              fontWeight: 800,
+                              color: '#f5ecd8',
+                              textAlign: 'center',
+                            }}
+                          >
+                            {chip}
+                          </div>
+                        ))}
                       </div>
+                      <div style={{ color: 'rgba(245,236,216,.76)', lineHeight: 1.5, fontSize: 14 }}>{card.body}</div>
                     </div>
-                  </div>
+                  )}
                   <div style={{ fontSize: 18, fontWeight: 900, color: '#fff7e8', lineHeight: 1.2 }}>{card.title}</div>
+                  <div style={{ color: 'rgba(245,236,216,.78)', lineHeight: 1.45, fontSize: 14 }}>{card.body}</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {card.chips.map((chip) => (
                       <span
