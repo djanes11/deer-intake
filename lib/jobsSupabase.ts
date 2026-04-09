@@ -2153,11 +2153,11 @@ export async function progressJob(tag: string) {
   const capeAlreadyFinished = capeReady(curCapeStatusRaw);
 
   // Cape flow:
-  // 1) Cape -> Finished
+  // 1) Cape -> Caped
   // 2) Dropped Off -> Processing
   // 3) Processing -> Finished
   if (needsCape && !capeAlreadyFinished) {
-    nextStatus = 'Finished';
+    nextStatus = 'Caped';
     progressedField = 'caping_status';
   } else if (canStartMeatProcessing) {
     nextStatus = 'Processing';
@@ -2214,11 +2214,15 @@ export async function progressJob(tag: string) {
     }
   }
 
+  const updatedSpecialtyItems = updated
+    ? (await loadJobSpecialtyItemsMap(supabaseServer, [String(updated.id)])).get(String(updated.id)) || []
+    : [];
+
   return {
     ok: true,
     nextStatus,
     progressedField,
-    job: updated ? mapDbRowToJob(updated) : null,
+    job: updated ? mapDbRowToJob(updated, updatedSpecialtyItems) : null,
   };
 }
 

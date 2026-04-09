@@ -326,8 +326,8 @@ export default function ScanPage() {
 
     const overlayFromProgress = progressedJob ? normalizeToggles(jobToCanon(progressedJob, tag)) : null;
 
-    if (progressedField === 'caping_status' && isFinishedLike(next)) {
-      setStatus({ kind: 'ok', text: `Tag ${tag}: Cape -> Finished.` });
+    if (progressedField === 'caping_status' && String(next).toLowerCase().includes('cape')) {
+      setStatus({ kind: 'ok', text: `Tag ${tag}: Cape -> Caped.` });
       setOverlayOn(false);
       setOverlayJob(null);
       return;
@@ -372,7 +372,7 @@ export default function ScanPage() {
     }
 
     const liveCapeStatus = String(job?.['Cape Status'] ?? job?.capingStatus ?? job?.caping_status ?? '').trim();
-    if (progressedField === 'caping_status' && isFinishedLike(liveCapeStatus)) {
+    if (progressedField === 'caping_status' && String(liveCapeStatus).toLowerCase().includes('cape')) {
       setStatus({ kind: 'ok', text: `Tag ${tag}: Cape finished.` });
       setOverlayOn(false);
       setOverlayJob(null);
