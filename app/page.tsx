@@ -8,24 +8,37 @@ import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
 import { getStaffIdentity, getStaffProcessorContext } from '@/lib/staffContext';
 import { filterVisibleAddOnItems } from '@/lib/processorCatalog';
+import ProcessorInquiryForm from '@/app/components/ProcessorInquiryForm';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 const ADMIN_HOSTNAME = (process.env.ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
+const MARKETING_HOSTNAMES = new Set(
+  String(process.env.MARKETING_HOSTNAMES || 'wildgamebutcherboard.com,www.wildgamebutcherboard.com')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+function normalizeHost(input: string | null | undefined) {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .split(',')[0]
+    ?.split(':')[0] || '';
+}
 
 export default async function Home() {
+  let requestHost = '';
+  try {
+    const h = await headers();
+    requestHost = normalizeHost(h.get('x-forwarded-host') || h.get('host') || '');
+  } catch {
+    requestHost = '';
+  }
+
   if (!IS_PUBLIC) {
-    try {
-      const h = await headers();
-      const host = String(h.get('x-forwarded-host') || h.get('host') || '')
-        .trim()
-        .toLowerCase()
-        .split(',')[0]
-        ?.split(':')[0];
-      if (host === ADMIN_HOSTNAME) {
-        redirect('/admin');
-      }
-    } catch {
-      // Ignore header lookup issues and continue with normal routing.
+    if (requestHost === ADMIN_HOSTNAME) {
+      redirect('/admin');
     }
 
     const identity = await getStaffIdentity();
@@ -37,6 +50,10 @@ export default async function Home() {
     }
   }
 
+  if (IS_PUBLIC && MARKETING_HOSTNAMES.has(requestHost)) {
+    return <MarketingLanding />;
+  }
+
   const settings = await getPublicSiteSettings();
   const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
   const staffContext = IS_PUBLIC ? null : await getStaffProcessorContext().catch(() => null);
@@ -44,6 +61,248 @@ export default async function Home() {
     <PublicLanding settings={settings} />
   ) : (
     <StaffHome dashboard={dashboard} processorName={settings.branding.name} role={staffContext?.role || null} />
+  );
+}
+
+function MarketingLanding() {
+  const shell: React.CSSProperties = {
+    maxWidth: 1180,
+    margin: '0 auto',
+    padding: '0 16px 52px',
+    color: '#f5ecd8',
+  };
+  const panel: React.CSSProperties = {
+    borderRadius: 22,
+    border: '1px solid rgba(200,138,61,.16)',
+    background:
+      'radial-gradient(circle at top right, rgba(200,138,61,.14) 0%, transparent 34%), linear-gradient(180deg, rgba(21,20,19,.97) 0%, rgba(12,11,10,.99) 100%)',
+    boxShadow: '0 24px 50px rgba(0,0,0,.24)',
+  };
+  const sectionCard: React.CSSProperties = {
+    borderRadius: 18,
+    border: '1px solid rgba(200,138,61,.12)',
+    background: 'rgba(21,20,19,.95)',
+    padding: 18,
+  };
+  const eyebrow: React.CSSProperties = {
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: '.08em',
+    textTransform: 'uppercase',
+    color: '#d2b27d',
+  };
+  const cta = (primary = false): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '13px 16px',
+    borderRadius: 14,
+    textDecoration: 'none',
+    fontWeight: 900,
+    fontSize: 16,
+    minHeight: 48,
+    color: primary ? '#16120f' : '#f5ecd8',
+    background: primary ? '#d29a45' : 'rgba(21,20,19,.92)',
+    border: primary ? '1px solid transparent' : '1px solid rgba(200,138,61,.18)',
+  });
+
+  const workflowSteps = [
+    {
+      title: 'Public intake before drop-off',
+      body: 'Customers submit deer details, cuts, specialty products, and add-ons from their phone before they ever walk in.',
+    },
+    {
+      title: 'Staff review and tag assignment',
+      body: 'Staff review public intake, assign the permanent tag, and print one-page intake sheets or thermal labels right away.',
+    },
+    {
+      title: 'Scan-driven production',
+      body: 'Cape, processing, and finished status can move with simple barcode scans instead of sticky notes and memory.',
+    },
+    {
+      title: 'Pickup, balances, and owner reports',
+      body: 'Owners can see who is ready, who still owes, how long deer sit before pickup, and how long processing is taking.',
+    },
+  ];
+
+  const featureGroups = [
+    {
+      title: 'Customer Experience',
+      items: [
+        'After-hours public intake',
+        'Status lookup by confirmation',
+        'Text and email updates',
+        'Clear hours, contact, and pickup expectations',
+      ],
+    },
+    {
+      title: 'Staff Workflow',
+      items: [
+        'Fast intake and search',
+        'Thermal labels and intake printing',
+        'Scan-based production workflow',
+        'Separate staff roles and logins',
+      ],
+    },
+    {
+      title: 'Owner Control',
+      items: [
+        'Balances and ready-but-unpaid tracking',
+        'Processing-time and holding-time insights',
+        'Pickup and communication reports',
+        'Activity history for accountability',
+      ],
+    },
+    {
+      title: 'Processor Customization',
+      items: [
+        'Custom process types',
+        'Custom add-ons and specialty catalog',
+        'Branding, pricing, and public copy',
+        'Cut-option visibility by processor',
+      ],
+    },
+  ];
+
+  const workflowSnapshots = [
+    { title: 'Public intake on mobile', body: 'Customers can complete intake from the truck, include cut details, and arrive with a confirmation number already in the system.' },
+    { title: 'Staff dashboard and search', body: 'Quick access to intake, search, print, queues, and owner reporting without jumping between notebooks, texts, and spreadsheets.' },
+    { title: 'Scan + label production floor flow', body: 'Tag barcodes, butcher overlays, and thermal labels keep the deer moving and reduce handwriting mistakes on the floor.' },
+  ];
+
+  return (
+    <main style={shell}>
+      <section style={{ ...panel, marginTop: 12, padding: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(320px, .9fr)', gap: 22, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div style={eyebrow}>Deer Processing Software</div>
+            <h1 style={{ margin: 0, fontSize: 'clamp(36px, 7vw, 56px)', lineHeight: 1.02, fontWeight: 950, color: '#fff7e8' }}>
+              Built for real processors, not generic inventory software.
+            </h1>
+            <div style={{ color: 'rgba(245,236,216,.84)', fontSize: 18, lineHeight: 1.6, maxWidth: 720 }}>
+              Wild Game Butcher Board brings together public intake, staff workflow, scan-based production, thermal labels, customer communication, and owner reporting in one system.
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <a href="#request-demo" style={cta(true)}>Request a Demo</a>
+              <a href="#how-it-works" style={cta(false)}>See How It Works</a>
+              <Link href="/staff/login" style={cta(false)}>Staff Login</Link>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 6 }}>
+              {[
+                { label: 'After-hours drop-off', note: 'Customers arrive with intake already entered' },
+                { label: 'Thermal labels + scanning', note: 'Faster floor workflow and clearer tag handling' },
+                { label: 'Processor-specific setup', note: 'Process types, add-ons, specialty items, and pricing' },
+              ].map((item) => (
+                <div key={item.label} style={{ ...sectionCard, padding: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#c88a3d' }}>{item.label}</div>
+                  <div style={{ marginTop: 8, color: '#f5ecd8', lineHeight: 1.5 }}>{item.note}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ ...sectionCard, display: 'grid', gap: 14, alignSelf: 'stretch' }}>
+            <div style={{ ...eyebrow, color: '#c88a3d' }}>Why processors care</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff7e8' }}>Replace paper, texts, and memory with one operational workflow.</div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {[
+                'Reduce handwritten mistakes at drop-off and on the butcher floor',
+                'Customize products, pricing, and cut options for each processor',
+                'Track pickup readiness, balances, and how long deer are sitting',
+                'Give owners, staff, and read-only users the right level of access',
+              ].map((item) => (
+                <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start', padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)' }}>
+                  <div style={{ width: 10, height: 10, marginTop: 6, borderRadius: 999, background: '#6a8f70' }} />
+                  <div style={{ lineHeight: 1.55 }}>{item}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how-it-works" style={{ display: 'grid', gap: 14, marginTop: 18 }}>
+        <div style={eyebrow}>How It Works</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>A processor workflow from drop-off to pickup</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+          {workflowSteps.map((step, index) => (
+            <div key={step.title} style={sectionCard}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>Step {index + 1}</div>
+              <div style={{ marginTop: 8, fontSize: 22, fontWeight: 900, color: '#fff7e8' }}>{step.title}</div>
+              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{step.body}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+        <div style={eyebrow}>Feature Areas</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>Built around the way deer processors actually work</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
+          {featureGroups.map((group) => (
+            <div key={group.title} style={sectionCard}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: '#fff7e8' }}>{group.title}</div>
+              <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+                {group.items.map((item) => (
+                  <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start' }}>
+                    <div style={{ width: 9, height: 9, marginTop: 7, borderRadius: 999, background: '#c88a3d' }} />
+                    <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.5 }}>{item}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+        <div style={eyebrow}>Workflow Snapshots</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>What processors can expect to run day to day</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+          {workflowSnapshots.map((item) => (
+            <div key={item.title} style={{ ...sectionCard, minHeight: 210, display: 'grid', alignContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8fb3a8' }}>Example View</div>
+                <div style={{ marginTop: 8, fontSize: 22, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
+                <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{item.body}</div>
+              </div>
+              <div style={{ marginTop: 14, padding: 12, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', color: '#d2c4ad', fontSize: 14 }}>
+                Best fit for demos: walk processors through how this replaces paper intake, whiteboards, and scattered customer texts.
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="request-demo" style={{ ...panel, marginTop: 26, padding: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, .9fr) minmax(340px, 1.1fr)', gap: 22 }}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={eyebrow}>Request A Demo</div>
+            <div style={{ fontSize: 34, fontWeight: 950, color: '#fff7e8', lineHeight: 1.08 }}>
+              Tell us about your processor and we can prepare a demo or onboarding conversation around your workflow.
+            </div>
+            <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.6 }}>
+              Use this form if you want to see the system, ask questions, or share what makes your shop different before getting set up.
+            </div>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {[
+                'Share your annual deer volume and current workflow',
+                'Tell us whether you use after-hours drop-off, labels, texting, or specialty products',
+                'We can use that to shape a demo and onboarding plan',
+              ].map((item) => (
+                <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start' }}>
+                  <div style={{ width: 10, height: 10, marginTop: 7, borderRadius: 999, background: '#6a8f70' }} />
+                  <div style={{ color: '#f5ecd8', lineHeight: 1.5 }}>{item}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,.96)', borderRadius: 20, padding: 18, border: '1px solid rgba(200,138,61,.14)', boxShadow: '0 18px 36px rgba(15,23,42,.16)' }}>
+            <ProcessorInquiryForm />
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
 
