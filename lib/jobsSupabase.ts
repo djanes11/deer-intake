@@ -427,7 +427,7 @@ function capeReady(capingStatus: any) {
   const s = lower(capingStatus);
   if (!s) return false;
   if (s === 'called') return false;
-  return /cape|caped|ready|complete|completed|done/.test(s);
+  return /cape|caped|finish|finished|ready|complete|completed|done/.test(s);
 }
 
 function webbsReady(webbsStatus: any) {
