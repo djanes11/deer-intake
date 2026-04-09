@@ -125,6 +125,22 @@ function buildNotificationEmail(
   };
 }
 
+function buildManualEmailHtml(opts: {
+  body: string;
+  businessName: string;
+  phoneDisplay?: string;
+}) {
+  const safeParagraphs = String(opts.body || '')
+    .split(/\n{2,}/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => `<p>${escapeHtml(line).replace(/\n/g, '<br/>')}</p>`)
+    .join('');
+  const footerBits = [String(opts.businessName || '').trim(), String(opts.phoneDisplay || '').trim()].filter(Boolean);
+  const footer = footerBits.length ? `<p style="margin-top:20px;color:#475569;">${escapeHtml(footerBits.join(' • '))}</p>` : '';
+  return `${safeParagraphs || '<p></p>'}${footer}`;
+}
+
 function buildNotificationSms(
   eventKey: keyof ReturnType<typeof normalizeNotificationTemplates>,
   opts: {
@@ -1263,6 +1279,83 @@ export async function resetCustomerNotification(params: {
   }
 
   return { ok: true, tag: String(row.tag || tag), event };
+}
+
+export async function sendManualCustomerMessage(params: {
+  tag: string;
+  channel: 'email' | 'sms';
+  subject?: string;
+  body: string;
+}) {
+  const supabaseServer = getSupabaseServer();
+  const processor = await getDefaultProcessorContext();
+  const tag = String(params.tag || '').trim();
+  const channel = params.channel;
+  const body = String(params.body || '').trim();
+  const subject = String(params.subject || '').trim();
+
+  if (!tag) return { ok: false as const, error: 'Missing tag' };
+  if (channel !== 'email' && channel !== 'sms') return { ok: false as const, error: 'Invalid channel' };
+  if (!body) return { ok: false as const, error: 'Message body is required' };
+
+  const { data: row, error } = await withProcessorFilter(
+    supabaseServer.from('jobs').select('*').eq('tag', tag),
+    processor.id
+  ).maybeSingle();
+
+  if (error) throw error;
+  if (!row) return { ok: false as const, error: 'Job not found' };
+
+  const branding = await getNotificationBranding();
+
+  if (channel === 'email') {
+    const email = String(row.email || '').trim();
+    if (!hasUsableEmail(row)) {
+      return { ok: false as const, error: 'This customer does not have a valid email address.' };
+    }
+    await sendEmail({
+      to: email,
+      subject: subject || `Message from ${branding.businessName}`,
+      html: buildManualEmailHtml({
+        body,
+        businessName: branding.businessName,
+        phoneDisplay: branding.phoneDisplay,
+      }),
+      text: body,
+    });
+    return {
+      ok: true as const,
+      channel,
+      destination: email,
+      subject: subject || `Message from ${branding.businessName}`,
+    };
+  }
+
+  const phone = normalizeUsPhone(String(row.phone || ''));
+  if (!phone) {
+    return { ok: false as const, error: 'This customer does not have a valid phone number for text updates.' };
+  }
+
+  const result = await sendSms({ to: phone, body });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
+
+  await logSmsResult(supabaseServer, {
+    jobId: String(row.id),
+    processorId: row.processor_id ? String(row.processor_id) : null,
+    phone,
+    template: 'manual_message',
+    body,
+    result,
+  });
+
+  return {
+    ok: true as const,
+    channel,
+    destination: phone,
+    subject: null,
+  };
 }
 
 function appendStampedLine(existing: string | null | undefined, line: string) {

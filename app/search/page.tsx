@@ -14,6 +14,7 @@ const API_RESEND = '/api/v2/reports/resend-notification';
 const API_RESET = '/api/v2/reports/reset-notification';
 const API_UNPRINT = '/api/v2/reports/mark-unprinted';
 const API_MARK = '/api/v2/reports/mark-printed';
+const API_MANUAL_MESSAGE = '/api/v2/jobs/manual-message';
 const RESEND_EVENTS = [
   { key: 'dropoff_tagged', label: 'Drop-Off Tagged' },
   { key: 'meat_finished', label: 'Meat Finished' },
@@ -42,6 +43,10 @@ export default function SearchPage() {
   const [resendMsg, setResendMsg] = useState<string | null>(null);
   const [resetBusy, setResetBusy] = useState('');
   const [printMsg, setPrintMsg] = useState<string | null>(null);
+  const [manualChannel, setManualChannel] = useState<'email' | 'sms'>('sms');
+  const [manualSubject, setManualSubject] = useState('');
+  const [manualBody, setManualBody] = useState('');
+  const [manualBusy, setManualBusy] = useState(false);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
@@ -124,6 +129,8 @@ export default function SearchPage() {
     setDetailErr(null);
     setResendMsg(null);
     setPrintMsg(null);
+    setManualSubject('');
+    setManualBody('');
     try {
       const res = await getJob(tag);
       const job = (res?.job || null) as Record<string, any> | null;
@@ -237,6 +244,8 @@ export default function SearchPage() {
   const canShowResults = q.trim().length > 0;
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageNotifications = staffRole === 'admin';
+  const canManualEmail = !!selectedJob?.email;
+  const canManualSms = !!selectedJob?.phone;
   const statusSummary = selectedJob
     ? [selectedJob.status || 'No meat status', selectedJob.capingStatus ? `Cape: ${selectedJob.capingStatus}` : null]
         .filter(Boolean)
@@ -260,6 +269,59 @@ export default function SearchPage() {
     if (!selectedJob) return [];
     return specialtyBreakdown(selectedJob).filter((item) => item.pounds > 0);
   }, [selectedJob]);
+
+  useEffect(() => {
+    if (!selectedJob) return;
+    if (selectedJob.prefSMS && selectedJob.smsConsent && canManualSms) {
+      setManualChannel('sms');
+      return;
+    }
+    if (selectedJob.prefEmail && canManualEmail) {
+      setManualChannel('email');
+      return;
+    }
+    if (canManualSms) {
+      setManualChannel('sms');
+      return;
+    }
+    if (canManualEmail) {
+      setManualChannel('email');
+    }
+  }, [selectedJob, canManualEmail, canManualSms]);
+
+  const sendManualMessage = async () => {
+    if (!selectedTag || !manualBody.trim()) {
+      setResendMsg('Enter a message before sending.');
+      return;
+    }
+    setManualBusy(true);
+    setResendMsg(null);
+    try {
+      const res = await fetch(API_MANUAL_MESSAGE, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...tokenHeader(),
+        },
+        cache: 'no-store',
+        body: JSON.stringify({
+          tag: selectedTag,
+          channel: manualChannel,
+          subject: manualChannel === 'email' ? manualSubject : '',
+          message: manualBody,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+      setResendMsg(`Sent manual ${manualChannel === 'email' ? 'email' : 'text'} to ${json.destination}.`);
+      setManualBody('');
+      if (manualChannel === 'email') setManualSubject('');
+    } catch (e: any) {
+      setResendMsg(e?.message || 'Could not send message.');
+    } finally {
+      setManualBusy(false);
+    }
+  };
   const quickFacts = selectedJob
     ? [
         { label: 'Preferred Contact', value: preferredContact },
@@ -583,6 +645,62 @@ export default function SearchPage() {
                       <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
                       <div><strong>Drop-off:</strong> {formatDisplayDate(selectedJob.dropoff || '')}</div>
                       <div><strong>Address:</strong> {[selectedJob.address, selectedJob.city, selectedJob.state, selectedJob.zip].filter(Boolean).join(', ') || '-'}</div>
+                    </DetailBox>
+
+                    <DetailBox title="Manual Message">
+                      {!canManageNotifications ? (
+                        <div className="muted" style={{ fontSize: 13 }}>
+                          Only Admin users can send manual customer messages.
+                        </div>
+                      ) : (
+                        <div style={{ display: 'grid', gap: 10 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 180px) 1fr', gap: 10, alignItems: 'center' }}>
+                            <strong>Send by</strong>
+                            <select
+                              value={manualChannel}
+                              onChange={(e) => setManualChannel(e.target.value as 'email' | 'sms')}
+                              style={{ padding: 10, borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', color: '#111827' }}
+                            >
+                              <option value="sms" disabled={!canManualSms}>Text Message</option>
+                              <option value="email" disabled={!canManualEmail}>Email</option>
+                            </select>
+                          </div>
+                          <div style={{ fontSize: 13, color: '#4b5563' }}>
+                            Destination: {manualChannel === 'email' ? (selectedJob.email || 'No email on file') : (selectedJob.phone || 'No phone on file')}
+                          </div>
+                          {manualChannel === 'email' ? (
+                            <label style={{ display: 'grid', gap: 6 }}>
+                              <span style={{ fontWeight: 800, color: '#111827' }}>Subject</span>
+                              <input
+                                value={manualSubject}
+                                onChange={(e) => setManualSubject(e.target.value)}
+                                placeholder={`Message from ${brandingName}`}
+                                style={{ padding: 10, borderRadius: 10, border: '1px solid #d1d5db', background: '#fff', color: '#111827' }}
+                              />
+                            </label>
+                          ) : null}
+                          <label style={{ display: 'grid', gap: 6 }}>
+                            <span style={{ fontWeight: 800, color: '#111827' }}>Message</span>
+                            <textarea
+                              rows={4}
+                              value={manualBody}
+                              onChange={(e) => setManualBody(e.target.value)}
+                              placeholder="Type the update you want to send to this customer."
+                              style={{ padding: 12, borderRadius: 12, border: '1px solid #d1d5db', background: '#fff', color: '#111827', resize: 'vertical' }}
+                            />
+                          </label>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              className="btn"
+                              onClick={() => void sendManualMessage()}
+                              disabled={manualBusy || !manualBody.trim() || (manualChannel === 'email' ? !canManualEmail : !canManualSms)}
+                            >
+                              {manualBusy ? 'Sending...' : `Send ${manualChannel === 'email' ? 'Email' : 'Text'}`}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </DetailBox>
 
                     <DetailBox title="Print Control">
