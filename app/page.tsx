@@ -163,16 +163,27 @@ function MarketingLanding() {
       ],
     },
   ];
-
-  const workflowSnapshots = [
-    { title: 'Public intake on mobile', body: 'Customers can complete intake from the truck, include cut details, and arrive with a confirmation number already in the system.' },
-    { title: 'Staff dashboard and search', body: 'Quick access to intake, search, print, queues, and owner reporting without jumping between notebooks, texts, and spreadsheets.' },
-    { title: 'Scan + label production floor flow', body: 'Tag barcodes, butcher overlays, and thermal labels keep the deer moving and reduce handwriting mistakes on the floor.' },
-  ];
   const proofPoints = [
     { value: 'One shared system', label: 'Public intake, staff workflow, scanning, labels, and reporting in one product' },
     { value: 'Processor-owned setup', label: 'Customize process types, add-ons, specialty products, pricing, and branding' },
     { value: 'Owner visibility', label: 'Balances, pickup aging, activity history, and processing-time insights' },
+  ];
+  const previewCards = [
+    {
+      label: 'Public intake',
+      title: 'Customers submit before drop-off',
+      chips: ['Mobile-friendly', 'Cuts', 'Specialty', 'Add-ons'],
+    },
+    {
+      label: 'Staff workflow',
+      title: 'Search, print, assign tags, and move faster',
+      chips: ['Search', 'Print', 'Labels', 'Queue'],
+    },
+    {
+      label: 'Production floor',
+      title: 'Use scans and labels to move deer cleanly through the shop',
+      chips: ['Scan', 'Cape', 'Processing', 'Finished'],
+    },
   ];
   const faqs = [
     {
@@ -223,10 +234,10 @@ function MarketingLanding() {
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(320px, .9fr)', gap: 22, alignItems: 'stretch' }}>
           <div style={{ display: 'grid', gap: 16 }}>
             <div style={eyebrow}>Deer Processing Software</div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(36px, 7vw, 56px)', lineHeight: 1.02, fontWeight: 950, color: '#fff7e8' }}>
+            <h1 style={{ margin: 0, fontSize: 'clamp(32px, 6vw, 48px)', lineHeight: 1.03, fontWeight: 950, color: '#fff7e8', maxWidth: 760 }}>
               Software for deer processors who need the whole shop to run smoother.
             </h1>
-            <div style={{ color: 'rgba(245,236,216,.84)', fontSize: 18, lineHeight: 1.6, maxWidth: 720 }}>
+            <div style={{ color: 'rgba(245,236,216,.84)', fontSize: 16, lineHeight: 1.55, maxWidth: 700 }}>
               Wild Game Butcher Board brings together public intake, staff workflow, scan-based production, thermal labels, customer communication, pickup tracking, and owner reporting in one system.
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -248,83 +259,95 @@ function MarketingLanding() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 4 }}>
               {proofPoints.map((item) => (
                 <div key={item.value} style={{ padding: '4px 2px' }}>
-                  <div style={{ fontSize: 24, fontWeight: 950, color: '#fff7e8' }}>{item.value}</div>
-                  <div style={{ marginTop: 4, color: 'rgba(245,236,216,.74)', lineHeight: 1.5 }}>{item.label}</div>
+                  <div style={{ fontSize: 21, fontWeight: 950, color: '#fff7e8' }}>{item.value}</div>
+                  <div style={{ marginTop: 4, color: 'rgba(245,236,216,.74)', lineHeight: 1.45, fontSize: 14 }}>{item.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div style={{ ...sectionCard, display: 'grid', gap: 14, alignSelf: 'stretch', position: 'relative' }}>
-            <div style={{ ...eyebrow, color: '#c88a3d' }}>What processors usually want</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff7e8' }}>A cleaner operation without forcing staff into clunky software.</div>
-            <div style={{ display: 'grid', gap: 10 }}>
-              {[
-                'Public intake before the deer arrives',
-                'Fast staff search, printing, and tag assignment',
-                'Scan-driven production with clear order details',
-                'Visibility into balances, pickup aging, and workflow bottlenecks',
-              ].map((item) => (
-                <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start', padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)' }}>
-                  <div style={{ width: 10, height: 10, marginTop: 6, borderRadius: 999, background: '#6a8f70' }} />
-                  <div style={{ lineHeight: 1.55 }}>{item}</div>
+          <div style={{ display: 'grid', gap: 12, alignSelf: 'stretch' }}>
+            {previewCards.map((card) => (
+              <div key={card.title} style={{ ...sectionCard, padding: 14 }}>
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>{card.label}</div>
+                  <div
+                    style={{
+                      borderRadius: 16,
+                      border: '1px solid rgba(255,255,255,.08)',
+                      background: 'linear-gradient(180deg, rgba(37,34,31,.96) 0%, rgba(16,15,14,.98) 100%)',
+                      padding: 12,
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,.04)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 999, background: '#c88a3d' }} />
+                      <div style={{ width: 8, height: 8, borderRadius: 999, background: '#6a8f70' }} />
+                      <div style={{ width: 8, height: 8, borderRadius: 999, background: 'rgba(255,255,255,.28)' }} />
+                    </div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <div style={{ height: 10, width: '62%', borderRadius: 999, background: 'rgba(255,255,255,.12)' }} />
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr .8fr', gap: 8 }}>
+                        <div style={{ borderRadius: 12, minHeight: 82, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.06)' }} />
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          <div style={{ borderRadius: 12, minHeight: 36, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.06)' }} />
+                          <div style={{ borderRadius: 12, minHeight: 36, background: 'rgba(255,255,255,.05)', border: '1px solid rgba(255,255,255,.06)' }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: '#fff7e8', lineHeight: 1.2 }}>{card.title}</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {card.chips.map((chip) => (
+                      <span
+                        key={chip}
+                        style={{
+                          padding: '6px 10px',
+                          borderRadius: 999,
+                          border: '1px solid rgba(200,138,61,.16)',
+                          background: 'rgba(255,255,255,.03)',
+                          fontSize: 12,
+                          color: 'rgba(245,236,216,.88)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div style={{ borderRadius: 18, padding: 16, border: '1px solid rgba(200,138,61,.16)', background: 'linear-gradient(180deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.02) 100%)' }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>Best fit</div>
-              <div style={{ marginTop: 8, fontSize: 18, fontWeight: 900, color: '#fff7e8' }}>Built for processors who need customer intake, staff workflow, and owner visibility in one place.</div>
-              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.78)', lineHeight: 1.55 }}>
-                Keep the workflow familiar to staff, while giving owners better visibility and customers a more professional experience.
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <section id="how-it-works" style={{ display: 'grid', gap: 14, marginTop: 18 }}>
+      <section id="how-it-works" style={{ display: 'grid', gap: 12, marginTop: 18 }}>
         <div style={eyebrow}>How It Works</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>A processor workflow from drop-off to pickup</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+        <div style={{ fontSize: 28, fontWeight: 950, color: '#fff7e8' }}>A simple flow from drop-off to pickup</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           {workflowSteps.map((step, index) => (
-            <div key={step.title} style={sectionCard}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>Step {index + 1}</div>
-              <div style={{ marginTop: 8, fontSize: 22, fontWeight: 900, color: '#fff7e8' }}>{step.title}</div>
-              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{step.body}</div>
+            <div key={step.title} style={{ ...sectionCard, padding: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>Step {index + 1}</div>
+              <div style={{ marginTop: 8, fontSize: 18, fontWeight: 900, color: '#fff7e8', lineHeight: 1.2 }}>{step.title}</div>
+              <div style={{ marginTop: 6, color: 'rgba(245,236,216,.78)', lineHeight: 1.45, fontSize: 14 }}>{step.body}</div>
             </div>
           ))}
         </div>
       </section>
 
-      <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
-        <div style={eyebrow}>Day-To-Day Views</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>A short view of the product without burying you in every feature</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-          {workflowSnapshots.map((item) => (
-            <div key={item.title} style={{ ...sectionCard, minHeight: 200, display: 'grid', alignContent: 'space-between' }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8fb3a8' }}>Example View</div>
-                <div style={{ marginTop: 8, fontSize: 22, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
-                <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{item.body}</div>
-              </div>
-              <div style={{ marginTop: 14, color: '#d2c4ad', fontSize: 14 }}>Useful demo moment for processors comparing your workflow to paper or spreadsheets.</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+      <section style={{ display: 'grid', gap: 12, marginTop: 22 }}>
         <div style={eyebrow}>Feature Areas</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>The main parts of the platform</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
+        <div style={{ fontSize: 28, fontWeight: 950, color: '#fff7e8' }}>The main parts of the platform</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
           {featureGroups.map((group) => (
-            <div key={group.title} style={sectionCard}>
-              <div style={{ fontSize: 20, fontWeight: 900, color: '#fff7e8' }}>{group.title}</div>
-              <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+            <div key={group.title} style={{ ...sectionCard, padding: 16 }}>
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#fff7e8' }}>{group.title}</div>
+              <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
                 {group.items.map((item) => (
                   <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start' }}>
                     <div style={{ width: 9, height: 9, marginTop: 7, borderRadius: 999, background: '#c88a3d' }} />
-                    <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.5 }}>{item}</div>
+                    <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.45, fontSize: 14 }}>{item}</div>
                   </div>
                 ))}
               </div>
@@ -364,13 +387,13 @@ function MarketingLanding() {
 
       <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
         <div style={eyebrow}>FAQ</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>Questions processors usually ask first</div>
-        <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ fontSize: 26, fontWeight: 950, color: '#fff7e8' }}>Questions processors usually ask first</div>
+        <div style={{ display: 'grid', gap: 10 }}>
           {faqs.map((item) => (
-            <div key={item.question} style={{ ...sectionCard, padding: 18 }}>
-              <div style={{ fontSize: 19, fontWeight: 900, color: '#fff7e8' }}>{item.question}</div>
-              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.8)', lineHeight: 1.6 }}>{item.answer}</div>
-            </div>
+            <details key={item.question} style={{ ...sectionCard, padding: 16 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 17, fontWeight: 900, color: '#fff7e8' }}>{item.question}</summary>
+              <div style={{ marginTop: 10, color: 'rgba(245,236,216,.8)', lineHeight: 1.55, fontSize: 14 }}>{item.answer}</div>
+            </details>
           ))}
         </div>
       </section>
