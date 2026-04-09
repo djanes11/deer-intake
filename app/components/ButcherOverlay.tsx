@@ -4,6 +4,7 @@ import React from 'react';
 import type { CSSProperties } from 'react';
 import { specialtyBreakdown } from '@/lib/specialty';
 import { filterVisibleAddOnItems, normalizeJobAddOnItems } from '@/lib/processorCatalog';
+import type { CutOptionSettings } from '@/lib/cutOptions';
 
 type Row = Record<string, any>;
 
@@ -21,6 +22,7 @@ export default function ButcherOverlay({
   manualTag,
   manualBusy,
   webbsEnabled = true,
+  cutOptions,
   onManualTagChange,
   onManualSubmit,
 }: {
@@ -29,6 +31,7 @@ export default function ButcherOverlay({
   manualTag: string;
   manualBusy: boolean;
   webbsEnabled?: boolean;
+  cutOptions: CutOptionSettings;
   onManualTagChange: (value: string) => void;
   onManualSubmit: () => void;
 }) {
@@ -65,18 +68,26 @@ export default function ButcherOverlay({
   const steakThickness = steakThicknessRaw === 'Other' ? steakThicknessOther : steakThicknessRaw;
   const burgerSize = String(get('Burger Size', 'burgerSize') ?? '').trim();
   const backstrapPrep = String(get('Backstrap Prep', 'backstrapPrep') ?? '').trim();
+  const backstrapThicknessRaw = String(get('Backstrap Thickness', 'backstrapThickness') ?? '').trim();
+  const backstrapThicknessOther = String(get('Backstrap Thickness Other', 'backstrapThicknessOther') ?? '').trim();
+  const backstrapThickness = backstrapThicknessRaw === 'Other' ? backstrapThicknessOther : backstrapThicknessRaw;
   const hindRoastCount = String(get('Hind Roast Count', 'hindRoastCount') ?? '').trim();
   const frontRoastCount = String(get('Front Roast Count', 'frontRoastCount') ?? '').trim();
+  const showFrontShoulderSteaks = cutOptions.showFrontShoulderSteaks !== false;
+  const showSteakThickness = cutOptions.showSteakThickness !== false;
+  const showBackstrapThickness = cutOptions.showBackstrapThickness !== false;
+  const showRoastCounts = cutOptions.showRoastCounts !== false;
 
   const hind = [
     isOn(get('Hind - Steak', 'hindSteak')) ? 'Steak' : '',
-    isOn(get('Hind - Roast', 'hindRoast')) ? `Roast${hindRoastCount ? ` (${hindRoastCount})` : ''}` : '',
+    isOn(get('Hind - Roast', 'hindRoast')) ? `Roast${showRoastCounts && hindRoastCount ? ` (${hindRoastCount})` : ''}` : '',
     isOn(get('Hind - Grind', 'hindGrind')) ? 'Grind' : '',
     isOn(get('Hind - None', 'hindNone')) ? 'None' : '',
   ].filter(Boolean);
 
   const front = [
-    isOn(get('Front - Roast', 'frontRoast')) ? `Roast${frontRoastCount ? ` (${frontRoastCount})` : ''}` : '',
+    showFrontShoulderSteaks && isOn(get('Front - Steak', 'frontSteak')) ? 'Steak' : '',
+    isOn(get('Front - Roast', 'frontRoast')) ? `Roast${showRoastCounts && frontRoastCount ? ` (${frontRoastCount})` : ''}` : '',
     isOn(get('Front - Grind', 'frontGrind')) ? 'Grind' : '',
     isOn(get('Front - None', 'frontNone')) ? 'None' : '',
   ].filter(Boolean);
@@ -93,9 +104,9 @@ export default function ButcherOverlay({
     webbsEnabled
   ).map((item) => `${item.name}${Number(item.price) > 0 ? ` (+$${Number(item.price).toFixed(2)})` : ''}`);
 
-  const specialtyItems = specialtyBreakdown(row as Record<string, any>)
+  const specialtyTotalLbs = specialtyBreakdown(row as Record<string, any>)
     .filter((item) => item.pounds > 0)
-    .map((item) => `${item.label}: ${item.pounds} lb`);
+    .reduce((sum, item) => sum + Number(item.pounds || 0), 0);
 
   const webbsItemsRaw = get('Webbs Items', 'webbsItems');
   const webbsItemsText = (() => {
@@ -130,9 +141,10 @@ export default function ButcherOverlay({
     const m = String(line).match(/(\d+(?:\.\d+)?)\s*lb/i);
     return sum + (m ? Number(m[1]) : 0);
   }, 0);
+  const webbsPounds = Number(get('Webbs Pounds', 'webbsPounds') ?? 0) || webbsDetailedTotal || 0;
 
   const webbsStyle = String(get('Webbs Order Style', 'webbsOrderStyle') ?? '').trim();
-  const showSpecialty = specialtyItems.length > 0;
+  const showSpecialty = specialtyTotalLbs > 0;
   const showWebbs = webbsEnabled && (
     isOn(get('Webbs Order', 'webbsOrder')) ||
     webbsItemsText.length > 0 ||
@@ -148,11 +160,11 @@ export default function ButcherOverlay({
     </div>
   );
 
-  const ListCard = ({ label, items, empty = 'None' }: { label: string; items: string[]; empty?: string }) => (
+  const ListCard = ({ label, items }: { label: string; items: string[] }) => (
     <div style={CARD}>
       <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>{label}</div>
       <div style={{ display: 'grid', gap: 10 }}>
-        {(items.length ? items : [empty]).map((item) => (
+        {items.map((item) => (
           <div
             key={`${label}-${item}`}
             style={{
@@ -171,6 +183,14 @@ export default function ButcherOverlay({
       </div>
     </div>
   );
+
+  const detailCards = [
+    showSteakThickness && steakThickness ? { label: 'Steak Thickness', value: steakThickness } : null,
+    steaksPerPack ? { label: 'Steaks / Package', value: steaksPerPack } : null,
+    burgerSize ? { label: 'Burger Size', value: burgerSize } : null,
+    backstrapPrep ? { label: 'Backstrap Prep', value: backstrapPrep } : null,
+    showBackstrapThickness && backstrapThickness ? { label: 'Backstrap Thickness', value: backstrapThickness } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   return (
     <div
@@ -217,10 +237,15 @@ export default function ButcherOverlay({
               Butcher Processing
             </div>
             <div style={{ fontSize: 72, fontWeight: 950, lineHeight: 1, marginTop: 8 }}>{tag || '-'}</div>
-            <div style={{ fontSize: 42, fontWeight: 800, lineHeight: 1.12, marginTop: 10 }}>{customer || 'Unknown customer'}</div>
+            <div style={{ fontSize: 72, fontWeight: 900, lineHeight: 1.02, marginTop: 10 }}>{customer || 'Unknown customer'}</div>
           </div>
-          <div style={{ display: 'grid', gap: 14, justifyItems: 'stretch' }}>
-            <SummaryCard label="Process Type" value={processType} />
+          <div style={{ display: 'grid', gap: 10, justifyItems: 'end', alignContent: 'start' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#9fb0bb', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+              Processing View
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#dfe9ee' }}>
+              Follow the cut instructions, then scan the tag again.
+            </div>
           </div>
         </div>
 
@@ -234,105 +259,120 @@ export default function ButcherOverlay({
           }}
         >
           <div style={{ display: 'grid', gap: 18 }}>
-            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
-              <ListCard label="Hind Quarter" items={hind} />
-              <ListCard label="Front Shoulder" items={front} />
-            </div>
+            {(processType || detailCards.length) ? (
+              <div style={{ ...CARD, display: 'grid', gap: 14 }}>
+                <div style={{ fontSize: 18, color: '#9fb0bb', fontWeight: 700 }}>Primary Cut Instructions</div>
+                <div style={{ display: 'grid', gap: 14, gridTemplateColumns: `repeat(${Math.max(1, Math.min(detailCards.length + (processType ? 1 : 0), 5))}, minmax(0,1fr))` }}>
+                  {processType ? <SummaryCard label="Process Type" value={processType} /> : null}
+                  {detailCards.map((card) => (
+                    <SummaryCard key={card.label} label={card.label} value={card.value} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
-            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-              <SummaryCard label="Steak Thickness" value={steakThickness} />
-              <SummaryCard label="Steaks / Package" value={steaksPerPack} />
-              <SummaryCard label="Burger Size" value={burgerSize} />
-              <SummaryCard label="Backstrap" value={backstrapPrep} />
-            </div>
+            {(hind.length || front.length) ? (
+              <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+                {hind.length ? <ListCard label="Hind Quarter" items={hind} /> : <div />}
+                {front.length ? <ListCard label="Front Shoulder" items={front} /> : <div />}
+              </div>
+            ) : null}
 
-            <div style={CARD}>
-              <div style={{ fontSize: 18, color: '#9fb0bb', marginBottom: 10, fontWeight: 700 }}>Add-ons / Notes</div>
-              <div style={{ display: 'grid', gap: 12 }}>
+            {notes ? (
+              <div
+                style={{
+                  ...CARD,
+                  background: 'linear-gradient(180deg, rgba(94,76,17,.98), rgba(63,49,10,.98))',
+                  border: '1px solid rgba(245, 215, 72, .38)',
+                  boxShadow: '0 0 0 1px rgba(255,229,143,.08), inset 0 1px 0 rgba(255,255,255,.04)',
+                }}
+              >
+                <div style={{ fontSize: 18, color: '#fff3b0', marginBottom: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '.05em' }}>
+                  Notes
+                </div>
                 <div
                   style={{
-                    display: 'grid',
-                    gap: 10,
-                    padding: '10px 12px',
-                    borderRadius: 14,
-                    background: 'rgba(34,197,94,.08)',
-                    border: '1px solid rgba(34,197,94,.22)',
+                    fontSize: 34,
+                    fontWeight: 950,
+                    lineHeight: 1.22,
+                    whiteSpace: 'pre-wrap',
+                    color: '#fffbea',
                   }}
                 >
-                  <div style={{ fontSize: 18, fontWeight: 800, color: '#9fb0bb', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                    Selected Add-Ons
-                  </div>
-                  {(addOnItems.length ? addOnItems : ['No add-ons selected']).map((item) => (
-                    <div key={item} style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.18 }}>
+                  {notes}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div style={{ display: 'grid', gap: 18 }}>
+            <div style={{ ...CARD, display: 'grid', gap: 14 }}>
+              <div style={{ fontSize: 18, color: '#9fb0bb', fontWeight: 700 }}>Watch For</div>
+
+              {addOnItems.length ? (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ fontSize: 15, color: '#9fb0bb', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em' }}>Add-Ons</div>
+                  {addOnItems.map((item) => (
+                    <div
+                      key={item}
+                      style={{
+                        fontSize: 24,
+                        fontWeight: 800,
+                        lineHeight: 1.18,
+                        padding: '10px 12px',
+                        borderRadius: 14,
+                        background: 'rgba(34,197,94,.08)',
+                        border: '1px solid rgba(34,197,94,.22)',
+                      }}
+                    >
                       {item}
                     </div>
                   ))}
                 </div>
-                {notes ? (
+              ) : null}
+
+              {showSpecialty ? (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ fontSize: 15, color: '#9fb0bb', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em' }}>Specialty</div>
                   <div
                     style={{
-                      fontSize: 34,
-                      fontWeight: 950,
-                      lineHeight: 1.22,
-                      whiteSpace: 'pre-wrap',
-                      padding: '14px 16px',
+                      fontSize: 28,
+                      fontWeight: 900,
+                      lineHeight: 1.18,
+                      padding: '10px 12px',
                       borderRadius: 14,
-                      background: 'rgba(34,197,94,.08)',
-                      border: '1px solid rgba(34,197,94,.2)',
+                      background: 'rgba(255,255,255,.04)',
+                      border: '1px solid rgba(255,255,255,.08)',
                     }}
                   >
-                    {notes}
+                    {specialtyTotalLbs} lb
                   </div>
-                ) : (
-                  <div style={{ fontSize: 28, fontWeight: 700, color: '#c7d4dd' }}>No extra notes</div>
-                )}
-              </div>
+                </div>
+              ) : null}
+
+              {showWebbs ? (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  <div style={{ fontSize: 15, color: '#9fb0bb', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em' }}>Webbs</div>
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 900,
+                      lineHeight: 1.18,
+                      padding: '10px 12px',
+                      borderRadius: 14,
+                      background: 'rgba(255,255,255,.04)',
+                      border: '1px solid rgba(255,255,255,.08)',
+                    }}
+                  >
+                    {webbsStyle === 'whole_deer_percent' ? 'Whole deer' : `${webbsPounds} lb`}
+                  </div>
+                </div>
+              ) : null}
+
+              {!addOnItems.length && !showSpecialty && !showWebbs ? (
+                <div style={{ fontSize: 22, fontWeight: 700, color: '#c7d4dd' }}>No extra items</div>
+              ) : null}
             </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: 18 }}>
-            {showSpecialty ? (
-              <ListCard label="Specialty Products" items={specialtyItems} empty="No specialty products selected" />
-            ) : null}
-
-            {showWebbs ? (
-              <div style={CARD}>
-                <div style={{ fontSize: 18, marginBottom: 10, fontWeight: 700, color: '#9fb0bb' }}>
-                  Webbs Order
-                </div>
-                <div style={{ display: 'grid', gap: 12 }}>
-                  <div style={{ fontSize: 28, fontWeight: 800 }}>
-                    Total: <span style={{ color: '#8df2a8' }}>{webbsStyle === 'whole_deer_percent' ? 'Whole deer' : `${webbsDetailedTotal || 0} lb`}</span>
-                  </div>
-                  {webbsStyle ? (
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#c7d4dd' }}>
-                      {webbsStyle === 'whole_deer_percent' ? 'Whole deer by percentages' : 'Products by pounds'}
-                    </div>
-                  ) : null}
-                  {webbsItemsText.length ? (
-                    <div style={{ display: 'grid', gap: 10 }}>
-                      {webbsItemsText.map((item) => (
-                        <div
-                          key={item}
-                          style={{
-                            fontSize: 24,
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            padding: '10px 12px',
-                            borderRadius: 12,
-                            background: 'rgba(255,255,255,.04)',
-                          }}
-                        >
-                          {item}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 24, fontWeight: 700, color: '#c7d4dd' }}>Webbs selected</div>
-                  )}
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
 

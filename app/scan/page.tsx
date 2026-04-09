@@ -3,6 +3,7 @@
 
 import React, { useState } from 'react';
 import ButcherOverlay from '@/app/components/ButcherOverlay';
+import { normalizeCutOptionSettings, type CutOptionSettings } from '@/lib/cutOptions';
 import { useScanner } from '@/lib/useScanner';
 
 type AnyRec = Record<string, any>;
@@ -13,6 +14,7 @@ export default function ScanPage() {
   const [manualTag, setManualTag] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [cutOptions, setCutOptions] = useState<CutOptionSettings>(normalizeCutOptionSettings({}));
 
   const [overlayOn, setOverlayOn] = useState(false);
   const [overlayJob, setOverlayJob] = useState<AnyRec | null>(null);
@@ -22,9 +24,13 @@ export default function ScanPage() {
       try {
         const res = await fetch('/api/public/site-settings', { cache: 'no-store' });
         const json = await res.json().catch(() => ({}));
-        if (json?.ok) setWebbsEnabled(json?.settings?.features?.webbsEnabled !== false);
+        if (json?.ok) {
+          setWebbsEnabled(json?.settings?.features?.webbsEnabled !== false);
+          setCutOptions(normalizeCutOptionSettings(json?.settings?.cutOptions));
+        }
       } catch {
         setWebbsEnabled(true);
+        setCutOptions(normalizeCutOptionSettings({}));
       }
     };
     void loadSettings();
@@ -517,6 +523,7 @@ export default function ScanPage() {
         manualTag={manualTag}
         manualBusy={manualBusy}
         webbsEnabled={webbsEnabled}
+        cutOptions={cutOptions}
         onManualTagChange={setManualTag}
         onManualSubmit={() => void handleManualSubmit()}
       />
