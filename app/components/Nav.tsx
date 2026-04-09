@@ -167,14 +167,9 @@ export default function Nav() {
               <details className="dd">
                 <summary>Reports</summary>
                 <div className="dropdown-menu" role="menu">
+                  <div className="dropdown-group-label">Operations</div>
                   <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                     Call Report
-                  </Link>
-                  <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                    Public Intake (Needs Tag)
-                  </Link>
-                  <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                    Removed Public Intakes
                   </Link>
                   <Link href="/reports/called" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                     Called / Pickups
@@ -185,9 +180,25 @@ export default function Nav() {
                   <Link href="/reports/print-queue" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                     Print Queue
                   </Link>
+                  <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    State Form
+                  </Link>
+
+                  <div className="dropdown-group-label">Public Intake</div>
+                  <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Needs Tag
+                  </Link>
+                  <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                    Removed Public Intakes
+                  </Link>
+
+                  <div className="dropdown-group-label">Communication</div>
                   <Link href="/reports/notifications" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                     Notifications
                   </Link>
+                  {canManageSettings ? (
+                    <div className="dropdown-group-label">Owner</div>
+                  ) : null}
                   {canManageSettings ? (
                     <Link href="/reports/balances" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                       Balances
@@ -203,9 +214,6 @@ export default function Nav() {
                       Activity History
                     </Link>
                   ) : null}
-                  <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                    State Form
-                  </Link>
                 </div>
               </details>
 

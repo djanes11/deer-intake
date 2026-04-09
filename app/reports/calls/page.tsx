@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Job } from '@/lib/api';
 import { searchJobs, getJob, markCalled, logCallSimple, saveJob } from '@/lib/api';
+import { formatDisplayDateTime } from '@/lib/dateFormat';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,6 +93,35 @@ function readProcessingPriceFromRow(j: any): number | undefined {
   return undefined;
 }
 
+function readSpecialtyPriceFromRow(j: any): number {
+  const vals = [
+    j.priceSpecialty,
+    j.specialtyPrice,
+    j['Specialty Price'],
+    j.price_specialty,
+  ];
+  for (const v of vals) {
+    if (v == null) continue;
+    const n = typeof v === 'number' ? v : Number(String(v).replace(/[^0-9.\-]/g, ''));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
+function money(value: number | null | undefined) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function paymentSummary(j: Row) {
+  const a = j as any;
+  const paidProcessing = !!(a.paidProcessing ?? a['Paid Processing']);
+  const paidSpecialty = !!(a.paidSpecialty ?? a['Paid Specialty']);
+  const processing = readProcessingPriceFromRow(a) ?? 0;
+  const specialty = readSpecialtyPriceFromRow(a);
+  const totalDue = (paidProcessing ? 0 : processing) + (paidSpecialty ? 0 : specialty);
+  return { paidProcessing, paidSpecialty, processing, specialty, totalDue };
+}
+
 export default function CallReportPage() {
   const [rows, setRows] = useState<FlatRow[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -107,6 +137,17 @@ export default function CallReportPage() {
     () => rows.find(r => (r.tag + '|' + r.__track) === selectedKey),
     [rows, selectedKey]
   );
+
+  const summary = useMemo(() => {
+    const meatRows = rows.filter((row) => row.__track === 'meat');
+    const unpaidMeatRows = meatRows.filter((row) => paymentSummary(row).totalDue > 0);
+    return {
+      readyToCall: rows.length,
+      unpaidReady: unpaidMeatRows.length,
+      unpaidTotal: unpaidMeatRows.reduce((sum, row) => sum + paymentSummary(row).totalDue, 0),
+      noAttemptsYet: rows.filter((row) => attemptsFor(row) === 0).length,
+    };
+  }, [rows]);
 
   const setNote = (key: string, v: string) => setNotes(p => ({ ...p, [key]: v }));
 
@@ -326,38 +367,124 @@ export default function CallReportPage() {
   }
 
   return (
-    <main>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-        <h1>Call Report</h1>
-        <button className="btn" onClick={load} disabled={loading}>
+    <main style={{ maxWidth: 1240, margin: '18px auto', padding: '0 14px 40px', display: 'grid', gap: 14 }}>
+      <section
+        style={{
+          padding: '18px 20px',
+          borderRadius: 18,
+          background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+          color: '#f8fafc',
+          border: '1px solid #334155',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 420px' }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#cbd5e1' }}>
+              Customer Contact
+            </div>
+            <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Call Report</h1>
+            <div style={{ color: 'rgba(248,250,252,.84)', maxWidth: 760, lineHeight: 1.5 }}>
+              Work the ready-to-call list one track at a time, keep attempts visible, and move each meat, cape, or Webbs item into the pickup queue once the customer has been reached.
+            </div>
+          </div>
+          <button className="btn small" onClick={load} disabled={loading}>
           {loading ? 'Refreshing…' : 'Refresh'}
         </button>
-        <span className="muted">One row per ready track ({webbsEnabled ? 'Meat / Cape / Webbs' : 'Meat / Cape'})</span>
-      </div>
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div className="metric-card">
+          <div className="metric-label">Ready To Call</div>
+          <div className="metric-value">{summary.readyToCall}</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Ready & Unpaid</div>
+          <div className="metric-value">{summary.unpaidReady}</div>
+          <div className="metric-sub">{money(summary.unpaidTotal)} still open</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">No Attempts Yet</div>
+          <div className="metric-value">{summary.noAttemptsYet}</div>
+        </div>
+      </section>
 
       {!canUpdate && (
-        <div className="card" style={{ borderColor: '#c7d2fe', background: '#eef2ff', color: '#3730a3', marginTop: 12, fontWeight: 700 }}>
+        <div className="card readonly-banner">
           Read-only access: you can review who is ready to call and open intake details, but only Staff or Admin can add attempts, save call notes, or mark items called.
         </div>
       )}
 
       {err && (
-        <div className="card" style={{ borderColor: '#ef4444', marginTop: 12 }}>
+        <div className="card" style={{ borderColor: '#ef4444', fontWeight: 800 }}>
           Error: {err}
         </div>
       )}
 
-      <div className="card" style={{ padding: 0, marginTop: 12, overflow: 'hidden' }}>
+      {selected ? (
+        <section className="selected-card">
+          <div className="selected-top">
+            <div>
+              <div className="selected-eyebrow">Selected Call</div>
+              <div className="selected-title">
+                {(selected as any).customer || 'Unknown customer'}
+                <span className="selected-tag">Tag {selected.tag}</span>
+              </div>
+              <div className="selected-meta">
+                <span>Confirmation {(selected as any).confirmation || '-'}</span>
+                <span>{(selected as any).phone || 'No phone'}</span>
+                <span>{(selected as any).lastCallAt ? `Last contact ${formatDisplayDateTime((selected as any).lastCallAt)}` : 'No contact logged yet'}</span>
+              </div>
+            </div>
+            <span className={'badge ' + (selected.__track === 'meat' ? 'green' : selected.__track === 'cape' ? 'blue' : 'purple')}>
+              {trackLabel(selected.__track)}
+            </span>
+          </div>
+
+          <div className="selected-grid">
+            <div className="fact">
+              <div className="fact-label">Attempts</div>
+              <div className="fact-value">{attemptsFor(selected)}</div>
+              <div className="fact-sub">Every attempt helps keep the queue honest.</div>
+            </div>
+            <div className="fact">
+              <div className="fact-label">Balance</div>
+              <div className="fact-value">{selected.__track === 'meat' ? money(paymentSummary(selected).totalDue) : 'Included'}</div>
+              <div className="fact-sub">
+                {selected.__track === 'meat'
+                  ? `Processing ${money(paymentSummary(selected).paidProcessing ? 0 : paymentSummary(selected).processing)} | Specialty ${money(paymentSummary(selected).paidSpecialty ? 0 : paymentSummary(selected).specialty)}`
+                  : 'This track does not create a separate balance.'}
+              </div>
+            </div>
+            <div className="fact">
+              <div className="fact-label">Payment Status</div>
+              <div className="fact-value">{selected.__track === 'meat' ? (paymentSummary(selected).totalDue > 0 ? 'Needs collection' : 'Paid') : 'Not required'}</div>
+              <div className="fact-sub">
+                {selected.__track === 'meat'
+                  ? (paymentSummary(selected).totalDue > 0 ? 'Helpful to mention during the call.' : 'No payment follow-up needed before pickup.')
+                  : 'Use the call to confirm pickup timing and handoff details.'}
+              </div>
+            </div>
+            <div className="fact">
+              <div className="fact-label">Ready Track</div>
+              <div className="fact-value">{trackLabel(selected.__track)}</div>
+              <div className="fact-sub">Marking called moves only this track into the pickup queue.</div>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-scroll">
           <table className="table call-table">
             <thead>
               <tr>
                 <th style={{ width: 90 }}>Tag</th>
-                <th style={{ width: 140 }}>Name</th>
-                <th style={{ width: 140 }}>Phone</th>
+                <th style={{ width: 180 }}>Customer</th>
                 <th style={{ width: 140 }}>Track</th>
                 <th style={{ width: 100 }}>Attempts</th>
-                <th style={{ width: 100 }}>Processing $</th>
+                <th style={{ width: 120 }}>Balance</th>
+                <th style={{ width: 120 }}>Last Contact</th>
                 <th style={{ width: 60 }}>Paid</th>
                 <th style={{ width: 240 }}>Notes</th>
               </tr>
@@ -388,16 +515,31 @@ export default function CallReportPage() {
                         {r.tag}
                       </Link>
                     </td>
-                    <td>{(r as any).customer || '—'}</td>
-                    <td>{(r as any).phone || '—'}</td>
+                    <td>
+                      <div className="customer-name">{(r as any).customer || '-'}</div>
+                      <div className="customer-sub">
+                        {(r as any).phone || 'No phone'}
+                        {(r as any).confirmation ? ` | ${(r as any).confirmation}` : ''}
+                      </div>
+                    </td>
                     <td>
                       <span className={'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : 'purple')}>
                         {trackLabel(r.__track)}
                       </span>
                     </td>
                     <td>{attemptsFor(r)}</td>
-                    <td>{displayProcessingPrice(r)}</td>
-                    <td>{paidText(r)}</td>
+                    <td>
+                      {r.__track === 'meat' ? (
+                        <div>
+                          <div className="balance-main">{money(paymentSummary(r).totalDue)}</div>
+                          <div className="balance-sub">Proc {money(paymentSummary(r).paidProcessing ? 0 : paymentSummary(r).processing)}</div>
+                        </div>
+                      ) : (
+                        <span className="muted">Included</span>
+                      )}
+                    </td>
+                    <td>{(r as any).lastCallAt ? formatDisplayDateTime((r as any).lastCallAt) : '—'}</td>
+                    <td>{r.__track === 'meat' ? (paymentSummary(r).totalDue > 0 ? 'No' : 'Yes') : '—'}</td>
                     <td>{renderNotesCell(r)}</td>
                   </tr>
                 );
@@ -448,6 +590,109 @@ export default function CallReportPage() {
       </div>
 
       <style jsx>{`
+        .metric-card {
+          border: 1px solid rgba(154, 116, 60, 0.18);
+          border-radius: 16px;
+          padding: 16px;
+          background: rgba(14, 13, 12, 0.88);
+          color: #f8fafc;
+        }
+        .metric-label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b7a98d;
+        }
+        .metric-value {
+          font-size: 28px;
+          font-weight: 950;
+          margin-top: 8px;
+        }
+        .metric-sub {
+          margin-top: 4px;
+          color: #b7a98d;
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .readonly-banner {
+          background: #eef2ff;
+          border-color: #c7d2fe;
+          color: #3730a3;
+          font-weight: 700;
+        }
+        .selected-card {
+          border: 1px solid #304336;
+          border-radius: 18px;
+          background: linear-gradient(180deg, rgba(14, 17, 15, 0.96) 0%, rgba(10, 12, 11, 0.98) 100%);
+          color: #f8fafc;
+          padding: 18px;
+          display: grid;
+          gap: 16px;
+        }
+        .selected-top {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: flex-start;
+          flex-wrap: wrap;
+        }
+        .selected-eyebrow {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b7a98d;
+        }
+        .selected-title {
+          margin-top: 6px;
+          font-size: 28px;
+          font-weight: 950;
+          line-height: 1.05;
+        }
+        .selected-tag {
+          margin-left: 10px;
+          font-size: 14px;
+          color: #cbd5e1;
+          font-weight: 800;
+        }
+        .selected-meta {
+          margin-top: 8px;
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+          color: rgba(248, 250, 252, 0.8);
+          font-size: 14px;
+        }
+        .selected-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 12px;
+        }
+        .fact {
+          border: 1px solid rgba(154, 116, 60, 0.16);
+          border-radius: 14px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.03);
+        }
+        .fact-label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b7a98d;
+        }
+        .fact-value {
+          margin-top: 8px;
+          font-size: 22px;
+          font-weight: 900;
+        }
+        .fact-sub {
+          margin-top: 6px;
+          color: #cbd5e1;
+          font-size: 13px;
+          line-height: 1.4;
+        }
         .table-scroll { overflow-x: auto; overflow-y: hidden; }
         .call-table { width: 100%; min-width: 1000px; margin: 0; table-layout: fixed; }
         .call-table th, .call-table td { vertical-align: top; padding: 8px 10px; }
@@ -472,6 +717,8 @@ export default function CallReportPage() {
         .linkish { background: transparent; border: none; padding: 0; color: #9ed2aa; cursor: pointer; font-size: 12px; text-align: left; }
         .linkish:hover { text-decoration: underline; }
         .muted { color: #9ca3af; }
+        .customer-name, .balance-main { font-weight: 850; }
+        .customer-sub, .balance-sub { color: #9ca3af; font-size: 13px; }
       `}</style>
     </main>
   );

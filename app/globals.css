@@ -145,6 +145,14 @@ body::before{
   border-radius: 10px;
 }
 .menu .dd .dropdown-menu a:hover { background: rgba(200,138,61,.12); }
+.menu .dd .dropdown-menu .dropdown-group-label {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(215, 199, 171, .72);
+}
 
 /* Desktop hover can still reveal the menu via <details open> */
 @media (min-width: 761px) {
