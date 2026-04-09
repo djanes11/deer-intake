@@ -23,6 +23,7 @@ import {
   ProcessTypeCatalogItem,
   AddOnCatalogItem,
 } from '@/lib/processorCatalog';
+import { StateFormType } from '@/lib/stateforms/types';
 import {
   WEBBS_GROUPS,
   type WebbsAllocationItem,
@@ -63,6 +64,7 @@ type Job = {
   customer?: string;
   phone?: string;
   email?: string;
+  huntingLicenseNumber?: string;
   address?: string;
   city?: string;
   state?: string;
@@ -190,6 +192,7 @@ function snapshotJob(j: Job) {
     customer: j.customer ?? '',
     phone: j.phone ?? '',
     email: j.email ?? '',
+    huntingLicenseNumber: j.huntingLicenseNumber ?? '',
     address: j.address ?? '',
     city: j.city ?? '',
     state: j.state ?? '',
@@ -442,6 +445,7 @@ function IntakePage() {
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
+  const [stateFormType, setStateFormType] = useState<StateFormType>('indiana');
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
   const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
@@ -477,6 +481,7 @@ function IntakePage() {
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
           setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
+          setStateFormType((j?.settings?.stateFormType as StateFormType) || 'indiana');
           setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         }
       })
@@ -590,6 +595,7 @@ function IntakePage() {
   const showSteakThickness = cutOptions.showSteakThickness !== false;
   const showBackstrapThickness = cutOptions.showBackstrapThickness !== false;
   const showRoastCounts = cutOptions.showRoastCounts !== false;
+  const requiresHuntingLicense = stateFormType === 'michigan';
 
   const setSpecialtyQuantity = (slug: string, rawValue: string) => {
     const quantity = toInt(rawValue);
@@ -959,6 +965,7 @@ useEffect(() => {
       if (so == null || so < 0) missing.push('Specialty Override (valid $ amount)');
     }
     if (job.prefEmail && !job.email) missing.push('Email');
+    if (requiresHuntingLicense && !String(job.huntingLicenseNumber || '').trim()) missing.push('Hunting License #');
     if (!job.address) missing.push('Address');
     if (!job.city) missing.push('City');
     if (!job.state) missing.push('State');
@@ -1541,6 +1548,15 @@ if (fresh?.exists && fresh.job) {
                 onChange={(e) => setVal('email', e.target.value)}
               />
             </div>
+            {requiresHuntingLicense ? (
+              <div className="c4">
+                <label>Hunting License #</label>
+                <input
+                  value={job.huntingLicenseNumber || ''}
+                  onChange={(e) => setVal('huntingLicenseNumber', e.target.value)}
+                />
+              </div>
+            ) : null}
             <div className="c8">
               <label>Address</label>
               <input

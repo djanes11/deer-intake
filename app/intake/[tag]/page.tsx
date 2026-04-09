@@ -128,6 +128,7 @@ export default async function IntakeView({
     const showSteakThickness = settings.cutOptions.showSteakThickness !== false;
     const showBackstrapThickness = settings.cutOptions.showBackstrapThickness !== false;
     const showRoastCounts = settings.cutOptions.showRoastCounts !== false;
+    const requiresHuntingLicense = settings.stateFormType === 'michigan';
     // Promise props (Next 15)
     const { tag } = await params;
     const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
@@ -318,6 +319,9 @@ export default async function IntakeView({
                   >{job?.email || ''}</div>
                 </div>
               </div>
+              {requiresHuntingLicense ? (
+                <div className="c4" style={{gridColumn:'span 4'}}><Field label="Hunting License #" value={job?.huntingLicenseNumber || ''} /></div>
+              ) : null}
               <div className="c4" style={{gridColumn:'span 4'}}><Field label="Address" value={job?.address || ''} /></div>
               <div className="c4" style={{gridColumn:'span 4'}}><Field label="City" value={job?.city || ''} /></div>
               <div className="c4" style={{gridColumn:'span 4'}}><Field label="State" value={job?.state || ''} /></div>

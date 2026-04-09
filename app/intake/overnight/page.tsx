@@ -21,6 +21,7 @@ import {
   normalizeJobAddOnItems,
   normalizeProcessCatalog,
 } from '@/lib/processorCatalog';
+import { StateFormType } from '@/lib/stateforms/types';
 import {
   WEBBS_GROUPS,
   type WebbsAllocationItem,
@@ -62,6 +63,7 @@ type Job = {
   customer?: string;
   phone?: string;
   email?: string;
+  huntingLicenseNumber?: string;
   address?: string;
   city?: string;
   state?: string;
@@ -282,6 +284,7 @@ function OvernightIntakePage() {
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
+  const [stateFormType, setStateFormType] = useState<StateFormType>('indiana');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [stepIdx, setStepIdx] = useState(0);
@@ -310,6 +313,7 @@ function OvernightIntakePage() {
           setIntakeEnabled(!!j?.settings?.public_intake_enabled);
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
+          setStateFormType((j?.settings?.stateFormType as StateFormType) || 'indiana');
           if (j?.settings?.banner_enabled && j?.settings?.banner_message) {
             setClosureMessage(String(j.settings.banner_message));
           }
@@ -378,6 +382,7 @@ function OvernightIntakePage() {
   const showSteakThickness = cutOptions.showSteakThickness !== false;
   const showBackstrapThickness = cutOptions.showBackstrapThickness !== false;
   const showRoastCounts = cutOptions.showRoastCounts !== false;
+  const requiresHuntingLicense = stateFormType === 'michigan';
   const specialtyItems = useMemo(
     () => specialtyBreakdown(job as Record<string, any>, pricing, activeSpecialtyCatalog).filter((item) => item.pounds > 0),
     [job, pricing, activeSpecialtyCatalog]
@@ -521,6 +526,7 @@ function OvernightIntakePage() {
         setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
+        setStateFormType((j?.settings?.stateFormType as StateFormType) || 'indiana');
       })
       .catch(() => {});
   }, []);
@@ -594,6 +600,7 @@ function OvernightIntakePage() {
     if (!job.customer?.trim()) e.customer = 'Customer Name is required';
     if (!is10Digits(job.phone)) e.phone = 'Phone must be 10 digits';
     if (job.prefEmail && !job.email?.trim()) e.email = 'Email is required when email updates are selected';
+    if (requiresHuntingLicense && !job.huntingLicenseNumber?.trim()) e.huntingLicenseNumber = 'Hunting License # is required';
     if (!job.address?.trim()) e.address = 'Address is required';
     if (!job.city?.trim()) e.city = 'City is required';
     if (!job.state?.trim()) e.state = 'State is required';
@@ -716,6 +723,7 @@ function OvernightIntakePage() {
       processTypeSlug: selectedProcessType?.slug || null,
       processTypeRequiresCape: !!selectedProcessType?.triggersCapeWorkflow,
       specialtyItems: job.specialtyProducts ? normalizeJobSpecialtyItems((job as any).specialtyItems) : [],
+      huntingLicenseNumber: job.huntingLicenseNumber || '',
 
       originalSummerSausageLbs: job.specialtyProducts ? String(toInt(job.originalSummerSausageLbs)) : '',
       summerSausageCheeseLbs: job.specialtyProducts ? String(toInt(job.summerSausageCheeseLbs)) : '',
@@ -1076,6 +1084,31 @@ function OvernightIntakePage() {
                 />
                 {errors.email ? <div className="errText">{errors.email}</div> : null}
               </div>
+
+              {requiresHuntingLicense ? (
+                <div className="c4">
+                  <label>Hunting License #</label>
+                  <Hint>Needed for the Michigan processor report.</Hint>
+                  <input
+                    value={job.huntingLicenseNumber || ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setVal('huntingLicenseNumber', v);
+                      setErrors((prev) => {
+                        if (!prev.huntingLicenseNumber) return prev;
+                        const n = { ...prev };
+                        if (v.trim()) delete n.huntingLicenseNumber;
+                        else n.huntingLicenseNumber = 'Hunting License # is required';
+                        return n;
+                      });
+                    }}
+                    className={errors.huntingLicenseNumber ? 'err' : ''}
+                    data-err="huntingLicenseNumber"
+                    disabled={locked}
+                  />
+                  {errors.huntingLicenseNumber ? <div className="errText">{errors.huntingLicenseNumber}</div> : null}
+                </div>
+              ) : null}
 
               <div className="c8">
                 <label>Address</label>
@@ -1748,6 +1781,7 @@ function OvernightIntakePage() {
                   <div className="reviewLine"><strong>{job.customer || '-'}</strong></div>
                   <div className="reviewLine">Confirmation: {job.confirmation || '-'}</div>
                   <div className="reviewLine">Phone: {job.phone || '-'}</div>
+                  {requiresHuntingLicense ? <div className="reviewLine">Hunting license: {job.huntingLicenseNumber || '-'}</div> : null}
                   <div className="reviewLine">Address: {[job.address, job.city, job.state, job.zip].filter(Boolean).join(', ') || '-'}</div>
                 </div>
                 <div className="reviewCard">

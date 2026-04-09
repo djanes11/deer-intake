@@ -10,6 +10,7 @@ export interface Job {
   customer: string | null;
   phone: string | null;
   email: string | null;
+  huntingLicenseNumber?: string | null;
   address: string | null;
   city: string | null;
   state: string | null;

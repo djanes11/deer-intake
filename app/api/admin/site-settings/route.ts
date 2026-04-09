@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
 import { normalizeProcessorFeatures } from '@/lib/siteSettings';
+import { normalizeStateFormType } from '@/lib/stateforms/catalog';
 import { normalizeCutOptionSettings as normalizeCutOptions } from '@/lib/cutOptions';
 import { normalizePricing } from '@/lib/pricing';
 import { normalizeSpecialtyCatalog } from '@/lib/specialtyCatalog';
@@ -75,6 +76,7 @@ export async function GET(req: Request) {
             addOnCatalog: normalizeAddOnCatalog((data as any)?.add_on_catalog, normalizePricing(data)),
             notificationTemplates: normalizeNotificationTemplates((data as any)?.notification_templates, branding.name),
             cutOptions: normalizeCutOptions((data as any)?.cut_option_settings),
+            stateFormType: normalizeStateFormType((data as any)?.state_form_type),
           },
         });
       }
@@ -91,6 +93,7 @@ export async function GET(req: Request) {
         addOnCatalog: defaultPublicSiteSettings().addOnCatalog,
         notificationTemplates: defaultPublicSiteSettings().notificationTemplates,
         cutOptions: defaultPublicSiteSettings().cutOptions,
+        stateFormType: defaultPublicSiteSettings().stateFormType,
       },
     });
   } catch (e: any) {
@@ -118,6 +121,7 @@ export async function POST(req: Request) {
       add_on_catalog: normalizeAddOnCatalog(body?.addOnCatalog, body),
       notification_templates: normalizeNotificationTemplates(body?.notificationTemplates, body?.branding?.name || defaults.name),
       cut_option_settings: normalizeCutOptions(body?.cutOptions),
+      state_form_type: normalizeStateFormType(body?.stateFormType),
       ...normalizePricing(body),
     };
 
@@ -251,6 +255,7 @@ export async function POST(req: Request) {
       addOnCatalog: normalizeAddOnCatalog(body?.addOnCatalog, payload),
       notificationTemplates: normalizeNotificationTemplates(body?.notificationTemplates, processorPayload.public_name || defaults.name),
       cutOptions: normalizeCutOptions(body?.cutOptions),
+      stateFormType: normalizeStateFormType(body?.stateFormType),
     };
 
     await writeAuditEntry({
@@ -261,11 +266,12 @@ export async function POST(req: Request) {
       targetId: String(data.id || ''),
       targetLabel: processor.slug || processor.id || 'settings',
       summary: 'Updated public site settings and processor branding',
-      details: {
-        publicIntakeEnabled: !!payload.public_intake_enabled,
-        bannerEnabled: !!payload.banner_enabled,
-        brandingName: merged.branding.name,
-        specialtyItems: merged.specialtyCatalog.length,
+        details: {
+          publicIntakeEnabled: !!payload.public_intake_enabled,
+          bannerEnabled: !!payload.banner_enabled,
+          brandingName: merged.branding.name,
+          stateFormType: merged.stateFormType,
+          specialtyItems: merged.specialtyCatalog.length,
         processTypes: merged.processCatalog.length,
         addOns: merged.addOnCatalog.length,
         cutOptions: merged.cutOptions,

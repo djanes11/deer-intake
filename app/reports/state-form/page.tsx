@@ -5,7 +5,6 @@ import { fetchStateformPayload, setStateformPageNumber } from '@/lib/stateform-d
 import { tokenQuery } from '@/lib/api';
 
 const CAPACITY = 43;
-
 type ZoomPreset = 'fit' | '110' | '125' | '150';
 
 function pdfHash(zoom: ZoomPreset) {
@@ -20,18 +19,13 @@ function withToken(url: string) {
 }
 
 export default function StateFormReportPage() {
-  // data
   const [payload, setPayload] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-
-  // viewer
   const [zoom, setZoom] = useState<ZoomPreset>('fit');
-  const [refreshKey, setRefreshKey] = useState(0); // forces iframe reload
+  const [refreshKey, setRefreshKey] = useState(0);
   const [src, setSrc] = useState(withToken('/api/stateform/render?dry=1'));
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
-
-  // auto refresh
   const [auto, setAuto] = useState(true);
   const timer = useRef<NodeJS.Timeout | null>(null);
 
@@ -39,9 +33,10 @@ export default function StateFormReportPage() {
   const totalSheets = payload?.totalSheets ?? Math.max(1, Math.ceil(totalEntries / CAPACITY));
   const pageNumber = Number((payload?.pageNumberStart ?? payload?.pageNumber) || 1);
   const endPageNumber = pageNumber + Math.max(0, totalSheets - 1);
-  const canSetPage = staffRole === 'admin' || staffRole === 'staff';
+  const canSetPage = (staffRole === 'admin' || staffRole === 'staff') && !!payload?.canSetPageNumber;
+  const formLabel = String(payload?.formLabel || 'State Form');
+  const reportPeriodLabel = String(payload?.reportPeriodLabel || '');
 
-  // ----- fetch
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
@@ -69,7 +64,6 @@ export default function StateFormReportPage() {
       .catch(() => {});
   }, []);
 
-  // auto-refresh
   useEffect(() => {
     if (!auto) {
       if (timer.current) clearInterval(timer.current);
@@ -86,12 +80,10 @@ export default function StateFormReportPage() {
     };
   }, [auto, load]);
 
-  // rebuild iframe src when zoom or refreshKey changes
   useEffect(() => {
     setSrc(withToken(`/api/stateform/render?dry=1&_=${Date.now()}-${refreshKey}`) + pdfHash(zoom));
   }, [zoom, refreshKey]);
 
-  // ----- actions
   async function refresh() {
     await load();
     setRefreshKey((k) => k + 1);
@@ -120,45 +112,35 @@ export default function StateFormReportPage() {
     }
   }
 
-  // height tuned to look good without feeling cramped
   const viewerHeight = useMemo(() => {
-    // ~75% of viewport on large screens; minimum for smaller screens
     if (typeof window === 'undefined') return 720;
-    const vh = Math.max(600, Math.floor(window.innerHeight * 0.75));
-    return vh;
-  }, [typeof window]);
+    return Math.max(600, Math.floor(window.innerHeight * 0.75));
+  }, []);
 
   return (
     <div className="px-6 py-6">
-      {/* Tiny status line (no clutter) */}
       <div className="mb-3 text-zinc-300">
-        <div className="text-lg font-semibold">Page {pageNumber}</div>
+        <div className="text-lg font-semibold">{formLabel}</div>
         <div className="text-sm text-zinc-400">
-          {totalEntries} season entries across {totalSheets} sheet{totalSheets === 1 ? '' : 's'}
-          <span className="text-zinc-500"> Pages {pageNumber}-{endPageNumber}</span>
-          {loading && <span className="ml-3 text-zinc-400">Loading…</span>}
+          {totalEntries} entr{totalEntries === 1 ? 'y' : 'ies'} across {totalSheets} sheet{totalSheets === 1 ? '' : 's'}
+          {reportPeriodLabel ? <span className="text-zinc-500"> {reportPeriodLabel}</span> : null}
+          {payload?.canSetPageNumber ? <span className="text-zinc-500"> Pages {pageNumber}-{endPageNumber}</span> : null}
+          {loading && <span className="ml-3 text-zinc-400">Loading...</span>}
           {err && <span className="ml-3 text-red-400">Error: {err}</span>}
         </div>
       </div>
 
-      {!canSetPage && staffRole === 'readonly' ? (
+      {!canSetPage && staffRole === 'readonly' && payload?.canSetPageNumber ? (
         <div className="mb-3 text-sm font-semibold text-indigo-300">
           Read-only access: you can review and download the state form, but changing the page number requires Staff or Admin access.
         </div>
       ) : null}
 
-      {/* Toolbar (matches rest of app) */}
       <div className="mb-3 flex flex-wrap items-center gap-3 bg-zinc-900/70 border border-zinc-700/70 rounded-lg px-3 py-2">
-        <button
-          onClick={refresh}
-          className="px-3 py-1.5 rounded-md bg-zinc-700 hover:bg-zinc-600 text-sm"
-        >
+        <button onClick={refresh} className="px-3 py-1.5 rounded-md bg-zinc-700 hover:bg-zinc-600 text-sm">
           Refresh
         </button>
-        <a
-          href={withToken('/api/stateform/render?download=1')}
-          className="px-3 py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 text-sm"
-        >
+        <a href={withToken('/api/stateform/render?download=1')} className="px-3 py-1.5 rounded-md bg-emerald-700 hover:bg-emerald-600 text-sm">
           Download PDF
         </a>
         <a
@@ -170,35 +152,38 @@ export default function StateFormReportPage() {
           Open PDF
         </a>
 
-        <div className="h-6 w-px bg-zinc-700/60 mx-1" />
-
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-zinc-400">Page #</span>
-          <button
-            onClick={() => stepPage(-1)}
-            disabled={!canSetPage}
-            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
-            aria-label="Previous page"
-          >
-            −
-          </button>
-          <span className="px-2 tabular-nums text-zinc-200 text-sm">{pageNumber}</span>
-          <button
-            onClick={() => stepPage(+1)}
-            disabled={!canSetPage}
-            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
-            aria-label="Next page"
-          >
-            +
-          </button>
-          <button
-            onClick={setPageManual}
-            disabled={!canSetPage}
-            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
-          >
-            Set…
-          </button>
-        </div>
+        {payload?.canSetPageNumber ? (
+          <>
+            <div className="h-6 w-px bg-zinc-700/60 mx-1" />
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-zinc-400">Page #</span>
+              <button
+                onClick={() => stepPage(-1)}
+                disabled={!canSetPage}
+                className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
+                aria-label="Previous page"
+              >
+                -
+              </button>
+              <span className="px-2 tabular-nums text-zinc-200 text-sm">{pageNumber}</span>
+              <button
+                onClick={() => stepPage(+1)}
+                disabled={!canSetPage}
+                className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
+                aria-label="Next page"
+              >
+                +
+              </button>
+              <button
+                onClick={setPageManual}
+                disabled={!canSetPage}
+                className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-sm"
+              >
+                Set...
+              </button>
+            </div>
+          </>
+        ) : null}
 
         <div className="h-6 w-px bg-zinc-700/60 mx-1" />
 
@@ -229,7 +214,6 @@ export default function StateFormReportPage() {
         </label>
       </div>
 
-      {/* Viewer card (centered, no overlay) */}
       <div className="w-full flex justify-center">
         <div
           className="w-full max-w-[1400px] rounded-xl border border-zinc-700 bg-zinc-950 shadow-2xl"

@@ -3,19 +3,25 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import { SITE } from '@/lib/config';
 import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { normalizeStateFormType } from '@/lib/stateforms/catalog';
+import {
+  currentMonthStart,
+  currentSeasonStart,
+  digitsOnly,
+  nextMonthStart,
+  splitAddress,
+} from '@/lib/stateforms/shared';
+import { getStateFormDefinition } from '@/lib/stateforms/registry';
+import { StateFormType } from '@/lib/stateforms/types';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const CAPACITY = 43;
-
 type SettingsRow = {
   id: number;
   stateform_page_number?: number | null;
+  state_form_type?: StateFormType | null;
 };
-
-const SHOP_TIME_ZONE = 'America/New_York';
-const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 function getSupabase() {
   if (!SUPABASE_URL || !SERVICE_KEY) {
@@ -24,82 +30,40 @@ function getSupabase() {
   return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 }
 
-function digitsOnly(v: any) {
-  return String(v ?? '').replace(/\D/g, '');
-}
+async function buildContext() {
+  const supabase = getSupabase();
+  const processor = await getDefaultProcessorContext();
+  let name: string = SITE.name;
+  let location: string = String((SITE as any).locationLabel || 'Palmyra, IN');
+  let address: string = SITE.address;
+  let phone: string = SITE.phone;
 
-function currentSeasonStart() {
-  const now = new Date();
-  const year = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
-  return `${year}-07-01`;
-}
+  if (processor.id) {
+    const { data } = await supabase
+      .from('processors')
+      .select('name,public_name,public_address,location_label,support_phone_display')
+      .eq('id', processor.id)
+      .maybeSingle();
 
-function splitAddress(address: string) {
-  const raw = String(address || '').trim();
-  const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
-  const street = parts[0] || raw;
-  const city = parts[1] || 'Palmyra';
-  const stateZip = parts[2] || 'IN 47164';
-  const zip = (stateZip.match(/\b(\d{5}(?:-\d{4})?)\b/) || [])[1] || '47164';
-  return { street, city, zip };
-}
-
-function stateformKey(row: any) {
-  return String(row?.id || '').trim();
-}
-
-function formatDateMMDDYY(v: any) {
-  const s = String(v || '').trim();
-  if (!s) return '';
-  const dateOnly = s.match(DATE_ONLY_RE);
-  if (dateOnly) {
-    const [, year, month, day] = dateOnly;
-    return `${month}/${day}/${year.slice(-2)}`;
+    if (data) {
+      name = String((data as any).public_name || (data as any).name || name);
+      location = String((data as any).location_label || location);
+      address = String((data as any).public_address || address);
+      phone = String((data as any).support_phone_display || phone);
+    }
   }
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: SHOP_TIME_ZONE,
-    month: '2-digit',
-    day: '2-digit',
-    year: '2-digit',
-  }).format(d);
-}
 
-function stateformDateOut(row: any) {
-  if (row?.picked_up_processing_at) {
-    return formatDateMMDDYY(row.picked_up_processing_at);
-  }
-  if (row?.picked_up_processing && row?.updated_at) {
-    return formatDateMMDDYY(row.updated_at);
-  }
-  return '';
-}
-
-function buildAddress(row: any) {
-  return [row?.address, row?.city, row?.state, row?.zip].filter(Boolean).join(' ');
-}
-
-function normalizeSex(v: any) {
-  const s = String(v || '').trim().toLowerCase();
-  if (!s) return '';
-  if (s.includes('buck')) return 'Buck';
-  if (s.includes('doe')) return 'Doe';
-  if (s.includes('antler')) return 'Antlerless';
-  return String(v || '').trim();
-}
-
-function normalizeHowKilled(v: any) {
-  const s = String(v || '').trim().toLowerCase();
-  if (s.includes('gun')) return 'Gun';
-  if (s.includes('arch')) return 'Archery';
-  if (s.includes('veh')) return 'Vehicle';
-  return String(v || '').trim();
-}
-
-function donatedValue(row: any) {
-  const proc = String(row?.process_type || '').toLowerCase();
-  return proc.includes('donate') ? 'Y' : 'N';
+  const addr = splitAddress(address);
+  return {
+    processorName: name,
+    processorLocation: location,
+    processorCounty: process.env.NEXT_PUBLIC_COUNTY || 'Harrison',
+    processorStreet: addr.street,
+    processorCity: addr.city,
+    processorZip: addr.zip,
+    processorPhone: digitsOnly(phone).slice(-10),
+    currentYear: String(new Date().getFullYear()),
+  };
 }
 
 export async function getStateformSettings() {
@@ -107,17 +71,24 @@ export async function getStateformSettings() {
   const processor = await getDefaultProcessorContext();
   let query = supabase
     .from('site_settings')
-    .select('id,stateform_page_number');
+    .select('id,stateform_page_number,state_form_type');
 
   query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
 
   const { data, error } = await query.single();
 
   if (error) throw error;
-  return (data || { id: 1, stateform_page_number: 1 }) as SettingsRow;
+  return (data || { id: 1, stateform_page_number: 1, state_form_type: 'indiana' }) as SettingsRow;
 }
 
 export async function setStateformPageNumberInSupabase(page: number) {
+  const settings = await getStateformSettings();
+  const formType = normalizeStateFormType(settings.state_form_type);
+  const definition = getStateFormDefinition(formType);
+  if (!definition.supportsPageNumber) {
+    return { ok: true as const, pageNumber: 1 };
+  }
+
   const supabase = getSupabase();
   const processor = await getDefaultProcessorContext();
   let query = supabase
@@ -134,58 +105,43 @@ export async function setStateformPageNumberInSupabase(page: number) {
   return { ok: true as const, pageNumber: Number(data?.stateform_page_number || page) };
 }
 
-export async function fetchStateformPayloadFromSupabase() {
+async function fetchStateformRows(stateFormType: StateFormType) {
   const supabase = getSupabase();
-  const settings = await getStateformSettings();
   const processor = await getDefaultProcessorContext();
 
   let query = supabase
     .from('jobs')
-    .select('id,dropoff_date,picked_up_processing,picked_up_processing_at,updated_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at')
+    .select('id,dropoff_date,picked_up_processing,picked_up_processing_at,updated_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at,hunting_license_number')
     .not('confirmation', 'is', null)
-    .gte('dropoff_date', currentSeasonStart())
     .order('dropoff_date', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(5000);
 
   query = processor.id ? query.eq('processor_id', processor.id) : query;
 
+  if (stateFormType === 'michigan') {
+    query = query.gte('dropoff_date', currentMonthStart()).lt('dropoff_date', nextMonthStart());
+  } else {
+    query = query.gte('dropoff_date', currentSeasonStart());
+  }
+
   const { data, error } = await query;
-
   if (error) throw error;
+  return data || [];
+}
 
-  const allRows = data || [];
-  const addr = splitAddress(SITE.address);
-  const startPage = Number(settings.stateform_page_number || 1);
-  const totalEntries = allRows.length;
-  const totalSheets = Math.max(1, Math.ceil(totalEntries / CAPACITY));
+export async function fetchStateformPayloadFromSupabase() {
+  const settings = await getStateformSettings();
+  const stateFormType = normalizeStateFormType(settings.state_form_type);
+  const definition = getStateFormDefinition(stateFormType);
+  const rows = await fetchStateformRows(stateFormType);
+  const startPage = definition.supportsPageNumber
+    ? Number(settings.stateform_page_number || 1)
+    : 1;
 
-  return {
-    ok: true,
-    pageYear: String(new Date().getFullYear()),
-    pageNumber: startPage,
+  return definition.preparePayload({
+    rows,
     pageNumberStart: startPage,
-    totalEntries,
-    totalSheets,
-    processorName: SITE.name,
-    processorLocation: 'Palmyra, IN',
-    processorCounty: process.env.NEXT_PUBLIC_COUNTY || 'Harrison',
-    processorStreet: addr.street,
-    processorCity: addr.city,
-    processorZip: addr.zip,
-    processorPhone: digitsOnly(SITE.phone).slice(-10),
-    entries: allRows.map((row) => ({
-      jobId: row.id,
-      dateIn: formatDateMMDDYY(row.dropoff_date),
-      dateOut: stateformDateOut(row),
-      name: String(row.customer_name || ''),
-      address: buildAddress(row),
-      phone: digitsOnly(row.phone).slice(-10),
-      sex: normalizeSex(row.deer_sex),
-      whereKilled: [row.county_killed, row.state].filter(Boolean).join(', '),
-      howKilled: normalizeHowKilled(row.how_killed),
-      donated: donatedValue(row),
-      confirmation: digitsOnly(row.confirmation),
-    })),
-  };
+    context: await buildContext(),
+  });
 }

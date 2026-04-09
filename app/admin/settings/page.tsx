@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { tokenHeader } from '@/lib/api';
 import { DEFAULT_SITE_PRICING, SitePricing, formatMoney, normalizePricing } from '@/lib/pricing';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
+import { listStateFormOptions } from '@/lib/stateforms/catalog';
+import { StateFormType } from '@/lib/stateforms/types';
 import { defaultSpecialtyCatalog, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import {
   AddOnCatalogItem,
@@ -53,6 +55,7 @@ type SiteSettings = {
     showBackstrapThickness: boolean;
     showRoastCounts: boolean;
   };
+  stateFormType: StateFormType;
   features?: {
     plan: 'basic' | 'texting' | 'custom';
     smsEnabled: boolean;
@@ -163,6 +166,7 @@ export default function AdminSettingsPage() {
       ),
       notificationTemplates: normalizeNotificationTemplates(j?.settings?.notificationTemplates, j?.settings?.branding?.name || DEFAULT_BRANDING.name),
       cutOptions: normalizeCutOptionSettings(j?.settings?.cutOptions),
+      stateFormType: j?.settings?.stateFormType || 'indiana',
       branding: {
         ...DEFAULT_BRANDING,
         ...(j?.settings?.branding || {}),
@@ -207,6 +211,7 @@ export default function AdminSettingsPage() {
         ),
         notificationTemplates: normalizeNotificationTemplates(j?.settings?.notificationTemplates, j?.settings?.branding?.name || DEFAULT_BRANDING.name),
         cutOptions: normalizeCutOptionSettings(j?.settings?.cutOptions),
+        stateFormType: j?.settings?.stateFormType || 'indiana',
         branding: {
           ...DEFAULT_BRANDING,
           ...(j?.settings?.branding || {}),
@@ -637,6 +642,23 @@ export default function AdminSettingsPage() {
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Cut Option Visibility</div>
             <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
               Use these toggles to simplify the cut section for this processor without changing saved order data.
+            </div>
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+              <span>Official state form</span>
+              <select
+                value={s.stateFormType || 'indiana'}
+                onChange={(e) => setS({ ...s, stateFormType: e.target.value as StateFormType })}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              >
+                {listStateFormOptions().map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+              This controls which official state wildlife processor PDF is generated from the intake data. Michigan forms will also collect hunting license number on intake.
             </div>
             <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
               <input

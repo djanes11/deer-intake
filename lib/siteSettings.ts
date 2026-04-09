@@ -18,6 +18,8 @@ import {
   ProcessTypeCatalogItem,
 } from '@/lib/processorCatalog';
 import { getDefaultProcessorContext, getProcessorContextForHostname } from '@/lib/processorContext';
+import { normalizeStateFormType } from '@/lib/stateforms/catalog';
+import { StateFormType } from '@/lib/stateforms/types';
 
 export type PublicHourRow = {
   label: string;
@@ -55,6 +57,7 @@ export type PublicSiteSettings = {
   branding: PublicBrandingSettings;
   features: ProcessorFeatureSettings;
   cutOptions: CutOptionSettings;
+  stateFormType: StateFormType;
   updated_at?: string | null;
 };
 
@@ -120,6 +123,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
       ...normalizeProcessorFeatures({ plan: 'custom', smsEnabled: true, webbsEnabled: true }),
     },
     cutOptions: normalizeCutOptionSettings({}),
+    stateFormType: 'indiana',
     updated_at: null,
   };
 }
@@ -148,7 +152,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       : await getDefaultProcessorContext();
     let query = supabase
       .from('site_settings')
-      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings');
+      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings,state_form_type');
 
     query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
 
@@ -207,6 +211,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       branding,
       features,
       cutOptions: normalizeCutOptionSettings((data as any).cut_option_settings),
+      stateFormType: normalizeStateFormType((data as any).state_form_type),
       updated_at: data.updated_at ?? null,
     };
   } catch {
