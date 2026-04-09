@@ -68,11 +68,11 @@ function MarketingLanding() {
   const shell: React.CSSProperties = {
     maxWidth: 1180,
     margin: '0 auto',
-    padding: '0 16px 52px',
+    padding: '0 16px 60px',
     color: '#f5ecd8',
   };
   const panel: React.CSSProperties = {
-    borderRadius: 22,
+    borderRadius: 24,
     border: '1px solid rgba(200,138,61,.16)',
     background:
       'radial-gradient(circle at top right, rgba(200,138,61,.14) 0%, transparent 34%), linear-gradient(180deg, rgba(21,20,19,.97) 0%, rgba(12,11,10,.99) 100%)',
@@ -169,18 +169,51 @@ function MarketingLanding() {
     { title: 'Staff dashboard and search', body: 'Quick access to intake, search, print, queues, and owner reporting without jumping between notebooks, texts, and spreadsheets.' },
     { title: 'Scan + label production floor flow', body: 'Tag barcodes, butcher overlays, and thermal labels keep the deer moving and reduce handwriting mistakes on the floor.' },
   ];
+  const proofPoints = [
+    { value: 'One shared system', label: 'Public intake, staff workflow, scanning, labels, and reporting in one product' },
+    { value: 'Processor-owned setup', label: 'Customize process types, add-ons, specialty products, pricing, and branding' },
+    { value: 'Owner visibility', label: 'Balances, pickup aging, activity history, and processing-time insights' },
+  ];
+  const commonProblems = [
+    'Paper forms that have to be retyped the next morning',
+    'Handwritten notes and stickers that get hard to read on the floor',
+    'Customer texts and calls spread across personal phones',
+    'Owners not knowing what is ready, unpaid, or sitting too long',
+  ];
+  const faqs = [
+    {
+      question: 'Can each processor customize offerings and pricing?',
+      answer:
+        'Yes. Process types, add-ons, specialty products, cut-option visibility, pricing, branding, and public-facing copy can all be managed per processor.',
+    },
+    {
+      question: 'Does it support after-hours drop-off?',
+      answer:
+        'Yes. Customers can submit intake before leaving the deer, and staff can review the entry, assign the permanent tag, and print the paperwork when the shop opens.',
+    },
+    {
+      question: 'Can staff have different access levels?',
+      answer:
+        'Yes. Processors can use admin, staff, and read-only access so the right people can view, edit, print, scan, or manage settings.',
+    },
+    {
+      question: 'Can this work with labels and scanners?',
+      answer:
+        'Yes. The workflow supports thermal labels, barcode-based tag handling, scan-driven progression, and quick reprint paths from staff tools.',
+    },
+  ];
 
   return (
     <main style={shell}>
-      <section style={{ ...panel, marginTop: 12, padding: 28 }}>
+      <section style={{ ...panel, marginTop: 12, padding: 28, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(320px, .9fr)', gap: 22, alignItems: 'stretch' }}>
           <div style={{ display: 'grid', gap: 16 }}>
             <div style={eyebrow}>Deer Processing Software</div>
             <h1 style={{ margin: 0, fontSize: 'clamp(36px, 7vw, 56px)', lineHeight: 1.02, fontWeight: 950, color: '#fff7e8' }}>
-              Built for real processors, not generic inventory software.
+              Software for deer processors who need the whole shop to run smoother.
             </h1>
             <div style={{ color: 'rgba(245,236,216,.84)', fontSize: 18, lineHeight: 1.6, maxWidth: 720 }}>
-              Wild Game Butcher Board brings together public intake, staff workflow, scan-based production, thermal labels, customer communication, and owner reporting in one system.
+              Wild Game Butcher Board brings together public intake, staff workflow, scan-based production, thermal labels, customer communication, pickup tracking, and owner reporting in one system.
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <a href="#request-demo" style={cta(true)}>Request a Demo</a>
@@ -199,25 +232,65 @@ function MarketingLanding() {
                 </div>
               ))}
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 4 }}>
+              {proofPoints.map((item) => (
+                <div key={item.value} style={{ padding: '4px 2px' }}>
+                  <div style={{ fontSize: 24, fontWeight: 950, color: '#fff7e8' }}>{item.value}</div>
+                  <div style={{ marginTop: 4, color: 'rgba(245,236,216,.74)', lineHeight: 1.5 }}>{item.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div style={{ ...sectionCard, display: 'grid', gap: 14, alignSelf: 'stretch' }}>
-            <div style={{ ...eyebrow, color: '#c88a3d' }}>Why processors care</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff7e8' }}>Replace paper, texts, and memory with one operational workflow.</div>
+          <div style={{ ...sectionCard, display: 'grid', gap: 14, alignSelf: 'stretch', position: 'relative' }}>
+            <div style={{ ...eyebrow, color: '#c88a3d' }}>What it replaces</div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: '#fff7e8' }}>Less juggling between paper, texts, whiteboards, and memory.</div>
             <div style={{ display: 'grid', gap: 10 }}>
-              {[
-                'Reduce handwritten mistakes at drop-off and on the butcher floor',
-                'Customize products, pricing, and cut options for each processor',
-                'Track pickup readiness, balances, and how long deer are sitting',
-                'Give owners, staff, and read-only users the right level of access',
-              ].map((item) => (
+              {commonProblems.map((item) => (
                 <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start', padding: '10px 12px', borderRadius: 14, background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)' }}>
                   <div style={{ width: 10, height: 10, marginTop: 6, borderRadius: 999, background: '#6a8f70' }} />
                   <div style={{ lineHeight: 1.55 }}>{item}</div>
                 </div>
               ))}
             </div>
+            <div style={{ borderRadius: 18, padding: 16, border: '1px solid rgba(200,138,61,.16)', background: 'linear-gradient(180deg, rgba(255,255,255,.04) 0%, rgba(255,255,255,.02) 100%)' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#c88a3d' }}>Platform fit</div>
+              <div style={{ marginTop: 8, fontSize: 18, fontWeight: 900, color: '#fff7e8' }}>Designed for processors that want a cleaner operation without losing the way they already work.</div>
+              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.78)', lineHeight: 1.55 }}>
+                Keep the workflow familiar to staff, but give owners better visibility, cleaner customer intake, and a faster production floor.
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gap: 14, marginTop: 22 }}>
+        <div style={eyebrow}>Why shops switch</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>The biggest gains usually show up in the same places</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14 }}>
+          {[
+            {
+              title: 'Cleaner drop-off',
+              body: 'Customers arrive with intake already started, staff review it faster, and tags and labels can be printed immediately.',
+            },
+            {
+              title: 'Fewer production mistakes',
+              body: 'Barcode scans, print sheets, butcher overlays, custom specialty items, and visible add-ons make the order easier to follow on the floor.',
+            },
+            {
+              title: 'Better owner visibility',
+              body: 'See open balances, ready-but-unpaid deer, pickup aging, processing time, and activity history without chasing people down.',
+            },
+            {
+              title: 'A better fit for each processor',
+              body: 'Branding, process types, specialty products, add-ons, cut toggles, and pricing can all be adjusted without code changes.',
+            },
+          ].map((item) => (
+            <div key={item.title} style={sectionCard}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
+              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{item.body}</div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -256,8 +329,8 @@ function MarketingLanding() {
       </section>
 
       <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
-        <div style={eyebrow}>Workflow Snapshots</div>
-        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>What processors can expect to run day to day</div>
+        <div style={eyebrow}>Day-To-Day Views</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>A quick look at the workflows processors care about most</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
           {workflowSnapshots.map((item) => (
             <div key={item.title} style={{ ...sectionCard, minHeight: 210, display: 'grid', alignContent: 'space-between' }}>
@@ -267,10 +340,36 @@ function MarketingLanding() {
                 <div style={{ marginTop: 8, color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>{item.body}</div>
               </div>
               <div style={{ marginTop: 14, padding: 12, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', color: '#d2c4ad', fontSize: 14 }}>
-                Best fit for demos: walk processors through how this replaces paper intake, whiteboards, and scattered customer texts.
+                Strong demo moment: show how this replaces paper intake, handwritten notes, scattered customer texts, and owner guesswork.
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section style={{ ...panel, marginTop: 26, padding: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, .95fr) minmax(320px, 1.05fr)', gap: 22, alignItems: 'stretch' }}>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div style={eyebrow}>Best Fit</div>
+            <div style={{ fontSize: 34, fontWeight: 950, color: '#fff7e8', lineHeight: 1.08 }}>
+              Built for processors who want to run a tighter, more professional operation without overcomplicating the work for staff.
+            </div>
+            <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.6 }}>
+              Whether the pain point is after-hours intake, specialty tracking, label printing, scan workflow, or owner visibility, the goal is the same: make the processor easier to run.
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {[
+              { title: 'For processor owners', body: 'See what is ready, what is unpaid, what is aging, and where the bottlenecks are.' },
+              { title: 'For front-counter staff', body: 'Search faster, print faster, and stop rewriting the same customer and deer details all day.' },
+              { title: 'For the production floor', body: 'Use labels, print sheets, add-ons, specialty details, and scans to keep the order clear while butchering.' },
+            ].map((item) => (
+              <div key={item.title} style={{ ...sectionCard, padding: 16 }}>
+                <div style={{ fontSize: 18, fontWeight: 900, color: '#fff7e8' }}>{item.title}</div>
+                <div style={{ marginTop: 6, color: 'rgba(245,236,216,.78)', lineHeight: 1.55 }}>{item.body}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -300,6 +399,27 @@ function MarketingLanding() {
           <div style={{ background: 'rgba(255,255,255,.96)', borderRadius: 20, padding: 18, border: '1px solid rgba(200,138,61,.14)', boxShadow: '0 18px 36px rgba(15,23,42,.16)' }}>
             <ProcessorInquiryForm />
           </div>
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gap: 14, marginTop: 24 }}>
+        <div style={eyebrow}>FAQ</div>
+        <div style={{ fontSize: 32, fontWeight: 950, color: '#fff7e8' }}>Questions processors usually ask first</div>
+        <div style={{ display: 'grid', gap: 12 }}>
+          {faqs.map((item) => (
+            <div key={item.question} style={{ ...sectionCard, padding: 18 }}>
+              <div style={{ fontSize: 19, fontWeight: 900, color: '#fff7e8' }}>{item.question}</div>
+              <div style={{ marginTop: 8, color: 'rgba(245,236,216,.8)', lineHeight: 1.6 }}>{item.answer}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ marginTop: 28, padding: '8px 0 0', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', color: 'rgba(245,236,216,.7)' }}>
+        <div>Wild Game Butcher Board</div>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <a href="#request-demo" style={{ color: '#f5ecd8', textDecoration: 'none' }}>Request a Demo</a>
+          <Link href="/staff/login" style={{ color: '#f5ecd8', textDecoration: 'none' }}>Staff Login</Link>
         </div>
       </section>
     </main>
