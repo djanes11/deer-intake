@@ -6,16 +6,26 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
 import { clearLocalStaffSessionCookie, clearStaffAccessCookie, setLocalStaffSessionCookie, STAFF_ACCESS_COOKIE, STAFF_LOCAL_SESSION_COOKIE, setStaffAccessCookie } from '@/lib/staffSession';
 
+const ADMIN_HOSTNAME = (process.env.NEXT_PUBLIC_ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
+
 export default function StaffLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = useMemo(() => searchParams.get('next') || '/', [searchParams]);
   const [mode, setMode] = useState<'admin' | 'staff'>('admin');
+  const [isAdminHost, setIsAdminHost] = useState(false);
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const host = window.location.host.trim().toLowerCase().split(':')[0] || '';
+    setIsAdminHost(host === ADMIN_HOSTNAME);
+    if (host === ADMIN_HOSTNAME) setMode('admin');
+  }, []);
 
   useEffect(() => {
     const hasStaffCookie = document.cookie
@@ -102,6 +112,39 @@ export default function StaffLoginPage() {
     }
   }
 
+  const pageLabel = isAdminHost ? 'Platform Admin Portal' : 'Staff Portal';
+  const pageTitle = isAdminHost ? 'Wild Game Butcher Board Platform' : 'Wild Game Butcher Board';
+  const pageSubtitle = isAdminHost
+    ? 'Platform administration for processor setup, onboarding, billing, and shared system controls.'
+    : 'Deer processing operations, intake, and pickup workflow in one place.';
+  const panelTitle = isAdminHost ? 'Platform Admin Login' : mode === 'admin' ? 'Processor Admin Login' : 'Staff Login';
+  const panelCopy = isAdminHost
+    ? 'Use your platform admin email and password to manage processors, onboarding, and system-wide settings.'
+    : mode === 'admin'
+      ? 'Use your staff email and password to manage the processor, settings, reports, and team access.'
+      : 'Enter the username and password your processor admin created for you.';
+  const explainerCards = isAdminHost
+    ? [
+        {
+          title: 'Platform Admin Only',
+          body: 'This login is for Wild Game Butcher Board platform administrators managing processor setup, billing, onboarding, and shared system access.',
+        },
+        {
+          title: 'Processor Staff Login',
+          body: 'Processor admins and regular staff should sign in on the shared staff site instead of the platform admin hostname.',
+        },
+      ]
+    : [
+        {
+          title: 'Processor Admin Login',
+          body: 'Best for owners and managers who need email recovery, public site settings, staff management, and business reporting.',
+        },
+        {
+          title: 'Staff Login',
+          body: 'Best for front counter and production-floor staff using a simple username and password login created by the processor admin.',
+        },
+      ];
+
   return (
     <main style={{ maxWidth: 1080, margin: '34px auto', padding: '0 16px' }}>
       <div
@@ -132,26 +175,17 @@ export default function StaffLoginPage() {
             />
             <div style={{ display: 'grid', gap: 4 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#d1b07a' }}>
-                Staff Portal
+                {pageLabel}
               </div>
-              <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.02, color: '#fff7e8' }}>Wild Game Butcher Board</h1>
+              <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.02, color: '#fff7e8' }}>{pageTitle}</h1>
               <div style={{ color: 'rgba(245,236,216,.78)', fontSize: 15 }}>
-                Deer processing operations, intake, and pickup workflow in one place.
+                {pageSubtitle}
               </div>
             </div>
           </div>
 
           <div style={{ display: 'grid', gap: 12 }}>
-            {[
-              {
-                title: 'Processor Admin Login',
-                body: 'Best for owners and managers who need email recovery, public site settings, staff management, and business reporting.',
-              },
-              {
-                title: 'Staff Login',
-                body: 'Best for front counter and production-floor staff using a simple username and password login created by the processor admin.',
-              },
-            ].map((item) => (
+            {explainerCards.map((item) => (
               <div
                 key={item.title}
                 style={{
@@ -186,67 +220,73 @@ export default function StaffLoginPage() {
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8a5a20' }}>
               Secure Sign In
             </div>
-            <div style={{ fontSize: 30, fontWeight: 950, color: '#111827' }}>{mode === 'admin' ? 'Processor Admin Login' : 'Staff Login'}</div>
+            <div style={{ fontSize: 30, fontWeight: 950, color: '#111827' }}>{panelTitle}</div>
             <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>
-              {mode === 'admin'
-                ? 'Use your staff email and password to manage the processor, settings, reports, and team access.'
-                : 'Enter the username and password your processor admin created for you.'}
+              {panelCopy}
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: 8,
-              padding: 6,
-              borderRadius: 16,
-              background: '#f6efe3',
-              border: '1px solid #ead9bf',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setMode('admin')}
+          {!isAdminHost ? (
+            <div
               style={{
-                padding: '12px 14px',
-                borderRadius: 12,
-                border: mode === 'admin' ? '1px solid #c88a3d' : '1px solid transparent',
-                background: mode === 'admin' ? '#fffaf2' : 'transparent',
-                color: mode === 'admin' ? '#111827' : '#6b7280',
-                fontWeight: 900,
-                cursor: 'pointer',
-                boxShadow: mode === 'admin' ? '0 6px 18px rgba(200,138,61,.12)' : 'none',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: 8,
+                padding: 6,
+                borderRadius: 16,
+                background: '#f6efe3',
+                border: '1px solid #ead9bf',
               }}
             >
-              Processor Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('staff')}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 12,
-                border: mode === 'staff' ? '1px solid #c88a3d' : '1px solid transparent',
-                background: mode === 'staff' ? '#fffaf2' : 'transparent',
-                color: mode === 'staff' ? '#111827' : '#6b7280',
-                fontWeight: 900,
-                cursor: 'pointer',
-                boxShadow: mode === 'staff' ? '0 6px 18px rgba(200,138,61,.12)' : 'none',
-              }}
-            >
-              Staff Login
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setMode('admin')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: mode === 'admin' ? '1px solid #c88a3d' : '1px solid transparent',
+                  background: mode === 'admin' ? '#fffaf2' : 'transparent',
+                  color: mode === 'admin' ? '#111827' : '#6b7280',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  boxShadow: mode === 'admin' ? '0 6px 18px rgba(200,138,61,.12)' : 'none',
+                }}
+              >
+                Processor Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('staff')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  border: mode === 'staff' ? '1px solid #c88a3d' : '1px solid transparent',
+                  background: mode === 'staff' ? '#fffaf2' : 'transparent',
+                  color: mode === 'staff' ? '#111827' : '#6b7280',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                  boxShadow: mode === 'staff' ? '0 6px 18px rgba(200,138,61,.12)' : 'none',
+                }}
+              >
+                Staff Login
+              </button>
+            </div>
+          ) : (
+            <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#475569', fontSize: 14, lineHeight: 1.5 }}>
+              Processor staff should use the shared staff site. This hostname is reserved for platform administration.
+            </div>
+          )}
 
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
           {mode === 'admin' ? (
             <>
               <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#475569', fontSize: 14, lineHeight: 1.5 }}>
-                Processor admins use email and password so they can recover their own access and manage the rest of the team.
+                {isAdminHost
+                  ? 'Platform admins use email and password to manage processors, onboarding, billing, and platform-wide controls.'
+                  : 'Processor admins use email and password so they can recover their own access and manage the rest of the team.'}
               </div>
               <div style={{ display: 'grid', gap: 6 }}>
-                <label style={{ fontWeight: 800, color: '#0f172a' }}>Staff email</label>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>{isAdminHost ? 'Platform admin email' : 'Staff email'}</label>
                 <input
                   type="email"
                   autoComplete="email"
@@ -326,6 +366,11 @@ export default function StaffLoginPage() {
               <Link href={`/staff/forgot-password?next=${encodeURIComponent(next)}`} style={{ color: '#1d4ed8', fontWeight: 700 }}>
                 Forgot password?
               </Link>
+              {isAdminHost ? (
+                <a href={`https://${(process.env.NEXT_PUBLIC_STAFF_HOSTNAME || 'staff.wildgamebutcherboard.com').trim().toLowerCase()}`} style={{ color: '#1d4ed8', fontWeight: 700 }}>
+                  Go to staff login
+                </a>
+              ) : null}
             </div>
           ) : (
             <div style={{ color: '#64748b', fontSize: 14, lineHeight: 1.5 }}>
