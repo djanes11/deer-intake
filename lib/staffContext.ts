@@ -13,6 +13,7 @@ export type StaffIdentity = {
   processorId?: string | null;
   processorSlug?: string | null;
   role?: 'admin' | 'staff' | 'readonly' | null;
+  mustChangePassword?: boolean | null;
   authType: 'supabase' | 'local' | 'api_token' | 'basic' | 'none';
 };
 
@@ -120,6 +121,7 @@ export async function getStaffIdentity(req?: Request | null): Promise<StaffIdent
         return {
           userId: String(data.user.id),
           email: String(data.user.email || '').trim().toLowerCase() || null,
+          mustChangePassword: !!data.user.app_metadata?.wgbb_force_password_change,
           authType: 'supabase',
         };
       }
@@ -140,6 +142,7 @@ export async function getStaffIdentity(req?: Request | null): Promise<StaffIdent
           processorId: String(local.processorId),
           processorSlug: String(local.processorSlug),
           role: local.role,
+          mustChangePassword: !!local.mustChangePassword,
           authType: 'local',
         };
       }

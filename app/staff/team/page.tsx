@@ -126,6 +126,9 @@ export default function StaffTeamPage() {
     setMessage('');
     const trimmedUsername = username.trim().toLowerCase();
     try {
+      if (!localPassword.trim() || localPassword.trim().length < 8) {
+        throw new Error('Temporary password must be at least 8 characters.');
+      }
       const res = await fetch('/api/staff/team', {
         method: 'POST',
         headers,
@@ -156,6 +159,9 @@ export default function StaffTeamPage() {
     setMessage('');
     const passwordDraft = (passwordDrafts[row.id] || '').trim();
     try {
+      if (row.accountType === 'local' && passwordDraft && passwordDraft.length < 8) {
+        throw new Error('Reset password must be at least 8 characters.');
+      }
       const res = await fetch('/api/staff/team', {
         method: 'PATCH',
         headers,
@@ -359,6 +365,7 @@ export default function StaffTeamPage() {
           </div>
           <div style={{ color: '#64748b', fontSize: 14 }}>
             Best for seasonal help, family members, or shop staff who just need a simple username and password. Usernames are unique across all processors, so it helps to use a shop-specific name like <strong>mcafee-frontdesk</strong>.
+            Temporary passwords must be at least <strong>8 characters</strong>, and staff will be prompted to choose their own password after first sign-in.
           </div>
         </div>
       </section>
@@ -462,7 +469,9 @@ export default function StaffTeamPage() {
                         style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
                         placeholder="Leave blank to keep current password"
                       />
-                      <div style={{ color: '#64748b', fontSize: 12 }}>Enter a new password only when you want to reset this login.</div>
+                      <div style={{ color: '#64748b', fontSize: 12 }}>
+                        Enter a new temporary password only when you want to reset this login. It must be at least 8 characters, and staff will be asked to choose their own password after signing in.
+                      </div>
                     </label>
                   ) : null}
 

@@ -32,6 +32,9 @@ export default async function Home() {
     if (identity.authType === 'none') {
       redirect('/staff/login?next=/');
     }
+    if (identity.mustChangePassword) {
+      redirect('/staff/account?next=/&force=1');
+    }
   }
 
   const settings = await getPublicSiteSettings();

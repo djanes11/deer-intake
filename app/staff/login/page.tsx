@@ -70,6 +70,11 @@ export default function StaffLoginPage() {
         const accessToken = data.session?.access_token;
         if (!accessToken) throw new Error('No session returned from Supabase.');
         setStaffAccessCookie(accessToken);
+        if (data.user?.app_metadata?.wgbb_force_password_change) {
+          router.replace(`/staff/account?next=${encodeURIComponent(next)}&force=1`);
+          router.refresh();
+          return;
+        }
       } else {
         const res = await fetch('/api/staff/local-login', {
           method: 'POST',
@@ -82,6 +87,11 @@ export default function StaffLoginPage() {
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json?.ok || !json?.sessionToken) throw new Error(json?.error || `HTTP ${res.status}`);
         setLocalStaffSessionCookie(String(json.sessionToken));
+        if (json?.session?.mustChangePassword) {
+          router.replace(`/staff/account?next=${encodeURIComponent(next)}&force=1`);
+          router.refresh();
+          return;
+        }
       }
       router.replace(next);
       router.refresh();

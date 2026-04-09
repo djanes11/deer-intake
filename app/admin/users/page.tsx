@@ -105,6 +105,9 @@ export default function AdminUsersPage() {
     setError('');
     setMessage('');
     try {
+      if (!form.password.trim() || form.password.trim().length < 8) {
+        throw new Error('Temporary password must be at least 8 characters.');
+      }
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers,
@@ -241,6 +244,7 @@ export default function AdminUsersPage() {
         <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Create Email-Based Staff User</div>
         <div style={{ color: '#475569', lineHeight: 1.5 }}>
           Use this for processor owners, first admins, or platform-managed accounts. Regular shop staff should usually be created from that processor&apos;s Staff Team screen.
+          Temporary passwords must be at least <strong>8 characters</strong>.
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <label style={{ display: 'grid', gap: 6 }}>

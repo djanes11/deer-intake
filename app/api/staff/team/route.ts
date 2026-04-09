@@ -179,13 +179,14 @@ export async function POST(req: Request) {
         processor_id: processor.id,
         username,
         password_hash: hashLocalPassword(password),
+        must_change_password: true,
         role,
         active: true,
         updated_at: new Date().toISOString(),
       };
       const localResp = existingResp.data?.id
-        ? await supabase.from('staff_local_users').update(payload).eq('id', existingResp.data.id).select('id,processor_id,username,role,active,created_at,updated_at').single()
-        : await supabase.from('staff_local_users').insert(payload).select('id,processor_id,username,role,active,created_at,updated_at').single();
+        ? await supabase.from('staff_local_users').update(payload).eq('id', existingResp.data.id).select('id,processor_id,username,role,active,must_change_password,created_at,updated_at').single()
+        : await supabase.from('staff_local_users').insert(payload).select('id,processor_id,username,role,active,must_change_password,created_at,updated_at').single();
       if (localResp.error) throw localResp.error;
       await writeAuditEntry({
         req,
@@ -295,8 +296,9 @@ export async function PATCH(req: Request) {
         const password = String(body.password).trim();
         if (password.length < 8) return NextResponse.json({ ok: false, error: 'Password must be at least 8 characters.' }, { status: 400 });
         patch.password_hash = hashLocalPassword(password);
+        patch.must_change_password = true;
       }
-      const localResp = await supabase.from('staff_local_users').update(patch).eq('id', id).eq('processor_id', processor.id).select('id,processor_id,username,role,active,created_at,updated_at').single();
+      const localResp = await supabase.from('staff_local_users').update(patch).eq('id', id).eq('processor_id', processor.id).select('id,processor_id,username,role,active,must_change_password,created_at,updated_at').single();
       if (localResp.error) throw localResp.error;
       await writeAuditEntry({
         req,

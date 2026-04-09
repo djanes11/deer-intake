@@ -234,12 +234,19 @@ export async function POST(req: Request) {
         email,
         password,
         email_confirm: true,
+        app_metadata: {
+          wgbb_force_password_change: true,
+        },
       });
       if (created.error) throw created.error;
       authUser = created.data.user;
     } else {
       const updated = await supabase.auth.admin.updateUserById(String(authUser.id), {
         password,
+        app_metadata: {
+          ...(authUser.app_metadata || {}),
+          wgbb_force_password_change: true,
+        },
       });
       if (updated.error) throw updated.error;
       authUser = updated.data.user || authUser;

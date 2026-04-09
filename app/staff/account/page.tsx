@@ -1,13 +1,18 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { clearStaffAccessCookie, setStaffAccessCookie } from '@/lib/staffSession';
+import { clearLocalStaffSessionCookie, clearStaffAccessCookie, setStaffAccessCookie } from '@/lib/staffSession';
 
 export default function StaffAccountPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const searchParams = useSearchParams();
+  const next = useMemo(() => searchParams.get('next') || '/', [searchParams]);
+  const force = useMemo(() => searchParams.get('force') === '1', [searchParams]);
+  const [identifier, setIdentifier] = useState('');
+  const [authType, setAuthType] = useState<'supabase' | 'local' | 'none'>('none');
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(true);
@@ -19,16 +24,25 @@ export default function StaffAccountPage() {
     let active = true;
     const load = async () => {
       try {
-        const supabase = getSupabaseBrowser();
-        const { data } = await supabase.auth.getUser();
-        const userEmail = String(data.user?.email || '').trim();
-        if (!userEmail) {
+        const resp = await fetch('/api/admin/staff-context', { cache: 'no-store' });
+        const json = await resp.json().catch(() => ({}));
+        if (!json?.ok || !json?.identity?.authType || json.identity.authType === 'none') {
           clearStaffAccessCookie();
-          router.replace('/staff/login?next=/staff/account');
+          clearLocalStaffSessionCookie();
+          router.replace(`/staff/login?next=${encodeURIComponent('/staff/account')}`);
           router.refresh();
           return;
         }
-        if (active) setEmail(userEmail);
+        if (active) {
+          const nextAuthType = json.identity.authType === 'local' ? 'local' : 'supabase';
+          setAuthType(nextAuthType);
+          setIdentifier(
+            nextAuthType === 'local'
+              ? String(json.identity.username || '')
+              : String(json.identity.email || '').trim()
+          );
+          setMustChangePassword(!!json.identity.mustChangePassword);
+        }
       } catch (e: any) {
         if (active) setError(String(e?.message || e));
       } finally {
@@ -53,15 +67,42 @@ export default function StaffAccountPage() {
       if (password !== confirmPassword) {
         throw new Error('Passwords do not match.');
       }
-      const supabase = getSupabaseBrowser();
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) throw error;
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (accessToken) setStaffAccessCookie(accessToken);
+      if (authType === 'local') {
+        const res = await fetch('/api/staff/local-account', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ password, confirmPassword }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+        setMustChangePassword(false);
+      } else {
+        const supabase = getSupabaseBrowser();
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (accessToken) setStaffAccessCookie(accessToken);
+        const completeRes = await fetch('/api/staff/account', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ completePasswordChange: true }),
+        });
+        const completeJson = await completeRes.json().catch(() => ({}));
+        if (!completeRes.ok || !completeJson?.ok) {
+          throw new Error(completeJson?.error || `HTTP ${completeRes.status}`);
+        }
+        setMustChangePassword(false);
+      }
       setPassword('');
       setConfirmPassword('');
       setMessage('Password updated.');
+      if (force || authType === 'local') {
+        setTimeout(() => {
+          router.replace(next);
+          router.refresh();
+        }, 700);
+      }
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -105,10 +146,16 @@ export default function StaffAccountPage() {
         ) : (
           <>
             <div>
-              <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>Signed in as</div>
-              <div style={{ color: '#334155' }}>{email || 'Unknown user'}</div>
+              <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>
+                {authType === 'local' ? 'Signed in as local staff user' : 'Signed in as'}
+              </div>
+              <div style={{ color: '#334155' }}>{identifier || 'Unknown user'}</div>
               <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
-                Local username logins are managed by the processor admin and do not use this page.
+                {authType === 'local'
+                  ? mustChangePassword || force
+                    ? 'Your processor admin set a temporary password. Choose your own password now before going back to staff.'
+                    : 'You can update your local staff password here anytime.'
+                  : 'Email-based staff users can update their own password here anytime.'}
               </div>
             </div>
 
@@ -134,6 +181,11 @@ export default function StaffAccountPage() {
                   required
                 />
               </div>
+              {force || mustChangePassword ? (
+                <div style={{ color: '#92400e', fontSize: 14, fontWeight: 700, padding: 12, borderRadius: 12, background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                  This password is temporary. Save a new one here before returning to the staff site.
+                </div>
+              ) : null}
               {message ? <div style={{ color: '#166534', fontSize: 14, fontWeight: 700 }}>{message}</div> : null}
               {error ? <div style={{ color: '#b91c1c', fontSize: 14 }}>{error}</div> : null}
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

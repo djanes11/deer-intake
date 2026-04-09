@@ -13,6 +13,7 @@ export type LocalStaffSession = {
   username: string;
   role: 'staff' | 'readonly';
   active: boolean;
+  mustChangePassword: boolean;
   expiresAt: string;
 };
 
@@ -47,7 +48,7 @@ export async function createLocalStaffSession(input: { username: string; passwor
 
   const userResp = await supabase
     .from('staff_local_users')
-    .select('id,processor_id,username,password_hash,role,active,processors!inner(id,slug,active)')
+    .select('id,processor_id,username,password_hash,role,active,must_change_password,processors!inner(id,slug,active)')
     .ilike('username', username)
     .maybeSingle();
   if (userResp.error) throw userResp.error;
@@ -80,6 +81,7 @@ export async function createLocalStaffSession(input: { username: string; passwor
       username: String(localUser.username),
       role: String(localUser.role) as 'staff' | 'readonly',
       active: !!localUser.active,
+      mustChangePassword: !!localUser.must_change_password,
       expiresAt,
     } satisfies LocalStaffSession,
   };
@@ -91,7 +93,7 @@ export async function getLocalStaffSessionByToken(token: string): Promise<LocalS
   const supabase = getSupabase();
   const resp = await supabase
     .from('staff_local_sessions')
-    .select('expires_at,staff_local_users!inner(id,processor_id,username,role,active,processors!inner(slug))')
+    .select('expires_at,staff_local_users!inner(id,processor_id,username,role,active,must_change_password,processors!inner(slug))')
     .eq('session_token', sessionToken)
     .maybeSingle();
   if (resp.error) throw resp.error;
@@ -108,8 +110,34 @@ export async function getLocalStaffSessionByToken(token: string): Promise<LocalS
     username: String(localUser.username),
     role: String(localUser.role) as 'staff' | 'readonly',
     active: !!localUser.active,
+    mustChangePassword: !!localUser.must_change_password,
     expiresAt: String(row.expires_at),
   };
+}
+
+export async function updateLocalStaffPassword(input: {
+  localUserId: string;
+  password: string;
+  clearMustChangePassword?: boolean;
+}) {
+  const supabase = getSupabase();
+  const localUserId = String(input.localUserId || '').trim();
+  const password = String(input.password || '').trim();
+  if (!localUserId) throw new Error('Local staff user is required.');
+  if (!password || password.length < 8) throw new Error('Password must be at least 8 characters.');
+
+  const resp = await supabase
+    .from('staff_local_users')
+    .update({
+      password_hash: hashLocalPassword(password),
+      must_change_password: input.clearMustChangePassword === false ? true : false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', localUserId)
+    .select('id,processor_id,username,role,active,must_change_password,created_at,updated_at')
+    .single();
+  if (resp.error) throw resp.error;
+  return resp.data;
 }
 
 export async function clearLocalStaffSession(token: string) {
