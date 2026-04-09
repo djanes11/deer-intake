@@ -504,52 +504,63 @@ export default function AdminSettingsPage() {
     { key: 'specialty', label: 'Specialty Products' },
     { key: 'notifications', label: 'Notifications' },
   ] as const;
+  const sectionDescriptions: Record<(typeof sectionTabs)[number]['key'], string> = {
+    branding: 'Business identity, contact details, address, and public-facing branding.',
+    intake: 'Turn intake on or off, choose a state form, and control cut-option visibility.',
+    copy: 'Edit the wording customers see during intake, review, thank-you, and FAQ flows.',
+    banner: 'Manage temporary alerts or notices shown across the public site.',
+    hours: 'Set the pickup and contact hours shown on the public site.',
+    pricing: 'Control base processing prices and system-owned add-on pricing fields.',
+    processes: 'Choose which process types are available and what each one costs.',
+    addons: 'Manage generic add-ons that staff and customers can select on intake.',
+    specialty: 'Control specialty products, names, and per-pound pricing.',
+    notifications: 'Customize the template wording for customer emails and texts.',
+  };
+  const currentSectionIndex = Math.max(0, sectionTabs.findIndex((tab) => tab.key === section));
+  const currentSection = sectionTabs[currentSectionIndex] || sectionTabs[0];
+  const previousSection = currentSectionIndex > 0 ? sectionTabs[currentSectionIndex - 1] : null;
+  const nextSection = currentSectionIndex < sectionTabs.length - 1 ? sectionTabs[currentSectionIndex + 1] : null;
   const sectionCard: React.CSSProperties = {
-    border: '1px solid #d6dee8',
-    borderRadius: 16,
-    padding: 18,
-    background: '#ffffff',
-    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+    border: '1px solid rgba(200,138,61,.14)',
+    borderRadius: 22,
+    padding: 20,
+    background: 'rgba(255,255,255,.97)',
+    boxShadow: '0 18px 40px rgba(15, 23, 42, 0.12)',
     display: 'grid',
     gap: 12,
   };
   const sectionButton = (active: boolean): React.CSSProperties => ({
     padding: '10px 14px',
     borderRadius: 999,
-    border: `1px solid ${active ? '#bfd2c2' : '#d6dee8'}`,
-    background: active ? '#eef8f0' : '#ffffff',
-    color: active ? '#173321' : '#334155',
+    border: `1px solid ${active ? '#e1c08b' : '#d6dee8'}`,
+    background: active ? '#fff7eb' : '#ffffff',
+    color: active ? '#7c4b17' : '#334155',
     fontWeight: 800,
     cursor: 'pointer',
+    boxShadow: active ? '0 8px 18px rgba(200,138,61,.12)' : '0 6px 14px rgba(15,23,42,.04)',
   });
 
   return (
-    <div
-      style={{
-        maxWidth: 960,
-        margin: '24px auto',
-        padding: 16,
-        color: '#0f172a',
-      }}
-    >
-      <div
-        style={{
-          marginBottom: 16,
-          padding: '18px 20px',
-          borderRadius: 18,
-          background: 'linear-gradient(135deg, #122217 0%, #22412d 100%)',
-          color: '#f8fafc',
-          border: '1px solid #2f6f3f',
-        }}
-      >
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#b9ddc2' }}>
-          Staff Controls
+    <main className="app-frame" style={{ maxWidth: 1040, color: '#0f172a' }}>
+      <section className="app-hero">
+        <div className="app-hero-grid">
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div className="app-kicker">
+              Staff Controls
+            </div>
+            <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 36px)' }}>Public Site Settings</h1>
+            <div className="app-copy">
+              Manage the processor-facing pieces of the product from one place: branding, public intake behavior, offerings, public wording, and customer communication defaults.
+            </div>
+          </div>
+          <div className="app-side-note">
+            <div style={{ fontWeight: 900, color: '#fff7e8' }}>Best use of this page</div>
+            <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>
+              Treat this as the processor’s control center. Platform plans and billing belong in Processor Management, while this page controls what customers and staff actually see and use.
+            </div>
+          </div>
         </div>
-        <h2 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05, color: '#ffffff' }}>Public Site Settings</h2>
-        <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 700, lineHeight: 1.5 }}>
-          Update the public intake status, banner message, and customer-facing pickup hours from one place.
-        </div>
-      </div>
+      </section>
 
       <section
         style={{
@@ -568,12 +579,9 @@ export default function AdminSettingsPage() {
         ].map((item) => (
           <div
             key={item.label}
+            className="app-surface-light"
             style={{
-              border: '1px solid #d6dee8',
-              borderRadius: 14,
-              background: '#ffffff',
               padding: 16,
-              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
               display: 'grid',
               gap: 6,
             }}
@@ -585,27 +593,107 @@ export default function AdminSettingsPage() {
         ))}
       </section>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {sectionTabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => setSection(tab.key)}
-            style={sectionButton(section === tab.key)}
+      <section className="app-surface-light" style={{ padding: 14, display: 'grid', gap: 12 }}>
+        <div className="app-section-head">
+          <div className="app-section-title">Settings Areas</div>
+          <div className="app-section-copy">Work through one settings section at a time to keep changes easier to review and save.</div>
+        </div>
+      </section>
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(240px, 280px) minmax(0, 1fr)',
+          gap: 16,
+          alignItems: 'start',
+        }}
+      >
+        <aside
+          className="app-surface-light"
+          style={{
+            padding: 14,
+            display: 'grid',
+            gap: 12,
+            position: 'sticky',
+            top: 78,
+          }}
+        >
+          <div className="app-section-head">
+            <div className="app-section-title">Navigate Settings</div>
+            <div className="app-section-copy">
+              {currentSection ? `${currentSectionIndex + 1} of ${sectionTabs.length}: ${currentSection.label}` : 'Choose a section.'}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {sectionTabs.map((tab, index) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setSection(tab.key)}
+                style={{
+                  ...sectionButton(section === tab.key),
+                  width: '100%',
+                  textAlign: 'left',
+                  display: 'grid',
+                  gap: 4,
+                }}
+              >
+                <span style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>
+                  Section {index + 1}
+                </span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+          <div
+            style={{
+              padding: 12,
+              borderRadius: 14,
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              display: 'grid',
+              gap: 8,
+            }}
           >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
+              Current Section
+            </div>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>{currentSection.label}</div>
+            <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.5 }}>
+              {sectionDescriptions[currentSection.key]}
+            </div>
+            <button
+              onClick={save}
+              disabled={busy}
+              style={{
+                padding: '11px 14px',
+                borderRadius: 12,
+                border: '1px solid #235532',
+                background: '#2f6f3f',
+                color: '#fff',
+                fontWeight: 900,
+                cursor: 'pointer',
+                opacity: busy ? 0.7 : 1,
+                marginTop: 4,
+              }}
+            >
+              {busy ? 'Saving...' : 'Save Changes'}
+            </button>
+            <div style={{ fontSize: 13, fontWeight: 800, color: msg === 'Saved' ? '#166534' : '#64748b' }}>
+              {msg || 'Changes save across every section on this page.'}
+            </div>
+          </div>
+        </aside>
 
       <div style={{ display: 'grid', gap: 14 }}>
         {section === 'branding' && (
         <div style={sectionCard}>
-          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Brand & Contact</div>
-          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            These details show up on the public site for this processor. Plan tiers and feature access now live on the processor management page.
+          <div className="app-section-head">
+            <div className="app-section-title">Branding & Contact</div>
+            <div className="app-section-copy">
+              These details appear on the public site for this processor. Plan tiers and feature access are managed from Processor Management.
+            </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             {[
               ['Business name', 'name'],
@@ -1294,8 +1382,45 @@ export default function AdminSettingsPage() {
             alignItems: 'center',
             flexWrap: 'wrap',
             padding: '8px 4px 0',
+            justifyContent: 'space-between',
           }}
         >
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {previousSection ? (
+              <button
+                type="button"
+                onClick={() => setSection(previousSection.key)}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  color: '#334155',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                {`Previous: ${previousSection.label}`}
+              </button>
+            ) : null}
+            {nextSection ? (
+              <button
+                type="button"
+                onClick={() => setSection(nextSection.key)}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  color: '#334155',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                {`Next: ${nextSection.label}`}
+              </button>
+            ) : null}
+          </div>
           <button
             onClick={save}
             disabled={busy}
@@ -1312,17 +1437,9 @@ export default function AdminSettingsPage() {
           >
             {busy ? 'Saving...' : 'Save'}
           </button>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 900,
-              color: msg === 'Saved' ? '#166534' : '#334155',
-            }}
-          >
-            {msg}
-          </div>
         </div>
       </div>
-    </div>
+      </section>
+    </main>
   );
 }

@@ -256,35 +256,36 @@ export default function AdminProcessorsPage() {
   const navButton = (active: boolean): React.CSSProperties => ({
     padding: '10px 14px',
     borderRadius: 999,
-    border: `1px solid ${active ? '#bfdbfe' : '#d6dee8'}`,
-    background: active ? '#eff6ff' : '#ffffff',
-    color: active ? '#1d4ed8' : '#334155',
+    border: `1px solid ${active ? '#e1c08b' : '#d6dee8'}`,
+    background: active ? '#fff7eb' : '#ffffff',
+    color: active ? '#7c4b17' : '#334155',
     fontWeight: 800,
     cursor: 'pointer',
+    boxShadow: active ? '0 8px 18px rgba(200,138,61,.12)' : '0 6px 14px rgba(15,23,42,.04)',
   });
 
   return (
-    <main style={{ maxWidth: 1180, margin: '24px auto', padding: '0 16px 40px', display: 'grid', gap: 16 }}>
-      <div
-        style={{
-          padding: '18px 20px',
-          borderRadius: 18,
-          background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
-          color: '#f8fafc',
-          border: '1px solid #334155',
-        }}
-      >
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#cbd5e1' }}>
-          Platform Admin
+    <main className="app-frame" style={{ maxWidth: 1220 }}>
+      <section className="app-hero">
+        <div className="app-hero-grid">
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div className="app-kicker">Platform Admin</div>
+            <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 36px)' }}>Processor Management</h1>
+            <div className="app-copy">
+              Onboard processors, manage plan tiers and billing status, and check who is actually ready to go live from one place.
+            </div>
+          </div>
+          <div className="app-side-note">
+            <div style={{ fontWeight: 900, color: '#fff7e8' }}>What belongs here</div>
+            <div style={{ color: 'rgba(245,236,216,.82)', lineHeight: 1.55 }}>
+              Use this page for platform-owned setup like hostnames, billing lifecycle, and plan access. Processor-facing branding and offerings stay inside Public Site Settings.
+            </div>
+          </div>
         </div>
-        <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Processor Management</h1>
-        <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 760, lineHeight: 1.5 }}>
-          Manage processor plan tiers, feature flags, and shared deployment hostnames from one place.
-        </div>
-      </div>
+      </section>
 
       {msg ? (
-        <div style={{ padding: 12, borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontWeight: 800 }}>
+        <div className="app-surface-light" style={{ padding: 12, borderColor: '#bfdbfe', color: '#1d4ed8', fontWeight: 800 }}>
           {msg}
         </div>
       ) : null}
@@ -297,18 +298,7 @@ export default function AdminProcessorsPage() {
         }}
       >
         {summaryCards.map((item) => (
-          <div
-            key={item.label}
-            style={{
-              border: '1px solid #d6dee8',
-              borderRadius: 14,
-              background: '#ffffff',
-              padding: 16,
-              boxShadow: '0 8px 20px rgba(15, 23, 42, 0.04)',
-              display: 'grid',
-              gap: 6,
-            }}
-          >
+          <div key={item.label} className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>{item.label}</div>
             <div style={{ fontSize: 30, fontWeight: 950, color: '#0f172a' }}>{item.value}</div>
             <div style={{ color: '#64748b', fontSize: 13, lineHeight: 1.45 }}>{item.note}</div>
@@ -316,23 +306,28 @@ export default function AdminProcessorsPage() {
         ))}
       </section>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button type="button" onClick={() => setMode('list')} style={navButton(mode === 'list')}>
-          Processor List
-        </button>
-        <button type="button" onClick={() => setMode('create')} style={navButton(mode === 'create')}>
-          Onboard New Processor
-        </button>
-      </div>
+      <section className="app-surface-light" style={{ padding: 14, display: 'grid', gap: 12 }}>
+        <div className="app-section-head">
+          <div className="app-section-title">Platform Views</div>
+          <div className="app-section-copy">Switch between the live processor list and the onboarding flow for a new processor.</div>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setMode('list')} style={navButton(mode === 'list')}>
+            Processor List
+          </button>
+          <button type="button" onClick={() => setMode('create')} style={navButton(mode === 'create')}>
+            Onboard New Processor
+          </button>
+        </div>
+      </section>
 
       {createdSummary ? (
         <section
+          className="app-surface-light"
           style={{
             border: '1px solid #c7e7d0',
-            borderRadius: 18,
             padding: 18,
             background: 'linear-gradient(180deg, #f4fbf6 0%, #ffffff 100%)',
-            boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
             display: 'grid',
             gap: 14,
           }}
