@@ -8,6 +8,7 @@ import { isPlatformAdmin } from '@/lib/staffContext';
 import { SITE } from '@/lib/config';
 import { DEFAULT_SITE_PRICING } from '@/lib/pricing';
 import { normalizeProcessorFeatures } from '@/lib/siteSettings';
+import { buildOnboardingChecklist } from '@/lib/onboardingChecklist';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -111,6 +112,63 @@ function nextSiteSettingsId(supabase: ReturnType<typeof getSupabase>) {
     .maybeSingle();
 }
 
+async function enrichProcessorRow(
+  supabase: ReturnType<typeof getSupabase>,
+  row: any
+) {
+  const processorId = String(row.id);
+  const [settingsResp, adminsResp] = await Promise.all([
+    supabase
+      .from('site_settings')
+      .select('*')
+      .eq('processor_id', processorId)
+      .maybeSingle(),
+    supabase
+      .from('processor_users')
+      .select('id', { count: 'exact', head: true })
+      .eq('processor_id', processorId)
+      .eq('active', true)
+      .eq('role', 'admin'),
+  ]);
+
+  if (settingsResp.error) throw settingsResp.error;
+  if (adminsResp.error) throw adminsResp.error;
+
+  const checklist = buildOnboardingChecklist({
+    publicHostname: row.public_hostname,
+    staffHostname: row.staff_hostname,
+    adminCount: adminsResp.count || 0,
+    processor: {
+      publicName: row.public_name,
+      supportPhoneDisplay: row.support_phone_display,
+      publicAddress: row.public_address,
+    },
+    siteSettings: settingsResp.data || {},
+  });
+
+  return {
+    id: processorId,
+    slug: String(row.slug || ''),
+    name: String(row.name || ''),
+    publicName: String(row.public_name || row.name || ''),
+    active: !!row.active,
+    publicHostname: String(row.public_hostname || ''),
+    staffHostname: String(row.staff_hostname || ''),
+    features: normalizeFeatures(row.features || {}),
+    billingStatus: normalizeBillingStatus(row.billing_status),
+    billingCycle: normalizeBillingCycle(row.billing_cycle),
+    monthlyPrice: row.monthly_price == null ? null : Number(row.monthly_price),
+    trialEndsAt: row.trial_ends_at || null,
+    subscriptionStartedAt: row.subscription_started_at || null,
+    goLiveAt: row.go_live_at || null,
+    setupCompletedAt: row.setup_completed_at || null,
+    billingNotes: String(row.billing_notes || ''),
+    createdAt: row.created_at || null,
+    updatedAt: row.updated_at || null,
+    onboarding: checklist,
+  };
+}
+
 async function listAllAuthUsers(supabase: ReturnType<typeof getSupabase>) {
   const users: any[] = [];
   let page = 1;
@@ -169,26 +227,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      rows: (data || []).map((row: any) => ({
-        id: String(row.id),
-        slug: String(row.slug || ''),
-        name: String(row.name || ''),
-        publicName: String(row.public_name || row.name || ''),
-        active: !!row.active,
-        publicHostname: String(row.public_hostname || ''),
-        staffHostname: String(row.staff_hostname || ''),
-        features: normalizeFeatures(row.features || {}),
-        billingStatus: normalizeBillingStatus(row.billing_status),
-        billingCycle: normalizeBillingCycle(row.billing_cycle),
-        monthlyPrice: row.monthly_price == null ? null : Number(row.monthly_price),
-        trialEndsAt: row.trial_ends_at || null,
-        subscriptionStartedAt: row.subscription_started_at || null,
-        goLiveAt: row.go_live_at || null,
-        setupCompletedAt: row.setup_completed_at || null,
-        billingNotes: String(row.billing_notes || ''),
-        createdAt: row.created_at || null,
-        updatedAt: row.updated_at || null,
-      })),
+      rows: await Promise.all((data || []).map((row: any) => enrichProcessorRow(supabase, row))),
     });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
@@ -319,26 +358,7 @@ export async function POST(req: Request) {
         ok: true,
         created: true,
         firstAdminCreated,
-        row: {
-          id: String(createdProcessor.id),
-          slug: String(createdProcessor.slug || ''),
-          name: String(createdProcessor.name || ''),
-          publicName: String(createdProcessor.public_name || createdProcessor.name || ''),
-          active: !!createdProcessor.active,
-          publicHostname: String(createdProcessor.public_hostname || ''),
-          staffHostname: String(createdProcessor.staff_hostname || ''),
-          features: normalizeFeatures(createdProcessor.features || {}),
-          billingStatus: normalizeBillingStatus(createdProcessor.billing_status),
-          billingCycle: normalizeBillingCycle(createdProcessor.billing_cycle),
-          monthlyPrice: createdProcessor.monthly_price == null ? null : Number(createdProcessor.monthly_price),
-          trialEndsAt: createdProcessor.trial_ends_at || null,
-          subscriptionStartedAt: createdProcessor.subscription_started_at || null,
-          goLiveAt: createdProcessor.go_live_at || null,
-          setupCompletedAt: createdProcessor.setup_completed_at || null,
-          billingNotes: String(createdProcessor.billing_notes || ''),
-          createdAt: createdProcessor.created_at || null,
-          updatedAt: createdProcessor.updated_at || null,
-        },
+        row: await enrichProcessorRow(supabase, createdProcessor),
       });
     }
 
@@ -377,26 +397,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      row: {
-        id: String(data.id),
-        slug: String(data.slug || ''),
-        name: String(data.name || ''),
-        publicName: String(data.public_name || data.name || ''),
-        active: !!data.active,
-        publicHostname: String(data.public_hostname || ''),
-        staffHostname: String(data.staff_hostname || ''),
-        features: normalizeFeatures(data.features || {}),
-        billingStatus: normalizeBillingStatus(data.billing_status),
-        billingCycle: normalizeBillingCycle(data.billing_cycle),
-        monthlyPrice: data.monthly_price == null ? null : Number(data.monthly_price),
-        trialEndsAt: data.trial_ends_at || null,
-        subscriptionStartedAt: data.subscription_started_at || null,
-        goLiveAt: data.go_live_at || null,
-        setupCompletedAt: data.setup_completed_at || null,
-        billingNotes: String(data.billing_notes || ''),
-        createdAt: data.created_at || null,
-        updatedAt: data.updated_at || null,
-      },
+      row: await enrichProcessorRow(supabase, data),
     });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });

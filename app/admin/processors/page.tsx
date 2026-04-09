@@ -26,6 +26,17 @@ type ProcessorRow = {
   setupCompletedAt?: string | null;
   billingNotes?: string;
   updatedAt?: string | null;
+  onboarding: {
+    readyCount: number;
+    totalCount: number;
+    readyToGoLive: boolean;
+    items: Array<{
+      key: string;
+      label: string;
+      done: boolean;
+      note: string;
+    }>;
+  };
 };
 
 type CreatedProcessorSummary = {
@@ -236,6 +247,11 @@ export default function AdminProcessorsPage() {
     { label: 'Processors', value: rows.length, note: 'Total processors in the platform' },
     { label: 'Active', value: rows.filter((row) => row.active).length, note: 'Currently enabled processors' },
     { label: 'Trials', value: rows.filter((row) => row.billingStatus === 'trial').length, note: 'Processors in trial status' },
+    {
+      label: 'Ready To Go Live',
+      value: rows.filter((row) => row.onboarding?.readyToGoLive).length,
+      note: 'Processors with checklist complete',
+    },
   ];
   const navButton = (active: boolean): React.CSSProperties => ({
     padding: '10px 14px',
@@ -707,6 +723,8 @@ export default function AdminProcessorsPage() {
               {rows.map((row) => {
                 const tone = lifecycleTone(row.billingStatus);
                 const selected = row.id === selectedRow.id;
+                const onboardingReady = row.onboarding?.readyCount || 0;
+                const onboardingTotal = row.onboarding?.totalCount || 0;
                 return (
                   <button
                     key={row.id}
@@ -746,6 +764,9 @@ export default function AdminProcessorsPage() {
                       {row.features.plan.charAt(0).toUpperCase() + row.features.plan.slice(1)} plan
                       {' • '}
                       {row.active ? 'Active' : 'Inactive'}
+                    </div>
+                    <div style={{ color: '#475569', fontSize: 13, fontWeight: 700 }}>
+                      Onboarding: {onboardingReady}/{onboardingTotal || 6}
                     </div>
                   </button>
                 );
@@ -878,6 +899,105 @@ export default function AdminProcessorsPage() {
                 <button className="btn secondary" type="button" onClick={() => updateSelectedRow({ goLiveAt: dateInputValue(new Date().toISOString()) })}>
                   Mark Go Live
                 </button>
+              </div>
+
+              <div
+                style={{
+                  border: '1px solid #d6dee8',
+                  borderRadius: 16,
+                  padding: 16,
+                  background: selectedRow.onboarding?.readyToGoLive ? '#f0fdf4' : '#f8fafc',
+                  display: 'grid',
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Go-Live Checklist</div>
+                    <div style={{ color: '#475569', marginTop: 4 }}>
+                      Quick readiness check before handoff, testing, or opening the processor to live traffic.
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '6px 10px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 900,
+                      background: selectedRow.onboarding?.readyToGoLive ? '#dcfce7' : '#fff7ed',
+                      color: selectedRow.onboarding?.readyToGoLive ? '#166534' : '#9a3412',
+                    }}
+                  >
+                    {selectedRow.onboarding?.readyCount || 0}/{selectedRow.onboarding?.totalCount || 0} complete
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {(selectedRow.onboarding?.items || []).map((item) => (
+                    <div
+                      key={item.key}
+                      style={{
+                        border: `1px solid ${item.done ? '#bbf7d0' : '#fed7aa'}`,
+                        borderRadius: 14,
+                        padding: 14,
+                        background: item.done ? '#ffffff' : '#fffaf0',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        alignItems: 'start',
+                      }}
+                    >
+                      <div style={{ display: 'grid', gap: 4 }}>
+                        <div style={{ fontWeight: 900, color: '#0f172a' }}>{item.label}</div>
+                        <div style={{ color: '#475569', fontSize: 14, lineHeight: 1.5 }}>{item.note}</div>
+                      </div>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          padding: '6px 10px',
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 900,
+                          whiteSpace: 'nowrap',
+                          background: item.done ? '#dcfce7' : '#fee2e2',
+                          color: item.done ? '#166534' : '#991b1b',
+                        }}
+                      >
+                        {item.done ? 'Ready' : 'Needs review'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {selectedRow.publicHostname ? (
+                    <a href={`https://${selectedRow.publicHostname}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                      <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                        Open Public Site
+                      </div>
+                    </a>
+                  ) : null}
+                  {selectedRow.staffHostname ? (
+                    <a href={`https://${selectedRow.staffHostname}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                      <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                        Open Staff Site
+                      </div>
+                    </a>
+                  ) : null}
+                  <a href="/admin/settings" style={{ textDecoration: 'none' }}>
+                    <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                      Open Current Settings
+                    </div>
+                  </a>
+                  <a href="/admin/users" style={{ textDecoration: 'none' }}>
+                    <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                      Open Staff Users
+                    </div>
+                  </a>
+                </div>
               </div>
 
               <label style={{ display: 'grid', gap: 6 }}>

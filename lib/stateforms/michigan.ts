@@ -11,7 +11,7 @@ import {
 } from '@/lib/stateforms/shared';
 import { StateFormDefinition, StateFormPreparedPayload } from '@/lib/stateforms/types';
 
-const ROWS = Array.from({ length: 8 }, (_, i) => i + 1);
+const ROWS = Array.from({ length: 8 }, (_, i) => i);
 
 type MichiganRects = {
   registrant: any;
