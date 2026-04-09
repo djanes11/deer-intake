@@ -153,6 +153,41 @@ body::before{
   text-transform: uppercase;
   color: rgba(215, 199, 171, .72);
 }
+.menu .dd .dropdown-menu .dropdown-submenu {
+  border-radius: 10px;
+  background: rgba(255,255,255,.02);
+}
+.menu .dd .dropdown-menu .dropdown-submenu + .dropdown-submenu {
+  margin-top: 4px;
+}
+.menu .dd .dropdown-menu .dropdown-submenu > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(215, 199, 171, .86);
+}
+.menu .dd .dropdown-menu .dropdown-submenu > summary::-webkit-details-marker { display: none; }
+.menu .dd .dropdown-menu .dropdown-submenu > summary::after {
+  content: "▾";
+  float: right;
+  opacity: .7;
+}
+.menu .dd .dropdown-menu .dropdown-submenu[open] > summary {
+  background: rgba(200,138,61,.08);
+}
+.menu .dd .dropdown-menu .dropdown-submenu-body {
+  display: grid;
+  gap: 2px;
+  padding: 0 6px 6px;
+}
+.menu .dd .dropdown-menu .dropdown-submenu-body a {
+  padding-left: 14px;
+}
 
 /* Desktop hover can still reveal the menu via <details open> */
 @media (min-width: 761px) {
