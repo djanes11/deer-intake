@@ -2136,11 +2136,16 @@ export async function progressJob(tag: string) {
   const curStatus = curStatusRaw.toLowerCase();
   const curCapeStatusRaw = String(job.caping_status || '').trim();
 
-  const isInitialStatus =
-    !curStatus ||
-    curStatus === 'dropped off' ||
-    curStatus === 'drop off' ||
-    curStatus === 'droppedoff';
+  const isProcessingStage =
+    curStatus === 'processing' ||
+    curStatus === 'in progress' ||
+    curStatus === 'inprogress';
+  const isTerminalMeatStatus =
+    curStatus === 'called' ||
+    curStatus === 'picked up' ||
+    curStatus === 'pickedup' ||
+    meatReady(curStatusRaw);
+  const canStartMeatProcessing = !isProcessingStage && !isTerminalMeatStatus;
 
   let nextStatus: string | null = null;
   let progressedField: 'status' | 'caping_status' | null = null;
@@ -2154,10 +2159,10 @@ export async function progressJob(tag: string) {
   if (needsCape && !capeAlreadyFinished) {
     nextStatus = 'Finished';
     progressedField = 'caping_status';
-  } else if (isInitialStatus) {
+  } else if (canStartMeatProcessing) {
     nextStatus = 'Processing';
     progressedField = 'status';
-  } else if (curStatus === 'processing') {
+  } else if (isProcessingStage) {
     nextStatus = 'Finished';
     progressedField = 'status';
   } else {
