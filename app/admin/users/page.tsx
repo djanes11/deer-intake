@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
         });
       }
       setForm((prev) => ({ ...EMPTY_FORM, processorId: prev.processorId || activeProcessors[0]?.id || '' }));
-      setMessage(json.created ? `Created ${form.email}` : `Updated access for ${form.email}`);
+      setMessage(json.created ? `Created ${form.email}` : `Updated access and password for ${form.email}`);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {

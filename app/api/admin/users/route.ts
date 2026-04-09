@@ -227,6 +227,7 @@ export async function POST(req: Request) {
     const supabase = getSupabase();
     const authUsers = await listAllAuthUsers(supabase);
     let authUser = authUsers.find((user) => normalizeEmail(user?.email) === email) || null;
+    const userAlreadyExisted = !!authUser;
 
     if (!authUser) {
       const created = await supabase.auth.admin.createUser({
@@ -236,6 +237,12 @@ export async function POST(req: Request) {
       });
       if (created.error) throw created.error;
       authUser = created.data.user;
+    } else {
+      const updated = await supabase.auth.admin.updateUserById(String(authUser.id), {
+        password,
+      });
+      if (updated.error) throw updated.error;
+      authUser = updated.data.user || authUser;
     }
 
     const authUserId = String(authUser?.id || '').trim();
@@ -263,14 +270,14 @@ export async function POST(req: Request) {
       await writeAuditEntry({
         req,
         processorId,
-        action: !authUsers.some((user) => normalizeEmail(user?.email) === email) ? 'platform.staff.created' : 'platform.staff.access_updated',
+        action: userAlreadyExisted ? 'platform.staff.password_reset' : 'platform.staff.created',
         targetType: 'processor_user',
         targetId: membership ? String(membership.id) : authUserId,
         targetLabel: email,
-        summary: !authUsers.some((user) => normalizeEmail(user?.email) === email)
-          ? `Created staff login ${email}`
-          : `Updated platform-managed access for ${email}`,
-        details: { email, role, platformAdmin },
+        summary: userAlreadyExisted
+          ? `Reset password or updated platform-managed access for ${email}`
+          : `Created staff login ${email}`,
+        details: { email, role, platformAdmin, passwordReset: userAlreadyExisted },
       });
     }
 
@@ -278,7 +285,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      created: !authUsers.some((user) => normalizeEmail(user?.email) === email),
+      created: !userAlreadyExisted,
       membership: membership
         ? {
             id: String(membership.id),
