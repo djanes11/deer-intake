@@ -49,6 +49,7 @@ type SiteSettings = {
   branding: BrandingSettings;
   cutOptions: {
     showFrontShoulderSteaks: boolean;
+    showSteakThickness: boolean;
     showBackstrapThickness: boolean;
     showRoastCounts: boolean;
   };
@@ -644,6 +645,14 @@ export default function AdminSettingsPage() {
                 onChange={(e) => setS({ ...s, cutOptions: { ...s.cutOptions, showFrontShoulderSteaks: e.target.checked } })}
               />
               Show front shoulder steak option
+            </label>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={!!s.cutOptions?.showSteakThickness}
+                onChange={(e) => setS({ ...s, cutOptions: { ...s.cutOptions, showSteakThickness: e.target.checked } })}
+              />
+              Show steak thickness option
             </label>
             <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
               <input

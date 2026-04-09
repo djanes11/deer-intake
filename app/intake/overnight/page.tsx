@@ -375,6 +375,7 @@ function OvernightIntakePage() {
     [specialtyCatalog, pricing]
   );
   const showFrontShoulderSteaks = cutOptions.showFrontShoulderSteaks !== false;
+  const showSteakThickness = cutOptions.showSteakThickness !== false;
   const showBackstrapThickness = cutOptions.showBackstrapThickness !== false;
   const showRoastCounts = cutOptions.showRoastCounts !== false;
   const specialtyItems = useMemo(
@@ -1440,6 +1441,26 @@ function OvernightIntakePage() {
             <section>
               <h3>Packaging & Add-ons</h3>
               <div className="pkgGrid">
+                {showSteakThickness ? (
+                  <div className="pkg steak">
+                    <label>Steak Thickness</label>
+                    <select value={job.steak || ''} onChange={(e) => setVal('steak', e.target.value)} disabled={locked}>
+                      <option value="">--</option>
+                      <option value='1/2"'>1/2"</option>
+                      <option value='3/4"'>3/4"</option>
+                      <option value='1"'>1"</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                ) : null}
+
+                {showSteakThickness && job.steak === 'Other' ? (
+                  <div className="pkg steakOther">
+                    <label>Custom Steak Thickness</label>
+                    <input value={job.steakOther || ''} onChange={(e) => setVal('steakOther', e.target.value)} disabled={locked} placeholder="Enter thickness" />
+                  </div>
+                ) : null}
+
                 <div className="pkg steaksPer">
                   <label>Steaks per Package</label>
                   <select value={job.steaksPerPackage || ''} onChange={(e) => setVal('steaksPerPackage', e.target.value)} disabled={locked}>
@@ -1741,7 +1762,12 @@ function OvernightIntakePage() {
                   <div className="reviewCardTitle">Cuts & Packaging</div>
                   <div className="reviewLine">Hind quarter: {hindSelections.join(' | ') || '-'}</div>
                   <div className="reviewLine">Front shoulder: {frontSelections.join(' | ') || '-'}</div>
-                  <div className="reviewLine">Steaks per pack: {job.steaksPerPackage || '-'}</div>
+                <div className="reviewLine">Steaks per pack: {job.steaksPerPackage || '-'}</div>
+                  {showSteakThickness ? (
+                    <div className="reviewLine">
+                      Steak thickness: {job.steak === 'Other' ? (job.steakOther || '-') : (job.steak || '-')}
+                    </div>
+                  ) : null}
                   <div className="reviewLine">Burger size: {job.burgerSize || '-'}</div>
                   <div className="reviewLine">Backstrap: {job.backstrapPrep || '-'}</div>
                   {showBackstrapThickness ? (

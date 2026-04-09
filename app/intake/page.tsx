@@ -587,6 +587,7 @@ function IntakePage() {
     !customerSectionComplete;
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const showFrontShoulderSteaks = cutOptions.showFrontShoulderSteaks !== false;
+  const showSteakThickness = cutOptions.showSteakThickness !== false;
   const showBackstrapThickness = cutOptions.showBackstrapThickness !== false;
   const showRoastCounts = cutOptions.showRoastCounts !== false;
 
@@ -1830,6 +1831,29 @@ if (fresh?.exists && fresh.job) {
         <section>
           <h3>Packaging & Add-ons</h3>
           <div className="grid">
+            {showSteakThickness ? (
+              <div className="c4">
+                <label>Steak Thickness</label>
+                <select
+                  value={job.steak || ''}
+                  onChange={(e) => setVal('steak', e.target.value)}
+                >
+                  <option value="">--</option>
+                  <option value='1/2"'>1/2"</option>
+                  <option value='3/4"'>3/4"</option>
+                  <option value='1"'>1"</option>
+                  <option value="Other">Other</option>
+                </select>
+                {job.steak === 'Other' ? (
+                  <input
+                    style={{ marginTop: 8 }}
+                    value={job.steakOther || ''}
+                    onChange={(e) => setVal('steakOther', e.target.value)}
+                    placeholder="Enter thickness"
+                  />
+                ) : null}
+              </div>
+            ) : null}
             <div className="c4">
               <label>Steaks per Package</label>
               <select

@@ -60,6 +60,9 @@ export default function ButcherOverlay({
   const processType = String(get('Process Type', 'processType') ?? '').trim();
   const notes = String(get('Notes', 'notes') ?? '').trim();
   const steaksPerPack = String(get('Steaks per Package', 'Steaks Per Package', 'steaksPerPackage') ?? '').trim();
+  const steakThicknessRaw = String(get('Steak Thickness', 'Steak Size', 'steak', 'steakSize', 'steak_size') ?? '').trim();
+  const steakThicknessOther = String(get('Steak Thickness Other', 'Steak Size Other', 'steakOther', 'steak_size_other') ?? '').trim();
+  const steakThickness = steakThicknessRaw === 'Other' ? steakThicknessOther : steakThicknessRaw;
   const burgerSize = String(get('Burger Size', 'burgerSize') ?? '').trim();
   const backstrapPrep = String(get('Backstrap Prep', 'backstrapPrep') ?? '').trim();
   const hindRoastCount = String(get('Hind Roast Count', 'hindRoastCount') ?? '').trim();
@@ -236,7 +239,8 @@ export default function ButcherOverlay({
               <ListCard label="Front Shoulder" items={front} />
             </div>
 
-            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
+            <div style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
+              <SummaryCard label="Steak Thickness" value={steakThickness} />
               <SummaryCard label="Steaks / Package" value={steaksPerPack} />
               <SummaryCard label="Burger Size" value={burgerSize} />
               <SummaryCard label="Backstrap" value={backstrapPrep} />

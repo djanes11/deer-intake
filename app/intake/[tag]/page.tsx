@@ -125,6 +125,7 @@ export default async function IntakeView({
     const settings = await getPublicSiteSettings();
     const webbsEnabled = settings.features.webbsEnabled !== false;
     const showFrontShoulderSteaks = settings.cutOptions.showFrontShoulderSteaks !== false;
+    const showSteakThickness = settings.cutOptions.showSteakThickness !== false;
     const showBackstrapThickness = settings.cutOptions.showBackstrapThickness !== false;
     const showRoastCounts = settings.cutOptions.showRoastCounts !== false;
     // Promise props (Next 15)
@@ -364,6 +365,11 @@ export default async function IntakeView({
           <section>
             <h3>Packaging & Add-ons</h3>
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
+              {showSteakThickness ? (
+                <div className="c3" style={{gridColumn:'span 3'}}>
+                  <Field label="Steak Thickness" value={job?.steak === 'Other' ? (job?.steakOther || '') : (job?.steak || '')} />
+                </div>
+              ) : null}
               <div className="c3" style={{gridColumn:'span 3'}}><Field label="Steaks per Package" value={job?.steaksPerPackage || ''} /></div>
               <div className="c3" style={{gridColumn:'span 3'}}><Field label="Burger Size" value={job?.burgerSize || ''} /></div>
               <div className="c6" style={{gridColumn:'span 6'}}>

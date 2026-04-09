@@ -516,6 +516,18 @@ return () => {
       {/* Row E */}
       <div className="row grid12 meat-row">
         <div className="col-4 box">
+          <div className="label">Steak Thickness</div>
+          <div className="val">
+            {textVal(
+              'Steak Thickness','Steak Size','steak','steakSize','steak_size'
+            ) === 'Other'
+              ? textVal('Steak Thickness Other', 'Steak Size Other', 'steakOther', 'steak_size_other')
+              : textVal(
+                  'Steak Thickness','Steak Size','steak','steakSize','steak_size'
+                )}
+          </div>
+        </div>
+        <div className="col-4 box">
           <div className="label">Steaks per Package</div>
           <div className="val">
             {textVal(
