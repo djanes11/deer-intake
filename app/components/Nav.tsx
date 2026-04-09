@@ -34,6 +34,8 @@ export default function Nav() {
   const [isAdminHost, setIsAdminHost] = useState(false);
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [staffAuthType, setStaffAuthType] = useState<'supabase' | 'local' | 'api_token' | 'basic' | 'none'>('none');
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
 
   useEffect(() => {
@@ -49,12 +51,15 @@ export default function Nav() {
         if (!json?.ok) return;
         setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
         setPlatformAdmin(json?.platformAdmin === true);
+        setStaffAuthType((json?.identity?.authType as 'supabase' | 'local' | 'api_token' | 'basic' | 'none') || 'none');
+        setMustChangePassword(json?.identity?.mustChangePassword === true);
       })
       .catch(() => {});
   }, []);
 
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageSettings = staffRole === 'admin';
+  const canAccessMyAccount = isAdminHost || staffAuthType === 'supabase' || (staffAuthType === 'local' && mustChangePassword);
   const roleLabel =
     staffRole === 'admin' ? 'Admin' : staffRole === 'staff' ? 'Staff' : staffRole === 'readonly' ? 'Read-only' : '';
 
@@ -121,13 +126,15 @@ export default function Nav() {
               >
                 Health
               </Link>
-              <Link
-                className={`item ${isActive('/staff/account') ? 'active' : ''}`}
-                href="/staff/account"
-                onClick={() => closeMobileAndDropdown()}
-              >
-                My Account
-              </Link>
+              {canAccessMyAccount ? (
+                <Link
+                  className={`item ${isActive('/staff/account') ? 'active' : ''}`}
+                  href="/staff/account"
+                  onClick={() => closeMobileAndDropdown()}
+                >
+                  My Account
+                </Link>
+              ) : null}
               <Link
                 className={`item ${isActive('/staff') ? 'active' : ''}`}
                 href={absoluteHostUrl(STAFF_HOSTNAME)}
@@ -234,7 +241,7 @@ export default function Nav() {
                   <Link href="/tips" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Tip Sheet</Link>
                   <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
                   <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Intake QR</Link>
-                  <Link href="/staff/account" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>My Account</Link>
+                  {canAccessMyAccount ? <Link href="/staff/account" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>My Account</Link> : null}
                   {canManageSettings ? <Link href="/staff/team" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Staff Team</Link> : null}
                   {canManageSettings ? <Link href="/admin/settings" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Site Settings</Link> : null}
                   {platformAdmin ? <Link href={absoluteHostUrl(ADMIN_HOSTNAME)} onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Platform Admin</Link> : null}

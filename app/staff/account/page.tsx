@@ -35,6 +35,11 @@ export default function StaffAccountPage() {
         }
         if (active) {
           const nextAuthType = json.identity.authType === 'local' ? 'local' : 'supabase';
+          if (nextAuthType === 'local' && !(json.identity.mustChangePassword || force)) {
+            router.replace(next || '/');
+            router.refresh();
+            return;
+          }
           setAuthType(nextAuthType);
           setIdentifier(
             nextAuthType === 'local'
@@ -126,7 +131,9 @@ export default function StaffAccountPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>My Account</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 760, lineHeight: 1.5 }}>
-          Manage the password for your email-based staff account without needing platform support.
+          {authType === 'local' || force
+            ? 'Choose a permanent password before returning to the staff site.'
+            : 'Manage the password for your email-based staff account without needing platform support.'}
         </div>
       </div>
 
