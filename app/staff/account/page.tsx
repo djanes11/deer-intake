@@ -58,7 +58,7 @@ export default function StaffAccountPage() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [force, next, router]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -72,6 +72,7 @@ export default function StaffAccountPage() {
       if (password !== confirmPassword) {
         throw new Error('Passwords do not match.');
       }
+
       if (authType === 'local') {
         const res = await fetch('/api/staff/local-account', {
           method: 'PATCH',
@@ -88,6 +89,7 @@ export default function StaffAccountPage() {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
         if (accessToken) setStaffAccessCookie(accessToken);
+
         const completeRes = await fetch('/api/staff/account', {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
@@ -99,15 +101,14 @@ export default function StaffAccountPage() {
         }
         setMustChangePassword(false);
       }
+
       setPassword('');
       setConfirmPassword('');
-      setMessage('Password updated.');
-      if (force || authType === 'local') {
-        setTimeout(() => {
-          router.replace(next);
-          router.refresh();
-        }, 700);
-      }
+      setMessage('Password updated. Sending you back to staff...');
+      setTimeout(() => {
+        router.replace(next);
+        router.refresh();
+      }, 900);
     } catch (e: any) {
       setError(String(e?.message || e));
     } finally {
@@ -115,95 +116,194 @@ export default function StaffAccountPage() {
     }
   }
 
+  const isLocal = authType === 'local';
+  const showForcedState = force || mustChangePassword;
+
   return (
-    <main style={{ maxWidth: 560, margin: '36px auto', padding: '0 16px 40px', display: 'grid', gap: 16 }}>
+    <main style={{ maxWidth: 1080, margin: '34px auto', padding: '0 16px' }}>
       <div
         style={{
-          padding: '18px 20px',
-          borderRadius: 18,
-          background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
-          color: '#f8fafc',
-          border: '1px solid #334155',
-        }}
-      >
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#cbd5e1' }}>
-          Staff Account
-        </div>
-        <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>My Account</h1>
-        <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 760, lineHeight: 1.5 }}>
-          {authType === 'local' || force
-            ? 'Choose a permanent password before returning to the staff site.'
-            : 'Manage the password for your email-based staff account without needing platform support.'}
-        </div>
-      </div>
-
-      <section
-        style={{
-          border: '1px solid #d6dee8',
-          borderRadius: 16,
-          padding: 18,
-          background: '#ffffff',
-          boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
           display: 'grid',
-          gap: 14,
+          gridTemplateColumns: 'minmax(280px, 0.95fr) minmax(360px, 460px)',
+          gap: 20,
+          alignItems: 'stretch',
         }}
       >
-        {loading ? (
-          <div>Loading account...</div>
-        ) : (
-          <>
-            <div>
-              <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>
-                {authType === 'local' ? 'Signed in as local staff user' : 'Signed in as'}
+        <section
+          style={{
+            borderRadius: 24,
+            padding: 28,
+            border: '1px solid rgba(200,138,61,.18)',
+            background:
+              'radial-gradient(circle at top right, rgba(200,138,61,.16) 0%, transparent 30%), linear-gradient(180deg, rgba(21,20,19,.96) 0%, rgba(13,12,11,.98) 100%)',
+            color: '#f5ecd8',
+            display: 'grid',
+            gap: 18,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <img
+              src="/wgbb-logo.png"
+              alt="Wild Game Butcher Board"
+              style={{ width: 72, height: 72, objectFit: 'contain', borderRadius: 18, boxShadow: '0 10px 24px rgba(0,0,0,.28)' }}
+            />
+            <div style={{ display: 'grid', gap: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#d1b07a' }}>
+                Staff Account
               </div>
-              <div style={{ color: '#334155' }}>{identifier || 'Unknown user'}</div>
-              <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
-                {authType === 'local'
-                  ? mustChangePassword || force
-                    ? 'Your processor admin set a temporary password. Choose your own password now before going back to staff.'
-                    : 'You can update your local staff password here anytime.'
-                  : 'Email-based staff users can update their own password here anytime.'}
+              <h1 style={{ margin: 0, fontSize: 34, lineHeight: 1.02, color: '#fff7e8' }}>Wild Game Butcher Board</h1>
+              <div style={{ color: 'rgba(245,236,216,.78)', fontSize: 15 }}>
+                {showForcedState
+                  ? 'Choose a secure permanent password before returning to the staff portal.'
+                  : 'Manage your account password without needing platform support.'}
               </div>
             </div>
+          </div>
 
-            <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
-              <div>
-                <label>New password</label>
+          <div
+            style={{
+              padding: 16,
+              borderRadius: 16,
+              background: 'rgba(255,255,255,.04)',
+              border: '1px solid rgba(255,255,255,.08)',
+              display: 'grid',
+              gap: 8,
+            }}
+          >
+            <div style={{ fontWeight: 900, fontSize: 18, color: '#fff7e8' }}>
+              {isLocal ? 'Temporary local password' : 'Email account security'}
+            </div>
+            <div style={{ lineHeight: 1.55, color: 'rgba(245,236,216,.78)' }}>
+              {isLocal
+                ? 'Your processor admin can create or reset a temporary password, but you finish the process here by choosing one you want to keep.'
+                : 'Email-based staff users can update their own password here anytime, and temporary passwords from platform setup are cleared after you save a new one.'}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: 16,
+              borderRadius: 16,
+              background: 'rgba(255,255,255,.04)',
+              border: '1px solid rgba(255,255,255,.08)',
+              display: 'grid',
+              gap: 8,
+            }}
+          >
+            <div style={{ fontWeight: 900, fontSize: 18, color: '#fff7e8' }}>Signed in as</div>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#fff7e8' }}>{identifier || 'Loading...'}</div>
+            <div style={{ lineHeight: 1.55, color: 'rgba(245,236,216,.78)' }}>
+              {showForcedState
+                ? 'This password is temporary. Save a new one below before returning to the rest of the app.'
+                : 'Use at least 8 characters and choose something that is easy to remember during busy processing days.'}
+            </div>
+          </div>
+        </section>
+
+        <section
+          className="card"
+          style={{
+            padding: 22,
+            display: 'grid',
+            gap: 16,
+            borderRadius: 24,
+            border: '1px solid rgba(200,138,61,.18)',
+            background: 'rgba(255,255,255,.97)',
+            boxShadow: '0 18px 44px rgba(15,23,42,.14)',
+          }}
+        >
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#8a5a20' }}>
+              {showForcedState ? 'Finish Sign In' : 'Account Settings'}
+            </div>
+            <div style={{ fontSize: 30, fontWeight: 950, color: '#111827' }}>
+              {showForcedState ? 'Set Your Password' : 'Update Password'}
+            </div>
+            <p className="muted" style={{ margin: 0, lineHeight: 1.5 }}>
+              {isLocal
+                ? 'Local staff accounts only use this page when a temporary password must be replaced.'
+                : 'Email-based staff accounts can use this page anytime to keep access secure.'}
+            </p>
+          </div>
+
+          {loading ? (
+            <div
+              style={{
+                color: '#475569',
+                padding: 12,
+                borderRadius: 12,
+                background: '#f8fafc',
+                border: '1px solid #dbe4ee',
+                fontWeight: 600,
+              }}
+            >
+              Loading account...
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} style={{ display: 'grid', gap: 14 }}>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>New password</label>
                 <input
                   type="password"
                   autoComplete="new-password"
                   value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>Use at least 8 characters.</div>
-            </div>
-              <div>
-                <label>Confirm password</label>
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your new password"
+                  required
+                  style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
+                />
+                <div style={{ color: '#64748b', fontSize: 13 }}>Use at least 8 characters.</div>
+              </div>
+
+              <div style={{ display: 'grid', gap: 6 }}>
+                <label style={{ fontWeight: 800, color: '#0f172a' }}>Confirm password</label>
                 <input
                   type="password"
                   autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your new password"
                   required
+                  style={{ padding: '13px 14px', borderRadius: 14, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a', boxShadow: 'inset 0 1px 2px rgba(15,23,42,.04)' }}
                 />
               </div>
-              {force || mustChangePassword ? (
+
+              {showForcedState ? (
                 <div style={{ color: '#92400e', fontSize: 14, fontWeight: 700, padding: 12, borderRadius: 12, background: '#fff7ed', border: '1px solid #fed7aa' }}>
                   This password is temporary. Save a new one here before returning to the staff site.
                 </div>
               ) : null}
-              {message ? <div style={{ color: '#166534', fontSize: 14, fontWeight: 700 }}>{message}</div> : null}
-              {error ? <div style={{ color: '#b91c1c', fontSize: 14 }}>{error}</div> : null}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button className="btn" type="submit" disabled={busy}>
-                  {busy ? 'Saving...' : 'Update Password'}
-                </button>
-              </div>
+
+              {message ? (
+                <div style={{ color: '#166534', fontSize: 14, fontWeight: 700, padding: 12, borderRadius: 12, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  {message}
+                </div>
+              ) : null}
+              {error ? (
+                <div style={{ color: '#b91c1c', fontSize: 14, fontWeight: 700, padding: 12, borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca' }}>
+                  {error}
+                </div>
+              ) : null}
+
+              <button
+                className="btn"
+                type="submit"
+                disabled={busy}
+                style={{
+                  width: '100%',
+                  justifyContent: 'center',
+                  padding: '14px 16px',
+                  borderRadius: 14,
+                  fontSize: 16,
+                  fontWeight: 900,
+                }}
+              >
+                {busy ? 'Saving...' : showForcedState ? 'Save And Continue' : 'Update Password'}
+              </button>
             </form>
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
