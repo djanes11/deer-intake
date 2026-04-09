@@ -7,7 +7,7 @@ export const revalidate = 0;
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { getStaffProcessorContext, isPlatformAdmin } from '@/lib/staffContext';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
+import { formatDisplayDate } from '@/lib/dateFormat';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,7 +16,7 @@ type BalanceRow = {
   id: string;
   tag: string | null;
   confirmation: string | null;
-  customer: string | null;
+  customer_name: string | null;
   phone: string | null;
   dropoff_date: string | null;
   status: string | null;
@@ -102,7 +102,7 @@ export default async function BalancesPage() {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,tag,confirmation,customer,phone,dropoff_date,status,specialty_status,specialty_products,price_processing,price_specialty,paid_processing,paid_specialty,picked_up_processing')
+    .select('id,tag,confirmation,customer_name,phone,dropoff_date,status,specialty_status,specialty_products,price_processing,price_specialty,paid_processing,paid_specialty,picked_up_processing')
     .eq('processor_id', processor.id)
     .limit(3000);
 
@@ -239,7 +239,7 @@ function BalanceListRow({ row, idx }: { row: BalanceRow; idx: number }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontWeight: 900, color: '#0f172a' }}>
-            {row.customer || 'Unknown customer'}
+            {row.customer_name || 'Unknown customer'}
             {row.tag ? <span style={{ marginLeft: 8, color: '#9a3412', fontWeight: 800 }}>Tag {row.tag}</span> : null}
           </div>
           <div style={{ fontSize: 14, color: '#475569' }}>
