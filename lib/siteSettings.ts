@@ -3,6 +3,7 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { SITE } from '@/lib/config';
+import { CutOptionSettings, normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
 import { defaultSpecialtyCatalog, getProcessorSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import {
@@ -53,6 +54,7 @@ export type PublicSiteSettings = {
   notificationTemplates: NotificationTemplateSet;
   branding: PublicBrandingSettings;
   features: ProcessorFeatureSettings;
+  cutOptions: CutOptionSettings;
   updated_at?: string | null;
 };
 
@@ -117,6 +119,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
     features: {
       ...normalizeProcessorFeatures({ plan: 'custom', smsEnabled: true, webbsEnabled: true }),
     },
+    cutOptions: normalizeCutOptionSettings({}),
     updated_at: null,
   };
 }
@@ -145,7 +148,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       : await getDefaultProcessorContext();
     let query = supabase
       .from('site_settings')
-      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates');
+      .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings');
 
     query = processor.id ? query.eq('processor_id', processor.id) : query.eq('id', 1);
 
@@ -203,6 +206,7 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
       notificationTemplates,
       branding,
       features,
+      cutOptions: normalizeCutOptionSettings((data as any).cut_option_settings),
       updated_at: data.updated_at ?? null,
     };
   } catch {

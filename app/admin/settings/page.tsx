@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { tokenHeader } from '@/lib/api';
 import { DEFAULT_SITE_PRICING, SitePricing, formatMoney, normalizePricing } from '@/lib/pricing';
+import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { defaultSpecialtyCatalog, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import {
   AddOnCatalogItem,
@@ -46,6 +47,11 @@ type SiteSettings = {
   specialtyCatalog: SpecialtyCatalogItem[];
   notificationTemplates: NotificationTemplateSet;
   branding: BrandingSettings;
+  cutOptions: {
+    showFrontShoulderSteaks: boolean;
+    showBackstrapThickness: boolean;
+    showRoastCounts: boolean;
+  };
   features?: {
     plan: 'basic' | 'texting' | 'custom';
     smsEnabled: boolean;
@@ -155,6 +161,7 @@ export default function AdminSettingsPage() {
         normalizePricing(j?.settings),
       ),
       notificationTemplates: normalizeNotificationTemplates(j?.settings?.notificationTemplates, j?.settings?.branding?.name || DEFAULT_BRANDING.name),
+      cutOptions: normalizeCutOptionSettings(j?.settings?.cutOptions),
       branding: {
         ...DEFAULT_BRANDING,
         ...(j?.settings?.branding || {}),
@@ -198,6 +205,7 @@ export default function AdminSettingsPage() {
           normalizePricing(j?.settings),
         ),
         notificationTemplates: normalizeNotificationTemplates(j?.settings?.notificationTemplates, j?.settings?.branding?.name || DEFAULT_BRANDING.name),
+        cutOptions: normalizeCutOptionSettings(j?.settings?.cutOptions),
         branding: {
           ...DEFAULT_BRANDING,
           ...(j?.settings?.branding || {}),
@@ -611,8 +619,48 @@ export default function AdminSettingsPage() {
           >
             {s.public_intake_enabled ? 'Public intake is live' : 'Public intake is off'}
           </div>
-          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
+        <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Turn this off when you are at capacity or temporarily closed. The public pages will show the intake as unavailable.
+          </div>
+          <div
+            style={{
+              marginTop: 6,
+              padding: 14,
+              borderRadius: 14,
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Cut Option Visibility</div>
+            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+              Use these toggles to simplify the cut section for this processor without changing saved order data.
+            </div>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={!!s.cutOptions?.showFrontShoulderSteaks}
+                onChange={(e) => setS({ ...s, cutOptions: { ...s.cutOptions, showFrontShoulderSteaks: e.target.checked } })}
+              />
+              Show front shoulder steak option
+            </label>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={!!s.cutOptions?.showBackstrapThickness}
+                onChange={(e) => setS({ ...s, cutOptions: { ...s.cutOptions, showBackstrapThickness: e.target.checked } })}
+              />
+              Show backstrap thickness option
+            </label>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={!!s.cutOptions?.showRoastCounts}
+                onChange={(e) => setS({ ...s, cutOptions: { ...s.cutOptions, showRoastCounts: e.target.checked } })}
+              />
+              Show roast count inputs
+            </label>
           </div>
           <div style={{ fontSize: 13, color: '#475569' }}>
             Need to change plan tier, SMS access, Webbs access, or hostnames? Use <a href="/admin/processors" style={{ color: '#1d4ed8', fontWeight: 800 }}>Processor Management</a>.

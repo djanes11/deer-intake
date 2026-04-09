@@ -5,6 +5,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState, Suspense } from 'r
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
+import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
@@ -278,6 +279,7 @@ function OvernightIntakePage() {
   const [processCatalog, setProcessCatalog] = useState<ProcessTypeCatalogItem[]>(defaultProcessCatalog(DEFAULT_SITE_PRICING));
   const [addOnCatalog, setAddOnCatalog] = useState<AddOnCatalogItem[]>(defaultAddOnCatalog(DEFAULT_SITE_PRICING));
   const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
+  const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
 
@@ -304,6 +306,7 @@ function OvernightIntakePage() {
           setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
           setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
           setSpecialtyCatalog(normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
+          setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
           setIntakeEnabled(!!j?.settings?.public_intake_enabled);
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
@@ -371,6 +374,9 @@ function OvernightIntakePage() {
     () => normalizeSpecialtyCatalog(specialtyCatalog, pricing).filter((item) => item.active),
     [specialtyCatalog, pricing]
   );
+  const showFrontShoulderSteaks = cutOptions.showFrontShoulderSteaks !== false;
+  const showBackstrapThickness = cutOptions.showBackstrapThickness !== false;
+  const showRoastCounts = cutOptions.showRoastCounts !== false;
   const specialtyItems = useMemo(
     () => specialtyBreakdown(job as Record<string, any>, pricing, activeSpecialtyCatalog).filter((item) => item.pounds > 0),
     [job, pricing, activeSpecialtyCatalog]
@@ -406,18 +412,19 @@ function OvernightIntakePage() {
   const hindSelections = useMemo(() => {
     const out: string[] = [];
     if (job.hind?.['Hind - Steak']) out.push('Steak');
-    if (job.hind?.['Hind - Roast']) out.push(`Roast${toInt(job.hindRoastCount) ? ` (${toInt(job.hindRoastCount)})` : ''}`);
+    if (job.hind?.['Hind - Roast']) out.push(`Roast${showRoastCounts && toInt(job.hindRoastCount) ? ` (${toInt(job.hindRoastCount)})` : ''}`);
     if (job.hind?.['Hind - Grind']) out.push('Grind');
     if (job.hind?.['Hind - None']) out.push('None');
     return out;
-  }, [job.hind, job.hindRoastCount]);
+  }, [job.hind, job.hindRoastCount, showRoastCounts]);
   const frontSelections = useMemo(() => {
     const out: string[] = [];
-    if (job.front?.['Front - Roast']) out.push(`Roast${toInt(job.frontRoastCount) ? ` (${toInt(job.frontRoastCount)})` : ''}`);
+    if (showFrontShoulderSteaks && job.front?.['Front - Steak']) out.push('Steak');
+    if (job.front?.['Front - Roast']) out.push(`Roast${showRoastCounts && toInt(job.frontRoastCount) ? ` (${toInt(job.frontRoastCount)})` : ''}`);
     if (job.front?.['Front - Grind']) out.push('Grind');
     if (job.front?.['Front - None']) out.push('None');
     return out;
-  }, [job.front, job.frontRoastCount]);
+  }, [job.front, job.frontRoastCount, showFrontShoulderSteaks, showRoastCounts]);
   const preferredContact = job.prefSMS ? 'Text (SMS)' : job.prefCall ? 'Phone Call' : job.prefEmail ? 'Email' : 'Not selected';
   const intakeHighlights = [
     'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
@@ -510,6 +517,7 @@ function OvernightIntakePage() {
         setClosureMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
         setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
         setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
+        setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
       })
@@ -597,8 +605,8 @@ function OvernightIntakePage() {
     if (!job.howKilled) e.howKilled = 'How Killed is required';
     if (!job.processType) e.processType = 'Process Type is required';
     if (job.prefSMS && !job.smsConsent) e.smsConsent = 'SMS consent is required when text updates are selected';
-    if (job.hind?.['Hind - Roast'] && !toInt(job.hindRoastCount)) e.hindRoastCount = 'Hind Roast Count is required';
-    if (job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
+    if (showRoastCounts && job.hind?.['Hind - Roast'] && !toInt(job.hindRoastCount)) e.hindRoastCount = 'Hind Roast Count is required';
+    if (showRoastCounts && job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
 
     if (webbsEnabled && job.webbsOrder) {
       if (webbsOrderStyle === 'whole_deer_percent') {
@@ -1369,7 +1377,7 @@ function OvernightIntakePage() {
                       <input type="checkbox" checked={!!job.hind?.['Hind - Roast']} onChange={() => setHind('Hind - Roast')} disabled={locked} />
                       <span>Roast</span>
                     </label>
-                    {!!job.hind?.['Hind - Roast'] ? (
+                    {showRoastCounts && !!job.hind?.['Hind - Roast'] ? (
                       <span className="count">
                         <span className="muted"># of Roast</span>
                         <input
@@ -1399,7 +1407,7 @@ function OvernightIntakePage() {
                       <input type="checkbox" checked={!!job.front?.['Front - Roast']} onChange={() => setFront('Front - Roast')} disabled={locked} />
                       <span>Roast</span>
                     </label>
-                    {!!job.front?.['Front - Roast'] ? (
+                    {showRoastCounts && !!job.front?.['Front - Roast'] ? (
                       <span className="count">
                         <span className="muted"># of Roast</span>
                         <input
@@ -1409,6 +1417,12 @@ function OvernightIntakePage() {
                           inputMode="numeric"
                         />
                       </span>
+                    ) : null}
+                    {showFrontShoulderSteaks ? (
+                      <label className="chk">
+                        <input type="checkbox" checked={!!job.front?.['Front - Steak']} onChange={() => setFront('Front - Steak')} disabled={locked} />
+                        <span>Steak</span>
+                      </label>
                     ) : null}
                     <label className="chk">
                       <input type="checkbox" checked={!!job.front?.['Front - Grind']} onChange={() => setFront('Front - Grind')} disabled={locked} />
@@ -1476,7 +1490,7 @@ function OvernightIntakePage() {
             <section>
               <h3>Backstrap</h3>
               <div className="grid">
-                <div className="c4">
+                <div className={showBackstrapThickness ? 'c4' : 'c12'}>
                   <label>Prep</label>
                   <select value={job.backstrapPrep || ''} onChange={(e) => setVal('backstrapPrep', e.target.value as any)} disabled={locked}>
                     <option value="">--</option>
@@ -1485,6 +1499,20 @@ function OvernightIntakePage() {
                     <option>Butterflied</option>
                   </select>
                 </div>
+                {showBackstrapThickness ? (
+                  <div className="c4">
+                    <label>Thickness</label>
+                    <select value={job.backstrapThickness || ''} onChange={(e) => setVal('backstrapThickness', e.target.value as any)} disabled={locked}>
+                      <option value="">--</option>
+                      <option value='1/2"'>1/2"</option>
+                      <option value='3/4"'>3/4"</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    {job.backstrapThickness === 'Other' ? (
+                      <input style={{ marginTop: 8 }} value={job.backstrapThicknessOther || ''} onChange={(e) => setVal('backstrapThicknessOther', e.target.value)} disabled={locked} placeholder="Enter thickness" />
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </section>
           </>
@@ -1716,6 +1744,9 @@ function OvernightIntakePage() {
                   <div className="reviewLine">Steaks per pack: {job.steaksPerPackage || '-'}</div>
                   <div className="reviewLine">Burger size: {job.burgerSize || '-'}</div>
                   <div className="reviewLine">Backstrap: {job.backstrapPrep || '-'}</div>
+                  {showBackstrapThickness ? (
+                    <div className="reviewLine">Backstrap thickness: {job.backstrapThickness === 'Other' ? (job.backstrapThicknessOther || '-') : (job.backstrapThickness || '-')}</div>
+                  ) : null}
                   <div className="reviewLine">
                     Add-ons: {selectedAddOnItems.length ? selectedAddOnItems.map((item) => `${item.name}${item.price ? ` (+$${Number(item.price || 0).toFixed(2)})` : ''}`).join(' | ') : 'No add-ons'}
                   </div>

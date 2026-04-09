@@ -124,6 +124,9 @@ export default async function IntakeView({
   try {
     const settings = await getPublicSiteSettings();
     const webbsEnabled = settings.features.webbsEnabled !== false;
+    const showFrontShoulderSteaks = settings.cutOptions.showFrontShoulderSteaks !== false;
+    const showBackstrapThickness = settings.cutOptions.showBackstrapThickness !== false;
+    const showRoastCounts = settings.cutOptions.showRoastCounts !== false;
     // Promise props (Next 15)
     const { tag } = await params;
     const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
@@ -340,7 +343,7 @@ export default async function IntakeView({
                 <label>Hind Quarter</label>
                 <div className="checks" style={{display:'flex', flexWrap:'wrap', gap:10}}>
                   <Check on={!!job?.hind?.['Hind - Steak']} text="Steak" />
-                  <Check on={!!job?.hind?.['Hind - Roast']} text={`Roast (Count: ${job?.hindRoastCount || ''})`} />
+                  <Check on={!!job?.hind?.['Hind - Roast']} text={showRoastCounts ? `Roast (Count: ${job?.hindRoastCount || ''})` : 'Roast'} />
                   <Check on={!!job?.hind?.['Hind - Grind']} text="Grind" />
                   <Check on={!!job?.hind?.['Hind - None']} text="None" />
                 </div>
@@ -348,7 +351,8 @@ export default async function IntakeView({
               <div className="c6" style={{gridColumn:'span 6'}}>
                 <label>Front Shoulder</label>
                 <div className="checks" style={{display:'flex', flexWrap:'wrap', gap:10}}>
-                  <Check on={!!job?.front?.['Front - Roast']} text={`Roast (Count: ${job?.frontRoastCount || ''})`} />
+                  {showFrontShoulderSteaks ? <Check on={!!job?.front?.['Front - Steak']} text="Steak" /> : null}
+                  <Check on={!!job?.front?.['Front - Roast']} text={showRoastCounts ? `Roast (Count: ${job?.frontRoastCount || ''})` : 'Roast'} />
                   <Check on={!!job?.front?.['Front - Grind']} text="Grind" />
                   <Check on={!!job?.front?.['Front - None']} text="None" />
                 </div>
@@ -380,6 +384,11 @@ export default async function IntakeView({
             <h3>Backstrap</h3>
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
               <div className="c4" style={{gridColumn:'span 4'}}><Field label="Prep" value={job?.backstrapPrep || ''} /></div>
+              {showBackstrapThickness ? (
+                <div className="c4" style={{gridColumn:'span 4'}}>
+                  <Field label="Thickness" value={job?.backstrapThickness === 'Other' ? (job?.backstrapThicknessOther || '') : (job?.backstrapThickness || '')} />
+                </div>
+              ) : null}
             </div>
           </section>
 

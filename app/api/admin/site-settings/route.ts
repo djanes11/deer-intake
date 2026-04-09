@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { normalizeHours, defaultPublicSiteSettings } from '@/lib/siteSettings';
 import { normalizeProcessorFeatures } from '@/lib/siteSettings';
+import { normalizeCutOptionSettings as normalizeCutOptions } from '@/lib/cutOptions';
 import { normalizePricing } from '@/lib/pricing';
 import { normalizeSpecialtyCatalog } from '@/lib/specialtyCatalog';
 import {
@@ -73,6 +74,7 @@ export async function GET(req: Request) {
             processCatalog: normalizeProcessCatalog((data as any)?.process_catalog, normalizePricing(data)),
             addOnCatalog: normalizeAddOnCatalog((data as any)?.add_on_catalog, normalizePricing(data)),
             notificationTemplates: normalizeNotificationTemplates((data as any)?.notification_templates, branding.name),
+            cutOptions: normalizeCutOptions((data as any)?.cut_option_settings),
           },
         });
       }
@@ -88,6 +90,7 @@ export async function GET(req: Request) {
         processCatalog: defaultPublicSiteSettings().processCatalog,
         addOnCatalog: defaultPublicSiteSettings().addOnCatalog,
         notificationTemplates: defaultPublicSiteSettings().notificationTemplates,
+        cutOptions: defaultPublicSiteSettings().cutOptions,
       },
     });
   } catch (e: any) {
@@ -114,6 +117,7 @@ export async function POST(req: Request) {
       process_catalog: normalizeProcessCatalog(body?.processCatalog, body),
       add_on_catalog: normalizeAddOnCatalog(body?.addOnCatalog, body),
       notification_templates: normalizeNotificationTemplates(body?.notificationTemplates, body?.branding?.name || defaults.name),
+      cut_option_settings: normalizeCutOptions(body?.cutOptions),
       ...normalizePricing(body),
     };
 
@@ -246,6 +250,7 @@ export async function POST(req: Request) {
       processCatalog: normalizeProcessCatalog(body?.processCatalog, payload),
       addOnCatalog: normalizeAddOnCatalog(body?.addOnCatalog, payload),
       notificationTemplates: normalizeNotificationTemplates(body?.notificationTemplates, processorPayload.public_name || defaults.name),
+      cutOptions: normalizeCutOptions(body?.cutOptions),
     };
 
     await writeAuditEntry({
@@ -263,6 +268,7 @@ export async function POST(req: Request) {
         specialtyItems: merged.specialtyCatalog.length,
         processTypes: merged.processCatalog.length,
         addOns: merged.addOnCatalog.length,
+        cutOptions: merged.cutOptions,
       },
     });
 

@@ -7,6 +7,7 @@ import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
+import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
@@ -440,6 +441,7 @@ function IntakePage() {
   const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
+  const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
   const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
@@ -474,6 +476,7 @@ function IntakePage() {
           setSpecialtyCatalog(normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
+          setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
           setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         }
       })
@@ -583,6 +586,9 @@ function IntakePage() {
     customerLookupCollapsedFor !== customerNameKey &&
     !customerSectionComplete;
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
+  const showFrontShoulderSteaks = cutOptions.showFrontShoulderSteaks !== false;
+  const showBackstrapThickness = cutOptions.showBackstrapThickness !== false;
+  const showRoastCounts = cutOptions.showRoastCounts !== false;
 
   const setSpecialtyQuantity = (slug: string, rawValue: string) => {
     const quantity = toInt(rawValue);
@@ -961,8 +967,8 @@ useEffect(() => {
     if (!job.sex) missing.push('Deer Sex');
     if (!job.processType) missing.push('Process Type');
     if (job.prefSMS && !job.smsConsent) missing.push('SMS Consent');
-    if (hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
-    if (frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
+    if (showRoastCounts && hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
+    if (showRoastCounts && frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
     if (webbsEnabled && job.webbsOrder) {
       if (webbsOrderStyle === 'paper_form') {
         if (!toInt(job.webbsPounds)) missing.push('Webbs Total Pounds');
@@ -1737,7 +1743,7 @@ if (fresh?.exists && fresh.job) {
                   />
                   <span>Roast</span>
                 </label>
-                {hindRoastOn ? (
+                {showRoastCounts && hindRoastOn ? (
                   <span className="count">
                     <span className="muted">Count</span>
                     <input
@@ -1778,7 +1784,7 @@ if (fresh?.exists && fresh.job) {
                   />
                   <span>Roast</span>
                 </label>
-                {frontRoastOn ? (
+                {showRoastCounts && frontRoastOn ? (
                   <span className="count">
                     <span className="muted">Count</span>
                     <input
@@ -1788,6 +1794,16 @@ if (fresh?.exists && fresh.job) {
                       inputMode="numeric"
                     />
                   </span>
+                ) : null}
+                {showFrontShoulderSteaks ? (
+                  <label className="chk">
+                    <input
+                      type="checkbox"
+                      checked={!!job.front?.['Front - Steak']}
+                      onChange={() => setFront('Front - Steak')}
+                    />
+                    <span>Steak</span>
+                  </label>
                 ) : null}
                 <label className="chk">
                   <input
@@ -1868,7 +1884,7 @@ if (fresh?.exists && fresh.job) {
         <section>
           <h3>Backstrap</h3>
           <div className="grid">
-            <div className="c12">
+            <div className={showBackstrapThickness ? 'c6' : 'c12'}>
               <label>Prep</label>
               <select
                 value={job.backstrapPrep || ''}
@@ -1880,6 +1896,28 @@ if (fresh?.exists && fresh.job) {
                 <option>Butterflied</option>
               </select>
             </div>
+            {showBackstrapThickness ? (
+              <div className="c6">
+                <label>Thickness</label>
+                <select
+                  value={job.backstrapThickness || ''}
+                  onChange={(e) => setVal('backstrapThickness', e.target.value as Job['backstrapThickness'])}
+                >
+                  <option value="">--</option>
+                  <option value='1/2"'>1/2"</option>
+                  <option value='3/4"'>3/4"</option>
+                  <option value="Other">Other</option>
+                </select>
+                {job.backstrapThickness === 'Other' ? (
+                  <input
+                    style={{ marginTop: 8 }}
+                    value={job.backstrapThicknessOther || ''}
+                    onChange={(e) => setVal('backstrapThicknessOther', e.target.value)}
+                    placeholder="Enter thickness"
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </section>
 

@@ -42,7 +42,7 @@ export function verifyLocalPassword(password: string, storedHash: string) {
 export async function createLocalStaffSession(input: { username: string; password: string }) {
   const supabase = getSupabase();
   const username = normalizeUsername(input.username);
-  const password = String(input.password || '');
+  const password = String(input.password || '').trim();
   if (!username || !password) throw new Error('Username and password are required.');
 
   const userResp = await supabase
