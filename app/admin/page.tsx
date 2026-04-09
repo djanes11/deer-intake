@@ -8,12 +8,15 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { getStaffIdentity, isPlatformAdmin } from '@/lib/staffContext';
 import { formatDisplayDate } from '@/lib/dateFormat';
+import { buildOnboardingChecklist } from '@/lib/onboardingChecklist';
 
 type ProcessorSummary = {
   id: string;
   slug: string;
   name: string;
   publicName: string;
+  supportPhoneDisplay: string;
+  publicAddress: string;
   active: boolean;
   publicHostname: string;
   staffHostname: string;
@@ -26,6 +29,7 @@ type ProcessorSummary = {
   trialEndsAt?: string | null;
   goLiveAt?: string | null;
   setupCompletedAt?: string | null;
+  onboarding: ReturnType<typeof buildOnboardingChecklist>;
 };
 
 function getSupabase() {
@@ -58,7 +62,7 @@ async function loadAdminDashboard() {
     await Promise.all([
       supabase
         .from('processors')
-        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,go_live_at,setup_completed_at')
+        .select('id,slug,name,public_name,support_phone_display,public_address,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,go_live_at,setup_completed_at')
         .order('slug', { ascending: true }),
       supabase
         .from('processor_users')
@@ -75,13 +79,61 @@ async function loadAdminDashboard() {
   if (staffError) throw staffError;
   if (jobsError) throw jobsError;
 
+  const processorIds = (processors || []).map((row: any) => String(row.id || '')).filter(Boolean);
+  const [{ data: siteSettingsRows, error: siteSettingsError }, { data: adminMembershipRows, error: adminMembershipError }] =
+    await Promise.all([
+      processorIds.length
+        ? supabase
+            .from('site_settings')
+            .select('processor_id,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings,state_form_type')
+            .in('processor_id', processorIds)
+        : Promise.resolve({ data: [], error: null } as any),
+      processorIds.length
+        ? supabase
+            .from('processor_users')
+            .select('processor_id')
+            .eq('active', true)
+            .eq('role', 'admin')
+            .in('processor_id', processorIds)
+        : Promise.resolve({ data: [], error: null } as any),
+    ]);
+
+  if (siteSettingsError) throw siteSettingsError;
+  if (adminMembershipError) throw adminMembershipError;
+
+  const siteSettingsByProcessor = new Map<string, any>();
+  for (const row of siteSettingsRows || []) {
+    const key = String((row as any).processor_id || '');
+    if (key) siteSettingsByProcessor.set(key, row);
+  }
+  const adminCountByProcessor = new Map<string, number>();
+  for (const row of adminMembershipRows || []) {
+    const key = String((row as any).processor_id || '');
+    if (!key) continue;
+    adminCountByProcessor.set(key, (adminCountByProcessor.get(key) || 0) + 1);
+  }
+
   const rows: ProcessorSummary[] = (processors || []).map((row: any) => {
     const rawFeatures = row?.features || {};
+    const processorId = String(row.id);
+    const onboarding = buildOnboardingChecklist({
+      publicHostname: row.public_hostname,
+      staffHostname: row.staff_hostname,
+      adminCount: adminCountByProcessor.get(processorId) || 0,
+      processor: {
+        publicName: row.public_name || row.name || '',
+        supportPhoneDisplay: row.support_phone_display || '',
+        publicAddress: row.public_address || '',
+      },
+      siteSettings: siteSettingsByProcessor.get(processorId) || {},
+    });
     return {
-      id: String(row.id),
+      id: processorId,
       slug: String(row.slug || ''),
       name: String(row.name || ''),
       publicName: String(row.public_name || row.name || ''),
+      supportPhoneDisplay: String(row.support_phone_display || ''),
+      publicAddress: String(row.public_address || ''),
       active: !!row.active,
       publicHostname: String(row.public_hostname || ''),
       staffHostname: String(row.staff_hostname || ''),
@@ -96,6 +148,7 @@ async function loadAdminDashboard() {
       trialEndsAt: row.trial_ends_at || null,
       goLiveAt: row.go_live_at || null,
       setupCompletedAt: row.setup_completed_at || null,
+      onboarding,
     };
   });
 
@@ -128,6 +181,10 @@ async function loadAdminDashboard() {
     .sort((a, b) => a.daysLeft - b.daysLeft);
   const pastDue = rows.filter((row) => row.billingStatus === 'past_due');
   const readyToTrial = rows.filter((row) => row.billingStatus === 'setup' && !!row.setupCompletedAt);
+  const readyToGoLive = rows.filter((row) => row.onboarding.readyToGoLive);
+  const nearlyReady = rows
+    .filter((row) => !row.onboarding.readyToGoLive && row.onboarding.readyCount >= row.onboarding.totalCount - 1)
+    .sort((a, b) => b.onboarding.readyCount - a.onboarding.readyCount);
 
   return {
     processors: rows,
@@ -141,6 +198,8 @@ async function loadAdminDashboard() {
     trialExpiring,
     pastDue,
     readyToTrial,
+    readyToGoLive,
+    nearlyReady,
   };
 }
 
@@ -259,6 +318,7 @@ export default async function PlatformAdminHome() {
           { label: 'Active Processors', value: dashboard.activeProcessors },
           { label: 'Staff Memberships', value: dashboard.staffUsers },
           { label: 'Intakes (Last 7 Days)', value: dashboard.recentIntakes },
+          { label: 'Go-Live Ready', value: dashboard.readyToGoLive.length },
           { label: 'Estimated MRR', value: `$${dashboard.estimatedMrr.toFixed(0)}` },
         ].map((item) => (
           <div key={item.label} style={statCard}>
@@ -377,6 +437,67 @@ export default async function PlatformAdminHome() {
               ))
             ) : (
               <div style={{ color: '#64748b' }}>No processors are marked past due right now.</div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div style={panel}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Go-Live Ready</div>
+              <div style={{ color: '#475569', marginTop: 4 }}>
+                Processors with the onboarding checklist completed and ready for handoff.
+              </div>
+            </div>
+            <Link href="/admin/processors" style={{ ...quickLink, padding: '10px 14px', fontWeight: 900 }}>
+              Open Processor Management
+            </Link>
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {dashboard.readyToGoLive.length ? (
+              dashboard.readyToGoLive.slice(0, 6).map((processor) => (
+                <div key={processor.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
+                    <div style={{ color: '#64748b', fontSize: 13 }}>
+                      {processor.publicHostname || '-'} • {processor.staffHostname || '-'}
+                    </div>
+                  </div>
+                  <span style={{ color: '#166534', fontWeight: 900 }}>Checklist complete</span>
+                </div>
+              ))
+            ) : (
+              <div style={{ color: '#64748b' }}>No processors are fully go-live ready yet.</div>
+            )}
+          </div>
+        </div>
+
+        <div style={panel}>
+          <div style={{ fontWeight: 900, fontSize: 22, color: '#0f172a' }}>Almost Ready</div>
+          <div style={{ color: '#475569', marginTop: 4 }}>
+            These processors are close and usually just need one more setup step before they are ready.
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {dashboard.nearlyReady.length ? (
+              dashboard.nearlyReady.slice(0, 6).map((processor) => {
+                const nextItem = processor.onboarding.items.find((item) => !item.done);
+                return (
+                  <div key={processor.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
+                      <div style={{ color: '#64748b', fontSize: 13 }}>
+                        {processor.onboarding.readyCount}/{processor.onboarding.totalCount} complete
+                        {nextItem ? ` • Next: ${nextItem.label}` : ''}
+                      </div>
+                    </div>
+                    <span style={{ color: '#9a3412', fontWeight: 900 }}>Needs one more pass</span>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ color: '#64748b' }}>No processors are currently sitting one step away from go-live.</div>
             )}
           </div>
         </div>

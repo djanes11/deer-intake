@@ -4,11 +4,13 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
 import { getStaffIdentity, getStaffProcessorContext } from '@/lib/staffContext';
 import { filterVisibleAddOnItems } from '@/lib/processorCatalog';
 import ProcessorInquiryForm from '@/app/components/ProcessorInquiryForm';
+import { buildOnboardingChecklist } from '@/lib/onboardingChecklist';
 
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 const ADMIN_HOSTNAME = (process.env.ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
@@ -25,6 +27,58 @@ function normalizeHost(input: string | null | undefined) {
     .toLowerCase()
     .split(',')[0]
     ?.split(':')[0] || '';
+}
+
+type ProcessorOnboardingSnapshot = ReturnType<typeof buildOnboardingChecklist> & {
+  publicHostname: string;
+  staffHostname: string;
+};
+
+async function getProcessorOnboardingSnapshot(processorId: string | null | undefined) {
+  const id = String(processorId || '').trim();
+  if (!id) return null;
+
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+
+  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const [{ data: processorRow }, { data: siteSettingsRow }, { count: adminCount }] = await Promise.all([
+    supabase
+      .from('processors')
+      .select('id,public_name,name,support_phone_display,public_address,public_hostname,staff_hostname')
+      .eq('id', id)
+      .maybeSingle(),
+    supabase
+      .from('site_settings')
+      .select('processor_id,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings,state_form_type')
+      .eq('processor_id', id)
+      .maybeSingle(),
+    supabase
+      .from('processor_users')
+      .select('id', { count: 'exact', head: true })
+      .eq('processor_id', id)
+      .eq('active', true)
+      .eq('role', 'admin'),
+  ]);
+
+  if (!processorRow) return null;
+
+  return {
+    ...buildOnboardingChecklist({
+      publicHostname: processorRow.public_hostname,
+      staffHostname: processorRow.staff_hostname,
+      adminCount: adminCount || 0,
+      processor: {
+        publicName: processorRow.public_name || processorRow.name || '',
+        supportPhoneDisplay: processorRow.support_phone_display || '',
+        publicAddress: processorRow.public_address || '',
+      },
+      siteSettings: siteSettingsRow || {},
+    }),
+    publicHostname: String(processorRow.public_hostname || ''),
+    staffHostname: String(processorRow.staff_hostname || ''),
+  } satisfies ProcessorOnboardingSnapshot;
 }
 
 export default async function Home() {
@@ -57,10 +111,18 @@ export default async function Home() {
   const settings = await getPublicSiteSettings();
   const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
   const staffContext = IS_PUBLIC ? null : await getStaffProcessorContext().catch(() => null);
+  const onboarding = !IS_PUBLIC && staffContext?.role === 'admin'
+    ? await getProcessorOnboardingSnapshot(staffContext.id).catch(() => null)
+    : null;
   return IS_PUBLIC ? (
     <PublicLanding settings={settings} />
   ) : (
-    <StaffHome dashboard={dashboard} processorName={settings.branding.name} role={staffContext?.role || null} />
+    <StaffHome
+      dashboard={dashboard}
+      processorName={settings.branding.name}
+      role={staffContext?.role || null}
+      onboarding={onboarding}
+    />
   );
 }
 
@@ -697,10 +759,12 @@ function StaffHome({
   dashboard,
   processorName,
   role,
+  onboarding,
 }: {
   dashboard: Awaited<ReturnType<typeof getDashboardSummary>> | null;
   processorName: string;
   role: 'admin' | 'staff' | 'readonly' | null;
+  onboarding: ProcessorOnboardingSnapshot | null;
 }) {
   const canEdit = role === 'admin' || role === 'staff';
   const roleLabel = role === 'admin' ? 'Admin' : role === 'staff' ? 'Staff' : role === 'readonly' ? 'Read-only' : 'Unknown';
@@ -884,6 +948,92 @@ function StaffHome({
           </div>
         </div>
       </div>
+
+      {role === 'admin' && onboarding ? (
+        <section
+          style={{
+            ...card,
+            marginBottom: 16,
+            borderColor: onboarding.readyToGoLive ? 'rgba(91,122,98,.3)' : 'rgba(200,138,61,.22)',
+            background: onboarding.readyToGoLive ? 'rgba(17,31,22,.96)' : 'rgba(31,23,14,.96)',
+          }}
+        >
+          <div style={{ ...mini, color: onboarding.readyToGoLive ? '#89c096' : '#d2b27d' }}>
+            {onboarding.readyToGoLive ? 'Go-Live Ready' : 'Finish Setup'}
+          </div>
+          <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+            <div style={{ fontWeight: 900, fontSize: 24 }}>
+              {onboarding.readyToGoLive
+                ? 'This processor is configured and ready for live handoff.'
+                : 'A few setup items still need attention before this processor is truly ready.'}
+            </div>
+            <div style={{ opacity: 0.84, lineHeight: 1.55 }}>
+              {onboarding.readyCount}/{onboarding.totalCount} onboarding items are complete. Use the links below to finish branding, pricing, offerings, and staff setup from one place.
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 12 }}>
+            {onboarding.items.map((item) => (
+              <div
+                key={item.key}
+                style={{
+                  border: `1px solid ${item.done ? 'rgba(91,122,98,.32)' : 'rgba(200,138,61,.22)'}`,
+                  borderRadius: 14,
+                  padding: 14,
+                  background: 'rgba(14,13,12,.88)',
+                  display: 'grid',
+                  gap: 6,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
+                  <div style={{ fontWeight: 900 }}>{item.label}</div>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '4px 8px',
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 900,
+                      background: item.done ? 'rgba(91,122,98,.22)' : 'rgba(200,138,61,.18)',
+                      color: item.done ? '#cde9cf' : '#f1d1a0',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {item.done ? 'Ready' : 'Needs setup'}
+                  </span>
+                </div>
+                <div style={{ opacity: 0.82, lineHeight: 1.45, fontSize: 14 }}>{item.note}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+            <Link href="/admin/settings" style={{ textDecoration: 'none' }}>
+              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                Open Processor Settings
+              </div>
+            </Link>
+            <Link href="/staff/team" style={{ textDecoration: 'none' }}>
+              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                Open Staff Team
+              </div>
+            </Link>
+            <Link href="/reports/state-form" style={{ textDecoration: 'none' }}>
+              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                Review State Form
+              </div>
+            </Link>
+            {onboarding.publicHostname ? (
+              <a href={`https://${onboarding.publicHostname}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                  Open Public Site
+                </div>
+              </a>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <section style={{ ...card, marginBottom: 16 }}>
         <div style={{ ...mini, color: '#c88a3d' }}>Primary Actions</div>
