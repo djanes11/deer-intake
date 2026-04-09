@@ -250,6 +250,8 @@ function MarketingLanding() {
     {
       label: 'Production floor',
       title: 'Use scans and labels to move deer cleanly through the shop',
+      image: '/marketing/scan-workflow.png',
+      alt: 'Scan-based butcher workflow screen',
       body: 'Thermal labels, scan-driven cape and processing status, and butcher-facing details keep the production floor moving without handwritten chaos.',
       chips: ['Scan', 'Cape', 'Processing', 'Finished'],
     },
