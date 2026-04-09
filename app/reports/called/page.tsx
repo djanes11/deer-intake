@@ -344,23 +344,15 @@ export default function CalledPickupQueue() {
   }
 
   return (
-    <main style={{ maxWidth: 1240, margin: '18px auto', padding: '0 14px 40px', display: 'grid', gap: 14 }}>
-      <section
-        style={{
-          padding: '18px 20px',
-          borderRadius: 18,
-          background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
-          color: '#f8fafc',
-          border: '1px solid #334155',
-        }}
-      >
+    <main className="app-frame">
+      <section className="app-hero">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 420px' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#cbd5e1' }}>
+            <div className="app-kicker">
               Pickup Workflow
             </div>
-            <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Called Pickup Queue</h1>
-            <div style={{ color: 'rgba(248,250,252,.84)', maxWidth: 760, lineHeight: 1.5 }}>
+            <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 34px)' }}>Called Pickup Queue</h1>
+            <div className="app-copy">
               Review what is ready, see whether money is still owed, and move each meat, cape, or Webbs track through pickup with less guesswork.
             </div>
           </div>

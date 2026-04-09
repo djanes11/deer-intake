@@ -224,6 +224,122 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
   main { padding: 0 12px 28px; }
 }
 
+.app-frame {
+  max-width: 1240px;
+  margin: 26px auto;
+  padding: 0 16px 40px;
+  display: grid;
+  gap: 16px;
+}
+
+.app-hero {
+  padding: 22px 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(200,138,61,.18);
+  background:
+    radial-gradient(circle at top right, rgba(200,138,61,.14) 0%, transparent 32%),
+    linear-gradient(180deg, rgba(21,20,19,.97) 0%, rgba(13,12,11,.99) 100%);
+  box-shadow: 0 18px 44px rgba(0,0,0,.24);
+  color: #f5ecd8;
+}
+
+.app-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, .8fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.app-kicker {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #d1b07a;
+}
+
+.app-title {
+  margin: 8px 0 6px;
+  font-size: clamp(30px, 4vw, 40px);
+  line-height: 1.04;
+  font-weight: 950;
+  color: #fff7e8;
+}
+
+.app-copy {
+  margin: 0;
+  max-width: 760px;
+  color: rgba(245,236,216,.8);
+  line-height: 1.55;
+  font-size: 15px;
+}
+
+.app-side-note {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.04);
+}
+
+.app-surface {
+  border-radius: 22px;
+  border: 1px solid rgba(200,138,61,.16);
+  background:
+    linear-gradient(180deg, rgba(24,22,20,.96) 0%, rgba(17,16,15,.98) 100%);
+  box-shadow: 0 16px 40px rgba(0,0,0,.2);
+}
+
+.app-surface-light {
+  border-radius: 22px;
+  border: 1px solid rgba(200,138,61,.14);
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 18px 40px rgba(15,23,42,.14);
+}
+
+.app-section-head {
+  display: grid;
+  gap: 4px;
+}
+
+.app-section-title {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #8a5a20;
+}
+
+.app-section-copy {
+  color: #64748b;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .app-hero-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-frame {
+    padding: 0 12px 28px;
+    gap: 14px;
+  }
+
+  .app-hero {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .app-surface,
+  .app-surface-light {
+    border-radius: 18px;
+  }
+}
+
 /* Headings */
 h1,h2,h3 { color: var(--text); margin: 0 0 10px; }
 h1 { font-size: 40px; letter-spacing:.2px; }

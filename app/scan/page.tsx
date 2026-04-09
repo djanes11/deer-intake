@@ -399,54 +399,33 @@ export default function ScanPage() {
   }, { resetMs: 150 });
 
   return (
-    <main style={{ maxWidth: 880, margin: '0 auto', padding: '24px 16px' }}>
-      <div
-        style={{
-          display: 'grid',
-          gap: 14,
-          marginBottom: 16,
-          padding: 18,
-          borderRadius: 18,
-          background: 'linear-gradient(135deg, rgba(18,34,23,.98) 0%, rgba(34,65,45,.98) 100%)',
-          border: '1px solid rgba(200,138,61,.18)',
-          color: '#f8fafc',
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08em', color: '#b9ddc2' }}>Scan Workflow</div>
-          <h1 style={{ margin: '6px 0 0', fontSize: 48, lineHeight: 1.1 }}>Processing Scanner</h1>
-          <p style={{ margin: '10px 0 0', maxWidth: 680, color: 'rgba(248,250,252,.86)', lineHeight: 1.6 }}>
-            Use this screen during production to advance deer through cape and meat processing in the correct order. The page listens for barcode scans automatically.
-          </p>
+    <main className="app-frame" style={{ maxWidth: 980 }}>
+      <section className="app-hero">
+        <div className="app-hero-grid">
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div className="app-kicker">Production Floor</div>
+            <h1 className="app-title">Processing Scanner</h1>
+            <p className="app-copy">
+              Use scans to move deer through cape work and meat processing in the correct order. This screen is designed to stay visible and simple during production.
+            </p>
+          </div>
+          <div className="app-side-note">
+            <div style={{ fontWeight: 900, color: '#fff7e8' }}>How scans progress</div>
+            {nextScanGuide.map((item) => (
+              <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start', color: 'rgba(248,250,252,.92)', lineHeight: 1.5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 999, background: '#c88a3d', marginTop: 6 }} />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div
-          style={{
-            display: 'grid',
-            gap: 8,
-            padding: 14,
-            borderRadius: 14,
-            border: '1px solid rgba(255,255,255,.14)',
-            background: 'rgba(255,255,255,.08)',
-          }}
-        >
-          <div style={{ fontWeight: 900 }}>How scans progress</div>
-          {nextScanGuide.map((item) => (
-            <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start', color: 'rgba(248,250,252,.92)', lineHeight: 1.5 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 999, background: '#c88a3d', marginTop: 6 }} />
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      </section>
 
       {/* visible status panel */}
       <div
+        className="app-surface"
         style={{
-          marginTop: 8,
           padding: '14px 16px',
-          borderRadius: 12,
-          border: '1px solid rgba(148,163,184,.35)',
-          background: 'rgba(15,23,42,.65)',
           color: '#e5e7eb',
           display: 'flex',
           justifyContent: 'space-between',
@@ -459,21 +438,18 @@ export default function ScanPage() {
       </div>
 
       <div
-        className="card"
+        className="app-surface-light"
         style={{
-          marginTop: 14,
-          padding: 14,
+          padding: 18,
           display: 'grid',
           gap: 10,
-          background: 'rgba(15,23,42,.45)',
-          border: '1px solid rgba(148,163,184,.28)',
         }}
       >
-        <div style={{ fontSize: 14, fontWeight: 800, opacity: 0.86, textTransform: 'uppercase', letterSpacing: '.05em' }}>
-          Manual Tag Entry
-        </div>
-        <div className="muted" style={{ fontSize: 14 }}>
-          If the scanner is not working or you want to retry a tag by hand, enter it here and submit one scan.
+        <div className="app-section-head">
+          <div className="app-section-title">Manual Tag Entry</div>
+          <div className="app-section-copy">
+            If the scanner misses a tag or you need to retry by hand, enter it here and submit one scan.
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
@@ -503,10 +479,9 @@ export default function ScanPage() {
       {status && (
         <div
           role="status"
+          className={status.kind === 'ok' ? 'app-surface' : 'app-surface-light'}
           style={{
-            marginTop: 12,
             padding: '12px 14px',
-            borderRadius: 12,
             border: '1px solid',
             borderColor: status.kind === 'ok' ? '#10b981' : '#ef4444',
             background: status.kind === 'ok' ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',

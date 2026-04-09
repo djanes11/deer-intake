@@ -415,13 +415,29 @@ export default function SearchPage() {
   };
 
   return (
-    <main>
-      <h1>Search</h1>
-      <p className="muted" style={{ marginTop: 4, marginBottom: 12 }}>
-        Type a <b>tag</b>, <b>name</b>, <b>phone</b>, or status text. Shortcuts: <code>@report</code> (ready to call) | <code>@recall</code> (called).
-      </p>
+    <main className="app-frame">
+      <section className="app-hero">
+        <div className="app-hero-grid">
+          <div style={{ display: 'grid', gap: 10 }}>
+            <div className="app-kicker">Staff Workflow</div>
+            <h1 className="app-title">Search</h1>
+            <p className="app-copy">
+              Find a deer fast, review the order, reprint paperwork, send updates, and jump straight into the right next action.
+            </p>
+          </div>
+          <div className="app-side-note">
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#d8c3a1' }}>
+              Search Shortcuts
+            </div>
+            <div style={{ color: 'rgba(245,236,216,.9)', lineHeight: 1.55 }}>
+              Type a <b>tag</b>, <b>name</b>, <b>phone</b>, or <b>confirmation number</b>. Quick filters also work:
+              {' '}<code>@report</code> for ready-to-call and <code>@recall</code> for the pickup queue.
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div className="card search-toolbar" style={{ padding: 12, marginBottom: 16 }}>
+      <div className="app-surface-light search-toolbar" style={{ padding: 14 }}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -441,7 +457,7 @@ export default function SearchPage() {
       </div>
 
       {!canShowResults && (
-        <div className="card" style={{ padding: 14 }}>
+        <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>
           Start typing to search...
         </div>
       )}
@@ -449,7 +465,7 @@ export default function SearchPage() {
       {canShowResults && (
         <div className="search-layout">
           <section className="search-results-col">
-            <div className="card results-summary-card" style={{ padding: 14, marginBottom: 12 }}>
+            <div className="app-surface-light results-summary-card" style={{ padding: 16, marginBottom: 12 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>Results</div>
               <div style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}>
                 {resultSummary}
@@ -458,11 +474,11 @@ export default function SearchPage() {
                 Single-click a row for preview. Double-click to open the full record.
               </div>
             </div>
-            {loading && <div className="card">Loading...</div>}
-            {err && <div className="card" style={{ borderColor: '#ef4444' }}>Error: {err}</div>}
+            {loading && <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>Loading...</div>}
+            {err && <div className="app-surface-light" style={{ padding: 16, borderColor: '#ef4444', color: '#7f1d1d' }}>Error: {err}</div>}
 
             {!loading && !err && (
-              <div className="card search-results-card" style={{ padding: 0 }}>
+              <div className="app-surface-light search-results-card" style={{ padding: 0 }}>
                 <table className="table search-results-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
@@ -542,7 +558,7 @@ export default function SearchPage() {
           </section>
 
           <aside className="search-preview-col">
-            <div className="card search-preview-card" style={{ padding: 16, display: 'grid', gap: 14 }}>
+            <div className="app-surface-light search-preview-card" style={{ padding: 18, display: 'grid', gap: 14 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '.04em' }}>Preview</div>
