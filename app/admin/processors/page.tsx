@@ -20,6 +20,8 @@ type ProcessorRow = {
   billingStatus: 'setup' | 'trial' | 'active' | 'past_due' | 'paused' | 'internal';
   billingCycle: 'monthly' | 'seasonal' | 'annual' | 'custom';
   monthlyPrice: number | null;
+  setupFee: number | null;
+  perDeerRate: number | null;
   trialEndsAt?: string | null;
   subscriptionStartedAt?: string | null;
   goLiveAt?: string | null;
@@ -61,6 +63,8 @@ type CreateProcessorForm = {
   billingStatus: ProcessorRow['billingStatus'];
   billingCycle: ProcessorRow['billingCycle'];
   monthlyPrice: string;
+  setupFee: string;
+  perDeerRate: string;
   trialEndsAt: string;
   subscriptionStartedAt: string;
   goLiveAt: string;
@@ -90,6 +94,8 @@ const EMPTY_CREATE_FORM: CreateProcessorForm = {
   billingStatus: 'setup',
   billingCycle: 'monthly',
   monthlyPrice: '',
+  setupFee: '',
+  perDeerRate: '2',
   trialEndsAt: '',
   subscriptionStartedAt: '',
   goLiveAt: '',
@@ -116,6 +122,12 @@ function lifecycleTone(status: ProcessorRow['billingStatus']) {
     default:
       return { bg: '#fff7ed', fg: '#9a3412' };
   }
+}
+
+function suggestedPerDeerRate(plan: ProcessorRow['features']['plan']) {
+  if (plan === 'custom') return 5;
+  if (plan === 'texting') return 3;
+  return 2;
 }
 
 export default function AdminProcessorsPage() {
@@ -168,7 +180,16 @@ export default function AdminProcessorsPage() {
     setCreateForm((prev) => ({ ...prev, ...patch }));
 
   const updateCreateFeatures = (patch: Partial<CreateProcessorForm['features']>) =>
-    setCreateForm((prev) => ({ ...prev, features: normalizedFeaturesForPlan({ ...prev.features, ...patch }) }));
+    setCreateForm((prev) => {
+      const nextFeatures = normalizedFeaturesForPlan({ ...prev.features, ...patch });
+      const previousSuggested = String(suggestedPerDeerRate(prev.features.plan));
+      const nextSuggested = String(suggestedPerDeerRate(nextFeatures.plan));
+      return {
+        ...prev,
+        features: nextFeatures,
+        perDeerRate: !prev.perDeerRate || prev.perDeerRate === previousSuggested ? nextSuggested : prev.perDeerRate,
+      };
+    });
 
   const createProcessor = async () => {
     setCreating(true);
@@ -561,7 +582,7 @@ export default function AdminProcessorsPage() {
         <div style={{ display: 'grid', gap: 4 }}>
           <div style={{ fontWeight: 900, color: '#0f172a' }}>Billing Lifecycle</div>
           <div style={{ color: '#64748b', fontSize: 14 }}>
-            Keep pricing light for now if you want. The main value here is tracking where a processor is in setup, trial, and go-live.
+            Track setup fee and per-deer billing here alongside lifecycle status. This fits your processor pricing better than a monthly subscription field.
           </div>
         </div>
 
@@ -582,25 +603,21 @@ export default function AdminProcessorsPage() {
             </select>
           </label>
           <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing cycle</span>
-            <select
-              value={createForm.billingCycle}
-              onChange={(e) => updateCreateForm({ billingCycle: e.target.value as ProcessorRow['billingCycle'] })}
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Setup fee</span>
+            <input
+              value={createForm.setupFee}
+              onChange={(e) => updateCreateForm({ setupFee: e.target.value })}
               style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-            >
-              <option value="monthly">Monthly</option>
-              <option value="seasonal">Seasonal</option>
-              <option value="annual">Annual</option>
-              <option value="custom">Custom</option>
-            </select>
+              placeholder="Optional one-time fee"
+            />
           </label>
           <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Monthly price</span>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Per deer rate</span>
             <input
-              value={createForm.monthlyPrice}
-              onChange={(e) => updateCreateForm({ monthlyPrice: e.target.value })}
+              value={createForm.perDeerRate}
+              onChange={(e) => updateCreateForm({ perDeerRate: e.target.value })}
               style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-              placeholder="199"
+              placeholder={String(suggestedPerDeerRate(createForm.features.plan))}
             />
           </label>
           <label style={{ display: 'grid', gap: 6 }}>
@@ -630,6 +647,12 @@ export default function AdminProcessorsPage() {
               style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
             />
           </label>
+        </div>
+
+        <div style={{ padding: 12, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: 13, lineHeight: 1.55 }}>
+          Suggested deer rate for this plan: <strong style={{ color: '#0f172a' }}>${suggestedPerDeerRate(createForm.features.plan).toFixed(2)}/deer</strong>
+          {' '}
+          ({createForm.features.plan === 'basic' ? 'regular workflow' : createForm.features.plan === 'texting' ? 'regular + texting' : 'custom workflow adjustments'}).
         </div>
 
         <label style={{ display: 'grid', gap: 6 }}>
@@ -761,6 +784,10 @@ export default function AdminProcessorsPage() {
                       {row.active ? 'Active' : 'Inactive'}
                     </div>
                     <div style={{ color: '#475569', fontSize: 13, fontWeight: 700 }}>
+                      {row.perDeerRate != null ? `$${row.perDeerRate.toFixed(2)}/deer` : 'Deer rate not set'}
+                      {row.setupFee != null ? ` • Setup $${row.setupFee.toFixed(2)}` : ''}
+                    </div>
+                    <div style={{ color: '#475569', fontSize: 13, fontWeight: 700 }}>
                       Onboarding: {onboardingReady}/{onboardingTotal || 6}
                     </div>
                   </button>
@@ -861,17 +888,12 @@ export default function AdminProcessorsPage() {
                   </select>
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Billing cycle</span>
-                  <select value={selectedRow.billingCycle} onChange={(e) => updateSelectedRow({ billingCycle: e.target.value as ProcessorRow['billingCycle'] })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}>
-                    <option value="monthly">Monthly</option>
-                    <option value="seasonal">Seasonal</option>
-                    <option value="annual">Annual</option>
-                    <option value="custom">Custom</option>
-                  </select>
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Setup fee</span>
+                  <input value={selectedRow.setupFee ?? ''} onChange={(e) => updateSelectedRow({ setupFee: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} placeholder="Optional one-time fee" />
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
-                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Monthly price</span>
-                  <input value={selectedRow.monthlyPrice ?? ''} onChange={(e) => updateSelectedRow({ monthlyPrice: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} placeholder="199" />
+                  <span style={{ fontWeight: 800, color: '#0f172a' }}>Per deer rate</span>
+                  <input value={selectedRow.perDeerRate ?? ''} onChange={(e) => updateSelectedRow({ perDeerRate: e.target.value === '' ? null : Number(e.target.value) })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} placeholder={String(suggestedPerDeerRate(selectedRow.features.plan))} />
                 </label>
                 <label style={{ display: 'grid', gap: 6 }}>
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Setup completed</span>
@@ -885,6 +907,12 @@ export default function AdminProcessorsPage() {
                   <span style={{ fontWeight: 800, color: '#0f172a' }}>Go live</span>
                   <input type="date" value={dateInputValue(selectedRow.goLiveAt)} onChange={(e) => updateSelectedRow({ goLiveAt: e.target.value || null })} style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }} />
                 </label>
+              </div>
+
+              <div style={{ padding: 12, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: 13, lineHeight: 1.55 }}>
+                Suggested rate for this plan: <strong style={{ color: '#0f172a' }}>${suggestedPerDeerRate(selectedRow.features.plan).toFixed(2)}/deer</strong>
+                {' '}
+                ({selectedRow.features.plan === 'basic' ? 'regular workflow' : selectedRow.features.plan === 'texting' ? 'regular + texting' : 'custom workflow adjustments'}).
               </div>
 
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

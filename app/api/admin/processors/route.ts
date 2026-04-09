@@ -55,6 +55,12 @@ function normalizeMoney(raw: unknown) {
   return Number.isFinite(n) ? n : null;
 }
 
+function suggestedPerDeerRate(plan: string) {
+  if (plan === 'custom') return 5;
+  if (plan === 'texting') return 3;
+  return 2;
+}
+
 function normalizeIsoDate(raw: unknown) {
   const text = normalizeText(raw);
   if (!text) return null;
@@ -158,6 +164,8 @@ async function enrichProcessorRow(
     billingStatus: normalizeBillingStatus(row.billing_status),
     billingCycle: normalizeBillingCycle(row.billing_cycle),
     monthlyPrice: row.monthly_price == null ? null : Number(row.monthly_price),
+    setupFee: row.setup_fee == null ? null : Number(row.setup_fee),
+    perDeerRate: row.per_deer_rate == null ? suggestedPerDeerRate(normalizeFeatures(row.features || {}).plan) : Number(row.per_deer_rate),
     trialEndsAt: row.trial_ends_at || null,
     subscriptionStartedAt: row.subscription_started_at || null,
     goLiveAt: row.go_live_at || null,
@@ -221,7 +229,7 @@ export async function GET(req: Request) {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from('processors')
-      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
+      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,setup_fee,per_deer_rate,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
       .order('slug', { ascending: true });
     if (error) throw error;
 
@@ -256,6 +264,8 @@ export async function POST(req: Request) {
       const billingStatus = normalizeBillingStatus(body?.billingStatus);
       const billingCycle = normalizeBillingCycle(body?.billingCycle);
       const monthlyPrice = normalizeMoney(body?.monthlyPrice);
+      const setupFee = normalizeMoney(body?.setupFee);
+      const perDeerRate = normalizeMoney(body?.perDeerRate) ?? suggestedPerDeerRate(features.plan);
       const trialEndsAt = normalizeIsoDate(body?.trialEndsAt);
       const subscriptionStartedAt = normalizeIsoDate(body?.subscriptionStartedAt);
       const goLiveAt = normalizeIsoDate(body?.goLiveAt);
@@ -302,6 +312,8 @@ export async function POST(req: Request) {
           billing_status: lifecycle.billingStatus,
           billing_cycle: billingCycle,
           monthly_price: monthlyPrice,
+          setup_fee: setupFee,
+          per_deer_rate: perDeerRate,
           trial_ends_at: lifecycle.trialEndsAt,
           subscription_started_at: lifecycle.subscriptionStartedAt,
           go_live_at: lifecycle.goLiveAt,
@@ -309,7 +321,7 @@ export async function POST(req: Request) {
           billing_notes: billingNotes,
           updated_at: new Date().toISOString(),
         })
-        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
+        .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,setup_fee,per_deer_rate,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
         .single();
       if (createProcessorError) throw createProcessorError;
 
@@ -379,6 +391,8 @@ export async function POST(req: Request) {
       billing_status: lifecycle.billingStatus,
       billing_cycle: normalizeBillingCycle(body?.billingCycle),
       monthly_price: normalizeMoney(body?.monthlyPrice),
+      setup_fee: normalizeMoney(body?.setupFee),
+      per_deer_rate: normalizeMoney(body?.perDeerRate) ?? suggestedPerDeerRate(normalizeFeatures(body?.features || {}).plan),
       trial_ends_at: lifecycle.trialEndsAt,
       subscription_started_at: lifecycle.subscriptionStartedAt,
       go_live_at: lifecycle.goLiveAt,
@@ -391,7 +405,7 @@ export async function POST(req: Request) {
       .from('processors')
       .update(payload)
       .eq('id', id)
-      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
+      .select('id,slug,name,public_name,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,setup_fee,per_deer_rate,trial_ends_at,subscription_started_at,go_live_at,setup_completed_at,billing_notes,created_at,updated_at')
       .single();
     if (error) throw error;
 

@@ -26,6 +26,8 @@ type ProcessorSummary = {
   billingStatus: 'setup' | 'trial' | 'active' | 'past_due' | 'paused' | 'internal';
   billingCycle: 'monthly' | 'seasonal' | 'annual' | 'custom';
   monthlyPrice: number | null;
+  setupFee: number | null;
+  perDeerRate: number | null;
   trialEndsAt?: string | null;
   goLiveAt?: string | null;
   setupCompletedAt?: string | null;
@@ -49,12 +51,6 @@ function normalizeBillingStatus(raw: any): ProcessorSummary['billingStatus'] {
     : 'setup';
 }
 
-function estimatedMrrFor(row: ProcessorSummary) {
-  if (row.monthlyPrice == null) return 0;
-  if (row.billingStatus !== 'active') return 0;
-  return row.billingCycle === 'monthly' ? row.monthlyPrice : 0;
-}
-
 async function loadAdminDashboard() {
   const supabase = getSupabase();
 
@@ -62,7 +58,7 @@ async function loadAdminDashboard() {
     await Promise.all([
       supabase
         .from('processors')
-        .select('id,slug,name,public_name,support_phone_display,public_address,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,trial_ends_at,go_live_at,setup_completed_at')
+        .select('id,slug,name,public_name,support_phone_display,public_address,active,public_hostname,staff_hostname,features,billing_status,billing_cycle,monthly_price,setup_fee,per_deer_rate,trial_ends_at,go_live_at,setup_completed_at')
         .order('slug', { ascending: true }),
       supabase
         .from('processor_users')
@@ -145,6 +141,8 @@ async function loadAdminDashboard() {
         ? (String(row.billing_cycle) as ProcessorSummary['billingCycle'])
         : 'monthly',
       monthlyPrice: row.monthly_price == null ? null : Number(row.monthly_price),
+      setupFee: row.setup_fee == null ? null : Number(row.setup_fee),
+      perDeerRate: row.per_deer_rate == null ? (normalizePlan(rawFeatures.plan) === 'custom' ? 5 : normalizePlan(rawFeatures.plan) === 'texting' ? 3 : 2) : Number(row.per_deer_rate),
       trialEndsAt: row.trial_ends_at || null,
       goLiveAt: row.go_live_at || null,
       setupCompletedAt: row.setup_completed_at || null,
@@ -169,7 +167,9 @@ async function loadAdminDashboard() {
     { setup: 0, trial: 0, active: 0, past_due: 0, paused: 0, internal: 0 } as Record<ProcessorSummary['billingStatus'], number>
   );
 
-  const estimatedMrr = rows.reduce((sum, row) => sum + estimatedMrrFor(row), 0);
+  const configuredSetupFees = rows.filter((row) => row.setupFee != null).length;
+  const perDeerRates = rows.map((row) => row.perDeerRate).filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+  const averagePerDeerRate = perDeerRates.length ? perDeerRates.reduce((sum, value) => sum + value, 0) / perDeerRates.length : 0;
   const now = Date.now();
   const trialExpiring = rows
     .filter((row) => row.billingStatus === 'trial' && row.trialEndsAt)
@@ -194,7 +194,8 @@ async function loadAdminDashboard() {
     recentIntakes: recentIntakes || 0,
     planMix,
     billingMix,
-    estimatedMrr,
+    configuredSetupFees,
+    averagePerDeerRate,
     trialExpiring,
     pastDue,
     readyToTrial,
@@ -319,7 +320,8 @@ export default async function PlatformAdminHome() {
           { label: 'Staff Memberships', value: dashboard.staffUsers },
           { label: 'Intakes (Last 7 Days)', value: dashboard.recentIntakes },
           { label: 'Go-Live Ready', value: dashboard.readyToGoLive.length },
-          { label: 'Estimated MRR', value: `$${dashboard.estimatedMrr.toFixed(0)}` },
+          { label: 'Setup Fees Set', value: dashboard.configuredSetupFees },
+          { label: 'Avg Deer Rate', value: `$${dashboard.averagePerDeerRate.toFixed(2)}` },
         ].map((item) => (
           <div key={item.label} style={statCard}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
@@ -429,7 +431,8 @@ export default async function PlatformAdminHome() {
                   <div>
                     <div style={{ fontWeight: 800, color: '#0f172a' }}>{processor.publicName}</div>
                     <div style={{ color: '#64748b', fontSize: 13 }}>
-                      {processor.monthlyPrice != null ? `$${processor.monthlyPrice.toFixed(2)}/${processor.billingCycle}` : 'Pricing not set'}
+                      {processor.perDeerRate != null ? `$${processor.perDeerRate.toFixed(2)}/deer` : 'Deer rate not set'}
+                      {processor.setupFee != null ? ` • Setup $${processor.setupFee.toFixed(2)}` : ''}
                     </div>
                   </div>
                   <span style={{ color: '#991b1b', fontWeight: 900 }}>Past due</span>
@@ -576,7 +579,8 @@ export default async function PlatformAdminHome() {
               <div style={{ fontSize: 14, color: '#334155', display: 'grid', gap: 6 }}>
                 <div><strong>Public:</strong> {processor.publicHostname || '-'}</div>
                 <div><strong>Staff:</strong> {processor.staffHostname || '-'}</div>
-                <div><strong>Billing:</strong> {processor.monthlyPrice != null ? `$${processor.monthlyPrice.toFixed(2)}/${processor.billingCycle}` : '-'}</div>
+                <div><strong>Billing:</strong> {processor.perDeerRate != null ? `$${processor.perDeerRate.toFixed(2)}/deer` : '-'}</div>
+                <div><strong>Setup fee:</strong> {processor.setupFee != null ? `$${processor.setupFee.toFixed(2)}` : '-'}</div>
               </div>
             </article>
           ))}
