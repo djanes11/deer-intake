@@ -314,6 +314,8 @@ function OvernightIntakePage() {
 
   type StepKey = (typeof steps)[number]['key'];
   const step = steps[stepIdx];
+  const showIntroGuidance = !showThanks && stepIdx === 0;
+  const compactSummary = !showThanks && stepIdx > 0;
 
   useEffect(() => {
     fetch('/api/public/site-settings', { cache: 'no-store' })
@@ -660,6 +662,7 @@ function OvernightIntakePage() {
   const currentStepErrors = validateStep(step.key);
   const currentStepMissing = Object.keys(currentStepErrors).map((key) => REQUIRED_LABELS[key] || key);
   const requiredDone = currentStepMissing.length === 0;
+  const compactRequiredList = stepIdx > 0 && currentStepMissing.length > 3;
 
   const goNext = () => {
     if (locked) return;
@@ -900,32 +903,36 @@ function OvernightIntakePage() {
   return (
     <div className={`form-card ${locked ? 'locked' : ''}`}>
       <div className="screen-only">
-        <div className="hero">
-          <div className="hero-copy">
-            <div className="hero-kicker">Public Intake</div>
-            <h2>Deer Intake Form</h2>
-            <p>
-              We&apos;ll walk you through this one step at a time. Required items are checked before you move on so
-              the processor has everything needed to tag, process, and contact you without delays.
-            </p>
-          </div>
-          <div className="hero-card">
-            <div className="hero-card-title">Before you drop off</div>
-            <ul>
-              <li>Use your 13-digit GoOutdoorsIN confirmation number</li>
-              <li>Leave a note with your name, phone, and confirmation digits on the deer</li>
-              <li>Staff will assign the permanent deer tag after reviewing the intake</li>
-            </ul>
-          </div>
-        </div>
-        <div className="intakeHighlights" role="status" aria-live="polite">
-          {intakeHighlights.map((item) => (
-            <div key={item} className="intakeHighlight">
-              <span className="intakeHighlightDot" aria-hidden="true" />
-              <span>{item}</span>
+        {showIntroGuidance ? (
+          <>
+            <div className="hero">
+              <div className="hero-copy">
+                <div className="hero-kicker">Public Intake</div>
+                <h2>Deer Intake Form</h2>
+                <p>
+                  We&apos;ll walk you through this one step at a time. Required items are checked before you move on so
+                  the processor has everything needed to tag, process, and contact you without delays.
+                </p>
+              </div>
+              <div className="hero-card">
+                <div className="hero-card-title">Before you drop off</div>
+                <ul>
+                  <li>Use your 13-digit GoOutdoorsIN confirmation number</li>
+                  <li>Leave a note with your name, phone, and confirmation digits on the deer</li>
+                  <li>Staff will assign the permanent deer tag after reviewing the intake</li>
+                </ul>
+              </div>
             </div>
-          ))}
-        </div>
+            <div className="intakeHighlights" role="status" aria-live="polite">
+              {intakeHighlights.map((item) => (
+                <div key={item} className="intakeHighlight">
+                  <span className="intakeHighlightDot" aria-hidden="true" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
         {!intakeEnabled ? (
           <div
             style={{
@@ -954,7 +961,20 @@ function OvernightIntakePage() {
           </div>
         </div>
 
-        <div className="stepChips" aria-label="Progress">
+        <div className={`mobileProgress ${stepIdx > 0 ? 'showCompact' : ''}`} aria-hidden={stepIdx === 0}>
+          <div className="mobileProgressMeta">
+            <span>{stepIdx} completed</span>
+            <span>{steps.length - stepIdx} to go</span>
+          </div>
+          <div className="mobileProgressTrack">
+            <div
+              className="mobileProgressFill"
+              style={{ width: `${((stepIdx + 1) / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        <div className={`stepChips ${stepIdx > 0 ? 'mobileCollapse' : ''}`} aria-label="Progress">
           {steps.map((s, idx) => {
             const state = idx < stepIdx ? 'done' : idx === stepIdx ? 'current' : 'upcoming';
             return (
@@ -977,45 +997,63 @@ function OvernightIntakePage() {
         </div>
 
         {!requiredDone ? (
-          <div className="requiredBox" role="status" aria-live="polite">
+          <div className={`requiredBox ${compactRequiredList ? 'compact' : ''}`} role="status" aria-live="polite">
             <div className="requiredTitle">Finish these before moving on:</div>
             <div className="requiredList">
-              {currentStepMissing.map((item) => (
+              {(compactRequiredList ? currentStepMissing.slice(0, 3) : currentStepMissing).map((item) => (
                 <span key={item} className="requiredPill">{item}</span>
               ))}
+              {compactRequiredList ? (
+                <span className="requiredMore">+{currentStepMissing.length - 3} more</span>
+              ) : null}
             </div>
           </div>
         ) : null}
 
-        <div className="summary">
-          <div className="row">
-            <div className="col">
-              <label>Assigned Tag</label>
-              <input value={''} onChange={() => {}} placeholder="Assigned by staff" disabled />
-              <div className="muted" style={{ fontSize: 12 }}>This form saves your order first. Staff adds the permanent tag after review.</div>
-            </div>
-
-            <div className="col price">
-              <label>Processing Estimate</label>
-              <div className="money">{processingPrice.toFixed(2)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                  Base process type + selected add-ons
+        <div className={`summary ${compactSummary ? 'compact' : ''}`}>
+          {compactSummary ? (
+            <div className="compactSummaryBar">
+              <div className="compactSummaryMain">
+                <div className="compactSummaryStep">Step {stepIdx + 1} of {steps.length}: {step.title}</div>
+                <div className="compactSummaryTotal">${totalPrice.toFixed(2)}</div>
+              </div>
+              <div className="compactSummarySub">
+                <span>Processing ${processingPrice.toFixed(2)}</span>
+                <span>Specialty ${specialtyPrice.toFixed(2)}</span>
               </div>
             </div>
+          ) : (
+            <>
+              <div className="row">
+                <div className="col">
+                  <label>Assigned Tag</label>
+                  <input value={''} onChange={() => {}} placeholder="Assigned by staff" disabled />
+                  <div className="muted" style={{ fontSize: 12 }}>This form saves your order first. Staff adds the permanent tag after review.</div>
+                </div>
 
-            <div className="col price">
-              <label>Specialty Estimate</label>
-              <div className="money">{specialtyPrice.toFixed(2)}</div>
-              <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
-            </div>
-          </div>
+                <div className="col price">
+                  <label>Processing Estimate</label>
+                  <div className="money">{processingPrice.toFixed(2)}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>
+                      Base process type + selected add-ons
+                  </div>
+                </div>
 
-          <div className="row small">
-            <div className="col total">
-              <label>Total (preview)</label>
-              <div className="money total">{totalPrice.toFixed(2)}</div>
-            </div>
-          </div>
+                <div className="col price">
+                  <label>Specialty Estimate</label>
+                  <div className="money">{specialtyPrice.toFixed(2)}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
+                </div>
+              </div>
+
+              <div className="row small">
+                <div className="col total">
+                  <label>Total (preview)</label>
+                  <div className="money total">{totalPrice.toFixed(2)}</div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Step: Customer */}
@@ -2396,6 +2434,35 @@ function OvernightIntakePage() {
           background:rgba(15,23,42,.08);
           font-size:12px;
         }
+        .mobileProgress {
+          display: none;
+          margin: 0 0 10px;
+          padding: 10px 12px;
+          border: 1px solid #dce7df;
+          border-radius: 12px;
+          background: #f7faf8;
+        }
+        .mobileProgressMeta {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 8px;
+          font-size: 12px;
+          font-weight: 800;
+          color: #406c4d;
+        }
+        .mobileProgressTrack {
+          width: 100%;
+          height: 8px;
+          border-radius: 999px;
+          background: #dce7df;
+          overflow: hidden;
+        }
+        .mobileProgressFill {
+          height: 100%;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #2f6f3f 0%, #4d9661 100%);
+        }
         .requiredBox {
           border:1px solid #fecaca;
           background:#fff7f7;
@@ -2424,6 +2491,19 @@ function OvernightIntakePage() {
           font-size:12px;
           font-weight:800;
         }
+        .requiredBox.compact {
+          padding: 9px 10px;
+        }
+        .requiredMore {
+          display: inline-flex;
+          align-items: center;
+          padding: 5px 10px;
+          border-radius: 999px;
+          background: rgba(127, 29, 29, 0.08);
+          font-size: 12px;
+          font-weight: 800;
+          color: #991b1b;
+        }
 
         .summary { position: sticky; top: 0; background: #f3f8f4; border: 1px solid #dce7df; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: end; }
@@ -2431,6 +2511,38 @@ function OvernightIntakePage() {
         .summary .col { display: flex; flex-direction: column; gap: 4px; }
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #dce7df; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
+        .summary.compact {
+          padding: 10px 12px;
+        }
+        .compactSummaryBar {
+          display: grid;
+          gap: 8px;
+        }
+        .compactSummaryMain {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .compactSummaryStep {
+          font-size: 13px;
+          font-weight: 800;
+          color: #173321;
+        }
+        .compactSummaryTotal {
+          font-size: 20px;
+          font-weight: 900;
+          color: #0f172a;
+          white-space: nowrap;
+        }
+        .compactSummarySub {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px 12px;
+          font-size: 12px;
+          color: #4b5563;
+          font-weight: 700;
+        }
 
         .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #dce7df; }
         .btn { padding: 12px 14px; min-height: 46px; border: 1px solid #235532; border-radius: 10px; background: #2f6f3f; color: #fff; font-weight: 800; cursor: pointer; }
@@ -2530,6 +2642,12 @@ function OvernightIntakePage() {
           .stepChip {
             white-space: nowrap;
           }
+          .mobileProgress.showCompact {
+            display: block;
+          }
+          .stepChips.mobileCollapse {
+            display: none;
+          }
           .summary {
             position: static !important;
             padding: 10px;
@@ -2537,6 +2655,13 @@ function OvernightIntakePage() {
           .summary .price .money,
           .summary .total .money.total {
             text-align: left;
+            font-size: 18px;
+          }
+          .compactSummaryMain {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+          .compactSummaryTotal {
             font-size: 18px;
           }
           .checks {

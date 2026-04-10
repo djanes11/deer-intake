@@ -482,15 +482,32 @@ export default function StatusPage() {
   const canScan = typeof window !== 'undefined' && 'BarcodeDetector' in window && 'mediaDevices' in navigator;
 
   return (
-    <main style={{ maxWidth: 920, margin: '20px auto', padding: '0 12px 28px' }}>
-      <section style={{ ...card, padding: 18 }}>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <div>
-            <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0 }}>Check Your Deer Status</h1>
-            <p style={{ opacity: 0.86, margin: '8px 0 0' }}>
-              Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag.
+    <main className="app-frame" style={{ maxWidth: 960 }}>
+      <section className="app-hero">
+        <div className="app-hero-grid">
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div className="app-kicker">Customer Status</div>
+            <h1 className="app-title" style={{ fontSize: 'clamp(28px, 5vw, 38px)' }}>Check Your Deer Status</h1>
+            <p className="app-copy">
+              Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag. We will keep this page updated as your order moves through the shop.
             </p>
           </div>
+          <div className="app-side-note">
+            <div style={{ fontWeight: 900, color: '#fff7e8' }}>Best way to search</div>
+            <div style={{ color: 'rgba(245,236,216,.84)', lineHeight: 1.55 }}>
+              Confirmation number works best before staff assign the permanent tag. After the tag is assigned, you can also search with the tag number and customer last name.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="app-surface-light" style={{ padding: 18, display: 'grid', gap: 8 }}>
+        <div className="app-section-head">
+          <div className="app-section-title">Look Up Your Order</div>
+          <div className="app-section-copy">
+            Search with a confirmation number, or with both tag number and last name.
+          </div>
+        </div>
 
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
             <div
@@ -500,9 +517,9 @@ export default function StatusPage() {
                 gap: 12,
               }}
             >
-              <div style={sectionCard}>
+              <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Confirmation Number</div>
-                <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
+                <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
                   Best for public intake forms before a deer tag has been assigned.
                 </div>
                 <input
@@ -515,9 +532,9 @@ export default function StatusPage() {
                 />
               </div>
 
-              <div style={sectionCard}>
+              <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Tag and Last Name</div>
-                <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
+                <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
                   Use this after staff have assigned the real deer tag.
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
@@ -548,7 +565,6 @@ export default function StatusPage() {
               Search with a confirmation number, or with both tag number and last name.
             </div>
           </form>
-        </div>
       </section>
 
       {err ? (
@@ -558,12 +574,13 @@ export default function StatusPage() {
       ) : null}
 
       {res ? (
-        <section style={{ ...card, marginTop: 16, padding: 18, display: 'grid', gap: 16 }}>
+        <section className="app-surface-light" style={{ padding: 18, display: 'grid', gap: 16 }}>
           <div
             style={{
               ...sectionCard,
               borderColor: tones[currentStage?.tone || 'unknown'].border,
-              background: currentStage?.tone === 'ready' ? '#11251c' : sectionCard.background,
+              background: currentStage?.tone === 'ready' ? '#ecfdf3' : '#f8fafc',
+              color: '#0f172a',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -646,7 +663,7 @@ export default function StatusPage() {
         </section>
       ) : null}
 
-      <div style={{ marginTop: 18, opacity: 0.82, fontSize: 13 }}>
+      <div style={{ marginTop: 4, opacity: 0.82, fontSize: 13, color: '#d5c8b5' }}>
         Not seeing your order? Try your confirmation number first, or{' '}
         <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
           check the FAQ
@@ -661,15 +678,16 @@ function SummaryCard({ title, value, note }: { title: string; value: string; not
   return (
     <div
       style={{
-        border: '1px solid #1f2937',
+        border: '1px solid #dbe4ee',
         borderRadius: 14,
-        background: '#11161b',
+        background: '#f8fafc',
         padding: 14,
+        color: '#0f172a',
       }}
     >
-      <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 24, fontWeight: 900, marginBottom: 6 }}>{value}</div>
-      <div style={{ opacity: 0.84, lineHeight: 1.45 }}>{note}</div>
+      <div style={{ color: '#475569', lineHeight: 1.45 }}>{note}</div>
     </div>
   );
 }
@@ -699,16 +717,17 @@ function TrackCard({ item }: { item: TrackSummary }) {
     <div
       style={{
         border: `1px solid ${palette.border}`,
-        background: '#0f1416',
+        background: '#ffffff',
         borderRadius: 14,
         padding: 14,
         display: 'grid',
         gap: 8,
+        color: '#0f172a',
       }}
     >
-      <div style={{ fontSize: 12, opacity: 0.76 }}>{item.label}</div>
+      <div style={{ fontSize: 12, color: '#64748b' }}>{item.label}</div>
       <StatusPill tone={item.tone} label={item.value || 'Status pending'} />
-      <div style={{ opacity: 0.84, lineHeight: 1.45 }}>{item.message}</div>
+      <div style={{ color: '#475569', lineHeight: 1.45 }}>{item.message}</div>
     </div>
   );
 }
@@ -717,15 +736,16 @@ function PaymentCard({ label, amount, paid, owed }: PaymentCardProps) {
   return (
     <div
       style={{
-        border: '1px solid #1f2937',
+        border: '1px solid #dbe4ee',
         borderRadius: 14,
-        background: '#0f1416',
+        background: '#ffffff',
         padding: 14,
         display: 'grid',
         gap: 8,
+        color: '#0f172a',
       }}
     >
-      <div style={{ fontSize: 12, opacity: 0.76 }}>{label}</div>
+      <div style={{ fontSize: 12, color: '#64748b' }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 900 }}>{money(amount)}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Badge ok={!!paid} label={paid ? 'Paid' : 'Unpaid'} />
@@ -777,11 +797,11 @@ function PickupPanel({
     <section
       aria-label="Pickup Information"
       style={{
-        border: '1px solid #1f2937',
-        background: '#11161b',
+        border: '1px solid #dbe4ee',
+        background: '#f8fafc',
         borderRadius: 14,
         padding: 14,
-        color: '#e6e7eb',
+        color: '#0f172a',
         display: 'grid',
         gap: 12,
       }}
@@ -789,7 +809,7 @@ function PickupPanel({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <div style={{ fontWeight: 900, fontSize: 18 }}>Pickup Information</div>
-          <div style={{ opacity: 0.84 }}>
+          <div style={{ color: '#475569' }}>
             When your deer is ready, this is where to go and how to reach {processorName}.
           </div>
         </div>

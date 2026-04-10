@@ -562,10 +562,10 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
 
   const hero: React.CSSProperties = {
     marginTop: 10,
-    borderRadius: 16,
+    borderRadius: 18,
     background: 'radial-gradient(circle at top center, rgba(200,138,61,.16) 0%, transparent 36%), linear-gradient(180deg, rgba(33,25,21,1) 0%, rgba(16,13,11,1) 100%)',
     border: `1px solid ${colors.panelBorder}`,
-    padding: 24,
+    padding: 22,
   };
   const eyebrow: React.CSSProperties = {
     color: colors.brand,
@@ -580,7 +580,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
     lineHeight: 1.1,
     fontWeight: 900,
   };
-  const subtitle: React.CSSProperties = { margin: '0 0 18px', color: colors.sub, maxWidth: 720 };
+  const subtitle: React.CSSProperties = { margin: '0 0 16px', color: colors.sub, maxWidth: 720, fontSize: 15, lineHeight: 1.55 };
   const statGrid: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -630,7 +630,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const panel: React.CSSProperties = {
     background: colors.panel,
     border: `1px solid ${colors.panelBorder}`,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 16,
   };
   const h3: React.CSSProperties = { fontWeight: 900, fontSize: 18, marginBottom: 8, color: colors.accent };
@@ -642,7 +642,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const supportRow: React.CSSProperties = {
     display: 'grid',
     gap: 4,
-    padding: '10px 12px',
+    padding: '12px 12px',
     borderRadius: 12,
     border: `1px solid ${colors.panelBorder}`,
     background: 'rgba(18,24,22,.78)',
