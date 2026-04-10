@@ -9,63 +9,96 @@ export default async function HoursPage() {
   const phoneHref = String(tel).startsWith('tel:') ? tel : `tel:${tel}`;
 
   return (
-    <main>
-      <div style={{ maxWidth: 900, margin: '20px auto', padding: '0 16px' }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 10 }}>Season Pickup Hours</h1>
+    <main className="app-frame" style={{ maxWidth: 920 }}>
+      <section className="app-hero">
+        <div className="app-hero-grid">
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div className="app-kicker">Public Hours</div>
+            <h1 className="app-title" style={{ fontSize: 'clamp(28px, 5vw, 38px)' }}>Season Pickup Hours</h1>
+            <p className="app-copy">
+              Check the current pickup schedule before heading over. This page keeps the customer-facing hours, location, and best contact information in one place.
+            </p>
+          </div>
+          <div className="app-side-note">
+            <div style={{ fontWeight: 900, color: '#fff7e8' }}>Quick note</div>
+            <div style={{ color: 'rgba(245,236,216,.84)', lineHeight: 1.55 }}>
+              If something looks unclear, call ahead before pickup. Hours can vary during the season, so this is the best current reference for customers.
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+      <section className="app-surface-light" style={{ padding: 18, display: 'grid', gap: 16 }}>
+        <div className="app-section-head">
+          <div className="app-section-title">Current Hours</div>
+          <div className="app-section-copy">
+            Pickup availability and contact details for customers coming to the shop.
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gap: 10 }}>
           {settings.hours.map((h) => (
-            <li
+            <div
               key={`${h.label}:${h.value}`}
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                border: '1px solid #1f2937',
-                borderRadius: 10,
-                padding: '10px 12px',
-                background: '#0b0f12',
-                color: '#e5e7eb',
+                gap: 16,
+                alignItems: 'center',
+                border: '1px solid #dbe4ee',
+                borderRadius: 14,
+                padding: '12px 14px',
+                background: '#ffffff',
+                color: '#0f172a',
                 fontWeight: 700,
+                flexWrap: 'wrap',
               }}
             >
               <span>{h.label}</span>
-              <span style={{ fontWeight: 800 }}>{h.value}</span>
-            </li>
+              <span style={{ fontWeight: 900 }}>{h.value}</span>
+            </div>
           ))}
-        </ul>
+        </div>
 
         <div
           style={{
-            marginTop: 14,
-            border: '1px solid #1f2937',
-            borderRadius: 10,
-            padding: '10px 12px',
-            background: '#0b0f12',
-            color: '#e5e7eb',
+            border: '1px solid #dbe4ee',
+            borderRadius: 16,
+            padding: 16,
+            background: '#ffffff',
+            color: '#0f172a',
+            display: 'grid',
+            gap: 10,
           }}
         >
-          <div style={{ marginBottom: 6 }}>
-            <b>Address:</b>{' '}
-            <a href={branding.mapsUrl} target="_blank" rel="noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-              {branding.address}
-            </a>
+          <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
+            Shop Details
           </div>
-          <div>
-            <b>Phone:</b>{' '}
-            <a href={phoneHref} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-              {branding.phoneDisplay}
-            </a>
-          </div>
-          {branding.email ? (
-            <div style={{ marginTop: 6 }}>
-              <b>Email:</b>{' '}
-              <a href={`mailto:${branding.email}`} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
-                {branding.email}
+
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div>
+              <b>Address:</b>{' '}
+              <a href={branding.mapsUrl} target="_blank" rel="noreferrer" style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
+                {branding.address}
               </a>
             </div>
-          ) : null}
+            <div>
+              <b>Phone:</b>{' '}
+              <a href={phoneHref} style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
+                {branding.phoneDisplay}
+              </a>
+            </div>
+            {branding.email ? (
+              <div>
+                <b>Email:</b>{' '}
+                <a href={`mailto:${branding.email}`} style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
+                  {branding.email}
+                </a>
+              </div>
+            ) : null}
+          </div>
         </div>
-      </div>
+      </section>
     </main>
   );
 }
