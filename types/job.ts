@@ -150,6 +150,8 @@ export interface Job {
   pickedUpCapeAt: string | null;
   pickedUpWebbs: boolean;
   pickedUpWebbsAt: string | null;
+  pickedUpBy?: string | null;
+  pickupNotes?: string | null;
 
   // Call tracking
   callAttempts: number;
@@ -204,4 +206,6 @@ export interface JobSearchRow {
   intakeSheetPrintCount?: number;
   updatedAt?: string | null;
   pendingDeletedAt?: string | null;
+  pickedUpBy?: string | null;
+  pickupNotes?: string | null;
 }

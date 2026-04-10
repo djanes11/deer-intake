@@ -24,6 +24,8 @@ type Row = {
   paidSpecialty?: boolean;
   pickedUp?: boolean;
   pickedUpAt?: string;
+  pickedUpBy?: string;
+  pickupNotes?: string;
 };
 
 function normProc(s?: string) {
@@ -124,6 +126,8 @@ async function fetchCalled(): Promise<Row[]> {
     const pickedUpProcessingAt = String(r?.pickedUpProcessingAt ?? r?.picked_up_processing_at ?? '').trim() || undefined;
     const pickedUpCapeAt = String(r?.pickedUpCapeAt ?? r?.picked_up_cape_at ?? '').trim() || undefined;
     const pickedUpWebbsAt = String(r?.pickedUpWebbsAt ?? r?.picked_up_webbs_at ?? '').trim() || undefined;
+    const pickedUpBy = String(r?.pickedUpBy ?? r?.picked_up_by ?? '').trim() || undefined;
+    const pickupNotes = String(r?.pickupNotes ?? r?.pickup_notes ?? '').trim() || undefined;
 
     const processingFinishedAt = String(r?.processingFinishedAt ?? r?.processing_finished_at ?? '').trim() || undefined;
 
@@ -143,6 +147,8 @@ async function fetchCalled(): Promise<Row[]> {
         paidSpecialty,
         pickedUp: pickedUpProcessing,
         pickedUpAt: pickedUpProcessingAt,
+        pickedUpBy,
+        pickupNotes,
       });
     }
     if (isCalled(capingStatus)) {
@@ -161,6 +167,8 @@ async function fetchCalled(): Promise<Row[]> {
         paidSpecialty,
         pickedUp: pickedUpCape,
         pickedUpAt: pickedUpCapeAt,
+        pickedUpBy,
+        pickupNotes,
       });
     }
     if (isCalled(webbsStatus)) {
@@ -179,6 +187,8 @@ async function fetchCalled(): Promise<Row[]> {
         paidSpecialty,
         pickedUp: pickedUpWebbs,
         pickedUpAt: pickedUpWebbsAt,
+        pickedUpBy,
+        pickupNotes,
       });
     }
   }
@@ -193,20 +203,24 @@ async function fetchCalled(): Promise<Row[]> {
   return out;
 }
 
-async function markPaid(tag: string) {
-  return saveJob({ tag, paidProcessing: true } as any);
+async function markPaid(tag: string, kind: 'processing' | 'specialty') {
+  return saveJob(kind === 'specialty' ? ({ tag, paidSpecialty: true } as any) : ({ tag, paidProcessing: true } as any));
 }
 
-async function markPickedUp(tag: string, track: Track) {
+async function markPickedUp(tag: string, track: Track, pickedUpBy?: string, pickupNotes?: string) {
   const now = new Date().toISOString();
+  const shared = {
+    pickedUpBy: String(pickedUpBy || '').trim() || null,
+    pickupNotes: String(pickupNotes || '').trim() || null,
+  };
 
   if (track === 'meat') {
-    return saveJob({ tag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now } as any);
+    return saveJob({ tag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now, ...shared } as any);
   }
   if (track === 'cape') {
-    return saveJob({ tag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now } as any);
+    return saveJob({ tag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now, ...shared } as any);
   }
-  return saveJob({ tag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now } as any);
+  return saveJob({ tag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now, ...shared } as any);
 }
 
 function TrackBadge({ track }: { track: Track | string }) {
@@ -260,6 +274,8 @@ export default function CalledPickupQueue() {
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [pickedUpByInput, setPickedUpByInput] = useState('');
+  const [pickupNotesInput, setPickupNotesInput] = useState('');
 
   const summary = useMemo(() => {
     const openRows = rows.filter((row) => !row.pickedUp);
@@ -293,6 +309,11 @@ export default function CalledPickupQueue() {
     () => filteredRows.find((r) => `${r.tag}|${r.track}` === selectedKey) || rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
     [filteredRows, rows, selectedKey]
   );
+
+  useEffect(() => {
+    setPickedUpByInput(selected?.pickedUpBy || '');
+    setPickupNotesInput(selected?.pickupNotes || '');
+  }, [selected?.tag, selected?.track, selected?.pickedUpBy, selected?.pickupNotes]);
 
   async function load() {
     setLoading(true);
@@ -483,7 +504,36 @@ export default function CalledPickupQueue() {
                 {selected.pickedUpAt ? formatDisplayDateTime(selected.pickedUpAt) : 'Still in called queue'}
               </div>
             </div>
+            <div className="fact fact-wide">
+              <div className="fact-label">Pickup Details</div>
+              <div className="fact-value">{selected.pickedUpBy || 'Not recorded yet'}</div>
+              <div className="fact-sub">
+                {selected.pickupNotes ? selected.pickupNotes : 'Record who received the order and any handoff notes below.'}
+              </div>
+            </div>
           </div>
+
+          {canUpdate ? (
+            <div className="pickup-edit-grid">
+              <label className="pickup-field">
+                <span className="pickup-label">Picked up by</span>
+                <input
+                  value={pickedUpByInput}
+                  onChange={(e) => setPickedUpByInput(e.target.value)}
+                  placeholder="Customer, spouse, friend, etc."
+                />
+              </label>
+              <label className="pickup-field">
+                <span className="pickup-label">Pickup notes</span>
+                <textarea
+                  value={pickupNotesInput}
+                  onChange={(e) => setPickupNotesInput(e.target.value)}
+                  rows={3}
+                  placeholder="Cash collected, freezer bags returned, special handoff note, or anything worth recording."
+                />
+              </label>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -571,20 +621,38 @@ export default function CalledPickupQueue() {
           <div className="toolbar-actions">
             <button
               className="btn secondary small"
-              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}` || selected?.track !== 'meat' || !!selected?.paidProcessing}
+              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}:processing` || selected?.track !== 'meat' || !!selected?.paidProcessing}
               title={!canUpdate ? 'Only Staff or Admin can mark processing as paid.' : undefined}
               onClick={async () => {
                 if (!selected) return;
-                setBusy(`paid:${selected.tag}`);
+                setBusy(`paid:${selected.tag}:processing`);
                 try {
-                  await markPaid(selected.tag);
+                  await markPaid(selected.tag, 'processing');
                   await load();
                 } finally {
                   setBusy('');
                 }
               }}
             >
-              {busy === `paid:${selected?.tag}` ? 'Saving...' : selected?.track === 'meat' && selected?.totalDue > 0 ? `Mark Paid ${money(selected?.priceProc || 0)}` : 'Mark Paid'}
+              {busy === `paid:${selected?.tag}:processing` ? 'Saving...' : `Mark Processing Paid ${money(selected?.priceProc || 0)}`}
+            </button>
+
+            <button
+              className="btn secondary small"
+              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}:specialty` || selected?.track !== 'meat' || !selected?.priceSpec || !!selected?.paidSpecialty}
+              title={!canUpdate ? 'Only Staff or Admin can mark specialty as paid.' : undefined}
+              onClick={async () => {
+                if (!selected) return;
+                setBusy(`paid:${selected.tag}:specialty`);
+                try {
+                  await markPaid(selected.tag, 'specialty');
+                  await load();
+                } finally {
+                  setBusy('');
+                }
+              }}
+            >
+              {busy === `paid:${selected?.tag}:specialty` ? 'Saving...' : `Mark Specialty Paid ${money(selected?.priceSpec || 0)}`}
             </button>
 
             <button
@@ -595,7 +663,7 @@ export default function CalledPickupQueue() {
                 if (!selected) return;
                 setBusy(`pu:${selected.tag}:${selected.track}`);
                 try {
-                  await markPickedUp(selected.tag, selected.track);
+                  await markPickedUp(selected.tag, selected.track, pickedUpByInput, pickupNotesInput);
                   await load();
                 } finally {
                   setBusy('');
@@ -692,6 +760,9 @@ export default function CalledPickupQueue() {
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: 12px;
         }
+        .fact-wide {
+          grid-column: 1 / -1;
+        }
         .fact {
           border: 1px solid rgba(154, 116, 60, 0.16);
           border-radius: 14px;
@@ -715,6 +786,35 @@ export default function CalledPickupQueue() {
           color: #cbd5e1;
           font-size: 13px;
           line-height: 1.4;
+        }
+        .pickup-edit-grid {
+          display: grid;
+          grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1fr);
+          gap: 12px;
+        }
+        .pickup-field {
+          display: grid;
+          gap: 6px;
+        }
+        .pickup-label {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: #b7a98d;
+        }
+        .pickup-field input,
+        .pickup-field textarea {
+          width: 100%;
+          border-radius: 12px;
+          border: 1px solid rgba(191, 210, 194, 0.35);
+          background: rgba(255, 255, 255, 0.05);
+          color: #f8fafc;
+          padding: 11px 12px;
+        }
+        .pickup-field textarea {
+          resize: vertical;
+          min-height: 92px;
         }
         .table-wrap {
           background: #101715;
@@ -791,6 +891,9 @@ export default function CalledPickupQueue() {
         @media (max-width: 960px) {
           .pickup-filters {
             grid-template-columns: 1fr !important;
+          }
+          .pickup-edit-grid {
+            grid-template-columns: 1fr;
           }
         }
         .toolbar {
