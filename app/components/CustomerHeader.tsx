@@ -35,7 +35,7 @@ export default function CustomerHeader(props: { branding?: Branding }) {
     <header
       style={{
         borderBottom: '1px solid rgba(200,138,61,.18)',
-        background: 'linear-gradient(180deg, rgba(29,23,20,.98) 0%, rgba(19,15,13,.98) 100%)',
+        background: 'linear-gradient(180deg, rgba(28,22,19,.98) 0%, rgba(18,14,12,.98) 100%)',
         position: 'sticky',
         top: 0,
         zIndex: 30,
@@ -77,27 +77,31 @@ export default function CustomerHeader(props: { branding?: Branding }) {
         .public-header-shell {
           max-width: 1100px;
           margin: 0 auto;
-          padding: 10px 14px;
+          padding: 12px 14px;
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 18px;
           min-width: 0;
         }
         .brand-link {
           display: inline-flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           min-width: 0;
-          text-decoration: none;
+          text-decoration: none !important;
+          color: inherit !important;
+          padding: 6px 0;
+          flex: 0 1 auto;
         }
         .logo-wrap {
           position: relative;
-          width: 44px;
-          height: 44px;
-          border-radius: 10px;
+          width: 46px;
+          height: 46px;
+          border-radius: 12px;
           overflow: hidden;
-          background: #231813;
-          border: 1px solid rgba(200,138,61,.24);
+          background: rgba(255,255,255,.03);
+          border: 1px solid rgba(200,138,61,.18);
+          box-shadow: 0 10px 22px rgba(0,0,0,.18);
           flex: 0 0 auto;
         }
         .brand-copy {
@@ -108,33 +112,55 @@ export default function CustomerHeader(props: { branding?: Branding }) {
           font-weight: 900;
           color: #f1e7cf;
           white-space: nowrap;
+          text-decoration: none !important;
+          font-size: 15px;
+          letter-spacing: -.01em;
         }
         .brand-sub {
           font-size: 12px;
-          color: #c4bbaf;
-          margin-top: 4px;
+          color: #bfb3a3;
+          margin-top: 5px;
+          text-decoration: none !important;
         }
         .public-header-nav {
           margin-left: auto;
           display: flex;
-          gap: 8px;
+          gap: 6px;
           flex-wrap: wrap;
           min-width: 0;
+          align-items: center;
         }
         .public-header-link {
-          padding: 9px 12px;
-          border-radius: 10px;
-          font-weight: 700;
-          text-decoration: none;
-          border: 1px solid rgba(200,138,61,.14);
+          padding: 10px 12px;
+          border-radius: 999px;
+          font-weight: 800;
+          text-decoration: none !important;
+          border: 1px solid transparent;
           background: transparent;
-          color: #f1e7cf;
+          color: #e7dbc7;
           white-space: nowrap;
           flex: 0 0 auto;
+          transition: background .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+        }
+        .public-header-link:hover {
+          background: rgba(200,138,61,.08);
+          border-color: rgba(200,138,61,.18);
+          color: #fff7ee;
+          transform: translateY(-1px);
         }
         .public-header-link.active {
-          background: rgba(139,90,43,.22);
+          background: linear-gradient(180deg, rgba(139,90,43,.28) 0%, rgba(110,67,28,.34) 100%);
+          border-color: rgba(200,138,61,.24);
           color: #fff8ee;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+        }
+        .brand-link:visited,
+        .brand-link:hover,
+        .brand-link:active,
+        .public-header-link:visited,
+        .public-header-link:hover,
+        .public-header-link:active {
+          text-decoration: none !important;
         }
         @media (max-width: 720px) {
           .public-header-shell {

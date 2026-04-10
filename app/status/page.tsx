@@ -665,7 +665,7 @@ export default function StatusPage() {
 
       <div style={{ marginTop: 4, opacity: 0.82, fontSize: 13, color: '#d5c8b5' }}>
         Not seeing your order? Try your confirmation number first, or{' '}
-        <Link href="/faq-public" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+        <Link href="/faq-public" style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
           check the FAQ
         </Link>
         .
@@ -824,7 +824,7 @@ function PickupPanel({
         <div>
           <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 5 }}>Location</div>
           <div>
-            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
               {addressText}
             </a>
           </div>
@@ -845,7 +845,7 @@ function PickupPanel({
 
         <div>
           <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 5 }}>Phone</div>
-          <a href={phoneHref} style={{ color: '#a7e3ba', textDecoration: 'underline' }}>
+          <a href={phoneHref} style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
             {phoneDisplay}
           </a>
         </div>

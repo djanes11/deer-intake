@@ -104,10 +104,11 @@ export default function OvernightInstructionsPage() {
   }, []);
 
   const stepBox: React.CSSProperties = {
-    border: '1px solid #374151',
-    background: '#0b0f12',
+    border: '1px solid #dbe4ee',
+    background: '#ffffff',
     borderRadius: 12,
     padding: '14px 14px',
+    color: '#0f172a',
   };
 
   const startEnabled = intakeEnabled && canAgree && agree;
@@ -134,7 +135,7 @@ export default function OvernightInstructionsPage() {
         </span>
         <div>
           We <b>cannot process your deer</b> without a valid{' '}
-          <a href={GO_OUTDOORS_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#facc15', textDecoration: 'underline' }}>
+          <a href={GO_OUTDOORS_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 800 }}>
             GoOutdoorsIN confirmation #
           </a>{' '}
           from your check-in.
@@ -150,43 +151,32 @@ export default function OvernightInstructionsPage() {
   }
 
   return (
-    <main style={{ background: '#0b0f12', minHeight: '100vh', color: '#f2f4f5' }}>
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '20px 14px 96px' }}>
-        <section
-          style={{
-            background: 'linear-gradient(180deg,#111827 0%, #0b0f12 100%)',
-            border: '1px solid #1f2937',
-            borderRadius: 14,
-            padding: '18px 18px 16px',
-            marginBottom: 18,
-          }}
-        >
+    <main className="app-frame" style={{ maxWidth: 1080, paddingBottom: 96 }}>
+        <section className="app-hero" style={{ marginBottom: 2 }}>
           <h1
             style={{
-              fontSize: 28,
+              fontSize: 32,
               fontWeight: 900,
               letterSpacing: 0.2,
               margin: '0 0 8px',
-              color: '#f9fafb',
+              color: '#fff7e8',
             }}
           >
             Public Intake - How It Works
           </h1>
-          <p style={{ margin: 0, color: '#d1d5db', lineHeight: 1.6 }}>
+          <p style={{ margin: 0, color: 'rgba(245,236,216,.84)', lineHeight: 1.6 }}>
             Quick, secure, and available anytime. Use this form for public deer intake, including after-hours drop-off.
           </p>
         </section>
 
         <section
+          className="app-surface-light"
           style={{
-            border: '1px solid #1f2937',
-            borderRadius: 14,
             padding: 14,
-            background: '#0b0f12',
             marginBottom: 14,
           }}
         >
-          <h2 style={{ margin: '0 0 10px', fontSize: 18, fontWeight: 900, color: '#f3f4f6' }}>What you'll need</h2>
+          <h2 style={{ margin: '0 0 10px', fontSize: 18, fontWeight: 900, color: '#0f172a' }}>What you'll need</h2>
           <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
             <li>Your <b>GoOutdoorsIN confirmation #</b> from State check-in</li>
             <li>Your phone and contact info</li>
@@ -199,11 +189,9 @@ export default function OvernightInstructionsPage() {
         </section>
 
         <section
+          className="app-surface-light"
           style={{
-            border: '1px solid #1f2937',
-            borderRadius: 14,
             padding: 14,
-            background: '#0b0f12',
           }}
         >
           {!intakeEnabled ? (
@@ -225,7 +213,7 @@ export default function OvernightInstructionsPage() {
             </div>
           ) : null}
 
-          <h2 style={{ margin: '0 0 10px', fontSize: 20, fontWeight: 900, color: '#f3f4f6' }}>
+          <h2 style={{ margin: '0 0 10px', fontSize: 20, fontWeight: 900, color: '#0f172a' }}>
             Step-by-step instructions
           </h2>
 
@@ -244,7 +232,7 @@ export default function OvernightInstructionsPage() {
 
             <li style={stepBox}>
               <b>3) Fill out the Public Intake Form.</b> You <u>must</u> have a{' '}
-              <a href={GO_OUTDOORS_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#93c5fd' }}>
+              <a href={GO_OUTDOORS_URL} target="_blank" rel="noopener noreferrer" style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
                 GoOutdoorsIN confirmation number
               </a>{' '}
               from your check-in.
@@ -262,7 +250,7 @@ export default function OvernightInstructionsPage() {
                   href={WEBBS_PRICE_SHEET_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: '#fcd34d', textDecoration: 'underline' }}
+                  style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}
                 >
                   View Webbs price sheet (PDF)
                 </a>
@@ -345,17 +333,15 @@ export default function OvernightInstructionsPage() {
         </section>
 
         <section
+          className="app-surface-light"
           style={{
             marginTop: 16,
-            border: '1px solid #1f2937',
-            borderRadius: 14,
             padding: 14,
-            background: '#0b0f12',
             display: 'grid',
             gap: 10,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#f3f4f6' }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0f172a' }}>
             Location & Contact
           </h2>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -399,7 +385,6 @@ export default function OvernightInstructionsPage() {
             </div>
           </div>
         </section>
-      </div>
 
       {isMobile && (
         <div
