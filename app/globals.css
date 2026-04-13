@@ -282,12 +282,36 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
 }
 
 .public-site-header .public-header-nav {
-  margin-left: auto;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   min-width: 0;
   align-items: center;
+}
+
+.public-site-header .public-header-menu {
+  margin-left: auto;
+  position: relative;
+}
+
+.public-site-header .public-header-menu > summary {
+  list-style: none;
+  cursor: pointer;
+  display: none;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #e7dbc7;
+  border: 1px solid rgba(200,138,61,.18);
+  background: rgba(255,255,255,.03);
+}
+
+.public-site-header .public-header-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.public-site-header .public-header-menu[open] > summary {
+  background: rgba(200,138,61,.08);
 }
 
 .public-site-header .public-header-link,
@@ -322,9 +346,8 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
 
 @media (max-width: 720px) {
   .public-site-header .public-header-shell {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
+    align-items: center;
+    gap: 12px;
     padding: 10px 12px;
   }
 
@@ -333,23 +356,48 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
     line-height: 1.15;
   }
 
-  .public-site-header .public-header-nav {
-    margin-left: 0;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
+  .public-site-header .public-header-menu {
+    margin-left: auto;
   }
 
-  .public-site-header .public-header-nav::-webkit-scrollbar {
+  .public-site-header .public-header-menu > summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .public-site-header .public-header-nav {
     display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 220px;
+    padding: 8px;
+    border-radius: 16px;
+    border: 1px solid rgba(200,138,61,.18);
+    background: rgba(18,14,12,.98);
+    box-shadow: 0 16px 30px rgba(0,0,0,.24);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .public-site-header .public-header-menu[open] .public-header-nav {
+    display: flex;
   }
 
   .public-site-header .public-header-link,
   .public-site-header .public-header-link:visited,
   .public-site-header .public-header-link:hover,
   .public-site-header .public-header-link:active {
-    padding: 10px 12px;
+    width: 100%;
+    padding: 11px 12px;
+  }
+}
+
+@media (min-width: 721px) {
+  .public-site-header .public-header-menu > summary {
+    display: none;
   }
 }
 

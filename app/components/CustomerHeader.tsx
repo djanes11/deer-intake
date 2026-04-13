@@ -8,7 +8,6 @@ import { usePathname } from 'next/navigation';
 type NavItem = { href: string; label: string; exact?: boolean };
 
 const NAV: NavItem[] = [
-  { href: '/', label: 'Home', exact: true },
   { href: '/status', label: 'Check Status' },
   { href: '/overnight', label: 'Public Intake' },
   { href: '/faq-public', label: 'FAQ' },
@@ -61,17 +60,20 @@ export default function CustomerHeader(props: { branding?: Branding }) {
           </div>
         </Link>
 
-        <nav className="public-header-nav" aria-label="Public">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`public-header-link ${isActive(item) ? 'active' : ''}`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <details className="public-header-menu">
+          <summary className="public-header-menu-toggle">Menu</summary>
+          <nav className="public-header-nav" aria-label="Public">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`public-header-link ${isActive(item) ? 'active' : ''}`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </details>
       </div>
     </header>
   );
