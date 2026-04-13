@@ -1336,6 +1336,9 @@ function StaffHome({
               { label: 'Avg Processing Time', value: fmtHours((dashboard as any)?.avgProcessingHours) },
               { label: 'Avg Ready Hold Time', value: fmtDays((dashboard as any)?.avgReadyAgeDays) },
               { label: 'Oldest Ready Deer', value: fmtDays((dashboard as any)?.oldestReadyDays) },
+              { label: 'Ready 3+ Days', value: (dashboard as any)?.readyHeld3d ?? 0 },
+              { label: 'Ready 7+ Days', value: (dashboard as any)?.readyHeld7d ?? 0 },
+              { label: 'Ready 14+ Days', value: (dashboard as any)?.readyHeld14d ?? 0 },
             ].map((item) => (
               <div
                 key={item.label}

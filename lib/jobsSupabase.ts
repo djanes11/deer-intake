@@ -3059,6 +3059,9 @@ export async function getDashboardSummary() {
       ? readyAges.reduce((sum, value) => sum + value, 0) / readyAges.length
       : null;
   const oldestReadyDays = readyAges.length > 0 ? Math.max(...readyAges) : null;
+  const readyHeld3d = readyAges.filter((value) => value >= 3).length;
+  const readyHeld7d = readyAges.filter((value) => value >= 7).length;
+  const readyHeld14d = readyAges.filter((value) => value >= 14).length;
 
   return {
     pendingTags: countOrThrow('pendingTags', pendingTagsRes),
@@ -3078,6 +3081,9 @@ export async function getDashboardSummary() {
     avgProcessingHours,
     avgReadyAgeDays,
     oldestReadyDays,
+    readyHeld3d,
+    readyHeld7d,
+    readyHeld14d,
   };
 }
 

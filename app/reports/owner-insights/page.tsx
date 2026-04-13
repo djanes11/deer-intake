@@ -142,6 +142,9 @@ export default async function OwnerInsightsPage() {
 
   const processingValues = slowestProcessing.map((row) => row.processingHours);
   const readyValues = oldestReady.map((row) => row.readyDays);
+  const readyHeld3d = readyValues.filter((value) => value >= 3).length;
+  const readyHeld7d = readyValues.filter((value) => value >= 7).length;
+  const readyHeld14d = readyValues.filter((value) => value >= 14).length;
 
   return (
     <main style={{ maxWidth: 1180, margin: '24px auto', padding: '0 16px 40px', display: 'grid', gap: 16 }}>
@@ -185,6 +188,18 @@ export default async function OwnerInsightsPage() {
         <div style={cardStyle('rgba(88,141,102,.22)')}>
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>Oldest Ready</div>
           <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{fmtDays(readyValues.length ? Math.max(...readyValues) : null)}</div>
+        </div>
+        <div style={cardStyle('rgba(88,141,102,.22)')}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>Ready 3+ Days</div>
+          <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{readyHeld3d}</div>
+        </div>
+        <div style={cardStyle('rgba(88,141,102,.22)')}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>Ready 7+ Days</div>
+          <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{readyHeld7d}</div>
+        </div>
+        <div style={cardStyle('rgba(88,141,102,.22)')}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>Ready 14+ Days</div>
+          <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{readyHeld14d}</div>
         </div>
       </section>
 
