@@ -150,7 +150,7 @@ export default async function BalancesPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Balances</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 780, lineHeight: 1.5 }}>
-          Track who still owes money, how much is open across processing and specialty work, and which ready orders still need to be collected.
+          Use this page to see who still owes money, which ready orders still need collected, and where the biggest unpaid balances are sitting.
         </div>
       </section>
 
@@ -185,7 +185,7 @@ export default async function BalancesPage() {
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Ready But Unpaid</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
-              Orders that are ready for pickup but still have an open balance.
+              Orders that are ready for pickup but still need money collected.
             </div>
           </div>
           {!readyUnpaid.length ? (
@@ -203,7 +203,7 @@ export default async function BalancesPage() {
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Largest Open Balances</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
-              Highest unpaid orders across processing and specialty work.
+              The largest unpaid orders across processing and specialty work.
             </div>
           </div>
           {!largestBalances.length ? (
@@ -251,7 +251,7 @@ function BalanceListRow({ row, idx }: { row: BalanceRow; idx: number }) {
           <div style={{ fontSize: 22, fontWeight: 950, color: '#166534' }}>{money(total)}</div>
           {row.tag ? (
             <Link href={`/intake/${encodeURIComponent(row.tag)}`} style={{ fontSize: 13, fontWeight: 800 }}>
-              Open details
+              Open deer details
             </Link>
           ) : null}
         </div>

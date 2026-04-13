@@ -376,7 +376,7 @@ export default function CallReportPage() {
             </div>
             <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 34px)' }}>Call Report</h1>
             <div className="app-copy">
-              Work the ready-to-call list one track at a time, keep attempts visible, and move each meat, cape, or Webbs item into the pickup queue once the customer has been reached.
+              Use this page when an order is ready for customer contact. Track call attempts, leave simple notes, and move each item into the pickup queue once the customer has been reached.
             </div>
           </div>
           <button className="btn small" onClick={load} disabled={loading}>
@@ -437,7 +437,7 @@ export default function CallReportPage() {
             <div className="fact">
               <div className="fact-label">Attempts</div>
               <div className="fact-value">{attemptsFor(selected)}</div>
-              <div className="fact-sub">Every attempt helps keep the queue honest.</div>
+              <div className="fact-sub">Each time you call, add one attempt so everyone can see the history.</div>
             </div>
             <div className="fact">
               <div className="fact-label">Balance</div>

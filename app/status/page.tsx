@@ -505,11 +505,30 @@ export default function StatusPage() {
         <div className="app-section-head">
           <div className="app-section-title">Look Up Your Order</div>
           <div className="app-section-copy">
-            Search with a confirmation number, or with both tag number and last name.
+            Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.
           </div>
         </div>
 
           <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
+            <div
+              style={{
+                border: '1px solid #dbe4ee',
+                borderRadius: 14,
+                background: '#ffffff',
+                padding: 14,
+                color: '#0f172a',
+                display: 'grid',
+                gap: 6,
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
+                Easiest option
+              </div>
+              <div style={{ fontWeight: 900 }}>Use your confirmation number first.</div>
+              <div style={{ color: '#475569', lineHeight: 1.5 }}>
+                If staff have already assigned your deer tag, you can also search with the tag number and the customer&apos;s last name.
+              </div>
+            </div>
             <div
               style={{
                 display: 'grid',
@@ -520,12 +539,12 @@ export default function StatusPage() {
               <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Confirmation Number</div>
                 <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
-                  Best for public intake forms before a deer tag has been assigned.
+                  Best for most customers. Use the 13-digit number from your intake/check-in.
                 </div>
                 <input
                   value={confirmation}
                   onChange={(e) => setConfirmation(e.target.value)}
-                  placeholder="Confirmation #"
+                  placeholder="13-digit confirmation #"
                   inputMode="numeric"
                   aria-label="Confirmation number"
                   style={{ ...field, width: '100%' }}
@@ -535,14 +554,14 @@ export default function StatusPage() {
               <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Tag and Last Name</div>
                 <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
-                  Use this after staff have assigned the real deer tag.
+                  Only use this after staff have assigned the real deer tag.
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-                  <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Tag number" aria-label="Tag number" style={field} />
+                  <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Deer tag number" aria-label="Tag number" style={field} />
                   <input
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Last name"
+                    placeholder="Customer last name"
                     aria-label="Customer last name"
                     style={field}
                   />
@@ -562,7 +581,7 @@ export default function StatusPage() {
             </div>
 
             <div style={{ fontSize: 13, opacity: 0.82 }}>
-              Search with a confirmation number, or with both tag number and last name.
+              If one search does not work, try the other. Confirmation number is usually the fastest.
             </div>
           </form>
       </section>

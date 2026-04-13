@@ -793,14 +793,14 @@ function StaffHome({
   const roleLabel = role === 'admin' ? 'Admin' : role === 'staff' ? 'Staff' : role === 'readonly' ? 'Read-only' : 'Unknown';
   const primaryActions = canEdit
     ? [
-        { label: 'New Intake', href: '/intake', detail: 'Start a new deer intake form', accent: '#5b7a62' },
-        { label: 'Scan Tags', href: '/scan', detail: 'Move deer through scan-based workflow', accent: '#c88a3d' },
-        { label: 'Search Jobs', href: '/search', detail: 'Look up deer, print, and review status', accent: '#8fb3a8' },
+        { label: 'New Intake', href: '/intake', detail: 'Enter a new deer drop-off', accent: '#5b7a62' },
+        { label: 'Scan Tags', href: '/scan', detail: 'Scan tags to move deer through processing', accent: '#c88a3d' },
+        { label: 'Search Jobs', href: '/search', detail: 'Find a deer, print paperwork, or review details', accent: '#8fb3a8' },
       ]
     : [
-        { label: 'Search Jobs', href: '/search', detail: 'Open deer details, print sheets, and view status', accent: '#8fb3a8' },
-        { label: 'Call Report', href: '/reports/calls', detail: 'Review ready-to-call deer without editing them', accent: '#5b7a62' },
-        { label: 'Print Queue', href: '/reports/print-queue', detail: 'Print intake sheets and label stock', accent: '#c88a3d' },
+        { label: 'Search Jobs', href: '/search', detail: 'Find a deer, print paperwork, or review details', accent: '#8fb3a8' },
+        { label: 'Call Report', href: '/reports/calls', detail: 'See which deer are ready for customer contact', accent: '#5b7a62' },
+        { label: 'Print Queue', href: '/reports/print-queue', detail: 'Print intake sheets and labels that still need paper', accent: '#c88a3d' },
       ];
   const queueHighlights = [
     { label: 'Needs Tags', value: dashboard?.pendingTags ?? 0, hint: 'Public intake drop-offs waiting on staff tag assignment', href: '/overnight/review' },
@@ -956,7 +956,7 @@ function StaffHome({
             </div>
             <h1 style={title}>Wild Game Butcher Board</h1>
             <p style={subtitle}>
-              Quick access to the highest-value actions for {processorName || 'this processor'}, with a role-aware view of what needs attention today.
+              Start with the main jobs for {processorName || 'this processor'} and work through what needs attention today.
             </p>
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
@@ -1061,11 +1061,11 @@ function StaffHome({
       <section style={{ ...card, marginBottom: 16 }}>
         <div style={{ ...mini, color: '#c88a3d' }}>Primary Actions</div>
         <div style={{ display: 'grid', gap: 6, marginTop: 6, marginBottom: 14 }}>
-          <div style={{ fontWeight: 900, fontSize: 24 }}>Start with the work that moves the day forward</div>
+          <div style={{ fontWeight: 900, fontSize: 24 }}>Start with one of these</div>
           <div style={{ opacity: 0.82 }}>
             {canEdit
-              ? 'Create new intakes, scan deer through production, or jump straight into search to reprint, review, and update records.'
-              : 'Your access is focused on viewing, printing, and monitoring progress. Search and reports will be your main tools.'}
+              ? 'Choose the task you are doing right now: enter a deer, scan tags on the floor, or look up an existing record.'
+              : 'Your access is focused on viewing, printing, and monitoring progress. Search and reports are the main places to work.'}
           </div>
         </div>
         <div style={primaryGrid}>
@@ -1104,15 +1104,15 @@ function StaffHome({
           <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
             <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#5b7a62')} />
-              <div>Use <strong>Search</strong> for reprints, customer lookups, and quick detail review.</div>
+              <div>Use <strong>Search</strong> when you need to find one deer, reprint paperwork, or check a customer record.</div>
             </div>
             <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#c88a3d')} />
-              <div>{canEdit ? 'Scan workflow will advance cape and processing status in order based on the deer’s setup.' : 'Read-only access still lets you print sheets and labels without changing statuses.'}</div>
+              <div>{canEdit ? 'The scan page will move deer forward in the right order based on how that deer was set up.' : 'Read-only access still lets you print sheets and labels without changing statuses.'}</div>
             </div>
             <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#8fb3a8')} />
-              <div>{role === 'admin' ? 'Owner Snapshot below highlights pickup readiness, open balances, and processing timing.' : 'Use reports below to review what is ready, called, or waiting on action.'}</div>
+              <div>{role === 'admin' ? 'Owner Snapshot below shows what is ready, what is unpaid, and how work is moving.' : 'Use the reports below to see what is ready, what has been called, and what still needs action.'}</div>
             </div>
           </div>
         </section>
@@ -1120,12 +1120,12 @@ function StaffHome({
 
       <div style={statsGrid}>
         {[
-          { label: 'Public Intake Queue', value: dashboard?.pendingTags ?? 0, href: '/overnight/review' },
+          { label: 'Public Intake - Needs tag', value: dashboard?.pendingTags ?? 0, href: '/overnight/review' },
           { label: 'Print Queue', value: dashboard?.printQueue ?? 0, href: '/reports/print-queue' },
-          { label: 'Called Pickup', value: dashboard?.calledQueue ?? 0, href: '/reports/called' },
-          { label: 'Specialty Open', value: dashboard?.specialtyOpen ?? 0, href: '/reports/specialty' },
+          { label: 'Called - Pickup queue', value: dashboard?.calledQueue ?? 0, href: '/reports/called' },
+          { label: 'Specialty Report - Open pounds', value: dashboard?.specialtyOpen ?? 0, href: '/reports/specialty' },
           { label: 'Today Drop-Offs', value: dashboard?.todayDropoffs ?? 0, href: '/search' },
-          { label: 'State Form Entries', value: dashboard?.seasonEntries ?? 0, href: '/reports/state-form' },
+          { label: 'State Form - Season PDF', value: dashboard?.seasonEntries ?? 0, href: '/reports/state-form' },
         ].map((item) => (
           <Link key={item.label} href={item.href} style={linkStyle}>
             <div style={{ ...card, padding: 14 }}>

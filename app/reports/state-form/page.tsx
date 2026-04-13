@@ -118,25 +118,42 @@ export default function StateFormReportPage() {
   }, []);
 
   return (
-    <div className="px-6 py-6">
-      <div className="mb-3 text-zinc-300">
-        <div className="text-lg font-semibold">{formLabel}</div>
-        <div className="text-sm text-zinc-400">
-          {totalEntries} entr{totalEntries === 1 ? 'y' : 'ies'} across {totalSheets} sheet{totalSheets === 1 ? '' : 's'}
-          {reportPeriodLabel ? <span className="text-zinc-500"> {reportPeriodLabel}</span> : null}
-          {payload?.canSetPageNumber ? <span className="text-zinc-500"> Pages {pageNumber}-{endPageNumber}</span> : null}
-          {loading && <span className="ml-3 text-zinc-400">Loading...</span>}
-          {err && <span className="ml-3 text-red-400">Error: {err}</span>}
+    <main className="app-frame">
+      <section className="app-hero">
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div className="app-kicker">Reporting</div>
+          <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 34px)' }}>{formLabel}</h1>
+          <div className="app-copy">
+            Review the current state report, download the PDF, and adjust the page number only if your processor needs that state form tracked by hand.
+          </div>
+          <div style={{ color: 'rgba(241,231,207,.82)', fontSize: 14, lineHeight: 1.5 }}>
+            {totalEntries} entr{totalEntries === 1 ? 'y' : 'ies'} across {totalSheets} sheet{totalSheets === 1 ? '' : 's'}
+            {reportPeriodLabel ? <span style={{ color: 'rgba(241,231,207,.62)' }}> {reportPeriodLabel}</span> : null}
+            {payload?.canSetPageNumber ? <span style={{ color: 'rgba(241,231,207,.62)' }}> Pages {pageNumber}-{endPageNumber}</span> : null}
+            {loading ? <span style={{ marginLeft: 12 }}>Loading...</span> : null}
+            {err ? <span style={{ marginLeft: 12, color: '#fecaca' }}>Error: {err}</span> : null}
+          </div>
         </div>
-      </div>
+      </section>
 
       {!canSetPage && staffRole === 'readonly' && payload?.canSetPageNumber ? (
-        <div className="mb-3 text-sm font-semibold text-indigo-300">
+        <div className="card readonly-banner">
           Read-only access: you can review and download the state form, but changing the page number requires Staff or Admin access.
         </div>
       ) : null}
 
-      <div className="mb-3 flex flex-wrap items-center gap-3 bg-zinc-900/70 border border-zinc-700/70 rounded-lg px-3 py-2">
+      <section
+        style={{
+          border: '1px solid rgba(154, 116, 60, 0.18)',
+          borderRadius: 16,
+          padding: 16,
+          background: 'rgba(14, 13, 12, 0.88)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
         <button onClick={refresh} className="px-3 py-1.5 rounded-md bg-zinc-700 hover:bg-zinc-600 text-sm">
           Refresh
         </button>
@@ -212,7 +229,7 @@ export default function StateFormReportPage() {
           />
           Auto-refresh (20s)
         </label>
-      </div>
+      </section>
 
       <div className="w-full flex justify-center">
         <div
@@ -233,6 +250,6 @@ export default function StateFormReportPage() {
           />
         </div>
       </div>
-    </div>
+    </main>
   );
 }

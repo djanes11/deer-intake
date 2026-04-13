@@ -1060,16 +1060,23 @@ function OvernightIntakePage() {
         {step.key === 'customer' && (
           <section>
             <h3>Customer</h3>
+            <div className="stepIntro">
+              <div className="stepIntroTitle">Start here</div>
+              <div className="stepIntroCopy">
+                Fill in your confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.
+              </div>
+            </div>
             <div className="grid">
               <div className="c3">
                 <label>Confirmation #</label>
-                <Hint>Confirmation number you received from your GoOutdoorsIN (State) check-in.</Hint>
+                <Hint>Use the 13-digit number from your state check-in.</Hint>
                 <input
                   value={job.confirmation || ''}
                   onChange={(e) => setConfirmation(e.target.value)}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={13}
+                  placeholder="13-digit confirmation #"
                   className={errors.confirmation ? 'err' : ''}
                   data-err="confirmation"
                   disabled={locked}
@@ -1092,6 +1099,7 @@ function OvernightIntakePage() {
                       return n;
                     });
                   }}
+                  placeholder="First and last name"
                   className={errors.customer ? 'err' : ''}
                   data-err="customer"
                   disabled={locked}
@@ -1107,6 +1115,7 @@ function OvernightIntakePage() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={10}
+                  placeholder="10-digit phone number"
                   className={errors.phone ? 'err' : ''}
                   data-err="phone"
                   disabled={locked}
@@ -1116,7 +1125,7 @@ function OvernightIntakePage() {
 
               <div className="c4">
                 <label>Email</label>
-                <Hint>Used for receipts or email updates.</Hint>
+                <Hint>Only needed if you want email updates.</Hint>
                 <input
                   value={job.email || ''}
                   onChange={(e) => {
@@ -1130,6 +1139,7 @@ function OvernightIntakePage() {
                       return n;
                     });
                   }}
+                  placeholder="Email address"
                   className={errors.email ? 'err' : ''}
                   data-err="email"
                   disabled={locked}
@@ -1140,7 +1150,7 @@ function OvernightIntakePage() {
               {requiresHuntingLicense ? (
                 <div className="c4">
                   <label>Hunting License #</label>
-                  <Hint>Needed for the Michigan processor report.</Hint>
+                  <Hint>Required for Michigan reporting.</Hint>
                   <input
                     value={job.huntingLicenseNumber || ''}
                     onChange={(e) => {
@@ -1154,6 +1164,7 @@ function OvernightIntakePage() {
                         return n;
                       });
                     }}
+                    placeholder="License number"
                     className={errors.huntingLicenseNumber ? 'err' : ''}
                     data-err="huntingLicenseNumber"
                     disabled={locked}
@@ -1177,6 +1188,7 @@ function OvernightIntakePage() {
                       return n;
                     });
                   }}
+                  placeholder="Street address"
                   className={errors.address ? 'err' : ''}
                   data-err="address"
                   disabled={locked}
@@ -1200,6 +1212,7 @@ function OvernightIntakePage() {
                       return n;
                     });
                   }}
+                  placeholder="City"
                   className={errors.city ? 'err' : ''}
                   data-err="city"
                   disabled={locked}
@@ -1299,6 +1312,7 @@ function OvernightIntakePage() {
                       return n;
                     });
                   }}
+                  placeholder="ZIP"
                   className={errors.zip ? 'err' : ''}
                   data-err="zip"
                   disabled={locked}
@@ -2503,6 +2517,27 @@ function OvernightIntakePage() {
           font-size: 12px;
           font-weight: 800;
           color: #991b1b;
+        }
+        .stepIntro {
+          border: 1px solid #dbe4ee;
+          background: #f8fafc;
+          border-radius: 14px;
+          padding: 12px 14px;
+          margin-bottom: 12px;
+          display: grid;
+          gap: 6px;
+        }
+        .stepIntroTitle {
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          color: #406c4d;
+        }
+        .stepIntroCopy {
+          color: #334155;
+          font-size: 14px;
+          line-height: 1.55;
         }
 
         .summary { position: sticky; top: 0; background: #f3f8f4; border: 1px solid #dce7df; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }

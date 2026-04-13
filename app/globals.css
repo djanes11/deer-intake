@@ -344,6 +344,10 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
 
+.public-site-header .public-link-short {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .public-site-header .public-header-shell {
     align-items: center;
@@ -392,6 +396,14 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
   .public-site-header .public-header-link:active {
     width: 100%;
     padding: 11px 12px;
+  }
+
+  .public-site-header .public-link-long {
+    display: none;
+  }
+
+  .public-site-header .public-link-short {
+    display: inline;
   }
 }
 

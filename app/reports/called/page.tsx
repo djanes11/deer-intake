@@ -374,7 +374,7 @@ export default function CalledPickupQueue() {
             </div>
             <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 34px)' }}>Called Pickup Queue</h1>
             <div className="app-copy">
-              Review what is ready, see whether money is still owed, and move each meat, cape, or Webbs track through pickup with less guesswork.
+              Use this page when a customer is coming to pick up. See what is owed, record who picked it up, and finish the handoff without guessing.
             </div>
           </div>
           <button onClick={load} className="btn small">{loading ? 'Refreshing...' : 'Refresh'}</button>
@@ -411,11 +411,11 @@ export default function CalledPickupQueue() {
         }}
       >
         <label style={{ display: 'grid', gap: 6 }}>
-          <span className="metric-label">Search</span>
+          <span className="metric-label">Find a customer</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tag, customer, confirmation, or phone"
+            placeholder="Tag, customer name, confirmation #, or phone"
           />
         </label>
 
@@ -431,12 +431,12 @@ export default function CalledPickupQueue() {
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 42 }}>
           <input type="checkbox" checked={showUnpaidOnly} onChange={(e) => setShowUnpaidOnly(e.target.checked)} />
-          <span>Unpaid only</span>
+          <span>Only show unpaid</span>
         </label>
 
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 42 }}>
           <input type="checkbox" checked={showPickedUp} onChange={(e) => setShowPickedUp(e.target.checked)} />
-          <span>Show picked up</span>
+          <span>Include picked up</span>
         </label>
 
         <div style={{ color: '#b7a98d', fontWeight: 800, textAlign: 'right' }}>{filteredRows.length} shown</div>
@@ -486,7 +486,7 @@ export default function CalledPickupQueue() {
               </div>
               <div className="fact-sub">
                 {selected.track === 'meat'
-                  ? selected.totalDue > 0 ? 'Mark paid before or during handoff.' : 'Safe to hand off when picked up.'
+                  ? selected.totalDue > 0 ? 'Mark money as paid before or during the handoff.' : 'This track is clear to hand off.'
                   : 'Cape and Webbs tracks do not carry a separate balance here.'}
               </div>
             </div>
@@ -508,7 +508,7 @@ export default function CalledPickupQueue() {
               <div className="fact-label">Pickup Details</div>
               <div className="fact-value">{selected.pickedUpBy || 'Not recorded yet'}</div>
               <div className="fact-sub">
-                {selected.pickupNotes ? selected.pickupNotes : 'Record who received the order and any handoff notes below.'}
+                {selected.pickupNotes ? selected.pickupNotes : 'Use the fields below to record who picked it up and any quick handoff notes.'}
               </div>
             </div>
           </div>

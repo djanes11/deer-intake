@@ -227,14 +227,13 @@ export default function StaffTeamPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Staff Team</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 760, lineHeight: 1.5 }}>
-          Manage the team for <strong>{processorSlug || 'this processor'}</strong>. Use email logins for processor admins and
-          simple username/password logins for back-room or seasonal staff.
+          Manage the team for <strong>{processorSlug || 'this processor'}</strong>. Keep owners and managers on email logins, and give simple username/password logins to back-room or seasonal staff.
         </div>
       </div>
 
       <div style={{ padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #d6dee8', color: '#475569', lineHeight: 1.5 }}>
-        Recommended setup: keep <strong>owners/managers</strong> on email logins so they can reset their own password, and create
-        <strong> local logins</strong> for seasonal staff, family members, or anyone who just needs a simple username and password. Local usernames are unique across the platform, so choose something distinctive for your shop.
+        Recommended setup: keep <strong>owners and managers</strong> on email logins so they can reset their own password. Create
+        <strong> local logins</strong> for seasonal staff, family members, or anyone who just needs a simple username and password. Local usernames are unique across the whole platform, so choose something distinctive for your shop.
       </div>
 
       <section

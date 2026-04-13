@@ -69,7 +69,14 @@ export default function CustomerHeader(props: { branding?: Branding }) {
                 href={item.href}
                 className={`public-header-link ${isActive(item) ? 'active' : ''}`}
               >
-                {item.label}
+                {item.href === '/status' ? (
+                  <>
+                    <span className="public-link-long">Check Status</span>
+                    <span className="public-link-short">Status</span>
+                  </>
+                ) : (
+                  item.label
+                )}
               </Link>
             ))}
           </nav>

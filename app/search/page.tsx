@@ -422,16 +422,15 @@ export default function SearchPage() {
             <div className="app-kicker">Staff Workflow</div>
             <h1 className="app-title">Search</h1>
             <p className="app-copy">
-              Find a deer fast, review the order, reprint paperwork, send updates, and jump straight into the right next action.
+              Find a deer fast, review the order, print paperwork, send updates, and open the full record when you need to make changes.
             </p>
           </div>
           <div className="app-side-note">
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#d8c3a1' }}>
-              Search Shortcuts
+              Quick Tip
             </div>
             <div style={{ color: 'rgba(245,236,216,.9)', lineHeight: 1.55 }}>
-              Type a <b>tag</b>, <b>name</b>, <b>phone</b>, or <b>confirmation number</b>. Quick filters also work:
-              {' '}<code>@report</code> for ready-to-call and <code>@recall</code> for the pickup queue.
+              Start with a <b>tag</b>, <b>customer name</b>, <b>phone number</b>, or <b>confirmation number</b>. You can also type <code>@report</code> for ready-to-call or <code>@recall</code> for the pickup queue.
             </div>
           </div>
         </div>
@@ -447,7 +446,7 @@ export default function SearchPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="e.g. 12345, 13-digit confirmation, Jane Doe, or (555) 123-4567"
+            placeholder="Tag, customer name, phone, or confirmation #"
             aria-label="Search query"
             style={{ flex: 1, minWidth: 240 }}
           />
@@ -458,7 +457,7 @@ export default function SearchPage() {
 
       {!canShowResults && (
         <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>
-          Start typing to search...
+          Start typing above to find a deer.
         </div>
       )}
 
@@ -471,7 +470,7 @@ export default function SearchPage() {
                 {resultSummary}
               </div>
               <div className="muted" style={{ marginTop: 6 }}>
-                Single-click a row for preview. Double-click to open the full record.
+                Click once to preview. Double-click to open the full deer record.
               </div>
             </div>
             {loading && <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>Loading...</div>}

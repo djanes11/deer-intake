@@ -406,7 +406,7 @@ export default function ScanPage() {
             <div className="app-kicker">Production Floor</div>
             <h1 className="app-title">Processing Scanner</h1>
             <p className="app-copy">
-              Use scans to move deer through cape work and meat processing in the correct order. This screen is designed to stay visible and simple during production.
+              Scan the same deer tag to move a deer through cape work and meat processing in the right order. This screen is meant to stay simple while someone is actively cutting.
             </p>
           </div>
           <div className="app-side-note">
@@ -433,7 +433,7 @@ export default function ScanPage() {
           backdropFilter: 'blur(6px)',
         }}
       >
-        <div style={{ fontSize: 16, opacity: 0.9 }}>Ready to scan</div>
+        <div style={{ fontSize: 16, opacity: 0.9 }}>Scanner ready</div>
         <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last scanned: ${lastTag}` : 'Awaiting tag...'}</div>
       </div>
 
