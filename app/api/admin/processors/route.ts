@@ -7,7 +7,8 @@ import { requireStaffAccess } from '@/lib/staffAuth';
 import { isPlatformAdmin } from '@/lib/staffContext';
 import { SITE } from '@/lib/config';
 import { DEFAULT_SITE_PRICING } from '@/lib/pricing';
-import { normalizeProcessorFeatures } from '@/lib/siteSettings';
+import { defaultPublicSiteSettings, normalizeProcessorFeatures } from '@/lib/siteSettings';
+import { defaultSpecialtyCatalog } from '@/lib/specialtyCatalog';
 import { buildOnboardingChecklist } from '@/lib/onboardingChecklist';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -328,17 +329,41 @@ export async function POST(req: Request) {
       const { data: latestSiteSettings, error: latestSiteSettingsError } = await nextSiteSettingsId(supabase);
       if (latestSiteSettingsError) throw latestSiteSettingsError;
       const nextId = Number(latestSiteSettings?.id ?? 0) + 1 || 1;
+      const defaultSettings = defaultPublicSiteSettings();
 
       const { error: siteSettingsError } = await supabase.from('site_settings').insert({
         id: nextId,
         processor_id: createdProcessor.id,
-        public_intake_enabled: true,
-        banner_enabled: false,
-        banner_message: '',
-        hours: SITE.hours.map((row) => ({ label: String(row.label || ''), value: String(row.value || '') })),
+        public_intake_enabled: defaultSettings.public_intake_enabled,
+        banner_enabled: defaultSettings.banner_enabled,
+        banner_message: defaultSettings.banner_message,
+        hours: defaultSettings.hours,
         ...DEFAULT_SITE_PRICING,
+        process_catalog: defaultSettings.processCatalog,
+        add_on_catalog: defaultSettings.addOnCatalog,
+        notification_templates: defaultSettings.notificationTemplates,
+        cut_option_settings: defaultSettings.cutOptions,
+        state_form_type: defaultSettings.stateFormType,
+        public_copy: defaultSettings.publicCopy,
       });
       if (siteSettingsError) throw siteSettingsError;
+
+      const specialtySeed = defaultSpecialtyCatalog(DEFAULT_SITE_PRICING).map((item) => ({
+        processor_id: createdProcessor.id,
+        slug: item.slug,
+        name: item.name,
+        short_name: item.shortName,
+        unit: item.unit,
+        price_type: item.priceType,
+        price: item.price,
+        active: item.active,
+        sort_order: item.sortOrder,
+        legacy_field_key: item.legacyFieldKey || null,
+      }));
+      if (specialtySeed.length) {
+        const { error: specialtySeedError } = await supabase.from('processor_specialty_items').insert(specialtySeed);
+        if (specialtySeedError) throw specialtySeedError;
+      }
 
       let firstAdminCreated = false;
       if (firstAdminEmail) {

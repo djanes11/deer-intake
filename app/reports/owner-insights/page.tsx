@@ -159,7 +159,7 @@ export default async function OwnerInsightsPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Owner Insights</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 780, lineHeight: 1.5 }}>
-          Watch how long deer spend in active processing and how long finished deer sit before pickup for <strong>{processor.slug}</strong>.
+          Use this page to spot slow-processing deer and finished orders that have been sitting too long before pickup for <strong>{processor.slug}</strong>.
         </div>
       </section>
 
@@ -193,7 +193,7 @@ export default async function OwnerInsightsPage() {
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Slowest Processing Deer</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
-              Longest time between first butcher scan into Processing and second scan into Finished.
+              Deer that spent the longest time between the first butcher scan into Processing and the scan that marked them Finished.
             </div>
           </div>
           {!slowestProcessing.length ? (
@@ -228,7 +228,7 @@ export default async function OwnerInsightsPage() {
                       <div style={{ fontSize: 22, fontWeight: 950, color: '#9a3412' }}>{fmtHours(row.processingHours)}</div>
                       {row.tag ? (
                         <Link href={`/intake/${encodeURIComponent(row.tag)}`} style={{ fontSize: 13, fontWeight: 800 }}>
-                          Open details
+                          Open deer details
                         </Link>
                       ) : null}
                     </div>
@@ -248,7 +248,7 @@ export default async function OwnerInsightsPage() {
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Oldest Ready, Not Picked Up</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
-              Finished deer still waiting on pickup, ranked by how long they have been sitting ready.
+              Finished deer still waiting on pickup, ranked by how long they have been sitting ready for the customer.
             </div>
           </div>
           {!oldestReady.length ? (
@@ -283,7 +283,7 @@ export default async function OwnerInsightsPage() {
                       <div style={{ fontSize: 22, fontWeight: 950, color: '#166534' }}>{fmtDays(row.readyDays)}</div>
                       {row.tag ? (
                         <Link href={`/intake/${encodeURIComponent(row.tag)}`} style={{ fontSize: 13, fontWeight: 800 }}>
-                          Open details
+                          Open deer details
                         </Link>
                       ) : null}
                     </div>

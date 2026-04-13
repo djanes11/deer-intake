@@ -49,7 +49,7 @@ const calcTotal = (job: Job) => suggestedPrice(job.processType, !!job.beefFat, !
 // Outer page component wrapped in Suspense so useSearchParams is legal
 export default function Page() {
   return (
-    <Suspense fallback={<main className="page-wrap butcher-mode"><div style={{padding:16}}>Loading…</div></main>}>
+    <Suspense fallback={<main className="page-wrap butcher-mode"><div style={{ padding: 16 }}>Loading...</div></main>}>
       <ButcherIntakeInner />
     </Suspense>
   );
@@ -88,7 +88,7 @@ function ButcherIntakeInner() {
     try {
       const res = await progress(scanned); // accepts string or { tag }
       if (res?.ok && res.nextStatus === 'Finished') {
-        setMsg('Finished ✓');
+        setMsg('Finished');
         setTimeout(()=> router.replace('/scan'), 800);
       } else {
         setMsg(res?.error || 'Cannot finish');
@@ -126,7 +126,7 @@ function ButcherIntakeInner() {
       setBusy(true); setMsg('');
       const res = await saveJob(job);
       if (!res?.ok) throw new Error(res?.error || 'Save failed');
-      setMsg('Saved ✓');
+      setMsg('Saved');
       setTimeout(()=> setMsg(''), 1000);
     }catch(e:any){ setMsg(e?.message || 'Save failed'); }
     finally{ setBusy(false); }
@@ -184,19 +184,22 @@ function ButcherIntakeInner() {
   return (
     <main className="page-wrap butcher-mode">
       <div className="butcher-root" ref={rootRef}>
+        <div style={{ marginBottom: 12, color: '#dbe7f2', fontWeight: 800 }}>
+          Keep this page simple on the cutting floor: review the deer, confirm the tag, and scan the same tag again when the work is done.
+        </div>
         <div className="toprow">
           <div className="tagbox">
-            <div className="tag">{job.tag || '—'}</div>
+            <div className="tag">{job.tag || '-'}</div>
             <div id="barcodeWrap"><svg id="tagBarcode" role="img" aria-label="Tag barcode"></svg></div>
           </div>
           <div className="statusbox">
-            <div className="row"><span className="label">Status</span><span className="badge">{job.status || '—'}</span></div>
+            <div className="row"><span className="label">Status</span><span className="badge">{job.status || '-'}</span></div>
             <div className="row"><span className="label">Paid</span><button className={'pill ' + (job.Paid?'on':'')} onClick={()=>toggle('Paid')}>{job.Paid ? 'PAID' : 'UNPAID'}</button></div>
-            <div className="row"><span className="label">Process</span><span className="val">{job.processType || '—'}</span></div>
+            <div className="row"><span className="label">Process</span><span className="val">{job.processType || '-'}</span></div>
             <div className="row price"><span className="label">Price</span><span className="money">${ (suggestedPrice(job.processType, !!job.beefFat, !!job.webbsOrder) + specialtyPrice(job)).toFixed(2) }</span></div>
           </div>
           <div className="who">
-            <div className="name">{job.customer || '—'}</div>
+            <div className="name">{job.customer || '-'}</div>
             <div className="notes" title={job.notes||''}>{(job.notes||'').slice(0,140)}</div>
           </div>
         </div>

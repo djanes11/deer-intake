@@ -155,7 +155,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
       faqItems: [
         {
           question: 'How do I use the Public Intake Form?',
-          answer: 'Use the public intake guide for step-by-step instructions, after-hours drop-off expectations, and what to do after you submit.',
+          answer: 'Open the public intake form, fill in the steps from top to bottom, and save your confirmation number when you finish.',
         },
         {
           question: 'Where are you located?',

@@ -34,6 +34,30 @@ type ProcessorOnboardingSnapshot = ReturnType<typeof buildOnboardingChecklist> &
   staffHostname: string;
 };
 
+type ProcessorOwnerChecklistItem = {
+  key:
+    | 'logo'
+    | 'contact'
+    | 'pricing'
+    | 'processes'
+    | 'extras'
+    | 'messages'
+    | 'staff'
+    | 'public_intake'
+    | 'go_live';
+  label: string;
+  done: boolean;
+  note: string;
+};
+
+type ProcessorOwnerChecklistSnapshot = {
+  readyCount: number;
+  totalCount: number;
+  readyToGoLive: boolean;
+  publicHostname: string;
+  items: ProcessorOwnerChecklistItem[];
+};
+
 async function getProcessorOnboardingSnapshot(processorId: string | null | undefined) {
   const id = String(processorId || '').trim();
   if (!id) return null;
@@ -81,6 +105,136 @@ async function getProcessorOnboardingSnapshot(processorId: string | null | undef
   } satisfies ProcessorOnboardingSnapshot;
 }
 
+async function getProcessorOwnerChecklistSnapshot(processorId: string | null | undefined) {
+  const id = String(processorId || '').trim();
+  if (!id) return null;
+
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+
+  const supabase = createClient(url, key, { auth: { persistSession: false } });
+  const [{ data: processorRow }, { data: siteSettingsRow }, { data: memberships }] = await Promise.all([
+    supabase
+      .from('processors')
+      .select('id,public_name,name,logo_url,support_phone_display,support_email,public_address,public_hostname')
+      .eq('id', id)
+      .maybeSingle(),
+    supabase
+      .from('site_settings')
+      .select('public_intake_enabled,standard_processing_price,caped_price,cape_donate_price,process_catalog,add_on_catalog,notification_templates,public_copy')
+      .eq('processor_id', id)
+      .maybeSingle(),
+    supabase
+      .from('processor_users')
+      .select('role,active')
+      .eq('processor_id', id)
+      .eq('active', true),
+  ]);
+
+  if (!processorRow) return null;
+
+  const publicHostname = String(processorRow.public_hostname || '');
+  const logoUrl = String(processorRow.logo_url || '').trim();
+  const phone = String(processorRow.support_phone_display || '').trim();
+  const email = String(processorRow.support_email || '').trim();
+  const address = String(processorRow.public_address || '').trim();
+  const processCatalog = Array.isArray((siteSettingsRow as any)?.process_catalog) ? (siteSettingsRow as any).process_catalog : [];
+  const addOnCatalog = Array.isArray((siteSettingsRow as any)?.add_on_catalog) ? (siteSettingsRow as any).add_on_catalog : [];
+  const notificationTemplates = (siteSettingsRow as any)?.notification_templates || null;
+  const publicCopy = (siteSettingsRow as any)?.public_copy || null;
+  const activeProcesses = processCatalog.filter((item: any) => item?.active !== false).length;
+  const activeAddOns = addOnCatalog.filter((item: any) => item?.active !== false).length;
+  const hasPricing =
+    Number((siteSettingsRow as any)?.standard_processing_price || 0) > 0 &&
+    Number((siteSettingsRow as any)?.caped_price || 0) > 0 &&
+    Number((siteSettingsRow as any)?.cape_donate_price || 0) > 0;
+  const activeMembers = Array.isArray(memberships) ? memberships.length : 0;
+  const nonAdminMembers = Array.isArray(memberships) ? memberships.filter((item: any) => item?.role !== 'admin').length : 0;
+  const hasMessages =
+    !!notificationTemplates &&
+    !!publicCopy &&
+    Array.isArray(publicCopy.faqItems) &&
+    publicCopy.faqItems.length > 0;
+  const publicIntakeEnabled = (siteSettingsRow as any)?.public_intake_enabled !== false;
+
+  const items: ProcessorOwnerChecklistItem[] = [
+    {
+      key: 'logo',
+      label: 'Add logo',
+      done: !!logoUrl,
+      note: !!logoUrl ? 'A logo is set for the public site.' : 'Add the logo customers should see on your public site.',
+    },
+    {
+      key: 'contact',
+      label: 'Confirm contact info',
+      done: !!phone && !!address,
+      note: !!phone && !!address ? 'Phone and address are ready for customers.' : 'Add the phone number and address customers should use.',
+    },
+    {
+      key: 'pricing',
+      label: 'Confirm pricing',
+      done: hasPricing,
+      note: hasPricing ? 'Base processing prices are in place.' : 'Set the base prices for standard, caped, and cape-donate orders.',
+    },
+    {
+      key: 'processes',
+      label: 'Confirm process types',
+      done: activeProcesses > 0,
+      note: activeProcesses > 0 ? `${activeProcesses} active process type${activeProcesses === 1 ? '' : 's'} ready.` : 'Review which process types customers can choose.',
+    },
+    {
+      key: 'extras',
+      label: 'Confirm add-ons and specialty',
+      done: activeAddOns > 0,
+      note: activeAddOns > 0 ? `${activeAddOns} active add-on${activeAddOns === 1 ? '' : 's'} plus specialty products ready.` : 'Review add-ons and specialty products before going live.',
+    },
+    {
+      key: 'messages',
+      label: 'Review customer messages',
+      done: hasMessages,
+      note: hasMessages ? 'Public wording, FAQ, and message templates are ready to review.' : 'Review the public wording, FAQ items, and customer message templates.',
+    },
+    {
+      key: 'staff',
+      label: 'Add staff',
+      done: nonAdminMembers > 0,
+      note: nonAdminMembers > 0 ? `${activeMembers} active login${activeMembers === 1 ? '' : 's'} attached.` : 'Add at least one staff or read-only login for day-to-day use.',
+    },
+    {
+      key: 'public_intake',
+      label: 'Test public intake',
+      done: publicIntakeEnabled && !!publicHostname,
+      note: publicIntakeEnabled && !!publicHostname ? 'Public intake is live and ready to open in a browser.' : 'Turn on public intake and confirm the public hostname is ready.',
+    },
+    {
+      key: 'go_live',
+      label: 'Ready to go live',
+      done: false,
+      note: 'Once the items above are done, this processor is ready for customers and staff.',
+    },
+  ];
+
+  const priorDoneCount = items.slice(0, -1).filter((item) => item.done).length;
+  items[items.length - 1] = {
+    ...items[items.length - 1],
+    done: priorDoneCount === items.length - 1,
+    note:
+      priorDoneCount === items.length - 1
+        ? 'Everything above is ready. Open the public site once more, then go live.'
+        : 'Finish the items above, then do one final public intake test before going live.',
+  };
+
+  const readyCount = items.filter((item) => item.done).length;
+  return {
+    readyCount,
+    totalCount: items.length,
+    readyToGoLive: readyCount === items.length,
+    publicHostname,
+    items,
+  } satisfies ProcessorOwnerChecklistSnapshot;
+}
+
 export default async function Home() {
   let requestHost = '';
   try {
@@ -114,6 +268,9 @@ export default async function Home() {
   const onboarding = !IS_PUBLIC && staffContext?.role === 'admin'
     ? await getProcessorOnboardingSnapshot(staffContext.id).catch(() => null)
     : null;
+  const ownerChecklist = !IS_PUBLIC && staffContext?.role === 'admin'
+    ? await getProcessorOwnerChecklistSnapshot(staffContext.id).catch(() => null)
+    : null;
   return IS_PUBLIC ? (
     <PublicLanding settings={settings} />
   ) : (
@@ -122,6 +279,7 @@ export default async function Home() {
       processorName={settings.branding.name}
       role={staffContext?.role || null}
       onboarding={onboarding}
+      ownerChecklist={ownerChecklist}
     />
   );
 }
@@ -783,11 +941,13 @@ function StaffHome({
   processorName,
   role,
   onboarding,
+  ownerChecklist,
 }: {
   dashboard: Awaited<ReturnType<typeof getDashboardSummary>> | null;
   processorName: string;
   role: 'admin' | 'staff' | 'readonly' | null;
   onboarding: ProcessorOnboardingSnapshot | null;
+  ownerChecklist: ProcessorOwnerChecklistSnapshot | null;
 }) {
   const canEdit = role === 'admin' || role === 'staff';
   const roleLabel = role === 'admin' ? 'Admin' : role === 'staff' ? 'Staff' : role === 'readonly' ? 'Read-only' : 'Unknown';
@@ -972,31 +1132,31 @@ function StaffHome({
         </div>
       </div>
 
-      {role === 'admin' && onboarding ? (
+      {role === 'admin' && ownerChecklist ? (
         <section
           style={{
             ...card,
             marginBottom: 16,
-            borderColor: onboarding.readyToGoLive ? 'rgba(91,122,98,.3)' : 'rgba(200,138,61,.22)',
-            background: onboarding.readyToGoLive ? 'rgba(17,31,22,.96)' : 'rgba(31,23,14,.96)',
+            borderColor: ownerChecklist.readyToGoLive ? 'rgba(91,122,98,.3)' : 'rgba(200,138,61,.22)',
+            background: ownerChecklist.readyToGoLive ? 'rgba(17,31,22,.96)' : 'rgba(31,23,14,.96)',
           }}
         >
-          <div style={{ ...mini, color: onboarding.readyToGoLive ? '#89c096' : '#d2b27d' }}>
-            {onboarding.readyToGoLive ? 'Go-Live Ready' : 'Finish Setup'}
+          <div style={{ ...mini, color: ownerChecklist.readyToGoLive ? '#89c096' : '#d2b27d' }}>
+            {ownerChecklist.readyToGoLive ? 'Go-Live Ready' : 'Make This Yours'}
           </div>
           <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
             <div style={{ fontWeight: 900, fontSize: 24 }}>
-              {onboarding.readyToGoLive
-                ? 'This processor is configured and ready for live handoff.'
-                : 'A few setup items still need attention before this processor is truly ready.'}
+              {ownerChecklist.readyToGoLive
+                ? 'This processor looks ready for customers and staff.'
+                : 'Work through these owner setup steps so the shop feels like your own from day one.'}
             </div>
             <div style={{ opacity: 0.84, lineHeight: 1.55 }}>
-              {onboarding.readyCount}/{onboarding.totalCount} onboarding items are complete. Use the links below to finish branding, pricing, offerings, and staff setup from one place.
+              {ownerChecklist.readyCount}/{ownerChecklist.totalCount} owner setup items are complete. Use the links below to finish branding, pricing, staff access, customer messages, and one final public intake test.
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 12 }}>
-            {onboarding.items.map((item) => (
+            {ownerChecklist.items.map((item) => (
               <div
                 key={item.key}
                 style={{
@@ -1042,15 +1202,20 @@ function StaffHome({
                 Open Staff Team
               </div>
             </Link>
+            <Link href="/search" style={{ textDecoration: 'none' }}>
+              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+                Review Search / Print
+              </div>
+            </Link>
             <Link href="/reports/state-form" style={{ textDecoration: 'none' }}>
               <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
                 Review State Form
               </div>
             </Link>
-            {onboarding.publicHostname ? (
-              <a href={`https://${onboarding.publicHostname}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+            {ownerChecklist.publicHostname ? (
+              <a href={`https://${ownerChecklist.publicHostname}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                 <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
-                  Open Public Site
+                  Open Public Intake
                 </div>
               </a>
             ) : null}

@@ -114,7 +114,7 @@ const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
   faqItems: [
     {
       question: 'How do I use the Public Intake Form?',
-      answer: 'Use the public intake guide for step-by-step instructions, after-hours drop-off expectations, and what to do after you submit.',
+      answer: 'Open the public intake form, fill in the steps from top to bottom, and save your confirmation number when you finish.',
     },
     {
       question: 'Where are you located?',
@@ -183,7 +183,7 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [section, setSection] = useState<'branding' | 'intake' | 'copy' | 'banner' | 'hours' | 'pricing' | 'processes' | 'addons' | 'specialty' | 'notifications'>('branding');
+  const [section, setSection] = useState<'overview' | 'branding' | 'intake' | 'copy' | 'banner' | 'hours' | 'pricing' | 'processes' | 'addons' | 'specialty' | 'notifications'>('overview');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -491,8 +491,55 @@ export default function AdminSettingsPage() {
     normalizeAddOnCatalog(s.addOnCatalog, s.pricing).filter((item) => item.active),
     s.features?.webbsEnabled !== false
   ).length;
+  const ownerChecklist = [
+    {
+      key: 'branding',
+      label: 'Branding and contact details',
+      done: !!String(s.branding?.name || '').trim() && !!String(s.branding?.phoneDisplay || '').trim() && !!String(s.branding?.address || '').trim(),
+      note: !!String(s.branding?.name || '').trim() && !!String(s.branding?.phoneDisplay || '').trim() && !!String(s.branding?.address || '').trim()
+        ? 'Business name, phone, and address are filled in.'
+        : 'Add the business name, phone, and address customers should see.',
+    },
+    {
+      key: 'offerings',
+      label: 'Offerings and prices',
+      done:
+        normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length > 0 &&
+        normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length > 0,
+      note:
+        normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length > 0 &&
+        normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length > 0
+          ? 'Active process types and specialty products are ready to use.'
+          : 'Review process types, add-ons, specialty items, and pricing.',
+    },
+    {
+      key: 'copy',
+      label: 'Public wording',
+      done: (s.publicCopy?.faqItems || []).length > 0 && !!String(s.publicCopy?.pickupInstructions || '').trim(),
+      note:
+        (s.publicCopy?.faqItems || []).length > 0 && !!String(s.publicCopy?.pickupInstructions || '').trim()
+          ? 'Pickup instructions and public FAQ items are in place.'
+          : 'Add pickup instructions and at least one FAQ/help item.',
+    },
+    {
+      key: 'notifications',
+      label: 'Customer messages',
+      done: Object.values(normalizeNotificationTemplates(s.notificationTemplates, s.branding.name)).every(
+        (template) => !!String(template?.smsBody || template?.emailBody || '').trim()
+      ),
+      note: 'Review the default email and text wording before going live.',
+    },
+    {
+      key: 'intake',
+      label: 'Public intake behavior',
+      done: !!s.stateFormType && typeof s.public_intake_enabled === 'boolean',
+      note: s.public_intake_enabled ? 'Public intake is live and the state form is selected.' : 'Choose the state form and decide if public intake should be live.',
+    },
+  ];
+  const ownerReadyCount = ownerChecklist.filter((item) => item.done).length;
 
   const sectionTabs = [
+    { key: 'overview', label: 'Make This Yours' },
     { key: 'branding', label: 'Branding & Contact' },
     { key: 'intake', label: 'Public Intake' },
     { key: 'copy', label: 'Public Copy & FAQ' },
@@ -505,6 +552,7 @@ export default function AdminSettingsPage() {
     { key: 'notifications', label: 'Notifications' },
   ] as const;
   const sectionDescriptions: Record<(typeof sectionTabs)[number]['key'], string> = {
+    overview: 'Start here to see what matters most, what is already configured, and which settings area to open next.',
     branding: 'Business identity, contact details, address, and public-facing branding.',
     intake: 'Turn intake on or off, choose a state form, and control cut-option visibility.',
     copy: 'Edit the wording customers see during intake, review, thank-you, and FAQ flows.',
@@ -686,6 +734,124 @@ export default function AdminSettingsPage() {
         </aside>
 
       <div style={{ display: 'grid', gap: 14 }}>
+        {section === 'overview' && (
+        <div style={sectionCard}>
+          <div className="app-section-head">
+            <div className="app-section-title">Make This Processor Yours</div>
+            <div className="app-section-copy">
+              This page controls what your customers and staff see every day. Start with the checklist below, then open the settings area that matches what you want to change.
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 12,
+            }}
+          >
+            <div className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>Setup Progress</div>
+              <div style={{ fontSize: 28, fontWeight: 950, color: '#0f172a' }}>{ownerReadyCount}/{ownerChecklist.length}</div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>Core owner setup items complete</div>
+            </div>
+            <div className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>Customer-Facing Name</div>
+              <div style={{ fontSize: 24, fontWeight: 950, color: '#0f172a' }}>{s.branding?.name || 'Not set'}</div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>Shown on the public site and messages</div>
+            </div>
+            <div className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>Offerings Live</div>
+              <div style={{ fontSize: 28, fontWeight: 950, color: '#0f172a' }}>
+                {normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length}
+                <span style={{ fontSize: 16, fontWeight: 800, marginLeft: 6, color: '#64748b' }}>processes</span>
+              </div>
+              <div style={{ color: '#64748b', fontSize: 13 }}>
+                {visibleActiveAddOnCount} add-ons and {normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length} specialty items active
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 10 }}>
+            {ownerChecklist.map((item) => (
+              <div
+                key={item.key}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'auto 1fr auto',
+                  gap: 12,
+                  alignItems: 'center',
+                  padding: '12px 14px',
+                  borderRadius: 14,
+                  border: `1px solid ${item.done ? 'rgba(91,122,98,.28)' : 'rgba(200,138,61,.2)'}`,
+                  background: item.done ? '#f6fbf7' : '#fffaf1',
+                }}
+              >
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: 999,
+                    background: item.done ? '#4f8a61' : '#c88a3d',
+                  }}
+                />
+                <div style={{ display: 'grid', gap: 4 }}>
+                  <div style={{ fontWeight: 900, color: '#0f172a' }}>{item.label}</div>
+                  <div style={{ color: '#64748b', fontSize: 14, lineHeight: 1.45 }}>{item.note}</div>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: item.done ? '#166534' : '#9a3412' }}>
+                  {item.done ? 'Ready' : 'Needs attention'}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 12,
+            }}
+          >
+            {[
+              {
+                title: 'Public Site',
+                body: 'Logo, business name, address, hours, banner, and the wording customers see.',
+                target: 'branding' as const,
+              },
+              {
+                title: 'Offerings & Pricing',
+                body: 'Process types, add-ons, specialty items, prices, and cut-option visibility.',
+                target: 'pricing' as const,
+              },
+              {
+                title: 'Customer Communication',
+                body: 'Intake wording, FAQ items, pickup instructions, and notification templates.',
+                target: 'copy' as const,
+              },
+            ].map((item) => (
+              <button
+                key={item.title}
+                type="button"
+                onClick={() => setSection(item.target)}
+                className="app-surface-light"
+                style={{
+                  padding: 16,
+                  display: 'grid',
+                  gap: 8,
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: 18, color: '#0f172a' }}>{item.title}</div>
+                <div style={{ color: '#64748b', fontSize: 14, lineHeight: 1.5 }}>{item.body}</div>
+                <div style={{ color: '#7c4b17', fontWeight: 800, fontSize: 13 }}>Open section</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        )}
+
         {section === 'branding' && (
         <div style={sectionCard}>
           <div className="app-section-head">

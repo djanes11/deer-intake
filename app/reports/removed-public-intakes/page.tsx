@@ -94,21 +94,24 @@ export default function RemovedPublicIntakesPage() {
   };
 
   return (
-    <div className="form-card" style={{ display: 'grid', gap: 14 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Removed Public Intakes</h1>
-          <div className="muted" style={{ marginTop: 6 }}>
-            Public no-shows removed from the active queue. Restore one here if it was removed by mistake.
+    <main className="app-frame">
+      <section className="app-hero">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
+          <div>
+            <div className="app-kicker">Public Intake</div>
+            <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 34px)' }}>Removed Public Intakes</h1>
+            <div className="app-copy">
+              Review public no-shows that were removed from the active queue and restore one if it was hidden by mistake.
+            </div>
           </div>
-        </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div className="muted">{rows.length} removed</div>
           <button className="btn" type="button" onClick={() => void refresh()} disabled={loading}>
             Refresh
           </button>
         </div>
-      </div>
+        </div>
+      </section>
 
       {err ? (
         <div style={{ background: '#fff3cd', border: '1px solid #ffeeba', padding: 10, borderRadius: 8 }}>
@@ -122,7 +125,7 @@ export default function RemovedPublicIntakesPage() {
         </div>
       ) : null}
 
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden' }}>
+      <div className="app-surface-light" style={{ borderRadius: 16, overflow: 'hidden', padding: 0 }}>
         <div style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
           <div style={{ fontWeight: 800 }}>Recently Removed No-Shows</div>
           <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
@@ -172,7 +175,7 @@ export default function RemovedPublicIntakesPage() {
           })
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

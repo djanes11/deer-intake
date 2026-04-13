@@ -134,20 +134,23 @@ export default async function NotificationActivityPage() {
   const emailCount = activities.filter((row) => row.channel === 'email').length;
 
   return (
-    <div style={{ maxWidth: 1320, margin: '24px auto', padding: 16, display: 'grid', gap: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
-        <div>
-          <h2 style={{ margin: 0, color: '#f8fafc' }}>Notification Activity</h2>
-          <div style={{ marginTop: 6, color: '#94a3b8', fontWeight: 700, fontSize: 13 }}>
-            Recent SMS and email notifications sent to customers.
+    <main className="app-frame">
+      <section className="app-hero">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
+          <div>
+            <div className="app-kicker">Communication</div>
+            <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 34px)' }}>Notification Activity</h1>
+            <div className="app-copy">
+              Review recent text and email sends so staff can quickly confirm what went out to customers and when.
+            </div>
           </div>
-        </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ padding: '8px 14px', borderRadius: 999, background: '#e8f7ec', color: '#18603a', fontWeight: 900 }}>{smsCount} SMS</div>
           <div style={{ padding: '8px 14px', borderRadius: 999, background: '#eef2ff', color: '#3730a3', fontWeight: 900 }}>{emailCount} Email</div>
           <div style={{ padding: '8px 14px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontWeight: 900 }}>{activities.length} Total</div>
         </div>
-      </div>
+        </div>
+      </section>
 
       {jobErr || smsErr ? (
         <div style={{ padding: 12, borderRadius: 12, border: '1px solid #fecaca', background: '#fef2f2', color: '#991b1b', fontWeight: 800 }}>
@@ -155,7 +158,7 @@ export default async function NotificationActivityPage() {
         </div>
       ) : null}
 
-      <div style={{ border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, overflow: 'hidden', background: '#ffffff' }}>
+      <div className="app-surface-light" style={{ borderRadius: 16, overflow: 'hidden', padding: 0 }}>
         <div style={{ overflowX: 'auto' }}>
           <div
             style={{
@@ -237,6 +240,6 @@ export default async function NotificationActivityPage() {
           })}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
