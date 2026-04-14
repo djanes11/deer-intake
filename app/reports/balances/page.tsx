@@ -24,6 +24,8 @@ type BalanceRow = {
   specialty_products: boolean | null;
   price_processing: number | null;
   price_specialty: number | null;
+  amount_paid_processing: number | null;
+  amount_paid_specialty: number | null;
   paid_processing: boolean | null;
   paid_specialty: boolean | null;
   picked_up_processing: boolean | null;
@@ -39,11 +41,13 @@ function isReady(value: string | null | undefined) {
 }
 
 function owedProcessing(row: BalanceRow) {
-  return row.paid_processing ? 0 : Number(row.price_processing ?? 0) || 0;
+  return Math.max(0, (Number(row.price_processing ?? 0) || 0) - (Number(row.amount_paid_processing ?? 0) || 0));
 }
 
 function owedSpecialty(row: BalanceRow) {
-  return row.specialty_products && !row.paid_specialty ? Number(row.price_specialty ?? 0) || 0 : 0;
+  return row.specialty_products
+    ? Math.max(0, (Number(row.price_specialty ?? 0) || 0) - (Number(row.amount_paid_specialty ?? 0) || 0))
+    : 0;
 }
 
 function rowTotal(row: BalanceRow) {
@@ -102,7 +106,7 @@ export default async function BalancesPage() {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,tag,confirmation,customer_name,phone,dropoff_date,status,specialty_status,specialty_products,price_processing,price_specialty,paid_processing,paid_specialty,picked_up_processing')
+    .select('id,tag,confirmation,customer_name,phone,dropoff_date,status,specialty_status,specialty_products,price_processing,price_specialty,amount_paid_processing,amount_paid_specialty,paid_processing,paid_specialty,picked_up_processing')
     .eq('processor_id', processor.id)
     .limit(3000);
 
@@ -111,6 +115,8 @@ export default async function BalancesPage() {
       ...row,
       price_processing: Number(row.price_processing ?? 0) || 0,
       price_specialty: Number(row.price_specialty ?? 0) || 0,
+      amount_paid_processing: Number(row.amount_paid_processing ?? 0) || 0,
+      amount_paid_specialty: Number(row.amount_paid_specialty ?? 0) || 0,
     }))
     .filter((row) => rowTotal(row) > 0);
 

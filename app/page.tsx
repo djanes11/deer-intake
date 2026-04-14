@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
 import { getStaffIdentity, getStaffProcessorContext } from '@/lib/staffContext';
-import { filterVisibleAddOnItems } from '@/lib/processorCatalog';
+import { filterVisibleAddOnItems, formatProcessTypePrice } from '@/lib/processorCatalog';
 import ProcessorInquiryForm from '@/app/components/ProcessorInquiryForm';
 import { buildOnboardingChecklist } from '@/lib/onboardingChecklist';
 
@@ -280,6 +280,7 @@ export default async function Home() {
       role={staffContext?.role || null}
       onboarding={onboarding}
       ownerChecklist={ownerChecklist}
+      scanEnabled={settings.features.scanEnabled !== false}
     />
   );
 }
@@ -660,7 +661,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const pricingRows = [
     ...((settings?.processCatalog || []).filter((item) => item.active).map((item) => ({
       label: item.name,
-      value: Number(item.basePrice || 0),
+      value: formatProcessTypePrice(item as any),
       note: item.triggersCapeWorkflow ? 'Includes cape workflow' : item.donationOnly ? 'Donation option' : 'Base processing option',
     }))),
     ...(filterVisibleAddOnItems(
@@ -912,7 +913,11 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
             {pricingRows.map((item) => (
               <div key={item.label} style={{ ...supportRow, background: 'rgba(18,24,22,.88)' }}>
                 <span style={supportLabel}>{item.label}</span>
-                <span style={{ fontWeight: 900, fontSize: 20 }}>{formatMoney(item.value, 'prefix' in item ? String(item.prefix || '') : '')}</span>
+                <span style={{ fontWeight: 900, fontSize: 20 }}>
+                  {typeof item.value === 'number'
+                    ? formatMoney(item.value, 'prefix' in item ? String(item.prefix || '') : '')
+                    : `${'prefix' in item ? String(item.prefix || '') : ''}${item.value}`}
+                </span>
                 <span style={{ color: colors.sub, fontSize: 13 }}>{item.note}</span>
               </div>
             ))}
@@ -942,20 +947,22 @@ function StaffHome({
   role,
   onboarding,
   ownerChecklist,
+  scanEnabled,
 }: {
   dashboard: Awaited<ReturnType<typeof getDashboardSummary>> | null;
   processorName: string;
   role: 'admin' | 'staff' | 'readonly' | null;
   onboarding: ProcessorOnboardingSnapshot | null;
   ownerChecklist: ProcessorOwnerChecklistSnapshot | null;
+  scanEnabled: boolean;
 }) {
   const canEdit = role === 'admin' || role === 'staff';
   const roleLabel = role === 'admin' ? 'Admin' : role === 'staff' ? 'Staff' : role === 'readonly' ? 'Read-only' : 'Unknown';
   const primaryActions = canEdit
     ? [
         { label: 'New Intake', href: '/intake', detail: 'Enter a new deer drop-off', accent: '#5b7a62' },
-        { label: 'Scan Tags', href: '/scan', detail: 'Scan tags to move deer through processing', accent: '#c88a3d' },
         { label: 'Search Jobs', href: '/search', detail: 'Find a deer, print paperwork, or review details', accent: '#8fb3a8' },
+        ...(scanEnabled ? [{ label: 'Scan Tags', href: '/scan', detail: 'Scan tags to move deer through processing', accent: '#c88a3d' }] : []),
       ]
     : [
         { label: 'Search Jobs', href: '/search', detail: 'Find a deer, print paperwork, or review details', accent: '#8fb3a8' },
@@ -1273,7 +1280,7 @@ function StaffHome({
             </div>
             <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#c88a3d')} />
-              <div>{canEdit ? 'The scan page will move deer forward in the right order based on how that deer was set up.' : 'Read-only access still lets you print sheets and labels without changing statuses.'}</div>
+              <div>{canEdit ? (scanEnabled ? 'The scan page will move deer forward in the right order based on how that deer was set up.' : 'This processor is using manual status updates, so intake and search are the main places to update deer.') : 'Read-only access still lets you print sheets and labels without changing statuses.'}</div>
             </div>
             <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#8fb3a8')} />

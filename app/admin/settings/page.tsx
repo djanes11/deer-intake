@@ -74,6 +74,8 @@ type SiteSettings = {
     plan: 'basic' | 'texting' | 'custom';
     smsEnabled: boolean;
     webbsEnabled: boolean;
+    scanEnabled: boolean;
+    capeScanEnabled: boolean;
   };
   updated_at?: string;
 };
@@ -127,6 +129,14 @@ const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
   ],
 };
 
+function processPriceSummary(item: ProcessTypeCatalogItem) {
+  if (item.pricingMode === 'per_lb') {
+    const rate = `$${Number(item.pricePerLb || 0).toFixed(2)}/lb`;
+    return item.minimumPrice > 0 ? `${rate} minimum $${Number(item.minimumPrice || 0).toFixed(2)}` : rate;
+  }
+  return `$${Number(item.basePrice || 0).toFixed(2)} flat`;
+}
+
 function normalizeHours(hours: any): HourRow[] {
   if (!Array.isArray(hours) || !hours.length) return DEFAULT_HOURS;
   const rows = hours.map((row) => ({
@@ -159,6 +169,9 @@ function processDraftRows(input: ProcessTypeCatalogItem[] | undefined | null, pr
     slug: String(item?.slug || ''),
     name: String(item?.name || ''),
     basePrice: Number.isFinite(Number(item?.basePrice)) ? Number(item?.basePrice) : Number(fallback[index]?.basePrice ?? 0),
+    pricingMode: item?.pricingMode === 'per_lb' ? 'per_lb' : 'flat',
+    pricePerLb: Number.isFinite(Number(item?.pricePerLb)) ? Number(item?.pricePerLb) : Number(fallback[index]?.pricePerLb ?? 0),
+    minimumPrice: Number.isFinite(Number(item?.minimumPrice)) ? Number(item?.minimumPrice) : Number(fallback[index]?.minimumPrice ?? 0),
     active: item?.active !== false,
     sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item?.sortOrder) : (index + 1) * 10,
     triggersCapeWorkflow: !!item?.triggersCapeWorkflow,
@@ -298,6 +311,8 @@ export default function AdminSettingsPage() {
             ...item,
             [key]:
               key === 'basePrice'
+                || key === 'pricePerLb'
+                || key === 'minimumPrice'
                 ? Number(value || 0)
                 : key === 'sortOrder'
                   ? Number(value || (i + 1) * 10)
@@ -321,7 +336,18 @@ export default function AdminSettingsPage() {
       ...s,
       processCatalog: [
         ...current,
-        { slug: '', name: '', basePrice: 0, active: true, sortOrder: (current.length + 1) * 10, triggersCapeWorkflow: false, donationOnly: false },
+        {
+          slug: '',
+          name: '',
+          basePrice: 0,
+          pricingMode: 'flat',
+          pricePerLb: 0,
+          minimumPrice: 0,
+          active: true,
+          sortOrder: (current.length + 1) * 10,
+          triggersCapeWorkflow: false,
+          donationOnly: false,
+        },
       ],
     });
   };
@@ -941,6 +967,60 @@ export default function AdminSettingsPage() {
               gap: 10,
             }}
           >
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Shop Workflow</div>
+            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+              Turn off scan-based workflow parts that this processor will not use. Staff can still update deer manually from intake and search.
+            </div>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={s.features?.scanEnabled !== false}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    features: {
+                      ...(s.features || { plan: 'basic', smsEnabled: false, webbsEnabled: false, scanEnabled: true, capeScanEnabled: true }),
+                      scanEnabled: e.target.checked,
+                      capeScanEnabled: e.target.checked ? (s.features?.capeScanEnabled !== false) : false,
+                    },
+                  })
+                }
+              />
+              Show scan workflow in the staff site
+            </label>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a', opacity: s.features?.scanEnabled === false ? 0.6 : 1 }}>
+              <input
+                type="checkbox"
+                checked={s.features?.scanEnabled !== false && s.features?.capeScanEnabled !== false}
+                disabled={s.features?.scanEnabled === false}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    features: {
+                      ...(s.features || { plan: 'basic', smsEnabled: false, webbsEnabled: false, scanEnabled: true, capeScanEnabled: true }),
+                      scanEnabled: s.features?.scanEnabled !== false,
+                      capeScanEnabled: e.target.checked,
+                    },
+                  })
+                }
+              />
+              Use cape-first scan progression for cape orders
+            </label>
+            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+              If cape-first scanning is off, cape orders will scan like regular meat orders. Staff can still update cape status manually when needed.
+            </div>
+          </div>
+          <div
+            style={{
+              marginTop: 6,
+              padding: 14,
+              borderRadius: 14,
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              display: 'grid',
+              gap: 10,
+            }}
+          >
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Cut Option Visibility</div>
             <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
               Use these toggles to simplify the cut section for this processor without changing saved order data.
@@ -1352,14 +1432,34 @@ export default function AdminSettingsPage() {
         <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Process Types</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            Control which process options appear on intake forms, what they are called, and what base price they use.
+            Control which process options appear on intake forms, what they are called, and whether they use a flat fee or a per-pound rate.
           </div>
           {processDraftRows(s.processCatalog, s.pricing).map((item, index) => (
             <div key={`process-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.4fr 0.8fr', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 1fr', gap: 10 }}>
                 <input value={item.name} onChange={(e) => updateProcessTypeItem(index, 'name', e.target.value)} placeholder="Display name" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
                 <input value={item.slug} onChange={(e) => updateProcessTypeItem(index, 'slug', e.target.value)} placeholder="slug" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
-                <input inputMode="decimal" value={String(item.basePrice ?? '')} onChange={(e) => updateProcessTypeItem(index, 'basePrice', e.target.value)} placeholder="0" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
+                <select value={item.pricingMode} onChange={(e) => updateProcessTypeItem(index, 'pricingMode', e.target.value)} style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}>
+                  <option value="flat">Flat fee</option>
+                  <option value="per_lb">Per lb</option>
+                </select>
+                <input
+                  inputMode="decimal"
+                  value={String(item.pricingMode === 'per_lb' ? item.pricePerLb ?? '' : item.basePrice ?? '')}
+                  onChange={(e) => updateProcessTypeItem(index, item.pricingMode === 'per_lb' ? 'pricePerLb' : 'basePrice', e.target.value)}
+                  placeholder="0"
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+                <input
+                  inputMode="decimal"
+                  value={String(item.minimumPrice ?? '')}
+                  onChange={(e) => updateProcessTypeItem(index, 'minimumPrice', e.target.value)}
+                  placeholder={item.pricingMode === 'per_lb' ? 'Min (optional)' : 'Min 0'}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#475569' }}>
+                Pricing: {processPriceSummary(item)}
               </div>
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}><input type="checkbox" checked={item.active} onChange={(e) => updateProcessTypeItem(index, 'active', e.target.checked)} /> Active</label>

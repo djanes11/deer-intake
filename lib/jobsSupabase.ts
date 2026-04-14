@@ -18,7 +18,7 @@ import {
 } from '@/lib/processorCatalog';
 import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrderStyle } from '@/lib/webbs';
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
-import { getPublicSiteSettings } from '@/lib/siteSettings';
+import { getPublicSiteSettings, normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
 
 /* ---------------- helpers ---------------- */
@@ -250,6 +250,12 @@ function numOrNull(v: any): number | null {
 function numOrZero(v: any): number {
   const n = numOrNull(v);
   return n === null ? 0 : n;
+}
+
+function clampMoney(value: number, max: number): number {
+  const safeValue = Number.isFinite(value) ? value : 0;
+  const safeMax = Math.max(0, Number.isFinite(max) ? max : 0);
+  return Math.min(Math.max(0, safeValue), safeMax);
 }
 
 function specialtyLegacyValues(items: Array<{ legacyFieldKey?: string | null; quantity: number }>) {
@@ -1402,6 +1408,7 @@ function mapDbRowToJob(row: any, specialtyItems: any[] = []): Job {
     processType: row.process_type,
     processTypeSlug: row.process_type_slug ?? null,
     processTypeRequiresCape: row.process_type_requires_cape ?? null,
+    processingWeightLbs: row.processing_weight_lbs != null ? Number(row.processing_weight_lbs) : null,
 
     // Statuses
     status: row.status,
@@ -1466,6 +1473,8 @@ function mapDbRowToJob(row: any, specialtyItems: any[] = []): Job {
     priceProcessing: Number(row.price_processing ?? 0),
     priceSpecialty: Number(row.price_specialty ?? 0),
     price: Number(row.price_total ?? 0),
+    amountPaidProcessing: Number(row.amount_paid_processing ?? 0),
+    amountPaidSpecialty: Number(row.amount_paid_specialty ?? 0),
 
     // Paid flags
     paid: !!row.paid,
@@ -1548,6 +1557,8 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     priceProcessing: Number(row.price_processing ?? 0),
     priceSpecialty: Number(row.price_specialty ?? 0),
     price: Number(row.price_total ?? 0),
+    amountPaidProcessing: Number(row.amount_paid_processing ?? 0),
+    amountPaidSpecialty: Number(row.amount_paid_specialty ?? 0),
     requiresTag: !!row.requires_tag,
     paidProcessing: !!row.paid_processing,
     paidSpecialty: !!row.paid_specialty,
@@ -1661,6 +1672,8 @@ const SEARCH_SELECT = `
   price_processing,
   price_specialty,
   price_total,
+  amount_paid_processing,
+  amount_paid_specialty,
   requires_tag,
   paid_processing,
   paid_specialty,
@@ -1997,6 +2010,7 @@ let tagToStore: string;
   const computedProcessingPrice = calcCatalogProcessingPrice(
     {
       processType: effectiveJob.processType,
+      processingWeightLbs: (effectiveJob as any).processingWeightLbs,
       addOnItems,
       beefFat: effectiveJob.beefFat,
       webbsOrder: effectiveJob.webbsOrder,
@@ -2044,6 +2058,34 @@ let tagToStore: string;
   const usedSpecialtyPrice  = specialtyOverride  ?? (numOrNull(effectiveJob.priceSpecialty) ?? computedSpecialtyPrice);
   const usedTotalPrice      = numOrNull(effectiveJob.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
 
+  const hasAmountPaidProcessing = Object.prototype.hasOwnProperty.call(effectiveJob, 'amountPaidProcessing');
+  const hasAmountPaidSpecialty = Object.prototype.hasOwnProperty.call(effectiveJob, 'amountPaidSpecialty');
+  const hasPaidProcessingFlag = Object.prototype.hasOwnProperty.call(effectiveJob, 'paidProcessing');
+  const hasPaidSpecialtyFlag = Object.prototype.hasOwnProperty.call(effectiveJob, 'paidSpecialty');
+
+  const rawAmountPaidProcessing = hasAmountPaidProcessing
+    ? numOrZero((effectiveJob as any).amountPaidProcessing)
+    : hasPaidProcessingFlag
+      ? ((effectiveJob as any).paidProcessing ? usedProcessingPrice : 0)
+      : numOrZero((existingJob as any)?.amountPaidProcessing);
+  const rawAmountPaidSpecialty = hasAmountPaidSpecialty
+    ? numOrZero((effectiveJob as any).amountPaidSpecialty)
+    : hasPaidSpecialtyFlag
+      ? ((effectiveJob as any).paidSpecialty ? usedSpecialtyPrice : 0)
+      : numOrZero((existingJob as any)?.amountPaidSpecialty);
+
+  const amountPaidProcessing = clampMoney(rawAmountPaidProcessing, usedProcessingPrice);
+  const amountPaidSpecialty = clampMoney(rawAmountPaidSpecialty, usedSpecialtyPrice);
+  const paidProcessing = usedProcessingPrice <= 0 ? true : amountPaidProcessing >= usedProcessingPrice;
+  const paidSpecialty = usedSpecialtyPrice <= 0 ? true : amountPaidSpecialty >= usedSpecialtyPrice;
+  const paidOverall = paidProcessing && paidSpecialty;
+  const paidProcessingAt = paidProcessing
+    ? effectiveJob.paidProcessingAt ?? existingJob?.paidProcessingAt ?? saveStamp
+    : null;
+  const paidSpecialtyAt = paidSpecialty
+    ? effectiveJob.paidSpecialtyAt ?? existingJob?.paidSpecialtyAt ?? saveStamp
+    : null;
+
   const upsertPayload: any = {
     ...(processor.id ? { processor_id: processor.id } : {}),
     tag: tagToStore,
@@ -2062,6 +2104,7 @@ let tagToStore: string;
     process_type: effectiveJob.processType ?? null,
     process_type_slug: selectedProcessType?.slug ?? (effectiveJob as any).processTypeSlug ?? null,
     process_type_requires_cape: selectedProcessType?.triggersCapeWorkflow ?? !!(effectiveJob as any).processTypeRequiresCape,
+    processing_weight_lbs: numOrNull((effectiveJob as any).processingWeightLbs),
     dropoff_date: effectiveJob.dropoff ?? null,
 
     status: effectiveJob.status ?? null,
@@ -2121,10 +2164,12 @@ let tagToStore: string;
     price_processing: usedProcessingPrice,
     price_specialty: usedSpecialtyPrice,
     price_total: usedTotalPrice,
+    amount_paid_processing: amountPaidProcessing,
+    amount_paid_specialty: amountPaidSpecialty,
 
-    paid: effectiveJob.paid ?? false,
-    paid_processing: effectiveJob.paidProcessing ?? false,
-    paid_specialty: effectiveJob.paidSpecialty ?? false,
+    paid: paidOverall,
+    paid_processing: paidProcessing,
+    paid_specialty: paidSpecialty,
     requires_tag: requiresTag,
 
     public_token: effectiveJob.publicToken ? String(effectiveJob.publicToken) : undefined,
@@ -2139,8 +2184,8 @@ let tagToStore: string;
     specialty_finished_sms_sent_at: (effectiveJob as any).specialtyFinishedSmsSentAt ?? null,
     webbs_delivered_email_sent_at: (effectiveJob as any).webbsDeliveredEmailSentAt ?? null,
     webbs_delivered_sms_sent_at: (effectiveJob as any).webbsDeliveredSmsSentAt ?? null,
-    paid_processing_at: effectiveJob.paidProcessingAt ?? null,
-    paid_specialty_at: effectiveJob.paidSpecialtyAt ?? null,
+    paid_processing_at: paidProcessingAt,
+    paid_specialty_at: paidSpecialtyAt,
 
     picked_up_processing: effectiveJob.pickedUpProcessing ?? false,
     picked_up_processing_at: effectiveJob.pickedUpProcessingAt ?? null,
@@ -2225,6 +2270,23 @@ Object.keys(upsertPayload).forEach((k) => {
 export async function progressJob(tag: string) {
   const supabaseServer = getSupabaseServer();
   const processor = await getDefaultProcessorContext();
+  let scanEnabled = true;
+  let capeScanEnabled = true;
+
+  if (processor.id) {
+    const { data: processorRow } = await supabaseServer
+      .from('processors')
+      .select('features')
+      .eq('id', processor.id)
+      .maybeSingle();
+    const features = normalizeProcessorFeatures((processorRow as any)?.features || {});
+    scanEnabled = features.scanEnabled !== false;
+    capeScanEnabled = scanEnabled && features.capeScanEnabled !== false;
+  }
+
+  if (!scanEnabled) {
+    return { ok: false, error: 'Scan workflow is turned off for this processor.' };
+  }
 
   const { data: job, error: jobError } = await withProcessorFilter(
     supabaseServer
@@ -2260,7 +2322,7 @@ export async function progressJob(tag: string) {
 
   let nextStatus: string | null = null;
   let progressedField: 'status' | 'caping_status' | null = null;
-  const needsCape = processTypeNeedsCapeWorkflow(job.process_type, undefined, job.process_type_requires_cape);
+  const needsCape = capeScanEnabled && processTypeNeedsCapeWorkflow(job.process_type, undefined, job.process_type_requires_cape);
   const capeAlreadyFinished = capeReady(curCapeStatusRaw);
 
   // Cape flow:
@@ -2955,7 +3017,7 @@ export async function getDashboardSummary() {
     withProcessorFilter(
       supabaseServer
         .from('jobs')
-        .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at,price_processing,price_specialty,paid_processing,paid_specialty')
+        .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at,price_processing,price_specialty,paid_processing,paid_specialty,amount_paid_processing,amount_paid_specialty')
         .limit(2000),
       processor.id
     ),
@@ -3020,13 +3082,16 @@ export async function getDashboardSummary() {
   }).length;
 
   const openProcessingAmount = ownerRows.reduce((sum: number, r: any) => {
-    if (r.paid_processing) return sum;
-    return sum + (Number(r.price_processing ?? 0) || 0);
+    const price = Number(r.price_processing ?? 0) || 0;
+    const paid = Number(r.amount_paid_processing ?? 0) || 0;
+    return sum + Math.max(0, price - paid);
   }, 0);
 
   const openSpecialtyAmount = ownerRows.reduce((sum: number, r: any) => {
-    if (!r.specialty_products || r.paid_specialty) return sum;
-    return sum + (Number(r.price_specialty ?? 0) || 0);
+    if (!r.specialty_products) return sum;
+    const price = Number(r.price_specialty ?? 0) || 0;
+    const paid = Number(r.amount_paid_specialty ?? 0) || 0;
+    return sum + Math.max(0, price - paid);
   }, 0);
 
   const readyUnpaidRows = ownerRows.filter((r: any) => {
@@ -3036,8 +3101,10 @@ export async function getDashboardSummary() {
   });
 
   const readyUnpaidAmount = readyUnpaidRows.reduce((sum: number, r: any) => {
-    const meatOwed = !r.paid_processing ? Number(r.price_processing ?? 0) || 0 : 0;
-    const specialtyOwed = !!r.specialty_products && !r.paid_specialty ? Number(r.price_specialty ?? 0) || 0 : 0;
+    const meatOwed = Math.max(0, (Number(r.price_processing ?? 0) || 0) - (Number(r.amount_paid_processing ?? 0) || 0));
+    const specialtyOwed = !!r.specialty_products
+      ? Math.max(0, (Number(r.price_specialty ?? 0) || 0) - (Number(r.amount_paid_specialty ?? 0) || 0))
+      : 0;
     return sum + meatOwed + specialtyOwed;
   }, 0);
 

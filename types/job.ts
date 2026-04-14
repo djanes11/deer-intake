@@ -22,6 +22,7 @@ export interface Job {
   processType: string | null;
   processTypeSlug?: string | null;
   processTypeRequiresCape?: boolean | null;
+  processingWeightLbs?: number | null;
 
   // Statuses
   status: string | null;
@@ -113,6 +114,8 @@ export interface Job {
   priceProcessing: number;
   priceSpecialty: number;
   price: number;
+  amountPaidProcessing?: number | null;
+  amountPaidSpecialty?: number | null;
 
   // Paid flags
   paid: boolean;
@@ -190,6 +193,8 @@ export interface JobSearchRow {
   priceProcessing: number;
   priceSpecialty: number;
   price: number;
+  amountPaidProcessing?: number | null;
+  amountPaidSpecialty?: number | null;
 
   requiresTag: boolean;
   paidProcessing: boolean;

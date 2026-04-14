@@ -14,6 +14,8 @@ export default function ScanPage() {
   const [manualTag, setManualTag] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [scanEnabled, setScanEnabled] = useState(true);
+  const [capeScanEnabled, setCapeScanEnabled] = useState(true);
   const [cutOptions, setCutOptions] = useState<CutOptionSettings>(normalizeCutOptionSettings({}));
 
   const [overlayOn, setOverlayOn] = useState(false);
@@ -26,10 +28,14 @@ export default function ScanPage() {
         const json = await res.json().catch(() => ({}));
         if (json?.ok) {
           setWebbsEnabled(json?.settings?.features?.webbsEnabled !== false);
+          setScanEnabled(json?.settings?.features?.scanEnabled !== false);
+          setCapeScanEnabled(json?.settings?.features?.scanEnabled !== false && json?.settings?.features?.capeScanEnabled !== false);
           setCutOptions(normalizeCutOptionSettings(json?.settings?.cutOptions));
         }
       } catch {
         setWebbsEnabled(true);
+        setScanEnabled(true);
+        setCapeScanEnabled(true);
         setCutOptions(normalizeCutOptionSettings({}));
       }
     };
@@ -41,11 +47,17 @@ export default function ScanPage() {
     const v = String(s ?? '').toLowerCase();
     return v.includes('finished') || v.includes('ready');
   };
-  const nextScanGuide = [
-    'Cape orders: first scan finishes cape work, second starts processing, third finishes processing.',
-    'Non-cape orders: first scan starts processing, second finishes processing.',
-    'If the scanner misses a tag, type it manually below and submit one scan.',
-  ];
+  const nextScanGuide = capeScanEnabled
+    ? [
+        'Cape orders: first scan finishes cape work, second starts processing, third finishes processing.',
+        'Non-cape orders: first scan starts processing, second finishes processing.',
+        'If the scanner misses a tag, type it manually below and submit one scan.',
+      ]
+    : [
+        'All deer use the same scan flow: first scan starts processing, second finishes processing.',
+        'Cape status can still be updated manually from intake or search when needed.',
+        'If the scanner misses a tag, type it manually below and submit one scan.',
+      ];
 
   // ===== Canon headers (kept so overlay can stay dumb) =====
   const HEADERS = [
@@ -306,6 +318,10 @@ export default function ScanPage() {
   }
 
   async function handleScan(code: string) {
+    if (!scanEnabled) {
+      setStatus({ kind: 'err', text: 'Scan workflow is turned off for this processor.' });
+      return;
+    }
     const tag = String(code || '').trim();
     if (!tag) return;
     setLastTag(tag);
@@ -421,6 +437,12 @@ export default function ScanPage() {
         </div>
       </section>
 
+      {!scanEnabled ? (
+        <section className="card readonly-banner">
+          Scan workflow is turned off for this processor. Staff can still update deer manually from intake and search.
+        </section>
+      ) : null}
+
       {/* visible status panel */}
       <div
         className="app-surface"
@@ -463,13 +485,14 @@ export default function ScanPage() {
             }}
             placeholder="Enter deer tag"
             aria-label="Enter deer tag"
+            disabled={!scanEnabled}
             style={{ flex: '1 1 280px', minWidth: 240 }}
           />
           <button
             type="button"
             className="btn"
             onClick={() => void handleManualSubmit()}
-            disabled={manualBusy || !manualTag.trim()}
+            disabled={!scanEnabled || manualBusy || !manualTag.trim()}
           >
             {manualBusy ? 'Submitting...' : 'Submit Tag'}
           </button>

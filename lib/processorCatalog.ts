@@ -2,6 +2,9 @@ export type ProcessTypeCatalogItem = {
   slug: string;
   name: string;
   basePrice: number;
+  pricingMode: 'flat' | 'per_lb';
+  pricePerLb: number;
+  minimumPrice: number;
   active: boolean;
   sortOrder: number;
   triggersCapeWorkflow: boolean;
@@ -77,6 +80,9 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       slug: 'standard-processing',
       name: 'Standard Processing',
       basePrice: money(pricing?.standard_processing_price, 130),
+      pricingMode: 'flat',
+      pricePerLb: 0,
+      minimumPrice: 0,
       active: true,
       sortOrder: 10,
       triggersCapeWorkflow: false,
@@ -86,6 +92,9 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       slug: 'caped',
       name: 'Caped',
       basePrice: money(pricing?.caped_price, 150),
+      pricingMode: 'flat',
+      pricePerLb: 0,
+      minimumPrice: 0,
       active: true,
       sortOrder: 20,
       triggersCapeWorkflow: true,
@@ -95,6 +104,9 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       slug: 'skull-cap',
       name: 'Skull-Cap',
       basePrice: money(pricing?.standard_processing_price, 130),
+      pricingMode: 'flat',
+      pricePerLb: 0,
+      minimumPrice: 0,
       active: true,
       sortOrder: 30,
       triggersCapeWorkflow: false,
@@ -104,6 +116,9 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       slug: 'european',
       name: 'European',
       basePrice: money(pricing?.standard_processing_price, 130),
+      pricingMode: 'flat',
+      pricePerLb: 0,
+      minimumPrice: 0,
       active: true,
       sortOrder: 40,
       triggersCapeWorkflow: false,
@@ -113,6 +128,9 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       slug: 'cape-donate',
       name: 'Cape & Donate',
       basePrice: money(pricing?.cape_donate_price, 50),
+      pricingMode: 'flat',
+      pricePerLb: 0,
+      minimumPrice: 0,
       active: true,
       sortOrder: 50,
       triggersCapeWorkflow: true,
@@ -122,6 +140,9 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       slug: 'donate',
       name: 'Donate',
       basePrice: 0,
+      pricingMode: 'flat',
+      pricePerLb: 0,
+      minimumPrice: 0,
       active: true,
       sortOrder: 60,
       triggersCapeWorkflow: false,
@@ -141,6 +162,9 @@ export function normalizeProcessCatalog(input: unknown, pricing?: PricingLike | 
         slug,
         name: name || slug,
         basePrice: money((item as any)?.basePrice ?? (item as any)?.price, 0),
+        pricingMode: (item as any)?.pricingMode === 'per_lb' ? 'per_lb' : 'flat',
+        pricePerLb: money((item as any)?.pricePerLb, 0),
+        minimumPrice: money((item as any)?.minimumPrice, 0),
         active: (item as any)?.active !== false,
         sortOrder: sortOrder((item as any)?.sortOrder, (index + 1) * 10),
         triggersCapeWorkflow: !!((item as any)?.triggersCapeWorkflow),
@@ -276,6 +300,7 @@ export function resolveProcessType(
 export function calcCatalogProcessingPrice(
   job: {
     processType?: unknown;
+    processingWeightLbs?: unknown;
     addOnItems?: unknown;
     beefFat?: unknown;
     webbsOrder?: unknown;
@@ -284,10 +309,22 @@ export function calcCatalogProcessingPrice(
   addOnCatalogInput: unknown,
 ): number {
   const processType = resolveProcessType(job.processType, processCatalogInput);
-  const base = processType?.basePrice ?? 0;
-  if (!base) return 0;
+  const weight = money((job as any)?.processingWeightLbs, 0);
+  const base =
+    processType?.pricingMode === 'per_lb'
+      ? Math.max(processType.minimumPrice ?? 0, weight * (processType.pricePerLb ?? 0))
+      : processType?.basePrice ?? 0;
+  if (!base && !deriveSelectedAddOnItems(job, addOnCatalogInput).length) return 0;
   const addOnTotal = deriveSelectedAddOnItems(job, addOnCatalogInput).reduce((sum, item) => sum + money(item.price), 0);
   return base + addOnTotal;
+}
+
+export function formatProcessTypePrice(item: ProcessTypeCatalogItem): string {
+  if (item.pricingMode === 'per_lb') {
+    const rate = `$${money(item.pricePerLb, 0).toFixed(2)}/lb`;
+    return item.minimumPrice > 0 ? `${rate} min $${money(item.minimumPrice, 0).toFixed(2)}` : rate;
+  }
+  return `$${money(item.basePrice, 0).toFixed(2)}`;
 }
 
 export function processTypeNeedsCapeWorkflow(

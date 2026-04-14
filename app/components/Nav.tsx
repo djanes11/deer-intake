@@ -36,6 +36,7 @@ export default function Nav() {
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [staffAuthType, setStaffAuthType] = useState<'supabase' | 'local' | 'api_token' | 'basic' | 'none'>('none');
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [scanEnabled, setScanEnabled] = useState(true);
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
 
   useEffect(() => {
@@ -56,6 +57,17 @@ export default function Nav() {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (isAdminHost) return;
+    fetch('/api/public/site-settings', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (!json?.ok) return;
+        setScanEnabled(json?.settings?.features?.scanEnabled !== false);
+      })
+      .catch(() => {});
+  }, [isAdminHost]);
 
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageSettings = staffRole === 'admin';
@@ -154,13 +166,15 @@ export default function Nav() {
                   >
                     Intake
                   </Link>
-                  <Link
-                    className={`item ${isActive('/scan') ? 'active' : ''}`}
-                    href="/scan"
-                    onClick={() => closeMobileAndDropdown()}
-                  >
-                    Scan
-                  </Link>
+                  {scanEnabled ? (
+                    <Link
+                      className={`item ${isActive('/scan') ? 'active' : ''}`}
+                      href="/scan"
+                      onClick={() => closeMobileAndDropdown()}
+                    >
+                      Scan
+                    </Link>
+                  ) : null}
                 </>
               ) : null}
               <Link

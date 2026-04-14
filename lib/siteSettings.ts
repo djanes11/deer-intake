@@ -42,6 +42,8 @@ export type ProcessorFeatureSettings = {
   plan: 'basic' | 'texting' | 'custom';
   smsEnabled: boolean;
   webbsEnabled: boolean;
+  scanEnabled: boolean;
+  capeScanEnabled: boolean;
 };
 
 export type PublicFaqItem = {
@@ -82,15 +84,29 @@ export function normalizeProcessorFeatures(raw: any): ProcessorFeatureSettings {
       : 'basic';
 
   if (plan === 'basic') {
-    return { plan, smsEnabled: false, webbsEnabled: false };
+    return {
+      plan,
+      smsEnabled: false,
+      webbsEnabled: false,
+      scanEnabled: raw?.scanEnabled !== false,
+      capeScanEnabled: raw?.scanEnabled === false ? false : raw?.capeScanEnabled !== false,
+    };
   }
   if (plan === 'texting') {
-    return { plan, smsEnabled: true, webbsEnabled: false };
+    return {
+      plan,
+      smsEnabled: true,
+      webbsEnabled: false,
+      scanEnabled: raw?.scanEnabled !== false,
+      capeScanEnabled: raw?.scanEnabled === false ? false : raw?.capeScanEnabled !== false,
+    };
   }
   return {
     plan,
     smsEnabled: true,
     webbsEnabled: raw?.webbsEnabled !== false,
+    scanEnabled: raw?.scanEnabled !== false,
+    capeScanEnabled: raw?.scanEnabled === false ? false : raw?.capeScanEnabled !== false,
   };
 }
 

@@ -20,6 +20,10 @@ type Row = {
   priceProc: number;
   priceSpec: number;
   totalDue: number;
+  amountPaidProc: number;
+  amountPaidSpec: number;
+  procDue: number;
+  specDue: number;
   paidProcessing?: boolean;
   paidSpecialty?: boolean;
   pickedUp?: boolean;
@@ -57,6 +61,10 @@ function specialtyPrice(row: any) {
 
 function money(value: number | null | undefined) {
   return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function remaining(price: number, paid: number) {
+  return Math.max(0, (Number(price || 0) || 0) - (Number(paid || 0) || 0));
 }
 
 function isCalled(value?: string) {
@@ -119,6 +127,10 @@ async function fetchCalled(): Promise<Row[]> {
 
     const paidProcessing = !!(r?.paidProcessing ?? r?.paid_processing ?? r?.['Paid Processing']);
     const paidSpecialty = !!(r?.paidSpecialty ?? r?.paid_specialty ?? r?.['Paid Specialty']);
+    const amountPaidProc = Number(r?.amountPaidProcessing ?? r?.amount_paid_processing ?? 0) || 0;
+    const amountPaidSpec = Number(r?.amountPaidSpecialty ?? r?.amount_paid_specialty ?? 0) || 0;
+    const procDue = remaining(priceProc, amountPaidProc);
+    const specDue = remaining(priceSpec, amountPaidSpec);
     const pickedUpProcessing = !!(r?.pickedUpProcessing ?? r?.picked_up_processing ?? r?.['Picked Up - Processing']);
     const pickedUpCape = !!(r?.pickedUpCape ?? r?.picked_up_cape ?? r?.['Picked Up - Cape']);
     const pickedUpWebbs = !!(r?.pickedUpWebbs ?? r?.picked_up_webbs ?? r?.['Picked Up - Webbs']);
@@ -142,7 +154,11 @@ async function fetchCalled(): Promise<Row[]> {
         readyAt: processingFinishedAt || calledAt,
         priceProc,
         priceSpec,
-        totalDue: (paidProcessing ? 0 : priceProc) + (paidSpecialty ? 0 : priceSpec),
+        amountPaidProc,
+        amountPaidSpec,
+        procDue,
+        specDue,
+        totalDue: procDue + specDue,
         paidProcessing,
         paidSpecialty,
         pickedUp: pickedUpProcessing,
@@ -162,6 +178,10 @@ async function fetchCalled(): Promise<Row[]> {
         readyAt: calledAt,
         priceProc,
         priceSpec,
+        amountPaidProc,
+        amountPaidSpec,
+        procDue,
+        specDue,
         totalDue: 0,
         paidProcessing,
         paidSpecialty,
@@ -182,6 +202,10 @@ async function fetchCalled(): Promise<Row[]> {
         readyAt: calledAt,
         priceProc,
         priceSpec,
+        amountPaidProc,
+        amountPaidSpec,
+        procDue,
+        specDue,
         totalDue: 0,
         paidProcessing,
         paidSpecialty,
@@ -203,8 +227,12 @@ async function fetchCalled(): Promise<Row[]> {
   return out;
 }
 
-async function markPaid(tag: string, kind: 'processing' | 'specialty') {
-  return saveJob(kind === 'specialty' ? ({ tag, paidSpecialty: true } as any) : ({ tag, paidProcessing: true } as any));
+async function recordPayment(tag: string, kind: 'processing' | 'specialty', amount: number) {
+  return saveJob(
+    kind === 'specialty'
+      ? ({ tag, amountPaidSpecialty: amount } as any)
+      : ({ tag, amountPaidProcessing: amount } as any),
+  );
 }
 
 async function markPickedUp(tag: string, track: Track, pickedUpBy?: string, pickupNotes?: string) {
@@ -257,7 +285,7 @@ function PaymentBadge({ row }: { row: Row }) {
     return <span className="badge neutral">Included</span>;
   }
   if (row.totalDue > 0) {
-    return <span className="badge warn">{money(row.totalDue)} due</span>;
+    return <span className="badge warn">{row.totalDue < row.priceProc + row.priceSpec ? `${money(row.totalDue)} due` : 'Unpaid'}</span>;
   }
   return <span className="badge ok">Paid</span>;
 }
@@ -276,6 +304,8 @@ export default function CalledPickupQueue() {
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [pickedUpByInput, setPickedUpByInput] = useState('');
   const [pickupNotesInput, setPickupNotesInput] = useState('');
+  const [processingPaymentInput, setProcessingPaymentInput] = useState('');
+  const [specialtyPaymentInput, setSpecialtyPaymentInput] = useState('');
 
   const summary = useMemo(() => {
     const openRows = rows.filter((row) => !row.pickedUp);
@@ -313,7 +343,9 @@ export default function CalledPickupQueue() {
   useEffect(() => {
     setPickedUpByInput(selected?.pickedUpBy || '');
     setPickupNotesInput(selected?.pickupNotes || '');
-  }, [selected?.tag, selected?.track, selected?.pickedUpBy, selected?.pickupNotes]);
+    setProcessingPaymentInput(selected?.procDue ? String(selected.procDue.toFixed(2)) : '');
+    setSpecialtyPaymentInput(selected?.specDue ? String(selected.specDue.toFixed(2)) : '');
+  }, [selected?.tag, selected?.track, selected?.pickedUpBy, selected?.pickupNotes, selected?.procDue, selected?.specDue]);
 
   async function load() {
     setLoading(true);
@@ -473,7 +505,7 @@ export default function CalledPickupQueue() {
               <div className="fact-value">{selected.track === 'meat' ? money(selected.totalDue) : 'Included'}</div>
               <div className="fact-sub">
                 {selected.track === 'meat'
-                  ? `Processing ${money(selected.paidProcessing ? 0 : selected.priceProc)} | Specialty ${money(selected.paidSpecialty ? 0 : selected.priceSpec)}`
+                  ? `Processing ${money(selected.procDue)} | Specialty ${money(selected.specDue)}`
                   : 'No pickup balance on this track'}
               </div>
             </div>
@@ -486,7 +518,7 @@ export default function CalledPickupQueue() {
               </div>
               <div className="fact-sub">
                 {selected.track === 'meat'
-                  ? selected.totalDue > 0 ? 'Mark money as paid before or during the handoff.' : 'This track is clear to hand off.'
+                  ? selected.totalDue > 0 ? 'Record what was paid today before or during the handoff.' : 'This track is clear to hand off.'
                   : 'Cape and Webbs tracks do not carry a separate balance here.'}
               </div>
             </div>
@@ -515,6 +547,30 @@ export default function CalledPickupQueue() {
 
           {canUpdate ? (
             <div className="pickup-edit-grid">
+              {selected?.track === 'meat' ? (
+                <>
+                  <label className="pickup-field">
+                    <span className="pickup-label">Processing payment received</span>
+                    <input
+                      value={processingPaymentInput}
+                      onChange={(e) => setProcessingPaymentInput(e.target.value)}
+                      inputMode="decimal"
+                      placeholder={selected.procDue ? selected.procDue.toFixed(2) : '0.00'}
+                    />
+                  </label>
+                  {selected.priceSpec > 0 ? (
+                    <label className="pickup-field">
+                      <span className="pickup-label">Specialty payment received</span>
+                      <input
+                        value={specialtyPaymentInput}
+                        onChange={(e) => setSpecialtyPaymentInput(e.target.value)}
+                        inputMode="decimal"
+                        placeholder={selected.specDue ? selected.specDue.toFixed(2) : '0.00'}
+                      />
+                    </label>
+                  ) : null}
+                </>
+              ) : null}
               <label className="pickup-field">
                 <span className="pickup-label">Picked up by</span>
                 <input
@@ -588,7 +644,7 @@ export default function CalledPickupQueue() {
                   <div className="balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
                   {r.track === 'meat' ? (
                     <div className="balance-sub">
-                      Proc {money(r.paidProcessing ? 0 : r.priceProc)} | Spec {money(r.paidSpecialty ? 0 : r.priceSpec)}
+                      Proc {money(r.procDue)} | Spec {money(r.specDue)}
                     </div>
                   ) : (
                     <div className="balance-sub">No charge on this track</div>
@@ -621,38 +677,42 @@ export default function CalledPickupQueue() {
           <div className="toolbar-actions">
             <button
               className="btn secondary small"
-              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}:processing` || selected?.track !== 'meat' || !!selected?.paidProcessing}
-              title={!canUpdate ? 'Only Staff or Admin can mark processing as paid.' : undefined}
+              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}:processing` || selected?.track !== 'meat' || selected?.procDue <= 0}
+              title={!canUpdate ? 'Only Staff or Admin can record processing payments.' : undefined}
               onClick={async () => {
                 if (!selected) return;
+                const amount = Number(processingPaymentInput || 0);
+                if (!Number.isFinite(amount) || amount <= 0) return;
                 setBusy(`paid:${selected.tag}:processing`);
                 try {
-                  await markPaid(selected.tag, 'processing');
+                  await recordPayment(selected.tag, 'processing', Math.min(selected.amountPaidProc + amount, selected.priceProc));
                   await load();
                 } finally {
                   setBusy('');
                 }
               }}
             >
-              {busy === `paid:${selected?.tag}:processing` ? 'Saving...' : `Mark Processing Paid ${money(selected?.priceProc || 0)}`}
+              {busy === `paid:${selected?.tag}:processing` ? 'Saving...' : `Record Processing Payment`}
             </button>
 
             <button
               className="btn secondary small"
-              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}:specialty` || selected?.track !== 'meat' || !selected?.priceSpec || !!selected?.paidSpecialty}
-              title={!canUpdate ? 'Only Staff or Admin can mark specialty as paid.' : undefined}
+              disabled={!canUpdate || !selected || busy === `paid:${selected?.tag}:specialty` || selected?.track !== 'meat' || selected?.specDue <= 0}
+              title={!canUpdate ? 'Only Staff or Admin can record specialty payments.' : undefined}
               onClick={async () => {
                 if (!selected) return;
+                const amount = Number(specialtyPaymentInput || 0);
+                if (!Number.isFinite(amount) || amount <= 0) return;
                 setBusy(`paid:${selected.tag}:specialty`);
                 try {
-                  await markPaid(selected.tag, 'specialty');
+                  await recordPayment(selected.tag, 'specialty', Math.min(selected.amountPaidSpec + amount, selected.priceSpec));
                   await load();
                 } finally {
                   setBusy('');
                 }
               }}
             >
-              {busy === `paid:${selected?.tag}:specialty` ? 'Saving...' : `Mark Specialty Paid ${money(selected?.priceSpec || 0)}`}
+              {busy === `paid:${selected?.tag}:specialty` ? 'Saving...' : `Record Specialty Payment`}
             </button>
 
             <button

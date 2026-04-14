@@ -16,6 +16,7 @@ import {
   defaultAddOnCatalog,
   defaultProcessCatalog,
   deriveSelectedAddOnItems,
+  formatProcessTypePrice,
   filterVisibleAddOnItems,
   normalizeAddOnCatalog,
   normalizeJobAddOnItems,
@@ -356,6 +357,10 @@ function OvernightIntakePage() {
     () => normalizeAddOnCatalog(addOnCatalog, pricing).filter((item) => item.active),
     [addOnCatalog, pricing]
   );
+  const selectedProcessType = useMemo(
+    () => activeProcessCatalog.find((item) => item.name === job.processType || item.slug === String(job.processType || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) || null,
+    [activeProcessCatalog, job.processType]
+  );
   const selectedAddOnItems = useMemo(
     () =>
       deriveSelectedAddOnItems(
@@ -417,6 +422,7 @@ function OvernightIntakePage() {
   }, [job.specialtyProducts, specialtyItems, specialtyPrice]);
 
   const totalPrice = processingPrice + specialtyPrice;
+  const processingEstimatePending = selectedProcessType?.pricingMode === 'per_lb';
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsAllocations = useMemo(() => normalizeWebbsAllocations(job.webbsAllocations), [job.webbsAllocations]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
@@ -1015,10 +1021,10 @@ function OvernightIntakePage() {
             <div className="compactSummaryBar">
               <div className="compactSummaryMain">
                 <div className="compactSummaryStep">Step {stepIdx + 1} of {steps.length}: {step.title}</div>
-                <div className="compactSummaryTotal">${totalPrice.toFixed(2)}</div>
+                <div className="compactSummaryTotal">{processingEstimatePending ? 'Finalized after staff weight' : `$${totalPrice.toFixed(2)}`}</div>
               </div>
               <div className="compactSummarySub">
-                <span>Processing ${processingPrice.toFixed(2)}</span>
+                <span>Processing {processingEstimatePending ? 'priced after weight' : `$${processingPrice.toFixed(2)}`}</span>
                 <span>Specialty ${specialtyPrice.toFixed(2)}</span>
               </div>
             </div>
@@ -1033,9 +1039,11 @@ function OvernightIntakePage() {
 
                 <div className="col price">
                   <label>Processing Estimate</label>
-                  <div className="money">{processingPrice.toFixed(2)}</div>
+                  <div className="money">{processingEstimatePending ? 'TBD' : processingPrice.toFixed(2)}</div>
                   <div className="muted" style={{ fontSize: 12 }}>
-                      Base process type + selected add-ons
+                      {processingEstimatePending
+                        ? `${formatProcessTypePrice(selectedProcessType!)} + selected add-ons, finalized after staff weighs the deer`
+                        : 'Base process type + selected add-ons'}
                   </div>
                 </div>
 
@@ -1049,7 +1057,7 @@ function OvernightIntakePage() {
               <div className="row small">
                 <div className="col total">
                   <label>Total (preview)</label>
-                  <div className="money total">{totalPrice.toFixed(2)}</div>
+                  <div className="money total">{processingEstimatePending ? 'TBD' : totalPrice.toFixed(2)}</div>
                 </div>
               </div>
             </>

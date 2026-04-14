@@ -16,6 +16,7 @@ import {
   defaultAddOnCatalog,
   defaultProcessCatalog,
   deriveSelectedAddOnItems,
+  formatProcessTypePrice,
   filterVisibleAddOnItems,
   normalizeAddOnCatalog,
   normalizeJobAddOnItems,
@@ -76,6 +77,7 @@ type Job = {
   processType?: string;
   processTypeSlug?: string | null;
   processTypeRequiresCape?: boolean | null;
+  processingWeightLbs?: string | number | null;
 
   status?: string; // regular status
   capingStatus?: string; // only shown if Caped / Cape & Donate
@@ -143,6 +145,8 @@ type Job = {
   webbsAllocations?: WebbsAllocationItem[];
 
   price?: number | string; // optional override
+  amountPaidProcessing?: number | string | null;
+  amountPaidSpecialty?: number | string | null;
 
   // Price overrides (leave null/blank to use auto)
   processing_price_override?: number | string | null;
@@ -202,6 +206,7 @@ function snapshotJob(j: Job) {
     sex: j.sex ?? '',
     howKilled: j.howKilled ?? '',
     processType: j.processType ?? '',
+    processingWeightLbs: j.processingWeightLbs ?? '',
 
     status: j.status ?? '',
     capingStatus: j.capingStatus ?? '',
@@ -255,6 +260,8 @@ function snapshotJob(j: Job) {
 
     processing_price_override: String((j as any).processing_price_override ?? ''),
     specialty_price_override: String((j as any).specialty_price_override ?? ''),
+    amountPaidProcessing: String((j as any).amountPaidProcessing ?? ''),
+    amountPaidSpecialty: String((j as any).amountPaidSpecialty ?? ''),
 
     paidProcessing: !!j.paidProcessing,
     paidSpecialty: !!j.paidSpecialty,
@@ -395,10 +402,12 @@ function IntakePage() {
     webbsItems: [],
     webbsAllocations: [],
     webbsPaperFormCompleted: false,
+    processingWeightLbs: '',
 
     processing_price_override: null,
     specialty_price_override: null,
-
+    amountPaidProcessing: 0,
+    amountPaidSpecialty: 0,
 
     Paid: false,
     paid: false,
@@ -777,6 +786,10 @@ useEffect(() => {
     () => normalizeAddOnCatalog(addOnCatalog, pricing).filter((item) => item.active),
     [addOnCatalog, pricing]
   );
+  const selectedProcessType = useMemo(
+    () => activeProcessCatalog.find((item) => item.name === job.processType || item.slug === String(job.processType || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) || null,
+    [activeProcessCatalog, job.processType]
+  );
   const selectedAddOnItems = useMemo(
     () =>
       deriveSelectedAddOnItems(
@@ -794,6 +807,7 @@ useEffect(() => {
       calcCatalogProcessingPrice(
         {
           processType: job.processType,
+          processingWeightLbs: job.processingWeightLbs,
           addOnItems: selectedAddOnItems,
           beefFat: job.beefFat,
           webbsOrder: job.webbsOrder,
@@ -801,7 +815,7 @@ useEffect(() => {
         activeProcessCatalog,
         pricedAddOnCatalog,
       ),
-    [job.processType, job.addOnItems, job.beefFat, job.webbsOrder, activeProcessCatalog, pricedAddOnCatalog, selectedAddOnItems]
+    [job.processType, job.processingWeightLbs, job.addOnItems, job.beefFat, job.webbsOrder, activeProcessCatalog, pricedAddOnCatalog, selectedAddOnItems]
   );
 
   const specialtyPriceAuto = useMemo(() => {
@@ -819,6 +833,10 @@ useEffect(() => {
 
   const processingPriceUsed = processingOverride ?? processingPriceAuto;
   const specialtyPriceUsed = specialtyOverride ?? specialtyPriceAuto;
+  const amountPaidProcessing = Math.min(toMoneyOrNull((job as any).amountPaidProcessing) ?? 0, processingPriceUsed);
+  const amountPaidSpecialty = Math.min(toMoneyOrNull((job as any).amountPaidSpecialty) ?? 0, specialtyPriceUsed);
+  const processingRemaining = Math.max(0, processingPriceUsed - amountPaidProcessing);
+  const specialtyRemaining = Math.max(0, specialtyPriceUsed - amountPaidSpecialty);
 
   const totalPrice = processingPriceUsed + specialtyPriceUsed;
   const activeSpecialtyCatalog = useMemo(
@@ -922,6 +940,7 @@ useEffect(() => {
           ...prev,
           specialtyItems: [],
           paidSpecialty: false,
+          amountPaidSpecialty: 0,
           specialtyStatus: '',
           specialty_price_override: null,
           originalSummerSausageLbs: '',
@@ -974,6 +993,9 @@ useEffect(() => {
     if (!job.dropoff) missing.push('Drop-off Date');
     if (!job.sex) missing.push('Deer Sex');
     if (!job.processType) missing.push('Process Type');
+    if (selectedProcessType?.pricingMode === 'per_lb' && !(toMoneyOrNull(job.processingWeightLbs) && Number(toMoneyOrNull(job.processingWeightLbs))! > 0)) {
+      missing.push('Processing Weight (lbs)');
+    }
     if (job.prefSMS && !job.smsConsent) missing.push('SMS Consent');
     if (showRoastCounts && hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
     if (showRoastCounts && frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
@@ -1003,8 +1025,6 @@ useEffect(() => {
     }
 
     const pnorm = normProc(job.processType);
-    const selectedProcessType = activeProcessCatalog.find((item) => item.name === job.processType || item.slug === String(job.processType || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
-
     const payload: Job = {
       ...job,
       // enforce standardized values on save
@@ -1046,9 +1066,12 @@ useEffect(() => {
       paid: fullPaid(job),
       paidProcessing: !!job.paidProcessing,
       paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
+      amountPaidProcessing: toMoneyOrNull((job as any).amountPaidProcessing) ?? 0,
+      amountPaidSpecialty: job.specialtyProducts ? (toMoneyOrNull((job as any).amountPaidSpecialty) ?? 0) : 0,
       addOnItems: normalizeJobAddOnItems(selectedAddOnItems),
       processTypeSlug: selectedProcessType?.slug || null,
       processTypeRequiresCape: !!selectedProcessType?.triggersCapeWorkflow,
+      processingWeightLbs: selectedProcessType?.pricingMode === 'per_lb' ? (toMoneyOrNull(job.processingWeightLbs) ?? null) : null,
       specialtyItems: job.specialtyProducts ? normalizeJobSpecialtyItems((job as any).specialtyItems) : [],
       howKilled: job.howKilled || '',
 
@@ -1145,7 +1168,7 @@ if (fresh?.exists && fresh.job) {
     setJob((p) => {
       const next: Job = { ...p, [k]: v };
 
-      if (k === 'processType' || k === 'beefFat' || k === 'webbsOrder') {
+      if (k === 'processType' || k === 'processingWeightLbs' || k === 'beefFat' || k === 'webbsOrder') {
         next.processing_price_override = null;
       }
 
@@ -1326,11 +1349,21 @@ if (fresh?.exists && fresh.job) {
               <label>Processing Price</label>
               <div className="money">{processingPriceUsed.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>
-                Base process type + selected add-ons
+                {selectedProcessType?.pricingMode === 'per_lb'
+                  ? `${formatProcessTypePrice(selectedProcessType)} + selected add-ons`
+                  : 'Base process type + selected add-ons'}
               </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' • override active' : ''}
               </div>
+              {selectedProcessType?.pricingMode === 'per_lb' ? (
+                <input
+                  inputMode="decimal"
+                  placeholder="Processing weight (lbs)"
+                  value={String((job as any).processingWeightLbs ?? '')}
+                  onChange={(e) => setVal('processingWeightLbs', e.target.value as any)}
+                />
+              ) : null}
               <input
                 inputMode="decimal"
                 placeholder="Override (optional)"
@@ -1416,39 +1449,69 @@ if (fresh?.exists && fresh.job) {
             <div className="col">
               <label>Paid</label>
               <div className="pillrow">
-                <label className={`pill ${job.paidProcessing ? 'on' : ''}`}>
+                <label className={`pill ${processingRemaining <= 0 ? 'on' : ''}`}>
                   <input
                     type="checkbox"
-                    checked={!!job.paidProcessing}
+                    checked={processingRemaining <= 0}
                     onChange={(e) => {
                       const v = e.target.checked;
                       setJob((prev) => {
-                        const next = { ...prev, paidProcessing: v };
+                        const next = { ...prev, paidProcessing: v, amountPaidProcessing: v ? processingPriceUsed : 0 };
                         const fp = fullPaid(next);
                         return { ...next, Paid: fp, paid: fp };
                       });
                     }}
                   />
                 </label>
-                <span className="badge">{job.paidProcessing ? 'Processing Paid' : 'Processing Unpaid'}</span>
+                <span className="badge">{processingRemaining <= 0 ? 'Processing Paid' : processingRemaining < processingPriceUsed ? 'Processing Partial' : 'Processing Unpaid'}</span>
+                <input
+                  inputMode="decimal"
+                  value={String((job as any).amountPaidProcessing ?? '')}
+                  onChange={(e) => {
+                    const value = toMoneyOrNull(e.target.value) ?? 0;
+                    setJob((prev) => {
+                      const next = { ...prev, amountPaidProcessing: value, paidProcessing: value >= processingPriceUsed && processingPriceUsed > 0 };
+                      const fp = fullPaid(next);
+                      return { ...next, Paid: fp, paid: fp };
+                    });
+                  }}
+                  placeholder="Processing paid"
+                  style={{ maxWidth: 150 }}
+                />
+                <span className="badge">{`Due ${processingRemaining.toFixed(2)}`}</span>
 
                 {asBool(job.specialtyProducts) && (
                   <>
-                    <label className={`pill ${job.paidSpecialty ? 'on' : ''}`}>
+                    <label className={`pill ${specialtyRemaining <= 0 ? 'on' : ''}`}>
                       <input
                         type="checkbox"
-                        checked={!!job.paidSpecialty}
+                        checked={specialtyRemaining <= 0}
                         onChange={(e) => {
                           const v = e.target.checked;
                           setJob((prev) => {
-                            const next = { ...prev, paidSpecialty: v };
+                            const next = { ...prev, paidSpecialty: v, amountPaidSpecialty: v ? specialtyPriceUsed : 0 };
                             const fp = fullPaid(next);
                             return { ...next, Paid: fp, paid: fp };
                           });
                         }}
                       />
                     </label>
-                    <span className="badge">{job.paidSpecialty ? 'Specialty Paid' : 'Specialty Unpaid'}</span>
+                    <span className="badge">{specialtyRemaining <= 0 ? 'Specialty Paid' : specialtyRemaining < specialtyPriceUsed ? 'Specialty Partial' : 'Specialty Unpaid'}</span>
+                    <input
+                      inputMode="decimal"
+                      value={String((job as any).amountPaidSpecialty ?? '')}
+                      onChange={(e) => {
+                        const value = toMoneyOrNull(e.target.value) ?? 0;
+                        setJob((prev) => {
+                          const next = { ...prev, amountPaidSpecialty: value, paidSpecialty: value >= specialtyPriceUsed && specialtyPriceUsed > 0 };
+                          const fp = fullPaid(next);
+                          return { ...next, Paid: fp, paid: fp };
+                        });
+                      }}
+                      placeholder="Specialty paid"
+                      style={{ maxWidth: 150 }}
+                    />
+                    <span className="badge">{`Due ${specialtyRemaining.toFixed(2)}`}</span>
                   </>
                 )}
 
@@ -1462,7 +1525,9 @@ if (fresh?.exists && fresh.job) {
                         const next: Job = {
                           ...prev,
                           paidProcessing: v ? true : false,
+                          amountPaidProcessing: v ? processingPriceUsed : 0,
                           paidSpecialty: asBool(prev.specialtyProducts) ? (v ? true : false) : false,
+                          amountPaidSpecialty: asBool(prev.specialtyProducts) ? (v ? specialtyPriceUsed : 0) : 0,
                         };
                         const fp = fullPaid(next);
                         return { ...next, Paid: fp, paid: fp };
