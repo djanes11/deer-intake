@@ -20,6 +20,15 @@ import { writeAuditEntry } from '@/lib/auditLog';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+function normalizeLogoUrl(value: unknown, fallback: string) {
+  const raw = String(value || '').trim();
+  if (!raw) return fallback;
+  if (raw.startsWith('data:image/jpeg;base64,') || raw.startsWith('data:image/png;base64,') || raw.startsWith('data:image/webp;base64,')) {
+    return raw.length <= 2_800_000 ? raw : fallback;
+  }
+  return raw;
+}
+
 export async function GET(req: Request) {
   try {
     const { denied, context: processor } = await requireProcessorPermission(req, 'manage_settings');
@@ -131,7 +140,7 @@ export async function POST(req: Request) {
     const processorPayload = {
       ...(body?.branding?.name ? { public_name: String(body.branding.name || '').trim() } : {}),
       public_tagline: String(body?.branding?.tagline || defaults.tagline),
-      logo_url: String(body?.branding?.logoUrl || defaults.logoUrl),
+      logo_url: normalizeLogoUrl(body?.branding?.logoUrl, defaults.logoUrl),
       support_phone_display: String(body?.branding?.phoneDisplay || defaults.phoneDisplay),
       support_phone_e164: String(body?.branding?.phoneE164 || defaults.phoneE164),
       support_email: String(body?.branding?.email || ''),

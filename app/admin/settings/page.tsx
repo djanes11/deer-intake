@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, DragEvent, useEffect, useMemo, useState } from 'react';
 import { tokenHeader } from '@/lib/api';
 import { DEFAULT_SITE_PRICING, SitePricing, formatMoney, normalizePricing } from '@/lib/pricing';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -137,6 +137,18 @@ function processPriceSummary(item: ProcessTypeCatalogItem) {
   return `$${Number(item.basePrice || 0).toFixed(2)} flat`;
 }
 
+const LOGO_ACCEPT = 'image/jpeg,image/png,image/webp';
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Could not read that image file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function normalizeHours(hours: any): HourRow[] {
   if (!Array.isArray(hours) || !hours.length) return DEFAULT_HOURS;
   const rows = hours.map((row) => ({
@@ -196,6 +208,7 @@ export default function AdminSettingsPage() {
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [logoDropActive, setLogoDropActive] = useState(false);
   const [section, setSection] = useState<'overview' | 'branding' | 'intake' | 'copy' | 'banner' | 'hours' | 'pricing' | 'processes' | 'addons' | 'specialty' | 'notifications'>('overview');
 
   const headers: Record<string, string> = useMemo(
@@ -300,6 +313,44 @@ export default function AdminSettingsPage() {
     if (!s) return;
     const nextHours = normalizeHours(s.hours).map((row, i) => (i === index ? { ...row, [key]: value } : row));
     setS({ ...s, hours: nextHours });
+  };
+
+  const applyLogoFile = async (file: File | null | undefined) => {
+    if (!s || !file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setMsg('Please use a JPG, PNG, or WebP logo image.');
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      setMsg('Logo image is too large. Please keep it under 2 MB.');
+      return;
+    }
+    try {
+      const logoUrl = await fileToDataUrl(file);
+      setS({
+        ...s,
+        branding: {
+          ...DEFAULT_BRANDING,
+          ...s.branding,
+          logoUrl,
+        },
+      });
+      setMsg('Logo loaded. Save changes when it looks right.');
+    } catch (e: any) {
+      setMsg(String(e?.message || e));
+    }
+  };
+
+  const onLogoFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    await applyLogoFile(file);
+    e.target.value = '';
+  };
+
+  const onLogoDrop = async (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setLogoDropActive(false);
+    await applyLogoFile(e.dataTransfer.files?.[0]);
   };
 
   const updateProcessTypeItem = (index: number, key: keyof ProcessTypeCatalogItem, value: string | boolean) => {
@@ -886,12 +937,96 @@ export default function AdminSettingsPage() {
               These details appear on the public site for this processor. Plan tiers and feature access are managed from Processor Management.
             </div>
           </div>
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setLogoDropActive(true);
+            }}
+            onDragLeave={() => setLogoDropActive(false)}
+            onDrop={(e) => void onLogoDrop(e)}
+            style={{
+              display: 'grid',
+              gap: 12,
+              padding: 16,
+              borderRadius: 16,
+              border: `2px dashed ${logoDropActive ? '#c88a3d' : '#cbd5e1'}`,
+              background: logoDropActive ? '#fff7ed' : '#f8fafc',
+              marginBottom: 14,
+            }}
+          >
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Logo</div>
+            <div style={{ color: '#475569', fontSize: 14, lineHeight: 1.5 }}>
+              Drag a JPG, PNG, or WebP here, or pick a file. This is easier than pasting a URL, and it will preview right away.
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <label
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  color: '#0f172a',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                Choose Logo File
+                <input type="file" accept={LOGO_ACCEPT} onChange={(e) => void onLogoFileChange(e)} style={{ display: 'none' }} />
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  setS({
+                    ...s,
+                    branding: {
+                      ...DEFAULT_BRANDING,
+                      ...s.branding,
+                      logoUrl: DEFAULT_BRANDING.logoUrl,
+                    },
+                  })
+                }
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  color: '#0f172a',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                Reset Logo
+              </button>
+              <div style={{ color: '#64748b', fontSize: 13 }}>Max 2 MB</div>
+            </div>
+            <div
+              style={{
+                width: 140,
+                height: 140,
+                borderRadius: 18,
+                border: '1px solid #e2e8f0',
+                background: '#120f0d',
+                display: 'grid',
+                placeItems: 'center',
+                overflow: 'hidden',
+                padding: 12,
+              }}
+            >
+              {s.branding?.logoUrl ? (
+                <img src={s.branding.logoUrl} alt="Logo preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              ) : (
+                <div style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 700, textAlign: 'center' }}>No logo yet</div>
+              )}
+            </div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             {[
               ['Business name', 'name'],
               ['Location label', 'locationLabel'],
               ['Public tagline', 'tagline'],
-              ['Logo URL', 'logoUrl'],
               ['Phone display', 'phoneDisplay'],
               ['Phone E.164', 'phoneE164'],
               ['Support email', 'email'],
@@ -924,6 +1059,31 @@ export default function AdminSettingsPage() {
               </label>
             ))}
           </div>
+          <label style={{ display: 'grid', gap: 6, marginTop: 12 }}>
+            <span style={{ fontWeight: 800, color: '#0f172a' }}>Logo URL Fallback</span>
+            <input
+              value={(s.branding as any)?.logoUrl || ''}
+              onChange={(e) =>
+                setS({
+                  ...s,
+                  branding: {
+                    ...DEFAULT_BRANDING,
+                    ...s.branding,
+                    logoUrl: e.target.value,
+                  },
+                })
+              }
+              placeholder="Optional: paste an image URL instead of uploading"
+              style={{
+                width: '100%',
+                padding: 12,
+                borderRadius: 12,
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                color: '#0f172a',
+              }}
+            />
+          </label>
         </div>
         )}
 
