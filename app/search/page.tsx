@@ -215,11 +215,21 @@ export default function SearchPage() {
 
   const paymentSummary = useMemo(() => {
     if (!selectedJob) return '-';
-    const proc = selectedJob.paidProcessing ? 'Processing paid' : 'Processing unpaid';
+    const procDue = Math.max(0, Number(selectedJob.priceProcessing ?? selectedJob.price_processing ?? 0) - Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0));
+    const specDue = Math.max(0, Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) - Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0));
+    const procMethod = String(selectedJob.paymentMethodProcessing ?? selectedJob.payment_method_processing ?? '').trim();
+    const specMethod = String(selectedJob.paymentMethodSpecialty ?? selectedJob.payment_method_specialty ?? '').trim();
+    const proc = procDue <= 0
+      ? `Processing paid${procMethod ? ` (${procMethod})` : ''}`
+      : procDue < Number(selectedJob.priceProcessing ?? selectedJob.price_processing ?? 0)
+        ? `Processing partial${procMethod ? ` (${procMethod})` : ''}`
+        : 'Processing unpaid';
     const spec = selectedJob.specialtyProducts
-      ? selectedJob.paidSpecialty
-        ? 'Specialty paid'
-        : 'Specialty unpaid'
+      ? specDue <= 0
+        ? `Specialty paid${specMethod ? ` (${specMethod})` : ''}`
+        : specDue < Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0)
+          ? `Specialty partial${specMethod ? ` (${specMethod})` : ''}`
+          : 'Specialty unpaid'
       : null;
     return [proc, spec].filter(Boolean).join(' | ');
   }, [selectedJob]);
@@ -608,6 +618,8 @@ export default function SearchPage() {
                       <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
                       <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
                       <div><strong>Confirmation:</strong> {selectedJob.confirmation || '-'}</div>
+                      <div><strong>Processing paid:</strong> ${Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0).toFixed(2)}</div>
+                      <div><strong>Specialty paid:</strong> ${Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0).toFixed(2)}</div>
                     </DetailBox>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>

@@ -444,6 +444,7 @@ function IntakePage() {
   const [msg, setMsg] = useState<string>('');
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
+  const [lastSavedAt, setLastSavedAt] = useState<string>('');
   const tagRef = useRef<HTMLInputElement | null>(null);
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
@@ -1094,6 +1095,7 @@ useEffect(() => {
       }
 
       setMsg('Saved ✓');
+      setLastSavedAt(new Date().toISOString());
       setCustomerLookupCollapsedFor(String(payload.customer ?? job.customer ?? '').trim().toLowerCase());
       setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
 
@@ -1128,6 +1130,7 @@ if (fresh?.exists && fresh.job) {
 
   setJob(merged);
   setLastSavedJson(stableStringify(snapshotJob(merged)));
+  setLastSavedAt(new Date().toISOString());
 }
 
       }
@@ -1310,6 +1313,18 @@ if (fresh?.exists && fresh.job) {
             Read-only access: you can review this intake and print from this page, but editing and saving are disabled for your role.
           </div>
         ) : null}
+
+        <div
+          className="app-surface-light"
+          style={{ marginBottom: 12, padding: 12, display: 'grid', gap: 6, color: '#334155' }}
+        >
+          <div style={{ fontWeight: 800 }}>
+            {lastSavedAt ? `Last successful save: ${new Date(lastSavedAt).toLocaleString()}` : 'This intake has not been saved yet.'}
+          </div>
+          <div style={{ fontSize: 13 }}>
+            If a scanner or printer gives you trouble, you can still save the intake, print the full sheet, and use Search as your fallback workflow.
+          </div>
+        </div>
 
         <div className="summaryMini">
           {job.tag ? (

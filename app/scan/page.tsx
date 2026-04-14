@@ -443,6 +443,13 @@ export default function ScanPage() {
         </section>
       ) : null}
 
+      <section className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 8 }}>
+        <div style={{ fontWeight: 900, color: '#0f172a' }}>Backup plan if hardware gives you trouble</div>
+        <div style={{ color: '#334155', lineHeight: 1.5 }}>
+          No scanner or thermal printer is required to keep working. You can update statuses from Search or Intake, print the full intake sheet, and keep the floor moving even if the scan station is having a bad moment.
+        </div>
+      </section>
+
       {/* visible status panel */}
       <div
         className="app-surface"

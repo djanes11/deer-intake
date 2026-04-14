@@ -116,6 +116,8 @@ export interface Job {
   price: number;
   amountPaidProcessing?: number | null;
   amountPaidSpecialty?: number | null;
+  paymentMethodProcessing?: 'cash' | 'card' | 'check' | 'other' | null;
+  paymentMethodSpecialty?: 'cash' | 'card' | 'check' | 'other' | null;
 
   // Paid flags
   paid: boolean;
@@ -195,6 +197,8 @@ export interface JobSearchRow {
   price: number;
   amountPaidProcessing?: number | null;
   amountPaidSpecialty?: number | null;
+  paymentMethodProcessing?: 'cash' | 'card' | 'check' | 'other' | null;
+  paymentMethodSpecialty?: 'cash' | 'card' | 'check' | 'other' | null;
 
   requiresTag: boolean;
   paidProcessing: boolean;

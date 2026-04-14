@@ -24,6 +24,8 @@ type Row = {
   amountPaidSpec: number;
   procDue: number;
   specDue: number;
+  paymentMethodProc?: 'cash' | 'card' | 'check' | 'other' | null;
+  paymentMethodSpec?: 'cash' | 'card' | 'check' | 'other' | null;
   paidProcessing?: boolean;
   paidSpecialty?: boolean;
   pickedUp?: boolean;
@@ -129,6 +131,8 @@ async function fetchCalled(): Promise<Row[]> {
     const paidSpecialty = !!(r?.paidSpecialty ?? r?.paid_specialty ?? r?.['Paid Specialty']);
     const amountPaidProc = Number(r?.amountPaidProcessing ?? r?.amount_paid_processing ?? 0) || 0;
     const amountPaidSpec = Number(r?.amountPaidSpecialty ?? r?.amount_paid_specialty ?? 0) || 0;
+    const paymentMethodProc = String(r?.paymentMethodProcessing ?? r?.payment_method_processing ?? '').trim().toLowerCase() || null;
+    const paymentMethodSpec = String(r?.paymentMethodSpecialty ?? r?.payment_method_specialty ?? '').trim().toLowerCase() || null;
     const procDue = remaining(priceProc, amountPaidProc);
     const specDue = remaining(priceSpec, amountPaidSpec);
     const pickedUpProcessing = !!(r?.pickedUpProcessing ?? r?.picked_up_processing ?? r?.['Picked Up - Processing']);
@@ -158,6 +162,8 @@ async function fetchCalled(): Promise<Row[]> {
         amountPaidSpec,
         procDue,
         specDue,
+        paymentMethodProc: paymentMethodProc as any,
+        paymentMethodSpec: paymentMethodSpec as any,
         totalDue: procDue + specDue,
         paidProcessing,
         paidSpecialty,
@@ -182,6 +188,8 @@ async function fetchCalled(): Promise<Row[]> {
         amountPaidSpec,
         procDue,
         specDue,
+        paymentMethodProc: paymentMethodProc as any,
+        paymentMethodSpec: paymentMethodSpec as any,
         totalDue: 0,
         paidProcessing,
         paidSpecialty,
@@ -206,6 +214,8 @@ async function fetchCalled(): Promise<Row[]> {
         amountPaidSpec,
         procDue,
         specDue,
+        paymentMethodProc: paymentMethodProc as any,
+        paymentMethodSpec: paymentMethodSpec as any,
         totalDue: 0,
         paidProcessing,
         paidSpecialty,
@@ -227,11 +237,16 @@ async function fetchCalled(): Promise<Row[]> {
   return out;
 }
 
-async function recordPayment(tag: string, kind: 'processing' | 'specialty', amount: number) {
+async function recordPayment(
+  tag: string,
+  kind: 'processing' | 'specialty',
+  amount: number,
+  method: 'cash' | 'card' | 'check' | 'other' | null,
+) {
   return saveJob(
     kind === 'specialty'
-      ? ({ tag, amountPaidSpecialty: amount } as any)
-      : ({ tag, amountPaidProcessing: amount } as any),
+      ? ({ tag, amountPaidSpecialty: amount, paymentMethodSpecialty: method } as any)
+      : ({ tag, amountPaidProcessing: amount, paymentMethodProcessing: method } as any),
   );
 }
 
@@ -306,6 +321,8 @@ export default function CalledPickupQueue() {
   const [pickupNotesInput, setPickupNotesInput] = useState('');
   const [processingPaymentInput, setProcessingPaymentInput] = useState('');
   const [specialtyPaymentInput, setSpecialtyPaymentInput] = useState('');
+  const [processingPaymentMethod, setProcessingPaymentMethod] = useState<'cash' | 'card' | 'check' | 'other'>('cash');
+  const [specialtyPaymentMethod, setSpecialtyPaymentMethod] = useState<'cash' | 'card' | 'check' | 'other'>('cash');
 
   const summary = useMemo(() => {
     const openRows = rows.filter((row) => !row.pickedUp);
@@ -345,6 +362,8 @@ export default function CalledPickupQueue() {
     setPickupNotesInput(selected?.pickupNotes || '');
     setProcessingPaymentInput(selected?.procDue ? String(selected.procDue.toFixed(2)) : '');
     setSpecialtyPaymentInput(selected?.specDue ? String(selected.specDue.toFixed(2)) : '');
+    setProcessingPaymentMethod((selected?.paymentMethodProc as any) || 'cash');
+    setSpecialtyPaymentMethod((selected?.paymentMethodSpec as any) || 'cash');
   }, [selected?.tag, selected?.track, selected?.pickedUpBy, selected?.pickupNotes, selected?.procDue, selected?.specDue]);
 
   async function load() {
@@ -518,7 +537,9 @@ export default function CalledPickupQueue() {
               </div>
               <div className="fact-sub">
                 {selected.track === 'meat'
-                  ? selected.totalDue > 0 ? 'Record what was paid today before or during the handoff.' : 'This track is clear to hand off.'
+                  ? selected.totalDue > 0
+                    ? `Record what was paid today and how it was paid before or during the handoff.${selected.paymentMethodProc || selected.paymentMethodSpec ? ` Last method: ${[selected.paymentMethodProc ? `processing ${selected.paymentMethodProc}` : null, selected.paymentMethodSpec ? `specialty ${selected.paymentMethodSpec}` : null].filter(Boolean).join(' | ')}.` : ''}`
+                    : `This track is clear to hand off.${selected.paymentMethodProc || selected.paymentMethodSpec ? ` Last method: ${[selected.paymentMethodProc ? `processing ${selected.paymentMethodProc}` : null, selected.paymentMethodSpec ? `specialty ${selected.paymentMethodSpec}` : null].filter(Boolean).join(' | ')}.` : ''}`
                   : 'Cape and Webbs tracks do not carry a separate balance here.'}
               </div>
             </div>
@@ -540,7 +561,9 @@ export default function CalledPickupQueue() {
               <div className="fact-label">Pickup Details</div>
               <div className="fact-value">{selected.pickedUpBy || 'Not recorded yet'}</div>
               <div className="fact-sub">
-                {selected.pickupNotes ? selected.pickupNotes : 'Use the fields below to record who picked it up and any quick handoff notes.'}
+                {selected.pickupNotes
+                  ? selected.pickupNotes
+                  : 'Use the fields below to record who picked it up, how they paid, and any quick handoff notes.'}
               </div>
             </div>
           </div>
@@ -558,16 +581,36 @@ export default function CalledPickupQueue() {
                       placeholder={selected.procDue ? selected.procDue.toFixed(2) : '0.00'}
                     />
                   </label>
+                  <label className="pickup-field">
+                    <span className="pickup-label">Processing payment type</span>
+                    <select value={processingPaymentMethod} onChange={(e) => setProcessingPaymentMethod(e.target.value as any)}>
+                      <option value="cash">Cash</option>
+                      <option value="card">Card</option>
+                      <option value="check">Check</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
                   {selected.priceSpec > 0 ? (
-                    <label className="pickup-field">
-                      <span className="pickup-label">Specialty payment received</span>
-                      <input
-                        value={specialtyPaymentInput}
-                        onChange={(e) => setSpecialtyPaymentInput(e.target.value)}
-                        inputMode="decimal"
-                        placeholder={selected.specDue ? selected.specDue.toFixed(2) : '0.00'}
-                      />
-                    </label>
+                    <>
+                      <label className="pickup-field">
+                        <span className="pickup-label">Specialty payment received</span>
+                        <input
+                          value={specialtyPaymentInput}
+                          onChange={(e) => setSpecialtyPaymentInput(e.target.value)}
+                          inputMode="decimal"
+                          placeholder={selected.specDue ? selected.specDue.toFixed(2) : '0.00'}
+                        />
+                      </label>
+                      <label className="pickup-field">
+                        <span className="pickup-label">Specialty payment type</span>
+                        <select value={specialtyPaymentMethod} onChange={(e) => setSpecialtyPaymentMethod(e.target.value as any)}>
+                          <option value="cash">Cash</option>
+                          <option value="card">Card</option>
+                          <option value="check">Check</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </label>
+                    </>
                   ) : null}
                 </>
               ) : null}
@@ -685,7 +728,12 @@ export default function CalledPickupQueue() {
                 if (!Number.isFinite(amount) || amount <= 0) return;
                 setBusy(`paid:${selected.tag}:processing`);
                 try {
-                  await recordPayment(selected.tag, 'processing', Math.min(selected.amountPaidProc + amount, selected.priceProc));
+                  await recordPayment(
+                    selected.tag,
+                    'processing',
+                    Math.min(selected.amountPaidProc + amount, selected.priceProc),
+                    processingPaymentMethod,
+                  );
                   await load();
                 } finally {
                   setBusy('');
@@ -705,7 +753,12 @@ export default function CalledPickupQueue() {
                 if (!Number.isFinite(amount) || amount <= 0) return;
                 setBusy(`paid:${selected.tag}:specialty`);
                 try {
-                  await recordPayment(selected.tag, 'specialty', Math.min(selected.amountPaidSpec + amount, selected.priceSpec));
+                  await recordPayment(
+                    selected.tag,
+                    'specialty',
+                    Math.min(selected.amountPaidSpec + amount, selected.priceSpec),
+                    specialtyPaymentMethod,
+                  );
                   await load();
                 } finally {
                   setBusy('');
@@ -864,7 +917,8 @@ export default function CalledPickupQueue() {
           color: #b7a98d;
         }
         .pickup-field input,
-        .pickup-field textarea {
+        .pickup-field textarea,
+        .pickup-field select {
           width: 100%;
           border-radius: 12px;
           border: 1px solid rgba(191, 210, 194, 0.35);

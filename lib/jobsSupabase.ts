@@ -258,6 +258,12 @@ function clampMoney(value: number, max: number): number {
   return Math.min(Math.max(0, safeValue), safeMax);
 }
 
+function paymentMethodOrNull(value: any): 'cash' | 'card' | 'check' | 'other' | null {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (raw === 'cash' || raw === 'card' || raw === 'check' || raw === 'other') return raw;
+  return null;
+}
+
 function specialtyLegacyValues(items: Array<{ legacyFieldKey?: string | null; quantity: number }>) {
   const out: Record<SpecialtyLegacyFieldKey, number> = {
     originalSummerSausageLbs: 0,
@@ -1475,6 +1481,8 @@ function mapDbRowToJob(row: any, specialtyItems: any[] = []): Job {
     price: Number(row.price_total ?? 0),
     amountPaidProcessing: Number(row.amount_paid_processing ?? 0),
     amountPaidSpecialty: Number(row.amount_paid_specialty ?? 0),
+    paymentMethodProcessing: paymentMethodOrNull(row.payment_method_processing),
+    paymentMethodSpecialty: paymentMethodOrNull(row.payment_method_specialty),
 
     // Paid flags
     paid: !!row.paid,
@@ -1559,6 +1567,8 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     price: Number(row.price_total ?? 0),
     amountPaidProcessing: Number(row.amount_paid_processing ?? 0),
     amountPaidSpecialty: Number(row.amount_paid_specialty ?? 0),
+    paymentMethodProcessing: paymentMethodOrNull(row.payment_method_processing),
+    paymentMethodSpecialty: paymentMethodOrNull(row.payment_method_specialty),
     requiresTag: !!row.requires_tag,
     paidProcessing: !!row.paid_processing,
     paidSpecialty: !!row.paid_specialty,
@@ -1674,6 +1684,8 @@ const SEARCH_SELECT = `
   price_total,
   amount_paid_processing,
   amount_paid_specialty,
+  payment_method_processing,
+  payment_method_specialty,
   requires_tag,
   paid_processing,
   paid_specialty,
@@ -2076,6 +2088,12 @@ let tagToStore: string;
 
   const amountPaidProcessing = clampMoney(rawAmountPaidProcessing, usedProcessingPrice);
   const amountPaidSpecialty = clampMoney(rawAmountPaidSpecialty, usedSpecialtyPrice);
+  const paymentMethodProcessing = amountPaidProcessing > 0
+    ? paymentMethodOrNull((effectiveJob as any).paymentMethodProcessing) ?? paymentMethodOrNull((existingJob as any)?.paymentMethodProcessing)
+    : null;
+  const paymentMethodSpecialty = amountPaidSpecialty > 0
+    ? paymentMethodOrNull((effectiveJob as any).paymentMethodSpecialty) ?? paymentMethodOrNull((existingJob as any)?.paymentMethodSpecialty)
+    : null;
   const paidProcessing = usedProcessingPrice <= 0 ? true : amountPaidProcessing >= usedProcessingPrice;
   const paidSpecialty = usedSpecialtyPrice <= 0 ? true : amountPaidSpecialty >= usedSpecialtyPrice;
   const paidOverall = paidProcessing && paidSpecialty;
@@ -2166,6 +2184,8 @@ let tagToStore: string;
     price_total: usedTotalPrice,
     amount_paid_processing: amountPaidProcessing,
     amount_paid_specialty: amountPaidSpecialty,
+    payment_method_processing: paymentMethodProcessing,
+    payment_method_specialty: paymentMethodSpecialty,
 
     paid: paidOverall,
     paid_processing: paidProcessing,
