@@ -1578,6 +1578,7 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     capeAttempts: Number(row.cape_attempts ?? 0),
     webbsAttempts: Number(row.webbs_attempts ?? 0),
     dropoff: row.dropoff_date,
+    ...(row.public_token ? ({ publicToken: row.public_token } as any) : {}),
 
     // If your JobSearchRow type includes these, great; if not, TS will still allow extra props at runtime
     // (and your UI is already tolerant with (r as any))
@@ -1709,7 +1710,8 @@ const SEARCH_SELECT = `
   intake_sheet_print_count,
   updated_at,
   pending_deleted_at,
-  pending_delete_reason
+  pending_delete_reason,
+  public_token
 `;
 
 async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {

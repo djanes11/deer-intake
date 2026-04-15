@@ -150,7 +150,7 @@ export default async function IntakeView({
     const jobPublicToken = String((job as any)?.publicToken || (job as any)?.public_token || '').trim();
     if (!staffContext && !verifyToken(tagDec, t, jobPublicToken)) {
       return (
-        <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
+        <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px', background:'#ffffff', color:'#0b0f12', borderRadius:16}}>
           <h1 className="text-lg font-bold mb-2" style={{color:'#0b0f12'}}>Access denied</h1>
           <p style={{color:'#374151'}}>Invalid or missing token.</p>
         </div>
@@ -505,7 +505,7 @@ export default async function IntakeView({
     );
   } catch (err:any) {
     return (
-      <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
+      <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px', background:'#ffffff', color:'#0b0f12', borderRadius:16}}>
         <h1 style={{color:'#0b0f12'}}>Unable to load form</h1>
         <p style={{whiteSpace:'pre-wrap', color:'#374151'}}>{String(err?.message || err)}</p>
         <div style={{marginTop:8, fontSize:12, color:'#6b7280'}}>

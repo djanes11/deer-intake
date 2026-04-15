@@ -113,12 +113,13 @@ export default function SearchPage() {
     }
   }, [rows, selectedTag]);
 
-  const openTag = (tag: string) => {
+  const openTag = (tag: string, publicToken?: string | null) => {
     if (!tag) return;
+    const token = String(publicToken || '').trim();
     router.push(
       staffRole === 'admin' || staffRole === 'staff'
         ? `/intake?tag=${encodeURIComponent(tag)}`
-        : `/intake/${encodeURIComponent(tag)}`
+        : `/intake/${encodeURIComponent(tag)}${token ? `?t=${encodeURIComponent(token)}` : ''}`
     );
   };
 
@@ -507,7 +508,7 @@ export default function SearchPage() {
                       <tr
                         key={r.tag}
                         onClick={() => void loadDetails(r.tag!)}
-                        onDoubleClick={() => openTag(r.tag!)}
+                        onDoubleClick={() => openTag(r.tag!, (r as any).publicToken)}
                         style={{
                           cursor: 'pointer',
                           background: r.tag === selectedTag ? '#dcfce7' : undefined,
@@ -538,7 +539,7 @@ export default function SearchPage() {
                         key={`mobile-${r.tag}`}
                         type="button"
                         onClick={() => void loadDetails(r.tag!)}
-                        onDoubleClick={() => openTag(r.tag!)}
+                        onDoubleClick={() => openTag(r.tag!, (r as any).publicToken)}
                         className={`search-result-mobile-card ${r.tag === selectedTag ? 'selected' : ''}`}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
@@ -580,7 +581,15 @@ export default function SearchPage() {
                 <div style={{ display: 'grid', gap: 8 }}>
                   <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.72, textTransform: 'uppercase', letterSpacing: '.04em' }}>Actions</div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button className="btn" type="button" onClick={() => selectedTag && openTag(selectedTag)} disabled={!selectedTag}>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => {
+                        const rowToken = rows.find((row) => row.tag === selectedTag) as any;
+                        selectedTag && openTag(selectedTag, selectedJob?.publicToken || selectedJob?.public_token || rowToken?.publicToken);
+                      }}
+                      disabled={!selectedTag}
+                    >
                       {canEdit ? 'Open Intake' : 'Open Details'}
                     </button>
                     <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
