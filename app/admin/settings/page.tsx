@@ -315,6 +315,13 @@ export default function AdminSettingsPage() {
     setS({ ...s, hours: nextHours });
   };
 
+  const removeHour = (index: number) => {
+    if (!s) return;
+    const currentHours = Array.isArray(s.hours) && s.hours.length ? s.hours : normalizeHours(s.hours);
+    const nextHours = currentHours.filter((_, i) => i !== index);
+    setS({ ...s, hours: nextHours.length ? nextHours : [{ label: '', value: '' }] });
+  };
+
   const applyLogoFile = async (file: File | null | undefined) => {
     if (!s || !file) return;
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
@@ -1470,12 +1477,13 @@ export default function AdminSettingsPage() {
               key={idx}
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'minmax(140px, 1fr) minmax(0, 2fr)',
+                gridTemplateColumns: 'minmax(140px, 1fr) minmax(0, 2fr) auto',
                 gap: 10,
                 padding: 10,
                 borderRadius: 12,
                 background: '#f8fafc',
                 border: '1px solid #e2e8f0',
+                alignItems: 'center',
               }}
             >
               <input
@@ -1490,6 +1498,21 @@ export default function AdminSettingsPage() {
                 placeholder="Hours"
                 style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
               />
+              <button
+                type="button"
+                onClick={() => removeHour(idx)}
+                style={{
+                  padding: '10px 12px',
+                  borderRadius: 10,
+                  border: '1px solid #fecaca',
+                  background: '#fff',
+                  color: '#991b1b',
+                  fontWeight: 900,
+                  cursor: 'pointer',
+                }}
+              >
+                Remove
+              </button>
             </div>
           ))}
 
