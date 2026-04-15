@@ -1,5 +1,6 @@
 // app/page.tsx
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -48,6 +49,8 @@ type ProcessorOwnerChecklistItem = {
   label: string;
   done: boolean;
   note: string;
+  href: string;
+  external?: boolean;
 };
 
 type ProcessorOwnerChecklistSnapshot = {
@@ -114,7 +117,7 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
   if (!url || !key) return null;
 
   const supabase = createClient(url, key, { auth: { persistSession: false } });
-  const [{ data: processorRow }, { data: siteSettingsRow }, { data: memberships }] = await Promise.all([
+  const [{ data: processorRow }, { data: siteSettingsRow }, { data: memberships }, { data: specialtyRows }] = await Promise.all([
     supabase
       .from('processors')
       .select('id,public_name,name,logo_url,support_phone_display,support_email,public_address,public_hostname')
@@ -130,6 +133,10 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
       .select('role,active')
       .eq('processor_id', id)
       .eq('active', true),
+    supabase
+      .from('processor_specialty_items')
+      .select('active')
+      .eq('processor_id', id),
   ]);
 
   if (!processorRow) return null;
@@ -145,18 +152,31 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
   const publicCopy = (siteSettingsRow as any)?.public_copy || null;
   const activeProcesses = processCatalog.filter((item: any) => item?.active !== false).length;
   const activeAddOns = addOnCatalog.filter((item: any) => item?.active !== false).length;
+  const activeSpecialtyItems = Array.isArray(specialtyRows) ? specialtyRows.filter((item: any) => item?.active !== false).length : 0;
   const hasPricing =
     Number((siteSettingsRow as any)?.standard_processing_price || 0) > 0 &&
     Number((siteSettingsRow as any)?.caped_price || 0) > 0 &&
     Number((siteSettingsRow as any)?.cape_donate_price || 0) > 0;
   const activeMembers = Array.isArray(memberships) ? memberships.length : 0;
   const nonAdminMembers = Array.isArray(memberships) ? memberships.filter((item: any) => item?.role !== 'admin').length : 0;
+  const faqItems = Array.isArray(publicCopy?.faqItems) ? publicCopy.faqItems : [];
+  const answeredFaqItems = faqItems.filter((item: any) => String(item?.question || '').trim() && String(item?.answer || '').trim()).length;
+  const notificationTemplateCount =
+    notificationTemplates && typeof notificationTemplates === 'object'
+      ? Object.values(notificationTemplates).filter((template: any) =>
+          String(template?.smsBody || template?.emailBody || template?.subject || '').trim()
+        ).length
+      : 0;
   const hasMessages =
-    !!notificationTemplates &&
-    !!publicCopy &&
-    Array.isArray(publicCopy.faqItems) &&
-    publicCopy.faqItems.length > 0;
+    notificationTemplateCount > 0 &&
+    !!String(publicCopy?.pickupInstructions || '').trim() &&
+    answeredFaqItems > 0;
   const publicIntakeEnabled = (siteSettingsRow as any)?.public_intake_enabled !== false;
+  const extrasHref = activeAddOns > 0 && activeSpecialtyItems === 0 ? '/admin/settings?section=specialty' : '/admin/settings?section=addons';
+  const messagesHref =
+    !!String(publicCopy?.pickupInstructions || '').trim() && answeredFaqItems > 0 && notificationTemplateCount === 0
+      ? '/admin/settings?section=notifications'
+      : '/admin/settings?section=copy';
 
   const items: ProcessorOwnerChecklistItem[] = [
     {
@@ -164,54 +184,70 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
       label: 'Add logo',
       done: !!logoUrl,
       note: !!logoUrl ? 'A logo is set for the public site.' : 'Add the logo customers should see on your public site.',
+      href: '/admin/settings?section=branding',
     },
     {
       key: 'contact',
       label: 'Confirm contact info',
       done: !!phone && !!address,
       note: !!phone && !!address ? 'Phone and address are ready for customers.' : 'Add the phone number and address customers should use.',
+      href: '/admin/settings?section=branding',
     },
     {
       key: 'pricing',
       label: 'Confirm pricing',
       done: hasPricing,
       note: hasPricing ? 'Base processing prices are in place.' : 'Set the base prices for standard, caped, and cape-donate orders.',
+      href: '/admin/settings?section=pricing',
     },
     {
       key: 'processes',
       label: 'Confirm process types',
       done: activeProcesses > 0,
       note: activeProcesses > 0 ? `${activeProcesses} active process type${activeProcesses === 1 ? '' : 's'} ready.` : 'Review which process types customers can choose.',
+      href: '/admin/settings?section=processes',
     },
     {
       key: 'extras',
       label: 'Confirm add-ons and specialty',
-      done: activeAddOns > 0,
-      note: activeAddOns > 0 ? `${activeAddOns} active add-on${activeAddOns === 1 ? '' : 's'} plus specialty products ready.` : 'Review add-ons and specialty products before going live.',
+      done: activeAddOns > 0 && activeSpecialtyItems > 0,
+      note:
+        activeAddOns > 0 && activeSpecialtyItems > 0
+          ? `${activeAddOns} active add-on${activeAddOns === 1 ? '' : 's'} and ${activeSpecialtyItems} specialty item${activeSpecialtyItems === 1 ? '' : 's'} ready.`
+          : activeAddOns === 0
+            ? 'Review add-ons before going live.'
+            : 'Review specialty products before going live.',
+      href: extrasHref,
     },
     {
       key: 'messages',
       label: 'Review customer messages',
       done: hasMessages,
       note: hasMessages ? 'Public wording, FAQ, and message templates are ready to review.' : 'Review the public wording, FAQ items, and customer message templates.',
+      href: messagesHref,
     },
     {
       key: 'staff',
       label: 'Add staff',
       done: nonAdminMembers > 0,
       note: nonAdminMembers > 0 ? `${activeMembers} active login${activeMembers === 1 ? '' : 's'} attached.` : 'Add at least one staff or read-only login for day-to-day use.',
+      href: '/staff/team',
     },
     {
       key: 'public_intake',
       label: 'Test public intake',
       done: publicIntakeEnabled && !!publicHostname,
       note: publicIntakeEnabled && !!publicHostname ? 'Public intake is live and ready to open in a browser.' : 'Turn on public intake and confirm the public hostname is ready.',
+      href: publicHostname ? `https://${publicHostname}` : '/admin/settings?section=intake',
+      external: !!publicHostname,
     },
     {
       key: 'go_live',
       label: 'Ready to go live',
       done: false,
       note: 'Once the items above are done, this processor is ready for customers and staff.',
+      href: publicHostname ? `https://${publicHostname}` : '/admin/settings?section=intake',
+      external: !!publicHostname,
     },
   ];
 
@@ -1139,7 +1175,7 @@ function StaffHome({
         </div>
       </div>
 
-      {role === 'admin' && ownerChecklist ? (
+      {role === 'admin' && ownerChecklist && !ownerChecklist.readyToGoLive ? (
         <section
           style={{
             ...card,
@@ -1153,49 +1189,62 @@ function StaffHome({
           </div>
           <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
             <div style={{ fontWeight: 900, fontSize: 24 }}>
-              {ownerChecklist.readyToGoLive
-                ? 'This processor looks ready for customers and staff.'
-                : 'Work through these owner setup steps so the shop feels like your own from day one.'}
+              Work through these owner setup steps so the shop feels like your own from day one.
             </div>
             <div style={{ opacity: 0.84, lineHeight: 1.55 }}>
-              {ownerChecklist.readyCount}/{ownerChecklist.totalCount} owner setup items are complete. Use the links below to finish branding, pricing, staff access, customer messages, and one final public intake test.
+              {ownerChecklist.readyCount}/{ownerChecklist.totalCount} owner setup items are complete. Click any card to jump straight to the setting that needs attention.
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 12 }}>
-            {ownerChecklist.items.map((item) => (
-              <div
-                key={item.key}
-                style={{
-                  border: `1px solid ${item.done ? 'rgba(91,122,98,.32)' : 'rgba(200,138,61,.22)'}`,
-                  borderRadius: 14,
-                  padding: 14,
-                  background: 'rgba(14,13,12,.88)',
-                  display: 'grid',
-                  gap: 6,
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
-                  <div style={{ fontWeight: 900 }}>{item.label}</div>
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      padding: '4px 8px',
-                      borderRadius: 999,
-                      fontSize: 11,
-                      fontWeight: 900,
-                      background: item.done ? 'rgba(91,122,98,.22)' : 'rgba(200,138,61,.18)',
-                      color: item.done ? '#cde9cf' : '#f1d1a0',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {item.done ? 'Ready' : 'Needs setup'}
-                  </span>
+            {ownerChecklist.items.map((item) => {
+              const cardNode = (
+                <div
+                  style={{
+                    border: `1px solid ${item.done ? 'rgba(91,122,98,.32)' : 'rgba(200,138,61,.22)'}`,
+                    borderRadius: 14,
+                    padding: 14,
+                    background: item.done ? 'rgba(15,35,23,.88)' : 'rgba(14,13,12,.88)',
+                    display: 'grid',
+                    gap: 6,
+                    minHeight: '100%',
+                    boxShadow: item.done ? 'inset 0 0 0 1px rgba(91,122,98,.12)' : 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
+                    <div style={{ fontWeight: 900 }}>{item.label}</div>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        padding: '4px 8px',
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 900,
+                        background: item.done ? 'rgba(91,122,98,.22)' : 'rgba(200,138,61,.18)',
+                        color: item.done ? '#cde9cf' : '#f1d1a0',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {item.done ? 'Ready' : 'Needs setup'}
+                    </span>
+                  </div>
+                  <div style={{ opacity: 0.82, lineHeight: 1.45, fontSize: 14 }}>{item.note}</div>
+                  <div style={{ color: item.done ? '#cde9cf' : '#f1d1a0', fontSize: 12, fontWeight: 900, letterSpacing: '.04em', textTransform: 'uppercase' }}>
+                    {item.done ? 'Review' : 'Open setup'}
+                  </div>
                 </div>
-                <div style={{ opacity: 0.82, lineHeight: 1.45, fontSize: 14 }}>{item.note}</div>
-              </div>
-            ))}
+              );
+              return item.external ? (
+                <a key={item.key} href={item.href} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {cardNode}
+                </a>
+              ) : (
+                <Link key={item.key} href={item.href} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {cardNode}
+                </Link>
+              );
+            })}
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>

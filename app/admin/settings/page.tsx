@@ -1,6 +1,7 @@
 'use client';
 
 import { ChangeEvent, DragEvent, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { tokenHeader } from '@/lib/api';
 import { DEFAULT_SITE_PRICING, SitePricing, formatMoney, normalizePricing } from '@/lib/pricing';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -79,6 +80,33 @@ type SiteSettings = {
   };
   updated_at?: string;
 };
+
+type SettingsSection =
+  | 'overview'
+  | 'branding'
+  | 'intake'
+  | 'copy'
+  | 'banner'
+  | 'hours'
+  | 'pricing'
+  | 'processes'
+  | 'addons'
+  | 'specialty'
+  | 'notifications';
+
+const SETTINGS_SECTIONS: SettingsSection[] = [
+  'overview',
+  'branding',
+  'intake',
+  'copy',
+  'banner',
+  'hours',
+  'pricing',
+  'processes',
+  'addons',
+  'specialty',
+  'notifications',
+];
 
 const DEFAULT_HOURS: HourRow[] = [
   { label: 'Mon-Fri', value: '6-8 pm' },
@@ -205,11 +233,12 @@ function addOnDraftRows(input: AddOnCatalogItem[] | undefined | null, pricing: S
 }
 
 export default function AdminSettingsPage() {
+  const searchParams = useSearchParams();
   const [s, setS] = useState<SiteSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [logoDropActive, setLogoDropActive] = useState(false);
-  const [section, setSection] = useState<'overview' | 'branding' | 'intake' | 'copy' | 'banner' | 'hours' | 'pricing' | 'processes' | 'addons' | 'specialty' | 'notifications'>('overview');
+  const [section, setSection] = useState<SettingsSection>('overview');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -248,6 +277,13 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     load().catch((e) => setMsg(String((e as any)?.message || e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const requestedSection = searchParams.get('section') as SettingsSection | null;
+    if (requestedSection && SETTINGS_SECTIONS.includes(requestedSection)) {
+      setSection(requestedSection);
+    }
+  }, [searchParams]);
 
   const save = async () => {
     if (!s) return;
