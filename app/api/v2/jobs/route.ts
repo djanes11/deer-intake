@@ -216,6 +216,7 @@ export async function POST(req: NextRequest) {
         newTag,
         stampDropEmail: !!stampDropEmail,
         returnRow: !!returnRow,
+        processorContext,
       });
       if (result.ok) {
         await writeAuditEntry({

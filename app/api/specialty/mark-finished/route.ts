@@ -29,11 +29,12 @@ export async function POST(req: Request) {
       auth: { persistSession: false },
     });
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('jobs')
       .update({ specialty_status: 'Finished' })
-      .eq('tag', tag)
-      .select('tag,specialty_status');
+      .eq('tag', tag);
+    if (processor?.id) query = query.eq('processor_id', processor.id);
+    const { data, error } = await query.select('tag,specialty_status');
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     if (!data || data.length === 0) {

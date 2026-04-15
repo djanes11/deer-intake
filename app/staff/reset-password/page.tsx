@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { setStaffAccessCookie } from '@/lib/staffSession';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -17,6 +16,17 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  async function syncStaffSessionCookie(accessToken: string) {
+    const res = await fetch('/api/staff/session', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({ accessToken }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
+  }
+
   useEffect(() => {
     let active = true;
     const supabase = getSupabaseBrowser();
@@ -28,11 +38,11 @@ export default function ResetPasswordPage() {
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
           const accessToken = data.session?.access_token;
-          if (accessToken) setStaffAccessCookie(accessToken);
+          if (accessToken) await syncStaffSessionCookie(accessToken);
         } else {
           const { data } = await supabase.auth.getSession();
           const accessToken = data.session?.access_token;
-          if (accessToken) setStaffAccessCookie(accessToken);
+          if (accessToken) await syncStaffSessionCookie(accessToken);
         }
         if (active) setReady(true);
       } catch (e: any) {
@@ -47,7 +57,9 @@ export default function ResetPasswordPage() {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const accessToken = session?.access_token;
       if (accessToken) {
-        setStaffAccessCookie(accessToken);
+        syncStaffSessionCookie(accessToken).catch((e) => {
+          if (active) setError(String((e as any)?.message || e));
+        });
         if (active) setReady(true);
       }
     });
@@ -75,7 +87,7 @@ export default function ResetPasswordPage() {
       if (error) throw error;
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      if (accessToken) setStaffAccessCookie(accessToken);
+      if (accessToken) await syncStaffSessionCookie(accessToken);
       setMessage('Password updated. Sending you back to staff...');
       setTimeout(() => {
         router.replace(next);

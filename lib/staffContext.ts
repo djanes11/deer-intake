@@ -110,6 +110,12 @@ function getRequestedProcessorSlug(req?: Request | null) {
   }
 }
 
+function allowLegacyStaffAuth() {
+  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '1') return true;
+  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '0') return false;
+  return process.env.NODE_ENV !== 'production';
+}
+
 export async function getStaffIdentity(req?: Request | null): Promise<StaffIdentity> {
   const supabase = createSupabaseAdmin();
   const bearer = await getBearerToken(req);
@@ -153,13 +159,13 @@ export async function getStaffIdentity(req?: Request | null): Promise<StaffIdent
 
   const apiToken = String(process.env.DEER_API_TOKEN || '').trim();
   const headerToken = String(req?.headers.get('x-api-token') || '').trim();
-  if (apiToken && headerToken && headerToken === apiToken) {
+  if (allowLegacyStaffAuth() && apiToken && headerToken && headerToken === apiToken) {
     return { userId: null, email: null, authType: 'api_token' };
   }
 
   const basicUser = String(process.env.BASIC_AUTH_USER || '').trim();
   const basicPass = String(process.env.BASIC_AUTH_PASS || '').trim();
-  if (basicUser && basicPass) {
+  if (allowLegacyStaffAuth() && basicUser && basicPass) {
     const creds = parseBasicAuth(req?.headers.get('authorization') || null);
     if (creds && creds.user === basicUser && creds.pass === basicPass) {
       return { userId: null, email: null, authType: 'basic' };

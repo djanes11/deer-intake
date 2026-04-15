@@ -4,12 +4,21 @@ import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 import { specialtyPrice } from '@/lib/specialty';
 import { getProcessorContextForHostname } from '@/lib/processorContext';
+import { sharedRateLimit } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 type Row = Record<string, any>;
+
+function getIp(req: NextRequest): string {
+  return (
+    (req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    '0.0.0.0'
+  );
+}
 
 const PUBLIC_STATUS_SELECT = `
   id,
@@ -65,7 +74,7 @@ function toBool(v: unknown): boolean | undefined {
   return ['1', 'true', 'yes', 'y', 'paid', '✓', '✔', 'x', 'on'].includes(s);
 }
 
-function shapeJob(row: any, debug: boolean) {
+function shapeJob(row: any) {
   const priceProcessing = toNum(row.price_processing);
   const specialtyOverride = toNum(row.specialty_price_override);
   const computedSpecialty = specialtyPrice(row);
@@ -108,10 +117,10 @@ function shapeJob(row: any, debug: boolean) {
     ...(paidOverall !== undefined ? { paid: paidOverall } : {}),
   };
 
-  return debug ? { ...base, _raw: row } : base;
+  return base;
 }
 
-async function handle(confirmation: string, tag: string, lastName: string, debug = false, hostname?: string | null) {
+async function handle(confirmation: string, tag: string, lastName: string, hostname?: string | null) {
   const wantConf = toDigits(confirmation);
   const wantTag = String(tag || '').trim();
   const wantLN = lname(lastName);
@@ -145,7 +154,7 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
     if (error) return { ok: false, error: 'Server error' };
 
     const row = (data || [])[0];
-    if (row) return shapeJob(row, debug);
+    if (row) return shapeJob(row);
     // fall through to tag+last name attempt if provided
   }
 
@@ -163,7 +172,7 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
     if (error) return { ok: false, error: 'Server error' };
 
     const hit = (data || []).find((r: any) => lname(r.customer_name) === wantLN);
-    if (hit) return shapeJob(hit, debug);
+    if (hit) return shapeJob(hit);
   }
 
   return { ok: false, notFound: true, error: 'No match.' };
@@ -171,9 +180,13 @@ async function handle(confirmation: string, tag: string, lastName: string, debug
 
 export async function POST(req: NextRequest) {
   try {
-    const { confirmation = '', tag = '', lastName = '', debug = false } = await req.json();
+    const rl = await sharedRateLimit(getIp(req), 'public-status', 30, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ ok: false, error: 'Rate limited' }, { status: 429 });
+    }
+    const { confirmation = '', tag = '', lastName = '' } = await req.json();
     const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
-    const resp = await handle(confirmation, tag, lastName, !!debug, hostname);
+    const resp = await handle(confirmation, tag, lastName, hostname);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
@@ -182,13 +195,16 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const rl = await sharedRateLimit(getIp(req), 'public-status', 30, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ ok: false, error: 'Rate limited' }, { status: 429 });
+    }
     const { searchParams } = new URL(req.url);
     const confirmation = searchParams.get('confirmation') || '';
     const tag = searchParams.get('tag') || '';
     const lastName = searchParams.get('lastName') || '';
-    const debug = searchParams.get('debug') === '1';
     const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
-    const resp = await handle(confirmation, tag, lastName, debug, hostname);
+    const resp = await handle(confirmation, tag, lastName, hostname);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });

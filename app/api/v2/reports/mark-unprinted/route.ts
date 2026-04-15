@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'tag is required' }, { status: 400 });
     }
 
-    const result = await markIntakeSheetUnprinted({ tag });
+    const result = await markIntakeSheetUnprinted({ tag, processorContext: processor });
     if (result.ok) {
       await writeAuditEntry({
         req,

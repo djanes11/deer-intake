@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireStaffAccess } from '@/lib/staffAuth';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { lookupCustomerByName } from '@/lib/jobsSupabase';
 
 export async function GET(req: NextRequest) {
-  const auth = await requireStaffAccess(req);
-  if (!auth.ok) {
-    return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
-  }
+  const { denied, context: processor } = await requireProcessorPermission(req, 'view');
+  if (denied) return denied;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -14,7 +12,7 @@ export async function GET(req: NextRequest) {
     if (!name.trim()) {
       return NextResponse.json({ ok: false, error: 'Missing name' }, { status: 400 });
     }
-    const result = await lookupCustomerByName(name);
+    const result = await lookupCustomerByName(name, { processorContext: processor });
     return NextResponse.json(result);
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: String(err?.message || err) }, { status: 500 });

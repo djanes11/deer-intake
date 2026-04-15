@@ -5,8 +5,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { requireStaffAccess } from '@/lib/staffAuth';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 
 function supabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -31,13 +30,10 @@ function supabaseAdmin() {
 
 export async function GET(req: Request) {
   try {
-    const auth = await requireStaffAccess(req);
-    if (!auth.ok) {
-      return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
-    }
+    const { denied, context: processor } = await requireProcessorPermission(req, 'view');
+    if (denied) return denied;
 
     const supabase = supabaseAdmin();
-    const processor = await getDefaultProcessorContext();
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get('limit') || 500) || 500, 2000);
 
@@ -50,7 +46,7 @@ export async function GET(req: Request) {
       .is('pending_deleted_at', null)
       .or('tag.ilike.PENDING-%,tag.is.null,tag.eq.');
 
-    if (processor.id) {
+    if (processor?.id) {
       query = query.eq('processor_id', processor.id);
     }
 

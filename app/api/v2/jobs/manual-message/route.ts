@@ -28,6 +28,7 @@ export async function POST(req: Request) {
       channel,
       subject,
       body: message,
+      processorContext: processor,
     });
 
     if (result.ok) {

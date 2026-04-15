@@ -48,6 +48,12 @@ function getBearerToken(req: Request) {
   return '';
 }
 
+function allowLegacyStaffAuth() {
+  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '1') return true;
+  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '0') return false;
+  return process.env.NODE_ENV !== 'production';
+}
+
 export async function requireStaffAccess(req: Request): Promise<StaffAccessResult> {
   const bearer = getBearerToken(req);
   if (bearer) {
@@ -67,13 +73,14 @@ export async function requireStaffAccess(req: Request): Promise<StaffAccessResul
 
   const hasApiToken = !!apiToken;
   const hasBasicAuth = !!basicUser && !!basicPass;
+  const allowLegacy = allowLegacyStaffAuth();
 
   const headerToken = String(req.headers.get('x-api-token') || '').trim();
-  if (hasApiToken && headerToken && headerToken === apiToken) {
+  if (allowLegacy && hasApiToken && headerToken && headerToken === apiToken) {
     return { ok: true };
   }
 
-  if (hasApiToken) {
+  if (allowLegacy && hasApiToken) {
     try {
       const url = new URL(req.url);
       const queryToken = String(url.searchParams.get('token') || '').trim();
@@ -85,16 +92,16 @@ export async function requireStaffAccess(req: Request): Promise<StaffAccessResul
     }
   }
 
-  if (hasBasicAuth) {
+  if (allowLegacy && hasBasicAuth) {
     const creds = parseBasicAuth(req.headers.get('authorization'));
     if (creds && creds.user === basicUser && creds.pass === basicPass) {
       return { ok: true };
     }
   }
 
-  if (!hasApiToken && !hasBasicAuth) {
+  if (!allowLegacy || (!hasApiToken && !hasBasicAuth)) {
     if (process.env.NODE_ENV !== 'production') return { ok: true };
-    return { ok: false, status: 500, error: 'Staff API auth is not configured.' };
+    return { ok: false, status: 401, error: 'Unauthorized' };
   }
 
   return { ok: false, status: 401, error: 'Unauthorized' };

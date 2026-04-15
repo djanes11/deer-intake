@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     const result = await resendCustomerNotification({
       tag,
       event: event as any,
+      processorContext: processor,
     });
     if (result.ok) {
       await writeAuditEntry({

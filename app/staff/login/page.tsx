@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { clearLocalStaffSessionCookie, clearStaffAccessCookie, setLocalStaffSessionCookie, STAFF_ACCESS_COOKIE, STAFF_LOCAL_SESSION_COOKIE, setStaffAccessCookie } from '@/lib/staffSession';
 
 const ADMIN_HOSTNAME = (process.env.NEXT_PUBLIC_ADMIN_HOSTNAME || 'admin.wildgamebutcherboard.com').trim().toLowerCase();
 
@@ -28,14 +27,6 @@ export default function StaffLoginPage() {
   }, []);
 
   useEffect(() => {
-    const hasStaffCookie = document.cookie
-      .split(';')
-      .some((part) =>
-        part.trim().startsWith(`${STAFF_ACCESS_COOKIE}=`) ||
-        part.trim().startsWith(`${STAFF_LOCAL_SESSION_COOKIE}=`)
-      );
-    if (!hasStaffCookie) return;
-
     let cancelled = false;
     const validate = async () => {
       try {
@@ -52,8 +43,7 @@ export default function StaffLoginPage() {
       }
 
       if (!cancelled) {
-        clearStaffAccessCookie();
-        clearLocalStaffSessionCookie();
+        await fetch('/api/staff/session', { method: 'DELETE', cache: 'no-store' }).catch(() => {});
       }
     };
 
@@ -68,8 +58,7 @@ export default function StaffLoginPage() {
     setBusy(true);
     setError('');
     try {
-      clearStaffAccessCookie();
-      clearLocalStaffSessionCookie();
+      await fetch('/api/staff/session', { method: 'DELETE', cache: 'no-store' }).catch(() => {});
       if (mode === 'admin') {
         const supabase = getSupabaseBrowser();
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -79,7 +68,14 @@ export default function StaffLoginPage() {
         if (error) throw error;
         const accessToken = data.session?.access_token;
         if (!accessToken) throw new Error('No session returned from Supabase.');
-        setStaffAccessCookie(accessToken);
+        const sessionRes = await fetch('/api/staff/session', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          cache: 'no-store',
+          body: JSON.stringify({ accessToken }),
+        });
+        const sessionJson = await sessionRes.json().catch(() => ({}));
+        if (!sessionRes.ok || !sessionJson?.ok) throw new Error(sessionJson?.error || `HTTP ${sessionRes.status}`);
         if (data.user?.app_metadata?.wgbb_force_password_change) {
           router.replace(`/staff/account?next=${encodeURIComponent(next)}&force=1`);
           router.refresh();
@@ -95,8 +91,7 @@ export default function StaffLoginPage() {
           }),
         });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json?.ok || !json?.sessionToken) throw new Error(json?.error || `HTTP ${res.status}`);
-        setLocalStaffSessionCookie(String(json.sessionToken));
+        if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
         if (json?.session?.mustChangePassword) {
           router.replace(`/staff/account?next=${encodeURIComponent(next)}&force=1`);
           router.refresh();

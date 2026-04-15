@@ -3,7 +3,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { clearLocalStaffSessionCookie, clearStaffAccessCookie } from '@/lib/staffSession';
 
 export default function StaffLogoutPage() {
   const router = useRouter();
@@ -17,8 +16,7 @@ export default function StaffLogoutPage() {
       } catch {
         // Ignore client sign-out errors and still clear cookie.
       }
-      clearStaffAccessCookie();
-      clearLocalStaffSessionCookie();
+      await fetch('/api/staff/session', { method: 'DELETE', cache: 'no-store' }).catch(() => {});
       if (!cancelled) {
         router.replace('/staff/login');
         router.refresh();

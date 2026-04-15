@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: 'jobId is required' }, { status: 400 });
     }
 
-    const result = await deletePendingJob({ jobId });
+    const result = await deletePendingJob({ jobId, processorContext: processor });
     if (result.ok) {
       await writeAuditEntry({
         req,

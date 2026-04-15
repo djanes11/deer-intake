@@ -31,10 +31,12 @@ export async function POST(req: Request) {
     let resolvedJobId = jobId;
     if (!resolvedJobId) {
       const supabase = getSupabaseServer();
-      const { data: found, error: findError } = await supabase
+      let query = supabase
         .from('jobs')
         .select('id')
-        .eq('tag', pendingTag)
+        .eq('tag', pendingTag);
+      if (processor?.id) query = query.eq('processor_id', processor.id);
+      const { data: found, error: findError } = await query
         .maybeSingle();
 
       if (findError) throw findError;
@@ -48,6 +50,7 @@ export async function POST(req: Request) {
       jobId: resolvedJobId,
       newTag,
       returnRow: true,
+      processorContext: processor,
     });
     if (result.ok) {
       await writeAuditEntry({

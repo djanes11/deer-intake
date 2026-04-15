@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSupabaseBrowser } from '@/lib/supabaseBrowser';
-import { clearLocalStaffSessionCookie, clearStaffAccessCookie, setStaffAccessCookie } from '@/lib/staffSession';
 
 export default function StaffAccountPage() {
   const router = useRouter();
@@ -27,8 +26,7 @@ export default function StaffAccountPage() {
         const resp = await fetch('/api/admin/staff-context', { cache: 'no-store' });
         const json = await resp.json().catch(() => ({}));
         if (!json?.ok || !json?.identity?.authType || json.identity.authType === 'none') {
-          clearStaffAccessCookie();
-          clearLocalStaffSessionCookie();
+          await fetch('/api/staff/session', { method: 'DELETE', cache: 'no-store' }).catch(() => {});
           router.replace(`/staff/login?next=${encodeURIComponent('/staff/account')}`);
           router.refresh();
           return;
@@ -88,7 +86,16 @@ export default function StaffAccountPage() {
         if (error) throw error;
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData.session?.access_token;
-        if (accessToken) setStaffAccessCookie(accessToken);
+        if (accessToken) {
+          const sessionRes = await fetch('/api/staff/session', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            cache: 'no-store',
+            body: JSON.stringify({ accessToken }),
+          });
+          const sessionJson = await sessionRes.json().catch(() => ({}));
+          if (!sessionRes.ok || !sessionJson?.ok) throw new Error(sessionJson?.error || `HTTP ${sessionRes.status}`);
+        }
 
         const completeRes = await fetch('/api/staff/account', {
           method: 'PATCH',
