@@ -16,7 +16,7 @@ type OwnerInsightRow = {
   id: string;
   tag: string | null;
   confirmation: string | null;
-  customer: string | null;
+  customer_name: string | null;
   phone: string | null;
   status: string | null;
   dropoff_date: string | null;
@@ -114,7 +114,7 @@ export default async function OwnerInsightsPage() {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const { data, error } = await supabase
     .from('jobs')
-    .select('id,tag,confirmation,customer,phone,status,dropoff_date,processing_started_at,processing_finished_at,picked_up_processing,picked_up_processing_at')
+    .select('id,tag,confirmation,customer_name,phone,status,dropoff_date,processing_started_at,processing_finished_at,picked_up_processing,picked_up_processing_at')
     .eq('processor_id', processor.id)
     .limit(2500);
 
@@ -229,7 +229,7 @@ export default async function OwnerInsightsPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'grid', gap: 4 }}>
                       <div style={{ fontWeight: 900, color: '#0f172a' }}>
-                        {row.customer || 'Unknown customer'}
+                        {row.customer_name || 'Unknown customer'}
                         {row.tag ? (
                           <span style={{ marginLeft: 8, color: '#9a3412', fontWeight: 800 }}>Tag {row.tag}</span>
                         ) : null}
@@ -284,7 +284,7 @@ export default async function OwnerInsightsPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'grid', gap: 4 }}>
                       <div style={{ fontWeight: 900, color: '#0f172a' }}>
-                        {row.customer || 'Unknown customer'}
+                        {row.customer_name || 'Unknown customer'}
                         {row.tag ? (
                           <span style={{ marginLeft: 8, color: '#166534', fontWeight: 800 }}>Tag {row.tag}</span>
                         ) : null}
