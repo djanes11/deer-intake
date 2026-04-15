@@ -66,6 +66,7 @@ export function specialtyCatalog(
   catalogInput?: SpecialtyCatalogItem[] | null,
   pricingInput?: Partial<SitePricing> | null,
 ): SpecialtyItemDef[] {
+  if (Array.isArray(catalogInput) && catalogInput.length === 0) return [];
   return normalizeSpecialtyCatalog(catalogInput ?? defaultSpecialtyCatalog(pricingInput), pricingInput).map(catalogToDisplayItem);
 }
 

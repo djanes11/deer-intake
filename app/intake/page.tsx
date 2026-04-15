@@ -452,6 +452,7 @@ function IntakePage() {
   const [processCatalog, setProcessCatalog] = useState<ProcessTypeCatalogItem[]>(defaultProcessCatalog(DEFAULT_SITE_PRICING));
   const [addOnCatalog, setAddOnCatalog] = useState<AddOnCatalogItem[]>(defaultAddOnCatalog(DEFAULT_SITE_PRICING));
   const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
+  const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
@@ -487,7 +488,8 @@ function IntakePage() {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
           setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
           setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
-          setSpecialtyCatalog(normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
+          setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+          setSpecialtyCatalog(j?.settings?.features?.specialtyEnabled === false ? [] : normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
           setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
@@ -523,6 +525,20 @@ function IntakePage() {
     }));
     setWebbsModalOpen(false);
   }, [webbsEnabled]);
+
+  useEffect(() => {
+    if (specialtyEnabled) return;
+    setJob((prev) => ({
+      ...prev,
+      specialtyProducts: false,
+      specialtyStatus: '',
+      specialtyItems: [],
+      paidSpecialty: false,
+      amountPaidSpecialty: 0,
+      specialty_price_override: null,
+    }));
+    setSpecialtyModalOpen(false);
+  }, [specialtyEnabled]);
 
   useEffect(() => {
     if (smsEnabled || !job.prefSMS) return;
@@ -820,9 +836,10 @@ useEffect(() => {
   );
 
   const specialtyPriceAuto = useMemo(() => {
-    if (!job.specialtyProducts) return 0;
+    if (!specialtyEnabled || !job.specialtyProducts) return 0;
     return calcSpecialtyPrice(job as any, pricing, specialtyCatalog);
   }, [
+    specialtyEnabled,
     job.specialtyProducts,
     job.specialtyItems,
     pricing,
@@ -841,8 +858,8 @@ useEffect(() => {
 
   const totalPrice = processingPriceUsed + specialtyPriceUsed;
   const activeSpecialtyCatalog = useMemo(
-    () => normalizeSpecialtyCatalog(specialtyCatalog, pricing).filter((item) => item.active),
-    [specialtyCatalog, pricing]
+    () => specialtyEnabled ? normalizeSpecialtyCatalog(specialtyCatalog, pricing).filter((item) => item.active) : [],
+    [specialtyEnabled, specialtyCatalog, pricing]
   );
   const specialtyItems = useMemo(
     () => specialtyBreakdown(job as Record<string, any>, pricing, activeSpecialtyCatalog).filter((item) => item.pounds > 0),
@@ -2042,6 +2059,7 @@ if (fresh?.exists && fresh.job) {
         </section>
 
         {/* Specialty Products */}
+        {specialtyEnabled && activeSpecialtyCatalog.length > 0 ? (
         <section>
           <h3>Specialty Products</h3>
           <div className="grid">
@@ -2095,6 +2113,7 @@ if (fresh?.exists && fresh.job) {
             )}
           </div>
         </section>
+        ) : null}
 
         {/* Notes */}
         <section>

@@ -77,6 +77,7 @@ type SiteSettings = {
     webbsEnabled: boolean;
     scanEnabled: boolean;
     capeScanEnabled: boolean;
+    specialtyEnabled: boolean;
   };
   updated_at?: string;
 };
@@ -625,11 +626,15 @@ export default function AdminSettingsPage() {
       label: 'Offerings and prices',
       done:
         normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length > 0 &&
-        normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length > 0,
+        (s.features?.specialtyEnabled === false ||
+          normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length > 0),
       note:
         normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length > 0 &&
-        normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length > 0
-          ? 'Active process types and specialty products are ready to use.'
+        (s.features?.specialtyEnabled === false ||
+          normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length > 0)
+          ? s.features?.specialtyEnabled === false
+            ? 'Active process types are ready, and specialty products are turned off.'
+            : 'Active process types and specialty products are ready to use.'
           : 'Review process types, add-ons, specialty items, and pricing.',
     },
     {
@@ -742,7 +747,11 @@ export default function AdminSettingsPage() {
           { label: 'Banner', value: s.banner_enabled ? 'Shown' : 'Hidden', note: 'Public alert messaging' },
           { label: 'Process types', value: String(normalizeProcessCatalog(s.processCatalog, s.pricing).filter((item) => item.active).length), note: 'Selectable on intake forms' },
           { label: 'Add-ons', value: String(visibleActiveAddOnCount), note: 'Optional extras on intake forms' },
-          { label: 'Specialty items', value: String(normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length), note: 'Shown on intake forms' },
+          {
+            label: 'Specialty items',
+            value: s.features?.specialtyEnabled === false ? 'Off' : String(normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length),
+            note: s.features?.specialtyEnabled === false ? 'Hidden from intake forms' : 'Shown on intake forms',
+          },
           { label: 'Public FAQs', value: String((s.publicCopy?.faqItems || []).length), note: 'Shop-specific help on the public site' },
         ].map((item) => (
           <div
@@ -887,7 +896,7 @@ export default function AdminSettingsPage() {
                 <span style={{ fontSize: 16, fontWeight: 800, marginLeft: 6, color: '#64748b' }}>processes</span>
               </div>
               <div style={{ color: '#64748b', fontSize: 13 }}>
-                {visibleActiveAddOnCount} add-ons and {normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length} specialty items active
+                {visibleActiveAddOnCount} add-ons and {s.features?.specialtyEnabled === false ? 'specialty products turned off' : `${normalizeSpecialtyCatalog(s.specialtyCatalog, s.pricing).filter((item) => item.active).length} specialty items active`}
               </div>
             </div>
           </div>
@@ -1182,7 +1191,7 @@ export default function AdminSettingsPage() {
                   setS({
                     ...s,
                     features: {
-                      ...(s.features || { plan: 'basic', smsEnabled: false, webbsEnabled: false, scanEnabled: true, capeScanEnabled: true }),
+                      ...(s.features || { plan: 'basic', smsEnabled: false, webbsEnabled: false, scanEnabled: true, capeScanEnabled: true, specialtyEnabled: true }),
                       scanEnabled: e.target.checked,
                       capeScanEnabled: e.target.checked ? (s.features?.capeScanEnabled !== false) : false,
                     },
@@ -1200,7 +1209,7 @@ export default function AdminSettingsPage() {
                   setS({
                     ...s,
                     features: {
-                      ...(s.features || { plan: 'basic', smsEnabled: false, webbsEnabled: false, scanEnabled: true, capeScanEnabled: true }),
+                      ...(s.features || { plan: 'basic', smsEnabled: false, webbsEnabled: false, scanEnabled: true, capeScanEnabled: true, specialtyEnabled: true }),
                       scanEnabled: s.features?.scanEnabled !== false,
                       capeScanEnabled: e.target.checked,
                     },
@@ -1735,8 +1744,39 @@ export default function AdminSettingsPage() {
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Control which specialty products appear on the intake forms for this processor and how much each one costs per pound.
           </div>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: 14, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#0f172a' }}>
+            <input
+              type="checkbox"
+              checked={s.features?.specialtyEnabled !== false}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                const currentCatalog = specialtyDraftRows(s.specialtyCatalog, s.pricing);
+                setS({
+                  ...s,
+                  features: {
+                    ...(s.features || { plan: 'basic', smsEnabled: false, webbsEnabled: false, scanEnabled: true, capeScanEnabled: true, specialtyEnabled: true }),
+                    specialtyEnabled: enabled,
+                  },
+                  specialtyCatalog: enabled && currentCatalog.length === 0 ? defaultSpecialtyCatalog(s.pricing) : s.specialtyCatalog,
+                });
+              }}
+              style={{ marginTop: 3 }}
+            />
+            <span style={{ display: 'grid', gap: 4 }}>
+              <span style={{ fontWeight: 900 }}>This processor offers specialty products</span>
+              <span style={{ fontSize: 13, color: '#475569', lineHeight: 1.45 }}>
+                Turn this off for shops that do not sell sausage, snack sticks, or other per-pound specialty items. The specialty section will be hidden from intake, review, print, and butcher views.
+              </span>
+            </span>
+          </label>
 
-          {specialtyDraftRows(s.specialtyCatalog, s.pricing).map((item, index) => (
+          {s.features?.specialtyEnabled === false ? (
+            <div style={{ padding: 14, borderRadius: 14, background: '#ecfdf5', border: '1px solid #bbf7d0', color: '#14532d', fontWeight: 800, lineHeight: 1.45 }}>
+              Specialty products are turned off for this processor. This counts as complete setup and customers will not see specialty product fields.
+            </div>
+          ) : null}
+
+          {s.features?.specialtyEnabled !== false ? specialtyDraftRows(s.specialtyCatalog, s.pricing).map((item, index) => (
             <div
               key={`specialty-${index}`}
               style={{
@@ -1796,9 +1836,9 @@ export default function AdminSettingsPage() {
                 Remove
               </button>
             </div>
-          ))}
+          )) : null}
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {s.features?.specialtyEnabled !== false ? <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={addSpecialtyItem}
@@ -1829,7 +1869,7 @@ export default function AdminSettingsPage() {
             >
               Reset Default Catalog
             </button>
-          </div>
+          </div> : null}
         </div>
         )}
 

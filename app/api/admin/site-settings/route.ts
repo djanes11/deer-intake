@@ -63,6 +63,7 @@ export async function GET(req: Request) {
       if (processorError) throw processorError;
       if (processorRow) {
         const rawFeatures = (processorRow as any).features || {};
+        const features = normalizeProcessorFeatures(rawFeatures);
         branding = {
           name: String(processorRow.public_name || processorRow.name || defaults.name),
           locationLabel: String(processorRow.location_label || defaults.locationLabel),
@@ -79,8 +80,8 @@ export async function GET(req: Request) {
           settings: {
             ...data,
             branding,
-            features: normalizeProcessorFeatures(rawFeatures),
-            specialtyCatalog,
+            features,
+            specialtyCatalog: features.specialtyEnabled === false ? [] : specialtyCatalog,
             processCatalog: normalizeProcessCatalog((data as any)?.process_catalog, normalizePricing(data)),
             addOnCatalog: normalizeAddOnCatalog((data as any)?.add_on_catalog, normalizePricing(data)),
             notificationTemplates: normalizeNotificationTemplates((data as any)?.notification_templates, branding.name),
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
       ...normalizePricing(body),
     };
 
+    const processorFeatures = normalizeProcessorFeatures(body?.features || defaultPublicSiteSettings().features);
     const processorPayload = {
       ...(body?.branding?.name ? { public_name: String(body.branding.name || '').trim() } : {}),
       public_tagline: String(body?.branding?.tagline || defaults.tagline),
@@ -147,7 +149,7 @@ export async function POST(req: Request) {
       public_address: String(body?.branding?.address || defaults.address),
       public_maps_url: String(body?.branding?.mapsUrl || defaults.mapsUrl),
       location_label: String(body?.branding?.locationLabel || defaults.locationLabel),
-      features: normalizeProcessorFeatures(body?.features || defaultPublicSiteSettings().features),
+      features: processorFeatures,
       updated_at: new Date().toISOString(),
     };
 
@@ -197,7 +199,7 @@ export async function POST(req: Request) {
         .eq('id', processor.id);
       if (processorError) throw processorError;
 
-      const specialtyCatalog = normalizeSpecialtyCatalog(body?.specialtyCatalog, payload);
+      const specialtyCatalog = processorFeatures.specialtyEnabled === false ? [] : normalizeSpecialtyCatalog(body?.specialtyCatalog, payload);
       const existingCatalogRes = await supabase
         .from('processor_specialty_items')
         .select('id')
@@ -262,7 +264,7 @@ export async function POST(req: Request) {
         mapsUrl: processorPayload.public_maps_url,
       },
       features: processorPayload.features,
-      specialtyCatalog: normalizeSpecialtyCatalog(body?.specialtyCatalog, payload),
+      specialtyCatalog: processorFeatures.specialtyEnabled === false ? [] : normalizeSpecialtyCatalog(body?.specialtyCatalog, payload),
       processCatalog: normalizeProcessCatalog(body?.processCatalog, payload),
       addOnCatalog: normalizeAddOnCatalog(body?.addOnCatalog, payload),
       notificationTemplates: normalizeNotificationTemplates(body?.notificationTemplates, processorPayload.public_name || defaults.name),

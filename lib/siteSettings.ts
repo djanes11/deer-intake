@@ -44,6 +44,7 @@ export type ProcessorFeatureSettings = {
   webbsEnabled: boolean;
   scanEnabled: boolean;
   capeScanEnabled: boolean;
+  specialtyEnabled: boolean;
 };
 
 export type PublicFaqItem = {
@@ -90,6 +91,7 @@ export function normalizeProcessorFeatures(raw: any): ProcessorFeatureSettings {
       webbsEnabled: false,
       scanEnabled: raw?.scanEnabled !== false,
       capeScanEnabled: raw?.scanEnabled === false ? false : raw?.capeScanEnabled !== false,
+      specialtyEnabled: raw?.specialtyEnabled !== false,
     };
   }
   if (plan === 'texting') {
@@ -99,6 +101,7 @@ export function normalizeProcessorFeatures(raw: any): ProcessorFeatureSettings {
       webbsEnabled: false,
       scanEnabled: raw?.scanEnabled !== false,
       capeScanEnabled: raw?.scanEnabled === false ? false : raw?.capeScanEnabled !== false,
+      specialtyEnabled: raw?.specialtyEnabled !== false,
     };
   }
   return {
@@ -107,6 +110,7 @@ export function normalizeProcessorFeatures(raw: any): ProcessorFeatureSettings {
     webbsEnabled: raw?.webbsEnabled !== false,
     scanEnabled: raw?.scanEnabled !== false,
     capeScanEnabled: raw?.scanEnabled === false ? false : raw?.capeScanEnabled !== false,
+    specialtyEnabled: raw?.specialtyEnabled !== false,
   };
 }
 
@@ -254,7 +258,7 @@ export async function getPublicSiteSettings(
     const pricing = normalizePricing(data);
     let processCatalog = normalizeProcessCatalog((data as any).process_catalog, pricing);
     let addOnCatalog = normalizeAddOnCatalog((data as any).add_on_catalog, pricing);
-    const specialtyCatalog = await getProcessorSpecialtyCatalog(processor.id, pricing);
+    let specialtyCatalog = await getProcessorSpecialtyCatalog(processor.id, pricing);
     let notificationTemplates = normalizeNotificationTemplates((data as any).notification_templates, branding.name);
     if (processor.id) {
       const { data: processorRow, error: processorError } = await supabase
@@ -277,6 +281,9 @@ export async function getPublicSiteSettings(
         };
         const rawFeatures = (processorRow as any).features || {};
         features = normalizeProcessorFeatures(rawFeatures);
+        if (features.specialtyEnabled === false) {
+          specialtyCatalog = [];
+        }
         addOnCatalog = normalizeAddOnCatalog(
           addOnCatalog.map((item) =>
             item.legacyBooleanKey === 'webbsOrder' ? { ...item, active: item.active && features.webbsEnabled } : item

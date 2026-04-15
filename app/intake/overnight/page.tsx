@@ -282,6 +282,7 @@ function OvernightIntakePage() {
   const [processCatalog, setProcessCatalog] = useState<ProcessTypeCatalogItem[]>(defaultProcessCatalog(DEFAULT_SITE_PRICING));
   const [addOnCatalog, setAddOnCatalog] = useState<AddOnCatalogItem[]>(defaultAddOnCatalog(DEFAULT_SITE_PRICING));
   const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
+  const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
@@ -326,7 +327,8 @@ function OvernightIntakePage() {
           setPricing(normalizePricing(j?.settings?.pricing ?? j?.settings));
           setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
           setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
-          setSpecialtyCatalog(normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
+          setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+          setSpecialtyCatalog(j?.settings?.features?.specialtyEnabled === false ? [] : normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
           setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
           setIntakeEnabled(!!j?.settings?.public_intake_enabled);
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
@@ -389,17 +391,18 @@ function OvernightIntakePage() {
   );
 
   const specialtyPrice = useMemo(() => {
-    if (!job.specialtyProducts) return 0;
+    if (!specialtyEnabled || !job.specialtyProducts) return 0;
     return calcSpecialtyPrice(job as any, pricing, specialtyCatalog);
   }, [
+    specialtyEnabled,
     job.specialtyProducts,
     job.specialtyItems,
     pricing,
     specialtyCatalog,
   ]);
   const activeSpecialtyCatalog = useMemo(
-    () => normalizeSpecialtyCatalog(specialtyCatalog, pricing).filter((item) => item.active),
-    [specialtyCatalog, pricing]
+    () => specialtyEnabled ? normalizeSpecialtyCatalog(specialtyCatalog, pricing).filter((item) => item.active) : [],
+    [specialtyEnabled, specialtyCatalog, pricing]
   );
   const showFrontShoulderSteaks = cutOptions.showFrontShoulderSteaks !== false;
   const showSteakThickness = cutOptions.showSteakThickness !== false;
@@ -525,6 +528,18 @@ function OvernightIntakePage() {
   }, [job.specialtyProducts, specialtyModalOpen]);
 
   useEffect(() => {
+    if (specialtyEnabled) return;
+    setJob((prev) => ({
+      ...prev,
+      specialtyProducts: false,
+      specialtyStatus: '',
+      specialtyItems: [],
+      paidSpecialty: false,
+    }));
+    setSpecialtyModalOpen(false);
+  }, [specialtyEnabled]);
+
+  useEffect(() => {
     setJob((p) => {
       const next: Job = { ...p };
       if (capingFlow && !next.capingStatus) next.capingStatus = 'Dropped Off';
@@ -544,6 +559,8 @@ function OvernightIntakePage() {
         setClosureMessage(String(j.settings.banner_enabled ? j.settings.banner_message || '' : ''));
         setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
         setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
+        setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+        setSpecialtyCatalog(j?.settings?.features?.specialtyEnabled === false ? [] : normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
         setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
@@ -1545,6 +1562,7 @@ function OvernightIntakePage() {
               </div>
             </section>
 
+            {specialtyEnabled && activeSpecialtyCatalog.length > 0 ? (
             <section>
               <h3>Packaging & Add-ons</h3>
               <div className="pkgGrid">
@@ -1614,6 +1632,7 @@ function OvernightIntakePage() {
                 </div>
               </div>
             </section>
+            ) : null}
 
             <section>
               <h3>Backstrap</h3>

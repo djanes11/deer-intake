@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
-import { getPublicSiteSettings } from '@/lib/siteSettings';
+import { getPublicSiteSettings, normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { getDashboardSummary } from '@/lib/jobsSupabase';
 import { getStaffIdentity, getStaffProcessorContext } from '@/lib/staffContext';
 import { filterVisibleAddOnItems, formatProcessTypePrice } from '@/lib/processorCatalog';
@@ -120,7 +120,7 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
   const [{ data: processorRow }, { data: siteSettingsRow }, { data: memberships }, { data: specialtyRows }] = await Promise.all([
     supabase
       .from('processors')
-      .select('id,public_name,name,logo_url,support_phone_display,support_email,public_address,public_hostname')
+      .select('id,public_name,name,logo_url,support_phone_display,support_email,public_address,public_hostname,features')
       .eq('id', id)
       .maybeSingle(),
     supabase
@@ -146,6 +146,7 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
   const phone = String(processorRow.support_phone_display || '').trim();
   const email = String(processorRow.support_email || '').trim();
   const address = String(processorRow.public_address || '').trim();
+  const features = normalizeProcessorFeatures((processorRow as any).features || {});
   const processCatalog = Array.isArray((siteSettingsRow as any)?.process_catalog) ? (siteSettingsRow as any).process_catalog : [];
   const addOnCatalog = Array.isArray((siteSettingsRow as any)?.add_on_catalog) ? (siteSettingsRow as any).add_on_catalog : [];
   const notificationTemplates = (siteSettingsRow as any)?.notification_templates || null;
@@ -172,7 +173,8 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
     !!String(publicCopy?.pickupInstructions || '').trim() &&
     answeredFaqItems > 0;
   const publicIntakeEnabled = (siteSettingsRow as any)?.public_intake_enabled !== false;
-  const extrasHref = activeAddOns > 0 && activeSpecialtyItems === 0 ? '/admin/settings?section=specialty' : '/admin/settings?section=addons';
+  const specialtyEnabled = features.specialtyEnabled !== false;
+  const extrasHref = activeAddOns > 0 && specialtyEnabled && activeSpecialtyItems === 0 ? '/admin/settings?section=specialty' : '/admin/settings?section=addons';
   const messagesHref =
     !!String(publicCopy?.pickupInstructions || '').trim() && answeredFaqItems > 0 && notificationTemplateCount === 0
       ? '/admin/settings?section=notifications'
@@ -210,10 +212,12 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
     {
       key: 'extras',
       label: 'Confirm add-ons and specialty',
-      done: activeAddOns > 0 && activeSpecialtyItems > 0,
+      done: activeAddOns > 0 && (!specialtyEnabled || activeSpecialtyItems > 0),
       note:
-        activeAddOns > 0 && activeSpecialtyItems > 0
-          ? `${activeAddOns} active add-on${activeAddOns === 1 ? '' : 's'} and ${activeSpecialtyItems} specialty item${activeSpecialtyItems === 1 ? '' : 's'} ready.`
+        activeAddOns > 0 && (!specialtyEnabled || activeSpecialtyItems > 0)
+          ? !specialtyEnabled
+            ? `${activeAddOns} active add-on${activeAddOns === 1 ? '' : 's'} ready, and specialty products are turned off.`
+            : `${activeAddOns} active add-on${activeAddOns === 1 ? '' : 's'} and ${activeSpecialtyItems} specialty item${activeSpecialtyItems === 1 ? '' : 's'} ready.`
           : activeAddOns === 0
             ? 'Review add-ons before going live.'
             : 'Review specialty products before going live.',

@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
 import { normalizeUsPhone, sendSms } from '@/lib/sms';
 import { specialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
-import { getProcessorSpecialtyCatalog, normalizeJobSpecialtyItems, SpecialtyLegacyFieldKey } from '@/lib/specialtyCatalog';
+import { normalizeJobSpecialtyItems, SpecialtyLegacyFieldKey } from '@/lib/specialtyCatalog';
 import {
   calcCatalogProcessingPrice,
   deriveSelectedAddOnItems,
@@ -1891,11 +1891,11 @@ function calcSpecialtyPriceFromLbs(job: Partial<Job>, pricing?: Partial<SitePric
 export async function saveJob(job: Partial<Job>, options?: { processorContext?: ProcessorContext | null }) {
   const supabaseServer = getSupabaseServer();
   const processor = options?.processorContext || (await getDefaultProcessorContext());
-  const settings = await getPublicSiteSettings();
+  const settings = await getPublicSiteSettings(null, processor);
   const pricing = settings.pricing;
   const processCatalog = normalizeProcessCatalog(settings.processCatalog, pricing);
   const addOnCatalog = settings.addOnCatalog;
-  const specialtyCatalog = await getProcessorSpecialtyCatalog(processor.id, pricing);
+  const specialtyCatalog = settings.features.specialtyEnabled === false ? [] : settings.specialtyCatalog;
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
   // Overnight/public submission has no tag yet: store a unique placeholder tag and mark requires_tag=true.
