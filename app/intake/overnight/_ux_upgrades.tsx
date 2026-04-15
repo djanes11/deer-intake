@@ -93,10 +93,10 @@ export function BulletErrors({ message }: { message?: string | null }) {
  *         // ... your existing inputs for name/phone/email
  *       </Section>
  *
- *       <Section title="Hunt Details" desc="Basic info from your GoOutdoorsIN check-in — we match your deer using this." collapsible defaultOpen>
+ *       <Section title="Hunt Details" desc="Basic info from your state harvest/check-in — we match your deer using this." collapsible defaultOpen>
  *         <label>
  *           Confirmation # 
- *           <Hint>9 digits from your GoOutdoorsIN check-in</Hint>
+ *           <Hint>Digits from your state harvest/check-in confirmation</Hint>
  *           <input inputMode="numeric" pattern="[0-9]*" />
  *         </label>
  *         <label>

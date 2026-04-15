@@ -53,10 +53,22 @@ export type PublicFaqItem = {
 };
 
 export type PublicCopySettings = {
+  homeHeadline: string;
+  homeIntro: string;
+  homeHowItWorks: string[];
+  pricingNote: string;
+  beforeDropoffChecklist: string[];
   intakeHighlights: string[];
   reviewChecklist: string[];
+  customerInfoIntro: string;
+  confirmationHelpText: string;
   pickupInstructions: string;
   thankYouMessage: string;
+  statusIntro: string;
+  statusBestWay: string;
+  statusLookupHelp: string;
+  confirmationSearchHelp: string;
+  tagSearchHelp: string;
   faqItems: PublicFaqItem[];
 };
 
@@ -159,19 +171,47 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
     cutOptions: normalizeCutOptionSettings({}),
     stateFormType: 'indiana',
     publicCopy: {
+      homeHeadline: 'Professional wild game processing, with a cleaner customer experience.',
+      homeIntro: 'Submit your intake, choose your cuts, and check status online without guessing what happens next.',
+      homeHowItWorks: [
+        'Use the public intake form before or during drop-off so the shop has your information and cut selections right away.',
+        'Include your state confirmation number and leave your deer with your name and phone details for easy matching.',
+        'Staff assigns the permanent tag, reviews your order, and updates status as work moves forward.',
+        'Check status online anytime and pick up promptly once you are notified.',
+      ],
+      pricingNote:
+        'Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.',
+      beforeDropoffChecklist: [
+        'Have your state harvest/check-in confirmation number ready',
+        'Leave your name, phone number, and confirmation details with the deer',
+        'Staff will assign the permanent deer tag after reviewing the intake',
+      ],
       intakeHighlights: [
         'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
         'Staff will assign the permanent deer tag after reviewing the drop-off.',
       ],
       reviewChecklist: [
-        'Customer name and confirmation number match your state check-in',
+        'Customer name and state confirmation number match',
         'Drop-off details and process type are correct',
         'Cuts, specialty items, and contact preference look right',
       ],
+      customerInfoIntro:
+        'Fill in your state confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.',
+      confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
       pickupInstructions:
         'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
       thankYouMessage:
         'Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.',
+      statusIntro:
+        'Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag. This page updates as your order moves through the shop.',
+      statusBestWay:
+        'Confirmation number works best before staff assign the permanent tag. After the tag is assigned, you can also search with the tag number and customer last name.',
+      statusLookupHelp:
+        'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
+      confirmationSearchHelp:
+        'Best for most customers. Use the number from your intake or state harvest/check-in.',
+      tagSearchHelp:
+        'Only use this after staff have assigned the real deer tag.',
       faqItems: [
         {
           question: 'How do I use the Public Intake Form?',
@@ -208,10 +248,22 @@ export function normalizePublicCopy(input: any): PublicCopySettings {
     : defaults.faqItems;
 
   return {
+    homeHeadline: String(input?.homeHeadline || '').trim() || defaults.homeHeadline,
+    homeIntro: String(input?.homeIntro || '').trim() || defaults.homeIntro,
+    homeHowItWorks: normalizeLines(input?.homeHowItWorks, defaults.homeHowItWorks),
+    pricingNote: String(input?.pricingNote || '').trim() || defaults.pricingNote,
+    beforeDropoffChecklist: normalizeLines(input?.beforeDropoffChecklist, defaults.beforeDropoffChecklist),
     intakeHighlights: normalizeLines(input?.intakeHighlights, defaults.intakeHighlights),
     reviewChecklist: normalizeLines(input?.reviewChecklist, defaults.reviewChecklist),
+    customerInfoIntro: String(input?.customerInfoIntro || '').trim() || defaults.customerInfoIntro,
+    confirmationHelpText: String(input?.confirmationHelpText || '').trim() || defaults.confirmationHelpText,
     pickupInstructions: String(input?.pickupInstructions || '').trim() || defaults.pickupInstructions,
     thankYouMessage: String(input?.thankYouMessage || '').trim() || defaults.thankYouMessage,
+    statusIntro: String(input?.statusIntro || '').trim() || defaults.statusIntro,
+    statusBestWay: String(input?.statusBestWay || '').trim() || defaults.statusBestWay,
+    statusLookupHelp: String(input?.statusLookupHelp || '').trim() || defaults.statusLookupHelp,
+    confirmationSearchHelp: String(input?.confirmationSearchHelp || '').trim() || defaults.confirmationSearchHelp,
+    tagSearchHelp: String(input?.tagSearchHelp || '').trim() || defaults.tagSearchHelp,
     faqItems: faqItems.length ? faqItems : defaults.faqItems,
   };
 }

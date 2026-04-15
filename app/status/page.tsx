@@ -51,6 +51,27 @@ type PublicBrandingState = {
   webbsEnabled: boolean;
 };
 
+type PublicCopyState = {
+  statusIntro: string;
+  statusBestWay: string;
+  statusLookupHelp: string;
+  confirmationSearchHelp: string;
+  tagSearchHelp: string;
+};
+
+const DEFAULT_STATUS_COPY: PublicCopyState = {
+  statusIntro:
+    'Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag. This page updates as your order moves through the shop.',
+  statusBestWay:
+    'Confirmation number works best before staff assign the permanent tag. After the tag is assigned, you can also search with the tag number and customer last name.',
+  statusLookupHelp:
+    'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
+  confirmationSearchHelp:
+    'Best for most customers. Use the number from your intake or state harvest/check-in.',
+  tagSearchHelp:
+    'Only use this after staff have assigned the real deer tag.',
+};
+
 const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done'];
 const HOLD_WORDS = ['hold', 'waiting', 'pending', 'not started', 'dropped off', 'drop off', 'received'];
 const PROGRESS_WORDS = ['process', 'cut', 'grind', 'smoke', 'cure', 'working', 'started', 'in progress', 'calling'];
@@ -171,6 +192,7 @@ export default function StatusPage() {
     mapsUrl: SITE.mapsUrl,
     webbsEnabled: true,
   });
+  const [publicCopy, setPublicCopy] = useState<PublicCopyState>(DEFAULT_STATUS_COPY);
 
   const pollUntilRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -216,6 +238,16 @@ export default function StatusPage() {
             phoneHref: nextPhoneHref,
             mapsUrl: String(j.settings.branding.mapsUrl || SITE.mapsUrl),
             webbsEnabled: j.settings.features?.webbsEnabled !== false,
+          });
+        }
+        if (j?.ok && j?.settings?.publicCopy) {
+          setPublicCopy({
+            ...DEFAULT_STATUS_COPY,
+            statusIntro: String(j.settings.publicCopy.statusIntro || DEFAULT_STATUS_COPY.statusIntro),
+            statusBestWay: String(j.settings.publicCopy.statusBestWay || DEFAULT_STATUS_COPY.statusBestWay),
+            statusLookupHelp: String(j.settings.publicCopy.statusLookupHelp || DEFAULT_STATUS_COPY.statusLookupHelp),
+            confirmationSearchHelp: String(j.settings.publicCopy.confirmationSearchHelp || DEFAULT_STATUS_COPY.confirmationSearchHelp),
+            tagSearchHelp: String(j.settings.publicCopy.tagSearchHelp || DEFAULT_STATUS_COPY.tagSearchHelp),
           });
         }
       })
@@ -489,13 +521,13 @@ export default function StatusPage() {
             <div className="app-kicker">Customer Status</div>
             <h1 className="app-title" style={{ fontSize: 'clamp(28px, 5vw, 38px)' }}>Check Your Deer Status</h1>
             <p className="app-copy">
-              Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag. We will keep this page updated as your order moves through the shop.
+              {publicCopy.statusIntro}
             </p>
           </div>
           <div className="app-side-note">
             <div style={{ fontWeight: 900, color: '#fff7e8' }}>Best way to search</div>
             <div style={{ color: 'rgba(245,236,216,.84)', lineHeight: 1.55 }}>
-              Confirmation number works best before staff assign the permanent tag. After the tag is assigned, you can also search with the tag number and customer last name.
+              {publicCopy.statusBestWay}
             </div>
           </div>
         </div>
@@ -505,7 +537,7 @@ export default function StatusPage() {
         <div className="app-section-head">
           <div className="app-section-title">Look Up Your Order</div>
           <div className="app-section-copy">
-            Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.
+            {publicCopy.statusLookupHelp}
           </div>
         </div>
 
@@ -526,7 +558,7 @@ export default function StatusPage() {
               </div>
               <div style={{ fontWeight: 900 }}>Use your confirmation number first.</div>
               <div style={{ color: '#475569', lineHeight: 1.5 }}>
-                If staff have already assigned your deer tag, you can also search with the tag number and the customer&apos;s last name.
+                {publicCopy.statusBestWay}
               </div>
             </div>
             <div
@@ -539,7 +571,7 @@ export default function StatusPage() {
               <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Confirmation Number</div>
                 <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
-                  Best for most customers. Use the 13-digit number from your intake/check-in.
+                  {publicCopy.confirmationSearchHelp}
                 </div>
                 <input
                   value={confirmation}
@@ -554,7 +586,7 @@ export default function StatusPage() {
               <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Tag and Last Name</div>
                 <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
-                  Only use this after staff have assigned the real deer tag.
+                  {publicCopy.tagSearchHelp}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
                   <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Deer tag number" aria-label="Tag number" style={field} />

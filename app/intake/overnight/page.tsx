@@ -288,15 +288,23 @@ function OvernightIntakePage() {
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [stateFormType, setStateFormType] = useState<StateFormType>('indiana');
   const [publicCopy, setPublicCopy] = useState({
+    beforeDropoffChecklist: [
+      'Have your state harvest/check-in confirmation number ready',
+      'Leave your name, phone number, and confirmation details with the deer',
+      'Staff will assign the permanent deer tag after reviewing the intake',
+    ],
     intakeHighlights: [
       'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
       'Staff will assign the permanent deer tag after reviewing the drop-off.',
     ],
     reviewChecklist: [
-      'Customer name and confirmation number match your state check-in',
+      'Customer name and state confirmation number match',
       'Drop-off details and process type are correct',
       'Cuts, specialty items, and contact preference look right',
     ],
+    customerInfoIntro:
+      'Fill in your state confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.',
+    confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
     pickupInstructions:
       'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
     thankYouMessage:
@@ -940,9 +948,9 @@ function OvernightIntakePage() {
               <div className="hero-card">
                 <div className="hero-card-title">Before you drop off</div>
                 <ul>
-                  <li>Use your 13-digit GoOutdoorsIN confirmation number</li>
-                  <li>Leave a note with your name, phone, and confirmation digits on the deer</li>
-                  <li>Staff will assign the permanent deer tag after reviewing the intake</li>
+                  {(publicCopy.beforeDropoffChecklist || []).map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
               </div>
             </div>
@@ -1088,20 +1096,20 @@ function OvernightIntakePage() {
             <div className="stepIntro">
               <div className="stepIntroTitle">Start here</div>
               <div className="stepIntroCopy">
-                Fill in your confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.
+                {publicCopy.customerInfoIntro}
               </div>
             </div>
             <div className="grid">
               <div className="c3">
                 <label>Confirmation #</label>
-                <Hint>Use the 13-digit number from your state check-in.</Hint>
+                <Hint>{publicCopy.confirmationHelpText}</Hint>
                 <input
                   value={job.confirmation || ''}
                   onChange={(e) => setConfirmation(e.target.value)}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={13}
-                  placeholder="13-digit confirmation #"
+                  placeholder="State confirmation #"
                   className={errors.confirmation ? 'err' : ''}
                   data-err="confirmation"
                   disabled={locked}

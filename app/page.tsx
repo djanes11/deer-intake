@@ -697,6 +697,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   const pricing = settings?.pricing;
   const branding = settings?.branding;
   const features = settings?.features;
+  const publicCopy = settings?.publicCopy;
   const hours = settings?.hours || [];
   const pricingRows = [
     ...((settings?.processCatalog || []).filter((item) => item.active).map((item) => ({
@@ -882,9 +883,9 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
     <main style={shell}>
       <section style={hero} aria-label="Hero">
         <div style={eyebrow}>Welcome</div>
-        <h1 style={title}>{branding?.tagline || 'Professional wild game processing, with a cleaner customer experience.'}</h1>
+        <h1 style={title}>{publicCopy?.homeHeadline || branding?.tagline || 'Professional wild game processing, with a cleaner customer experience.'}</h1>
         <p style={subtitle}>
-          Submit your intake, choose your cuts, and check status online without guessing what happens next.
+          {publicCopy?.homeIntro || 'Submit your intake, choose your cuts, and check status online without guessing what happens next.'}
           {branding?.name ? ` ${branding.name}` : ' This processor'} will use your selected contact method when your order is updated.
         </p>
         <div style={ctas}>
@@ -907,10 +908,14 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
         <div style={panel}>
           <div style={h3}>How it Works</div>
           <ol style={{ margin: 0, padding: '0 0 0 18px', lineHeight: 1.6 }}>
-            <li>Use the public intake form before or during drop-off so the shop has your information and cut selections right away.</li>
-            <li>Include your confirmation number and leave your deer with your name and phone details for easy matching.</li>
-            <li>Staff assigns the permanent tag, reviews your order, and updates status as work moves forward.</li>
-            <li>Check status online anytime and pick up promptly once you are notified.</li>
+            {(publicCopy?.homeHowItWorks?.length ? publicCopy.homeHowItWorks : [
+              'Use the public intake form before or during drop-off so the shop has your information and cut selections right away.',
+              'Include your state confirmation number and leave your deer with your name and phone details for easy matching.',
+              'Staff assigns the permanent tag, reviews your order, and updates status as work moves forward.',
+              'Check status online anytime and pick up promptly once you are notified.',
+            ]).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
           </ol>
           <div style={{ height: 12 }} />
           <Link href="/faq-public" style={cta(false)}>Read the FAQ</Link>
@@ -963,7 +968,7 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
             ))}
           </div>
           <div style={{ marginTop: 12, color: colors.sub, fontSize: 13, lineHeight: 1.5 }}>
-            Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.
+            {publicCopy?.pricingNote || 'Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.'}
           </div>
         </div>
       </section>

@@ -89,7 +89,7 @@ export default function ProcessorInquiryForm() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
         <label style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 800, color: '#0f172a' }}>State</span>
-          <input value={form.state} onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))} style={inputStyle} placeholder="Indiana" />
+          <input value={form.state} onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))} style={inputStyle} placeholder="State" />
         </label>
         <label style={{ display: 'grid', gap: 6 }}>
           <span style={{ fontWeight: 800, color: '#0f172a' }}>Approx. annual deer volume</span>

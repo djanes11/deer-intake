@@ -45,10 +45,22 @@ type PublicFaqItem = {
 };
 
 type PublicCopySettings = {
+  homeHeadline: string;
+  homeIntro: string;
+  homeHowItWorks: string[];
+  pricingNote: string;
+  beforeDropoffChecklist: string[];
   intakeHighlights: string[];
   reviewChecklist: string[];
+  customerInfoIntro: string;
+  confirmationHelpText: string;
   pickupInstructions: string;
   thankYouMessage: string;
+  statusIntro: string;
+  statusBestWay: string;
+  statusLookupHelp: string;
+  confirmationSearchHelp: string;
+  tagSearchHelp: string;
   faqItems: PublicFaqItem[];
 };
 
@@ -129,19 +141,47 @@ const DEFAULT_BRANDING: BrandingSettings = {
 };
 
 const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
+  homeHeadline: 'Professional wild game processing, with a cleaner customer experience.',
+  homeIntro: 'Submit your intake, choose your cuts, and check status online without guessing what happens next.',
+  homeHowItWorks: [
+    'Use the public intake form before or during drop-off so the shop has your information and cut selections right away.',
+    'Include your state confirmation number and leave your deer with your name and phone details for easy matching.',
+    'Staff assigns the permanent tag, reviews your order, and updates status as work moves forward.',
+    'Check status online anytime and pick up promptly once you are notified.',
+  ],
+  pricingNote:
+    'Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.',
+  beforeDropoffChecklist: [
+    'Have your state harvest/check-in confirmation number ready',
+    'Leave your name, phone number, and confirmation details with the deer',
+    'Staff will assign the permanent deer tag after reviewing the intake',
+  ],
   intakeHighlights: [
     'Complete this before leaving your deer so the shop has your cuts and contact details right away.',
     'Staff will assign the permanent deer tag after reviewing the drop-off.',
   ],
   reviewChecklist: [
-    'Customer name and confirmation number match your state check-in',
+    'Customer name and state confirmation number match',
     'Drop-off details and process type are correct',
     'Cuts, specialty items, and contact preference look right',
   ],
+  customerInfoIntro:
+    'Fill in your state confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.',
+  confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
   pickupInstructions:
     'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
   thankYouMessage:
     'Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.',
+  statusIntro:
+    'Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag. This page updates as your order moves through the shop.',
+  statusBestWay:
+    'Confirmation number works best before staff assign the permanent tag. After the tag is assigned, you can also search with the tag number and customer last name.',
+  statusLookupHelp:
+    'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
+  confirmationSearchHelp:
+    'Best for most customers. Use the number from your intake or state harvest/check-in.',
+  tagSearchHelp:
+    'Only use this after staff have assigned the real deer tag.',
   faqItems: [
     {
       question: 'How do I use the Public Intake Form?',
@@ -1297,7 +1337,96 @@ export default function AdminSettingsPage() {
         <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Public Copy & FAQ</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            Customize the wording customers see during public intake, after they submit, and on the public FAQ page.
+            Customize the wording customers see on the public home page, intake form, status lookup, thank-you screen, and FAQ page.
+          </div>
+
+          <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Public Home Page</div>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Home headline</span>
+              <input
+                value={s.publicCopy?.homeHeadline || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, homeHeadline: e.target.value } })}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Home intro paragraph</span>
+              <textarea
+                rows={3}
+                value={s.publicCopy?.homeIntro || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, homeIntro: e.target.value } })}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>How it works steps</span>
+              <textarea
+                rows={5}
+                value={(s.publicCopy?.homeHowItWorks || []).join('\n')}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    publicCopy: {
+                      ...DEFAULT_PUBLIC_COPY,
+                      ...s.publicCopy,
+                      homeHowItWorks: e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+                    },
+                  })
+                }
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                placeholder="One step per line"
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Pricing note</span>
+              <textarea
+                rows={2}
+                value={s.publicCopy?.pricingNote || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, pricingNote: e.target.value } })}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+          </div>
+
+          <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Public Intake Page</div>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Before drop-off checklist</span>
+              <textarea
+                rows={4}
+                value={(s.publicCopy?.beforeDropoffChecklist || []).join('\n')}
+                onChange={(e) =>
+                  setS({
+                    ...s,
+                    publicCopy: {
+                      ...DEFAULT_PUBLIC_COPY,
+                      ...s.publicCopy,
+                      beforeDropoffChecklist: e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+                    },
+                  })
+                }
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                placeholder="One checklist item per line"
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Customer info intro</span>
+              <textarea
+                rows={2}
+                value={s.publicCopy?.customerInfoIntro || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, customerInfoIntro: e.target.value } })}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Confirmation number help text</span>
+              <input
+                value={s.publicCopy?.confirmationHelpText || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, confirmationHelpText: e.target.value } })}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
           </div>
 
           <label style={{ display: 'grid', gap: 6 }}>
@@ -1377,6 +1506,53 @@ export default function AdminSettingsPage() {
               style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
             />
           </label>
+
+          <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Status Lookup Page</div>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Status page intro</span>
+              <textarea
+                rows={3}
+                value={s.publicCopy?.statusIntro || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, statusIntro: e.target.value } })}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Best way to search box</span>
+              <textarea
+                rows={3}
+                value={s.publicCopy?.statusBestWay || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, statusBestWay: e.target.value } })}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Lookup instructions</span>
+              <textarea
+                rows={2}
+                value={s.publicCopy?.statusLookupHelp || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, statusLookupHelp: e.target.value } })}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Confirmation search help</span>
+              <input
+                value={s.publicCopy?.confirmationSearchHelp || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, confirmationSearchHelp: e.target.value } })}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Tag search help</span>
+              <input
+                value={s.publicCopy?.tagSearchHelp || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, tagSearchHelp: e.target.value } })}
+                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+          </div>
 
           <div style={{ display: 'grid', gap: 10 }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Public FAQ Items</div>
