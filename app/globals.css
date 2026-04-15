@@ -2193,3 +2193,144 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
     transform-origin: top center !important;
   }
 }
+
+/* ===== CONTRAST GUARDRAILS =====
+   Keep the warm outdoor palette, but make light cards and dense staff pages
+   reliably readable on everyday shop monitors. */
+:root {
+  --light-text: #0f172a;
+  --light-text-soft: #334155;
+  --light-text-muted: #475569;
+  --light-border-strong: #cbd5e1;
+  --light-panel: #ffffff;
+  --light-panel-soft: #f8fafc;
+}
+
+.muted {
+  color: var(--text-dim);
+}
+
+.app-surface-light,
+.form-card,
+.light-page,
+.overnight-review {
+  color: var(--light-text);
+}
+
+.app-surface-light:not(.results-summary-card) h1,
+.app-surface-light:not(.results-summary-card) h2,
+.app-surface-light:not(.results-summary-card) h3,
+.app-surface-light:not(.results-summary-card) h4,
+.app-surface-light:not(.results-summary-card) p,
+.app-surface-light:not(.results-summary-card) div,
+.app-surface-light:not(.results-summary-card) span,
+.app-surface-light:not(.results-summary-card) label,
+.form-card h1,
+.form-card h2,
+.form-card h3,
+.form-card h4,
+.form-card p,
+.form-card div,
+.form-card span,
+.form-card label {
+  color: var(--light-text);
+}
+
+.app-surface-light:not(.results-summary-card) .muted,
+.app-surface-light:not(.results-summary-card) .app-section-copy,
+.form-card .muted,
+.light-page .muted,
+.overnight-review .muted {
+  color: var(--light-text-soft) !important;
+}
+
+.app-surface-light:not(.results-summary-card) [style*="opacity"],
+.form-card [style*="opacity"],
+.light-page [style*="opacity"],
+.overnight-review [style*="opacity"] {
+  opacity: 1 !important;
+}
+
+.app-surface-light:not(.results-summary-card) input,
+.app-surface-light:not(.results-summary-card) select,
+.app-surface-light:not(.results-summary-card) textarea,
+.form-card input:not([type="checkbox"]),
+.form-card select,
+.form-card textarea,
+.light-page input:not([type="checkbox"]),
+.light-page select,
+.light-page textarea {
+  background: var(--light-panel) !important;
+  color: var(--light-text) !important;
+  border-color: var(--light-border-strong) !important;
+}
+
+.app-surface-light:not(.results-summary-card) input::placeholder,
+.app-surface-light:not(.results-summary-card) textarea::placeholder,
+.form-card input::placeholder,
+.form-card textarea::placeholder,
+.light-page input::placeholder,
+.light-page textarea::placeholder {
+  color: var(--light-text-muted) !important;
+  opacity: 1 !important;
+}
+
+.app-surface-light:not(.results-summary-card) .table,
+.app-surface-light:not(.results-summary-card) table,
+.light-page table {
+  background: var(--light-panel) !important;
+  color: var(--light-text) !important;
+}
+
+.app-surface-light:not(.results-summary-card) .table th,
+.app-surface-light:not(.results-summary-card) table th,
+.light-page table th {
+  color: var(--light-text-soft) !important;
+  background: var(--light-panel-soft);
+}
+
+.app-surface-light:not(.results-summary-card) .table td,
+.app-surface-light:not(.results-summary-card) table td,
+.light-page table td {
+  color: var(--light-text) !important;
+}
+
+.results-summary-card,
+.results-summary-card h1,
+.results-summary-card h2,
+.results-summary-card h3,
+.results-summary-card div,
+.results-summary-card span,
+.results-summary-card p,
+.results-summary-card .muted {
+  color: #f5ecd8 !important;
+}
+
+/* Inline white/off-white cards are common in admin/staff pages. Give them the
+   same readability floor even when they do not use the shared card classes. */
+[style*="background: rgb(255, 255, 255)"],
+[style*="background: #ffffff"],
+[style*="background:#ffffff"],
+[style*="background: rgb(248, 250, 252)"],
+[style*="background: #f8fafc"],
+[style*="background:#f8fafc"] {
+  color: var(--light-text);
+}
+
+[style*="background: rgb(255, 255, 255)"] .muted,
+[style*="background: #ffffff"] .muted,
+[style*="background:#ffffff"] .muted,
+[style*="background: rgb(248, 250, 252)"] .muted,
+[style*="background: #f8fafc"] .muted,
+[style*="background:#f8fafc"] .muted {
+  color: var(--light-text-soft) !important;
+}
+
+[style*="background: rgb(255, 255, 255)"] [style*="opacity"],
+[style*="background: #ffffff"] [style*="opacity"],
+[style*="background:#ffffff"] [style*="opacity"],
+[style*="background: rgb(248, 250, 252)"] [style*="opacity"],
+[style*="background: #f8fafc"] [style*="opacity"],
+[style*="background:#f8fafc"] [style*="opacity"] {
+  opacity: 1 !important;
+}
