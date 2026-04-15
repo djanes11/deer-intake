@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { fetchStateformPayloadFromSupabase } from '@/lib/stateform/supabase';
-import { requireStaffAccess } from '@/lib/staffAuth';
+import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { getStateFormDefinition } from '@/lib/stateforms/registry';
 
 export async function GET(req: Request) {
@@ -8,15 +8,16 @@ export async function GET(req: Request) {
   const download = searchParams.get('download') === '1';
 
   try {
-    const auth = await requireStaffAccess(req);
-    if (!auth.ok) {
-      return new NextResponse(auth.error, {
-        status: auth.status,
+    const { denied, context: processor } = await requireProcessorPermission(req, 'view');
+    if (denied) {
+      const body = await denied.text().catch(() => 'Unauthorized');
+      return new NextResponse(body, {
+        status: denied.status,
         headers: { 'Content-Type': 'text/plain' },
       });
     }
 
-    const payload = await fetchStateformPayloadFromSupabase();
+    const payload = await fetchStateformPayloadFromSupabase(processor);
     const definition = getStateFormDefinition(payload.formType);
     const out = await definition.renderPdf(payload);
 

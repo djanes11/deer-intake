@@ -1624,9 +1624,9 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
 
 /* ---------------- core reads ---------------- */
 
-export async function getJobByTag(tag: string) {
+export async function getJobByTag(tag: string, opts: { processorContext?: ProcessorContext | null } = {}) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = opts.processorContext ?? await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer

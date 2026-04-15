@@ -17,7 +17,7 @@ import {
   NotificationTemplateSet,
   ProcessTypeCatalogItem,
 } from '@/lib/processorCatalog';
-import { getDefaultProcessorContext, getProcessorContextForHostname } from '@/lib/processorContext';
+import { getDefaultProcessorContext, getProcessorContextForHostname, type ProcessorContext } from '@/lib/processorContext';
 import { normalizeStateFormType } from '@/lib/stateforms/catalog';
 import { StateFormType } from '@/lib/stateforms/types';
 
@@ -221,7 +221,10 @@ async function getRequestHostname() {
   }
 }
 
-export async function getPublicSiteSettings(hostname?: string | null): Promise<PublicSiteSettings> {
+export async function getPublicSiteSettings(
+  hostname?: string | null,
+  processorOverride?: ProcessorContext | null
+): Promise<PublicSiteSettings> {
   const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -231,7 +234,9 @@ export async function getPublicSiteSettings(hostname?: string | null): Promise<P
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-    const processor = hostname
+    const processor = processorOverride
+      ? processorOverride
+      : hostname
       ? await getProcessorContextForHostname(hostname)
       : await getDefaultProcessorContext();
     let query = supabase

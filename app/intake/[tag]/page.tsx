@@ -6,6 +6,7 @@ export const revalidate = 0;
 
 import crypto from 'crypto';
 import { getJobByTag } from '@/lib/jobsSupabase';
+import { getStaffProcessorContext, type StaffProcessorContext } from '@/lib/staffContext';
 import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import {
   hasWebbsOrder,
@@ -51,12 +52,21 @@ function verifyToken(tag: string, token: string | undefined, jobPublicToken: str
   return false;
 }
 
-async function getJob(tag: string) {
+async function getJob(tag: string, processorContext?: StaffProcessorContext | null) {
   // Supabase-backed lookup (server-side)
-  const res = await getJobByTag(tag);
+  const res = await getJobByTag(tag, { processorContext });
   if (!res?.exists || !res?.job) throw new Error('Form not found for that tag.');
   // jobsSupabase already maps DB → frontend Job shape
   return res.job as Record<string, any>;
+}
+
+async function getStaffViewContext() {
+  try {
+    const context = await getStaffProcessorContext();
+    return context.role ? context : null;
+  } catch {
+    return null;
+  }
 }
 
 // ---- Simple pricing helpers to show the summary numbers like the intake page ----
@@ -122,22 +132,23 @@ export default async function IntakeView({
   searchParams?: Promise<SP>;
 }) {
   try {
-    const settings = await getPublicSiteSettings();
+    // Promise props (Next 15)
+    const { tag } = await params;
+    const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
+
+    const tagDec = decodeURIComponent(tag);
+    const staffContext = await getStaffViewContext();
+    const settings = await getPublicSiteSettings(null, staffContext);
     const webbsEnabled = settings.features.webbsEnabled !== false;
     const showFrontShoulderSteaks = settings.cutOptions.showFrontShoulderSteaks !== false;
     const showSteakThickness = settings.cutOptions.showSteakThickness !== false;
     const showBackstrapThickness = settings.cutOptions.showBackstrapThickness !== false;
     const showRoastCounts = settings.cutOptions.showRoastCounts !== false;
     const requiresHuntingLicense = settings.stateFormType === 'michigan';
-    // Promise props (Next 15)
-    const { tag } = await params;
-    const sp = (await (searchParams ?? Promise.resolve({}))) as SP;
-
-    const tagDec = decodeURIComponent(tag);
     const t = typeof sp.t === 'string' ? sp.t : Array.isArray(sp.t) ? sp.t[0] : undefined;
-    const job = await getJob(tagDec);
+    const job = await getJob(tagDec, staffContext);
     const jobPublicToken = String((job as any)?.publicToken || (job as any)?.public_token || '').trim();
-    if (!verifyToken(tagDec, t, jobPublicToken)) {
+    if (!staffContext && !verifyToken(tagDec, t, jobPublicToken)) {
       return (
         <div className="light-page" style={{maxWidth:760, margin:'24px auto', padding:'16px'}}>
           <h1 className="text-lg font-bold mb-2" style={{color:'#0b0f12'}}>Access denied</h1>

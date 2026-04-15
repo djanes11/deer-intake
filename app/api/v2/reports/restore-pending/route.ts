@@ -13,6 +13,13 @@ export async function POST(req: Request) {
     const { denied, context: processor } = await requireProcessorPermission(req, 'edit_jobs');
     if (denied) return denied;
 
+    if (processor?.role === 'readonly') {
+      return NextResponse.json(
+        { ok: false, error: 'Read-only users cannot restore removed public intakes.' },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json().catch(() => null);
     const jobId = String(body?.jobId || '').trim();
 

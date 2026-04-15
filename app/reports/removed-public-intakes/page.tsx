@@ -68,6 +68,10 @@ export default function RemovedPublicIntakesPage() {
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
 
   const restore = async (row: Row) => {
+    if (!canEdit) {
+      setErr('Restoring removed intakes requires Staff or Admin access.');
+      return;
+    }
     const jobId = String(row.id || '').trim();
     if (!jobId) return;
     const label = row.customer || row.confirmation || 'this public intake';
@@ -166,9 +170,13 @@ export default function RemovedPublicIntakesPage() {
                       </span>
                     </div>
                   </div>
-                  <button className="btn" type="button" onClick={() => void restore(row)} disabled={!canEdit || busy === id}>
-                    {!canEdit ? 'Restore (Staff/Admin)' : busy === id ? 'Restoring...' : 'Restore'}
-                  </button>
+                  {canEdit ? (
+                    <button className="btn" type="button" onClick={() => void restore(row)} disabled={busy === id}>
+                      {busy === id ? 'Restoring...' : 'Restore'}
+                    </button>
+                  ) : (
+                    <div style={{ color: '#64748b', fontWeight: 800 }}>Restore requires Staff/Admin</div>
+                  )}
                 </div>
               </div>
             );

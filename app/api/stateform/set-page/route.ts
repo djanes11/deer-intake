@@ -12,7 +12,7 @@ export async function POST(req: Request) {
     if (!(page > 0 && Number.isFinite(page))) {
       return NextResponse.json({ ok: false, error: 'invalid page' }, { status: 400 });
     }
-    const result = await setStateformPageNumberInSupabase(page);
+    const result = await setStateformPageNumberInSupabase(page, processor);
     await writeAuditEntry({
       req,
       processorId: processor?.id,

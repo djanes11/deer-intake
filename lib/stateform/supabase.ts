@@ -2,7 +2,7 @@ import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
 import { SITE } from '@/lib/config';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
+import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
 import { normalizeStateFormType } from '@/lib/stateforms/catalog';
 import {
   currentMonthStart,
@@ -30,9 +30,14 @@ function getSupabase() {
   return createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 }
 
-async function buildContext() {
+async function getScopedProcessor(processor?: ProcessorContext | null) {
+  if (processor) return processor;
+  return getDefaultProcessorContext();
+}
+
+async function buildContext(processorInput?: ProcessorContext | null) {
   const supabase = getSupabase();
-  const processor = await getDefaultProcessorContext();
+  const processor = await getScopedProcessor(processorInput);
   let name: string = SITE.name;
   let location: string = String((SITE as any).locationLabel || 'Palmyra, IN');
   let address: string = SITE.address;
@@ -66,9 +71,9 @@ async function buildContext() {
   };
 }
 
-export async function getStateformSettings() {
+export async function getStateformSettings(processorInput?: ProcessorContext | null) {
   const supabase = getSupabase();
-  const processor = await getDefaultProcessorContext();
+  const processor = await getScopedProcessor(processorInput);
   let query = supabase
     .from('site_settings')
     .select('id,stateform_page_number,state_form_type');
@@ -81,8 +86,9 @@ export async function getStateformSettings() {
   return (data || { id: 1, stateform_page_number: 1, state_form_type: 'indiana' }) as SettingsRow;
 }
 
-export async function setStateformPageNumberInSupabase(page: number) {
-  const settings = await getStateformSettings();
+export async function setStateformPageNumberInSupabase(page: number, processorInput?: ProcessorContext | null) {
+  const processor = await getScopedProcessor(processorInput);
+  const settings = await getStateformSettings(processor);
   const formType = normalizeStateFormType(settings.state_form_type);
   const definition = getStateFormDefinition(formType);
   if (!definition.supportsPageNumber) {
@@ -90,7 +96,6 @@ export async function setStateformPageNumberInSupabase(page: number) {
   }
 
   const supabase = getSupabase();
-  const processor = await getDefaultProcessorContext();
   let query = supabase
     .from('site_settings')
     .update({ stateform_page_number: page });
@@ -105,9 +110,9 @@ export async function setStateformPageNumberInSupabase(page: number) {
   return { ok: true as const, pageNumber: Number(data?.stateform_page_number || page) };
 }
 
-async function fetchStateformRows(stateFormType: StateFormType) {
+async function fetchStateformRows(stateFormType: StateFormType, processorInput?: ProcessorContext | null) {
   const supabase = getSupabase();
-  const processor = await getDefaultProcessorContext();
+  const processor = await getScopedProcessor(processorInput);
 
   let query = supabase
     .from('jobs')
@@ -130,11 +135,12 @@ async function fetchStateformRows(stateFormType: StateFormType) {
   return data || [];
 }
 
-export async function fetchStateformPayloadFromSupabase() {
-  const settings = await getStateformSettings();
+export async function fetchStateformPayloadFromSupabase(processorInput?: ProcessorContext | null) {
+  const processor = await getScopedProcessor(processorInput);
+  const settings = await getStateformSettings(processor);
   const stateFormType = normalizeStateFormType(settings.state_form_type);
   const definition = getStateFormDefinition(stateFormType);
-  const rows = await fetchStateformRows(stateFormType);
+  const rows = await fetchStateformRows(stateFormType, processor);
   const startPage = definition.supportsPageNumber
     ? Number(settings.stateform_page_number || 1)
     : 1;
@@ -142,6 +148,6 @@ export async function fetchStateformPayloadFromSupabase() {
   return definition.preparePayload({
     rows,
     pageNumberStart: startPage,
-    context: await buildContext(),
+    context: await buildContext(processor),
   });
 }
