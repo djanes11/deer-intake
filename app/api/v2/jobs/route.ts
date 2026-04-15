@@ -30,7 +30,7 @@ function normalizeAction(v: string | null) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = normalizeAction(searchParams.get('action'));
-  const { denied } = await requireProcessorPermission(req, 'view');
+  const { denied, context: processorContext } = await requireProcessorPermission(req, 'view');
   if (denied) {
     return new Response(await denied.text(), { status: denied.status, headers: { 'content-type': 'application/json' } });
   }
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const result = await getJobByTag(tag);
+      const result = await getJobByTag(tag, { processorContext });
       return new Response(JSON.stringify(result), { status: 200 });
     } catch (err: any) {
       console.error('GET get error', err);
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   if (action === 'search') {
     const q = searchParams.get('q') || '';
     try {
-      const result = await searchJobs(q);
+      const result = await searchJobs(q, { processorContext });
       return new Response(JSON.stringify(result), { status: 200 });
     } catch (err: any) {
       console.error('GET search error', err);
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
 
   if (action === 'needstag') {
     try {
-      const result = await listJobsNeedingTag();
+      const result = await listJobsNeedingTag({ processorContext });
       return new Response(JSON.stringify(result), { status: 200 });
     } catch (err: any) {
       console.error('GET needstag error', err);
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'needstag') {
-      const result = await listJobsNeedingTag();
+      const result = await listJobsNeedingTag({ processorContext });
       return new Response(JSON.stringify(result), { status: 200 });
     }
 

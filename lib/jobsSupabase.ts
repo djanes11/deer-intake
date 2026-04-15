@@ -1714,9 +1714,9 @@ const SEARCH_SELECT = `
   public_token
 `;
 
-async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+async function searchReport(opts: { processorContext?: ProcessorContext | null } = {}): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = opts.processorContext ?? await getDefaultProcessorContext();
 
   // Pull a broad set of candidates, then filter in JS (simpler and more reliable than complex NOT-ILIKE ORs).
   const { data, error } = await withProcessorFilter(
@@ -1765,9 +1765,9 @@ async function searchReport(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   return { ok: true, rows: filtered.map(mapDbRowToSearchRow) };
 }
 
-async function searchRecall(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+async function searchRecall(opts: { processorContext?: ProcessorContext | null } = {}): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = opts.processorContext ?? await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer
@@ -1796,17 +1796,17 @@ async function searchRecall(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   return { ok: true, rows: filtered.map(mapDbRowToSearchRow) };
 }
 
-export async function searchJobs(query: string): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+export async function searchJobs(query: string, opts: { processorContext?: ProcessorContext | null } = {}): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = opts.processorContext ?? await getDefaultProcessorContext();
   const q = query.trim();
   const confirmationDigits = q.replace(/\D/g, '');
 
   if (!q) return { ok: true, rows: [] };
 
   // --- special keywords used by your UI ---
-  if (q.toLowerCase() === '@report') return searchReport();
-  if (q.toLowerCase() === '@recall') return searchRecall();
+  if (q.toLowerCase() === '@report') return searchReport({ processorContext: processor });
+  if (q.toLowerCase() === '@recall') return searchRecall({ processorContext: processor });
 
   // Fast path for the most common staff searches: exact tag or confirmation lookups.
   // This keeps scanner/manual tag entry and exact confirmation searches on indexed equality queries
@@ -2650,9 +2650,9 @@ export async function markCalled(params: {
 
 /* ---------------- needsTag ---------------- */
 
-export async function listJobsNeedingTag(): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
+export async function listJobsNeedingTag(opts: { processorContext?: ProcessorContext | null } = {}): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = opts.processorContext ?? await getDefaultProcessorContext();
 
   const { data, error } = await withProcessorFilter(
     supabaseServer
