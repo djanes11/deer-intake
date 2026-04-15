@@ -117,7 +117,7 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
   if (!url || !key) return null;
 
   const supabase = createClient(url, key, { auth: { persistSession: false } });
-  const [{ data: processorRow }, { data: siteSettingsRow }, { data: memberships }, { data: specialtyRows }] = await Promise.all([
+  const [{ data: processorRow }, { data: siteSettingsRow }, { data: memberships }, { data: localMemberships }, { data: specialtyRows }] = await Promise.all([
     supabase
       .from('processors')
       .select('id,public_name,name,logo_url,support_phone_display,support_email,public_address,public_hostname,features')
@@ -130,6 +130,11 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
       .maybeSingle(),
     supabase
       .from('processor_users')
+      .select('role,active')
+      .eq('processor_id', id)
+      .eq('active', true),
+    supabase
+      .from('staff_local_users')
       .select('role,active')
       .eq('processor_id', id)
       .eq('active', true),
@@ -158,8 +163,12 @@ async function getProcessorOwnerChecklistSnapshot(processorId: string | null | u
     Number((siteSettingsRow as any)?.standard_processing_price || 0) > 0 &&
     Number((siteSettingsRow as any)?.caped_price || 0) > 0 &&
     Number((siteSettingsRow as any)?.cape_donate_price || 0) > 0;
-  const activeMembers = Array.isArray(memberships) ? memberships.length : 0;
-  const nonAdminMembers = Array.isArray(memberships) ? memberships.filter((item: any) => item?.role !== 'admin').length : 0;
+  const activeEmailMembers = Array.isArray(memberships) ? memberships.length : 0;
+  const activeLocalMembers = Array.isArray(localMemberships) ? localMemberships.length : 0;
+  const activeMembers = activeEmailMembers + activeLocalMembers;
+  const nonAdminMembers =
+    (Array.isArray(memberships) ? memberships.filter((item: any) => item?.role !== 'admin').length : 0) +
+    (Array.isArray(localMemberships) ? localMemberships.filter((item: any) => item?.role !== 'admin').length : 0);
   const faqItems = Array.isArray(publicCopy?.faqItems) ? publicCopy.faqItems : [];
   const answeredFaqItems = faqItems.filter((item: any) => String(item?.question || '').trim() && String(item?.answer || '').trim()).length;
   const notificationTemplateCount =
