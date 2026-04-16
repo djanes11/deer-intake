@@ -1206,90 +1206,110 @@ function StaffHome({
             {ownerChecklist.readyToGoLive ? 'Go-Live Ready' : 'Make This Yours'}
           </div>
           <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
-            <div style={{ fontWeight: 900, fontSize: 24 }}>
-              Work through these owner setup steps so the shop feels like your own from day one.
-            </div>
+            <div style={{ fontWeight: 900, fontSize: 24 }}>Finish setup, then use this page to run the shop.</div>
             <div style={{ opacity: 0.84, lineHeight: 1.55 }}>
-              {ownerChecklist.readyCount}/{ownerChecklist.totalCount} owner setup items are complete. Click any card to jump straight to the setting that needs attention.
+              {ownerChecklist.readyCount}/{ownerChecklist.totalCount} owner setup items are complete. The detailed checklist lives in Processor Settings now, so this dashboard stays focused on day-to-day work.
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 12 }}>
-            {ownerChecklist.items.map((item) => {
-              const cardNode = (
-                <div
-                  style={{
-                    border: `1px solid ${item.done ? 'rgba(91,122,98,.32)' : 'rgba(200,138,61,.22)'}`,
-                    borderRadius: 14,
-                    padding: 14,
-                    background: item.done ? 'rgba(15,35,23,.88)' : 'rgba(14,13,12,.88)',
-                    display: 'grid',
-                    gap: 6,
-                    minHeight: '100%',
-                    boxShadow: item.done ? 'inset 0 0 0 1px rgba(91,122,98,.12)' : 'none',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
-                    <div style={{ fontWeight: 900 }}>{item.label}</div>
-                    <span
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 12 }}>
+            {[
+              {
+                label: 'Setup Progress',
+                value: `${ownerChecklist.readyCount}/${ownerChecklist.totalCount}`,
+                note: 'Owner setup items complete',
+              },
+              {
+                label: 'Still Needs Attention',
+                value: String(ownerChecklist.items.filter((item) => !item.done).length),
+                note: 'Settings areas still to review',
+              },
+              {
+                label: 'Public Intake',
+                value: ownerChecklist.publicHostname ? 'Ready to test' : 'Hostname needed',
+                note: ownerChecklist.publicHostname ? 'Open the public site and test one intake' : 'Finish the public hostname before testing',
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  border: '1px solid rgba(200,138,61,.18)',
+                  borderRadius: 14,
+                  padding: 14,
+                  background: 'rgba(14,13,12,.82)',
+                  display: 'grid',
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#d2b27d' }}>
+                  {item.label}
+                </div>
+                <div style={{ fontWeight: 900, fontSize: 28 }}>{item.value}</div>
+                <div style={{ opacity: 0.8, lineHeight: 1.45, fontSize: 14 }}>{item.note}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#d2b27d' }}>
+              Next Best Things To Finish
+            </div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {ownerChecklist.items
+                .filter((item) => !item.done)
+                .slice(0, 3)
+                .map((item) => {
+                  const rowNode = (
+                    <div
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        padding: '4px 8px',
-                        borderRadius: 999,
-                        fontSize: 11,
-                        fontWeight: 900,
-                        background: item.done ? 'rgba(91,122,98,.22)' : 'rgba(200,138,61,.18)',
-                        color: item.done ? '#cde9cf' : '#f1d1a0',
-                        whiteSpace: 'nowrap',
+                        border: '1px solid rgba(200,138,61,.16)',
+                        borderRadius: 12,
+                        padding: '12px 14px',
+                        background: 'rgba(14,13,12,.72)',
+                        display: 'grid',
+                        gap: 4,
                       }}
                     >
-                      {item.done ? 'Ready' : 'Needs setup'}
-                    </span>
-                  </div>
-                  <div style={{ opacity: 0.82, lineHeight: 1.45, fontSize: 14 }}>{item.note}</div>
-                  <div style={{ color: item.done ? '#cde9cf' : '#f1d1a0', fontSize: 12, fontWeight: 900, letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                    {item.done ? 'Review' : 'Open setup'}
-                  </div>
-                </div>
-              );
-              return item.external ? (
-                <a key={item.key} href={item.href} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {cardNode}
-                </a>
-              ) : (
-                <Link key={item.key} href={item.href} style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {cardNode}
-                </Link>
-              );
-            })}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div style={{ fontWeight: 900 }}>{item.label}</div>
+                        <span style={{ color: '#f1d1a0', fontSize: 12, fontWeight: 900, letterSpacing: '.04em', textTransform: 'uppercase' }}>
+                          Open setup
+                        </span>
+                      </div>
+                      <div style={{ opacity: 0.82, lineHeight: 1.45, fontSize: 14 }}>{item.note}</div>
+                    </div>
+                  );
+                  return item.external ? (
+                    <a key={item.key} href={item.href} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {rowNode}
+                    </a>
+                  ) : (
+                    <Link key={item.key} href={item.href} style={{ color: 'inherit', textDecoration: 'none' }}>
+                      {rowNode}
+                    </Link>
+                  );
+                })}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
-            <Link href="/admin/settings" style={{ textDecoration: 'none' }}>
+            <Link href="/admin/settings?section=overview" style={{ textDecoration: 'none' }}>
               <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
                 Open Processor Settings
               </div>
             </Link>
             <Link href="/staff/team" style={{ textDecoration: 'none' }}>
               <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
-                Open Staff Team
-              </div>
-            </Link>
-            <Link href="/search" style={{ textDecoration: 'none' }}>
-              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
-                Review Search / Print
-              </div>
-            </Link>
-            <Link href="/reports/state-form" style={{ textDecoration: 'none' }}>
-              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
-                Review State Form
+                Add Staff
               </div>
             </Link>
             {ownerChecklist.publicHostname ? (
               <a href={`https://${ownerChecklist.publicHostname}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
-                  Open Public Intake
+                <div
+                  className="btn secondary"
+                  style={{ display: 'inline-flex', justifyContent: 'center' }}
+                >
+                  Test Public Intake
                 </div>
               </a>
             ) : null}

@@ -297,6 +297,7 @@ export default function AdminSettingsPage() {
   const [msg, setMsg] = useState('');
   const [logoDropActive, setLogoDropActive] = useState(false);
   const [section, setSection] = useState<SettingsSection>('overview');
+  const [copySection, setCopySection] = useState<'home' | 'intake' | 'status' | 'faq'>('intake');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -769,6 +770,16 @@ export default function AdminSettingsPage() {
     fontWeight: 800,
     cursor: 'pointer',
     boxShadow: active ? '0 8px 18px rgba(200,138,61,.12)' : '0 6px 14px rgba(15,23,42,.04)',
+  });
+  const copySectionButton = (active: boolean): React.CSSProperties => ({
+    padding: '10px 14px',
+    borderRadius: 999,
+    border: `1px solid ${active ? '#e1c08b' : '#d6dee8'}`,
+    background: active ? '#fff7eb' : '#ffffff',
+    color: active ? '#7c4b17' : '#334155',
+    fontWeight: 800,
+    cursor: 'pointer',
+    boxShadow: active ? '0 8px 18px rgba(200,138,61,.12)' : 'none',
   });
 
   return (
@@ -1447,7 +1458,35 @@ export default function AdminSettingsPage() {
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Customize the wording customers see on the public home page, intake form, status lookup, thank-you screen, and FAQ page.
           </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              flexWrap: 'wrap',
+              padding: 12,
+              borderRadius: 14,
+              background: '#fffaf2',
+              border: '1px solid #f1dfbf',
+            }}
+          >
+            {[
+              { key: 'intake', label: 'Intake Flow' },
+              { key: 'status', label: 'Status Page' },
+              { key: 'home', label: 'Home Page' },
+              { key: 'faq', label: 'FAQ' },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setCopySection(item.key as typeof copySection)}
+                style={copySectionButton(copySection === item.key)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
 
+          {copySection === 'home' && (
           <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Public Home Page</div>
             <label style={{ display: 'grid', gap: 6 }}>
@@ -1496,7 +1535,10 @@ export default function AdminSettingsPage() {
               />
             </label>
           </div>
+          )}
 
+          {copySection === 'intake' && (
+          <>
           <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Public Intake Page</div>
             <label style={{ display: 'grid', gap: 6 }}>
@@ -1537,6 +1579,8 @@ export default function AdminSettingsPage() {
             </label>
           </div>
 
+          <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Review & Thank You</div>
           <label style={{ display: 'grid', gap: 6 }}>
             <span style={{ fontWeight: 800, color: '#0f172a' }}>Intake intro highlights</span>
             <textarea
@@ -1614,7 +1658,11 @@ export default function AdminSettingsPage() {
               style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
             />
           </label>
+          </div>
+          </>
+          )}
 
+          {copySection === 'status' && (
           <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Status Lookup Page</div>
             <label style={{ display: 'grid', gap: 6 }}>
@@ -1661,7 +1709,9 @@ export default function AdminSettingsPage() {
               />
             </label>
           </div>
+          )}
 
+          {copySection === 'faq' && (
           <div style={{ display: 'grid', gap: 10 }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Public FAQ Items</div>
             {(s.publicCopy?.faqItems || []).map((item, index) => (
@@ -1734,6 +1784,7 @@ export default function AdminSettingsPage() {
               </button>
             </div>
           </div>
+          )}
         </div>
         )}
 
