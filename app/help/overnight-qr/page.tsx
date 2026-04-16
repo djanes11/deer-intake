@@ -23,12 +23,10 @@ function normalizeHostname(value: unknown) {
 
 function qrImageUrl(targetUrl: string) {
   const params = new URLSearchParams({
-    size: '420x420',
-    margin: '18',
-    format: 'svg',
     data: targetUrl,
+    size: '420',
   });
-  return `https://api.qrserver.com/v1/create-qr-code/?${params.toString()}`;
+  return `/api/qr-code?${params.toString()}`;
 }
 
 export default async function OvernightQRPage() {

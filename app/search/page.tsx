@@ -53,7 +53,7 @@ export default function SearchPage() {
   const debounced = useDebounced(q, 300);
 
   useEffect(() => {
-    fetch('/api/public/site-settings', { cache: 'no-store' })
+    fetch('/api/staff/site-settings', { cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => {
         if (!j?.ok) return;

@@ -388,7 +388,7 @@ export default function CalledPickupQueue() {
   useEffect(() => { load(); }, [webbsEnabled]);
 
   useEffect(() => {
-    fetch('/api/public/site-settings', { cache: 'no-store' })
+    fetch('/api/staff/site-settings', { cache: 'no-store' })
       .then((r) => r.json())
       .then((json) => {
         if (!json?.ok) return;

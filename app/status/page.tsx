@@ -556,7 +556,7 @@ export default function StatusPage() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
                 Easiest option
               </div>
-              <div style={{ fontWeight: 900 }}>Use your confirmation number first.</div>
+              <div style={{ fontWeight: 900 }}>Search by confirmation number first.</div>
               <div style={{ color: '#475569', lineHeight: 1.5 }}>
                 {publicCopy.statusBestWay}
               </div>
@@ -576,7 +576,7 @@ export default function StatusPage() {
                 <input
                   value={confirmation}
                   onChange={(e) => setConfirmation(e.target.value)}
-                  placeholder="13-digit confirmation #"
+                  placeholder="Confirmation #"
                   inputMode="numeric"
                   aria-label="Confirmation number"
                   style={{ ...field, width: '100%' }}
@@ -613,7 +613,7 @@ export default function StatusPage() {
             </div>
 
             <div style={{ fontSize: 13, opacity: 0.82 }}>
-              If one search does not work, try the other. Confirmation number is usually the fastest.
+              If one search does not work, try the other. Confirmation number is usually the fastest place to start.
             </div>
           </form>
       </section>

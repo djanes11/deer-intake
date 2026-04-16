@@ -24,7 +24,7 @@ export default function ScanPage() {
   React.useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await fetch('/api/public/site-settings', { cache: 'no-store' });
+        const res = await fetch('/api/staff/site-settings', { cache: 'no-store' });
         const json = await res.json().catch(() => ({}));
         if (json?.ok) {
           setWebbsEnabled(json?.settings?.features?.webbsEnabled !== false);
