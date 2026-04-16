@@ -4,6 +4,7 @@ import { sharedRateLimit } from '@/lib/ratelimit';
 import { saveJob } from '@/lib/jobsSupabase';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getSupabaseServer } from '@/lib/supabaseClient';
+import { confirmationSearchCandidates, identifierSettingsFromPublicCopy, normalizeConfirmationInput } from '@/lib/identifiers';
 import {
   normalizeWebbsAllocations,
   normalizeWebbsOrderItems,
@@ -31,7 +32,6 @@ function genPublicToken() {
 }
 
 function genConfirmation() {
-  // Public status expects digits-only confirmation values.
   const now = new Date();
   const yy = String(now.getFullYear()).slice(-2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -106,9 +106,10 @@ async function confirmationExists(confirmation: string, hostname?: string | null
   return !!data;
 }
 
-async function reserveConfirmation(preferred: string, hostname?: string | null) {
-  const initial = digitsOnly(preferred);
-  if (initial.length === 13 && !(await confirmationExists(initial, hostname))) {
+async function reserveConfirmation(preferred: string, hostname: string | null | undefined, settings: ReturnType<typeof identifierSettingsFromPublicCopy>) {
+  const initial = normalizeConfirmationInput(preferred, settings).trim();
+  const validationCandidates = confirmationSearchCandidates(initial, settings);
+  if (initial && validationCandidates.length && !(await confirmationExists(initial, hostname))) {
     return initial;
   }
 
@@ -168,7 +169,8 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ ok: false, error: validationError }), { status: 400 });
   }
 
-  let confirmation = await reserveConfirmation(String(rawJob.confirmation || '').trim(), hostname);
+  const identifierSettings = identifierSettingsFromPublicCopy(settings.publicCopy);
+  let confirmation = await reserveConfirmation(String(rawJob.confirmation || '').trim(), hostname, identifierSettings);
   const publicToken = String(rawJob.publicToken || '').trim() || genPublicToken();
 
   try {
@@ -196,7 +198,7 @@ export async function POST(req: NextRequest) {
         break;
       } catch (error: any) {
         if (isUniqueViolation(error, 'confirmation')) {
-          confirmation = await reserveConfirmation('', hostname);
+          confirmation = await reserveConfirmation('', hostname, identifierSettings);
           continue;
         }
         throw error;

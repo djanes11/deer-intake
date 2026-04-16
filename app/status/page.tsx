@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
+import {
+  confirmationInputMode,
+  identifierSettingsFromPublicCopy,
+  normalizeConfirmationInput,
+  normalizeTagInput,
+  tagInputMode,
+} from '@/lib/identifiers';
 
 type LookupResult = {
   ok?: boolean;
@@ -56,6 +63,12 @@ type PublicCopyState = {
   statusBestWay: string;
   statusLookupHelp: string;
   confirmationSearchHelp: string;
+  confirmationLabel: string;
+  confirmationPlaceholder: string;
+  tagLabel: string;
+  tagPlaceholder: string;
+  confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
+  tagFormat: 'digits_only' | 'letters_numbers';
   tagSearchHelp: string;
 };
 
@@ -68,6 +81,12 @@ const DEFAULT_STATUS_COPY: PublicCopyState = {
     'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
   confirmationSearchHelp:
     'Best for most customers. Use the number from your intake or state harvest/check-in.',
+  confirmationLabel: 'Confirmation #',
+  confirmationPlaceholder: 'State confirmation #',
+  tagLabel: 'Tag Number',
+  tagPlaceholder: 'Deer tag number',
+  confirmationValidation: 'exact_13',
+  tagFormat: 'digits_only',
   tagSearchHelp:
     'Only use this after staff have assigned the real deer tag.',
 };
@@ -193,6 +212,7 @@ export default function StatusPage() {
     webbsEnabled: true,
   });
   const [publicCopy, setPublicCopy] = useState<PublicCopyState>(DEFAULT_STATUS_COPY);
+  const identifierSettings = useMemo(() => identifierSettingsFromPublicCopy(publicCopy as any), [publicCopy]);
 
   const pollUntilRef = useRef<number | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -241,12 +261,19 @@ export default function StatusPage() {
           });
         }
         if (j?.ok && j?.settings?.publicCopy) {
+          const identifiers = identifierSettingsFromPublicCopy(j.settings.publicCopy);
           setPublicCopy({
             ...DEFAULT_STATUS_COPY,
             statusIntro: String(j.settings.publicCopy.statusIntro || DEFAULT_STATUS_COPY.statusIntro),
             statusBestWay: String(j.settings.publicCopy.statusBestWay || DEFAULT_STATUS_COPY.statusBestWay),
             statusLookupHelp: String(j.settings.publicCopy.statusLookupHelp || DEFAULT_STATUS_COPY.statusLookupHelp),
             confirmationSearchHelp: String(j.settings.publicCopy.confirmationSearchHelp || DEFAULT_STATUS_COPY.confirmationSearchHelp),
+            confirmationLabel: identifiers.confirmationLabel,
+            confirmationPlaceholder: identifiers.confirmationPlaceholder,
+            confirmationValidation: identifiers.confirmationValidation,
+            tagLabel: identifiers.tagLabel,
+            tagPlaceholder: identifiers.tagPlaceholder,
+            tagFormat: identifiers.tagFormat,
             tagSearchHelp: String(j.settings.publicCopy.tagSearchHelp || DEFAULT_STATUS_COPY.tagSearchHelp),
           });
         }
@@ -439,13 +466,13 @@ export default function StatusPage() {
     e.preventDefault();
 
     const payload = {
-      confirmation: confirmation.replace(/\D/g, ''),
-      tag: tag.trim(),
+      confirmation: normalizeConfirmationInput(confirmation, identifierSettings),
+      tag: normalizeTagInput(tag, identifierSettings),
       lastName: normalizeName(lastName),
     };
 
     if (!payload.confirmation && !(payload.tag && payload.lastName)) {
-      setErr('Enter your confirmation number, or enter your tag number and last name.');
+      setErr(`Enter your ${identifierSettings.confirmationLabel.toLowerCase()}, or enter your ${identifierSettings.tagLabel.toLowerCase()} and last name.`);
       return;
     }
 
@@ -556,7 +583,7 @@ export default function StatusPage() {
               <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
                 Easiest option
               </div>
-              <div style={{ fontWeight: 900 }}>Search by confirmation number first.</div>
+              <div style={{ fontWeight: 900 }}>{`Search by ${identifierSettings.confirmationLabel.toLowerCase()} first.`}</div>
               <div style={{ color: '#475569', lineHeight: 1.5 }}>
                 {publicCopy.statusBestWay}
               </div>
@@ -569,27 +596,27 @@ export default function StatusPage() {
               }}
             >
               <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Confirmation Number</div>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>{`Search by ${identifierSettings.confirmationLabel}`}</div>
                 <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
                   {publicCopy.confirmationSearchHelp}
                 </div>
                 <input
                   value={confirmation}
                   onChange={(e) => setConfirmation(e.target.value)}
-                  placeholder="Confirmation #"
-                  inputMode="numeric"
+                  placeholder={identifierSettings.confirmationPlaceholder}
+                  inputMode={confirmationInputMode(identifierSettings)}
                   aria-label="Confirmation number"
                   style={{ ...field, width: '100%' }}
                 />
               </div>
 
               <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Tag and Last Name</div>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>{`Search by ${identifierSettings.tagLabel} and Last Name`}</div>
                 <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
                   {publicCopy.tagSearchHelp}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-                  <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder="Deer tag number" aria-label="Tag number" style={field} />
+                  <input value={tag} onChange={(e) => setTag(e.target.value)} placeholder={identifierSettings.tagPlaceholder} inputMode={tagInputMode(identifierSettings)} aria-label="Tag number" style={field} />
                   <input
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
@@ -613,7 +640,7 @@ export default function StatusPage() {
             </div>
 
             <div style={{ fontSize: 13, opacity: 0.82 }}>
-              If one search does not work, try the other. Confirmation number is usually the fastest place to start.
+              {`If one search does not work, try the other. ${identifierSettings.confirmationLabel} is usually the fastest place to start.`}
             </div>
           </form>
       </section>

@@ -61,13 +61,21 @@ export type PublicCopySettings = {
   intakeHighlights: string[];
   reviewChecklist: string[];
   customerInfoIntro: string;
+  confirmationLabel: string;
+  confirmationPlaceholder: string;
   confirmationHelpText: string;
+  confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
   pickupInstructions: string;
   thankYouMessage: string;
   statusIntro: string;
   statusBestWay: string;
   statusLookupHelp: string;
   confirmationSearchHelp: string;
+  tagLabel: string;
+  tagPlaceholder: string;
+  tagFormat: 'digits_only' | 'letters_numbers';
+  tagMinLength: number;
+  startingTagNumber: string;
   tagSearchHelp: string;
   faqItems: PublicFaqItem[];
 };
@@ -197,7 +205,10 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
       ],
       customerInfoIntro:
         'Fill in your state confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.',
+      confirmationLabel: 'Confirmation #',
+      confirmationPlaceholder: 'State confirmation #',
       confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
+      confirmationValidation: 'exact_13',
       pickupInstructions:
         'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
       thankYouMessage:
@@ -210,6 +221,11 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
         'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
       confirmationSearchHelp:
         'Best for most customers. Use the number from your intake or state harvest/check-in.',
+      tagLabel: 'Tag Number',
+      tagPlaceholder: 'Deer tag number',
+      tagFormat: 'digits_only',
+      tagMinLength: 5,
+      startingTagNumber: '1000',
       tagSearchHelp:
         'Only use this after staff have assigned the real deer tag.',
       faqItems: [
@@ -256,13 +272,24 @@ export function normalizePublicCopy(input: any): PublicCopySettings {
     intakeHighlights: normalizeLines(input?.intakeHighlights, defaults.intakeHighlights),
     reviewChecklist: normalizeLines(input?.reviewChecklist, defaults.reviewChecklist),
     customerInfoIntro: String(input?.customerInfoIntro || '').trim() || defaults.customerInfoIntro,
+    confirmationLabel: String(input?.confirmationLabel || '').trim() || defaults.confirmationLabel,
+    confirmationPlaceholder: String(input?.confirmationPlaceholder || '').trim() || defaults.confirmationPlaceholder,
     confirmationHelpText: String(input?.confirmationHelpText || '').trim() || defaults.confirmationHelpText,
+    confirmationValidation:
+      input?.confirmationValidation === 'digits_only' || input?.confirmationValidation === 'freeform'
+        ? input.confirmationValidation
+        : defaults.confirmationValidation,
     pickupInstructions: String(input?.pickupInstructions || '').trim() || defaults.pickupInstructions,
     thankYouMessage: String(input?.thankYouMessage || '').trim() || defaults.thankYouMessage,
     statusIntro: String(input?.statusIntro || '').trim() || defaults.statusIntro,
     statusBestWay: String(input?.statusBestWay || '').trim() || defaults.statusBestWay,
     statusLookupHelp: String(input?.statusLookupHelp || '').trim() || defaults.statusLookupHelp,
     confirmationSearchHelp: String(input?.confirmationSearchHelp || '').trim() || defaults.confirmationSearchHelp,
+    tagLabel: String(input?.tagLabel || '').trim() || defaults.tagLabel,
+    tagPlaceholder: String(input?.tagPlaceholder || '').trim() || defaults.tagPlaceholder,
+    tagFormat: input?.tagFormat === 'letters_numbers' ? 'letters_numbers' : defaults.tagFormat,
+    tagMinLength: Math.min(12, Math.max(1, Number(input?.tagMinLength || defaults.tagMinLength) || defaults.tagMinLength)),
+    startingTagNumber: String(input?.startingTagNumber || '').trim() || defaults.startingTagNumber,
     tagSearchHelp: String(input?.tagSearchHelp || '').trim() || defaults.tagSearchHelp,
     faqItems: faqItems.length ? faqItems : defaults.faqItems,
   };

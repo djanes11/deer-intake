@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { tokenHeader } from '@/lib/api';
 import { DEFAULT_SITE_PRICING, SitePricing, formatMoney, normalizePricing } from '@/lib/pricing';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
+import { identifierSettingsFromPublicCopy } from '@/lib/identifiers';
 import { listStateFormOptions } from '@/lib/stateforms/catalog';
 import { StateFormType } from '@/lib/stateforms/types';
 import { defaultSpecialtyCatalog, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
@@ -53,13 +54,21 @@ type PublicCopySettings = {
   intakeHighlights: string[];
   reviewChecklist: string[];
   customerInfoIntro: string;
+  confirmationLabel: string;
+  confirmationPlaceholder: string;
   confirmationHelpText: string;
+  confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
   pickupInstructions: string;
   thankYouMessage: string;
   statusIntro: string;
   statusBestWay: string;
   statusLookupHelp: string;
   confirmationSearchHelp: string;
+  tagLabel: string;
+  tagPlaceholder: string;
+  tagFormat: 'digits_only' | 'letters_numbers';
+  tagMinLength: number;
+  startingTagNumber: string;
   tagSearchHelp: string;
   faqItems: PublicFaqItem[];
 };
@@ -167,7 +176,10 @@ const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
   ],
   customerInfoIntro:
     'Fill in your state confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.',
+  confirmationLabel: 'Confirmation #',
+  confirmationPlaceholder: 'State confirmation #',
   confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
+  confirmationValidation: 'exact_13',
   pickupInstructions:
     'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
   thankYouMessage:
@@ -180,6 +192,11 @@ const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
     'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
   confirmationSearchHelp:
     'Best for most customers. Use the number from your intake or state harvest/check-in.',
+  tagLabel: 'Tag Number',
+  tagPlaceholder: 'Deer tag number',
+  tagFormat: 'digits_only',
+  tagMinLength: 5,
+  startingTagNumber: '1000',
   tagSearchHelp:
     'Only use this after staff have assigned the real deer tag.',
   faqItems: [
@@ -648,6 +665,7 @@ export default function AdminSettingsPage() {
   const visibleAddOnRows = addOnDraftRows(s.addOnCatalog, s.pricing)
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => filterVisibleAddOnItems([item], s.features?.webbsEnabled !== false).length > 0);
+  const identifierSettings = identifierSettingsFromPublicCopy(s.publicCopy);
   const visibleActiveAddOnCount = filterVisibleAddOnItems(
     normalizeAddOnCatalog(s.addOnCatalog, s.pricing).filter((item) => item.active),
     s.features?.webbsEnabled !== false
@@ -1207,6 +1225,96 @@ export default function AdminSettingsPage() {
           </div>
         <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Turn this off when you are at capacity or temporarily closed. The public pages will show the intake as unavailable.
+          </div>
+          <div
+            style={{
+              marginTop: 6,
+              padding: 14,
+              borderRadius: 14,
+              border: '1px solid #e2e8f0',
+              background: '#f8fafc',
+              display: 'grid',
+              gap: 10,
+            }}
+          >
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Identifiers</div>
+            <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+              Match confirmation and tag wording to the way this processor actually labels deer.
+            </div>
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Confirmation label</span>
+                <input
+                  value={s.publicCopy?.confirmationLabel || ''}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, confirmationLabel: e.target.value } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Confirmation placeholder</span>
+                <input
+                  value={s.publicCopy?.confirmationPlaceholder || ''}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, confirmationPlaceholder: e.target.value } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Confirmation validation</span>
+                <select
+                  value={identifierSettings.confirmationValidation}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, confirmationValidation: e.target.value as PublicCopySettings['confirmationValidation'] } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                >
+                  <option value="exact_13">Exactly 13 digits</option>
+                  <option value="digits_only">Digits only</option>
+                  <option value="freeform">Freeform</option>
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Tag label</span>
+                <input
+                  value={s.publicCopy?.tagLabel || ''}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, tagLabel: e.target.value } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Tag placeholder</span>
+                <input
+                  value={s.publicCopy?.tagPlaceholder || ''}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, tagPlaceholder: e.target.value } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Tag format</span>
+                <select
+                  value={identifierSettings.tagFormat}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, tagFormat: e.target.value as PublicCopySettings['tagFormat'] } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                >
+                  <option value="digits_only">Numbers only</option>
+                  <option value="letters_numbers">Letters + numbers</option>
+                </select>
+              </label>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Minimum tag length</span>
+                <input
+                  value={String(identifierSettings.tagMinLength)}
+                  inputMode="numeric"
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, tagMinLength: Math.min(12, Math.max(1, Number(e.target.value || 1) || 1)) } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800, color: '#0f172a' }}>
+                <span>Suggested starting tag</span>
+                <input
+                  value={s.publicCopy?.startingTagNumber || ''}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, startingTagNumber: e.target.value } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </label>
+            </div>
           </div>
           <div
             style={{

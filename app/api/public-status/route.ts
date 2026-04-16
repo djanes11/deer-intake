@@ -5,6 +5,8 @@ import { getSupabaseServer } from '@/lib/supabaseClient';
 import { specialtyPrice } from '@/lib/specialty';
 import { getProcessorContextForHostname } from '@/lib/processorContext';
 import { sharedRateLimit } from '@/lib/ratelimit';
+import { confirmationSearchCandidates, identifierSettingsFromPublicCopy, normalizeConfirmationInput } from '@/lib/identifiers';
+import { getPublicSiteSettings } from '@/lib/siteSettings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -121,17 +123,12 @@ function shapeJob(row: any) {
 }
 
 async function handle(confirmation: string, tag: string, lastName: string, hostname?: string | null) {
-  const wantConf = toDigits(confirmation);
+  const settings = await getPublicSiteSettings(hostname);
+  const identifierSettings = identifierSettingsFromPublicCopy(settings.publicCopy);
+  const wantConf = normalizeConfirmationInput(confirmation, identifierSettings).trim();
   const wantTag = String(tag || '').trim();
   const wantLN = lname(lastName);
-  const confCandidates = wantConf
-    ? Array.from(
-        new Set([
-          wantConf,
-          wantConf.length > 6 ? `${wantConf.slice(0, 6)}-${wantConf.slice(6)}` : '',
-        ].filter(Boolean))
-      )
-    : [];
+  const confCandidates = confirmationSearchCandidates(wantConf, identifierSettings);
 
   if (!wantConf && !(wantTag && wantLN)) {
     return { ok: false, error: 'Provide Confirmation # or Tag + Last Name.' };

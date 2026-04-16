@@ -6,6 +6,12 @@ import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
+import {
+  confirmationInputMode,
+  identifierSettingsFromPublicCopy,
+  normalizeConfirmationInput,
+  validateConfirmation,
+} from '@/lib/identifiers';
 import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
@@ -184,7 +190,6 @@ const fullPaid = (j: Job): boolean => {
 };
 
 const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
-const is13Digits = (s?: string) => !!s && /^\d{13}$/.test(s);
 const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
 
 const REQUIRED_LABELS: Record<string, string> = {
@@ -304,11 +309,19 @@ function OvernightIntakePage() {
     ],
     customerInfoIntro:
       'Fill in your state confirmation number, your name, and the best phone number to reach you. Then finish your address so staff can match your deer quickly.',
+    confirmationLabel: 'Confirmation #',
+    confirmationPlaceholder: 'State confirmation #',
     confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
+    confirmationValidation: 'exact_13' as const,
     pickupInstructions:
       'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
     thankYouMessage:
       'Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.',
+    tagLabel: 'Tag Number',
+    tagPlaceholder: 'Deer tag number',
+    tagFormat: 'digits_only' as const,
+    tagMinLength: 5,
+    startingTagNumber: '1000',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -326,6 +339,7 @@ function OvernightIntakePage() {
   const step = steps[stepIdx];
   const showIntroGuidance = !showThanks && stepIdx === 0;
   const compactSummary = !showThanks && stepIdx > 0;
+  const identifierSettings = useMemo(() => identifierSettingsFromPublicCopy(publicCopy), [publicCopy]);
 
   useEffect(() => {
     fetch('/api/public/site-settings', { cache: 'no-store' })
@@ -612,15 +626,16 @@ function OvernightIntakePage() {
   }, []);
 
   const setConfirmation = (v: string) => {
-    const val = digitsOnly(v).slice(0, 13);
+    const val = normalizeConfirmationInput(v, identifierSettings);
     setJob((p) => ({ ...p, confirmation: val }));
 
     // Keep the red error until it's valid.
     setErrors((prev) => {
       if (!prev.confirmation) return prev;
       const n = { ...prev };
-      if (is13Digits(val)) delete n.confirmation;
-      else n.confirmation = 'Confirmation must be 13 digits';
+      const error = validateConfirmation(val, identifierSettings);
+      if (!error) delete n.confirmation;
+      else n.confirmation = error;
       return n;
     });
   };
@@ -643,7 +658,8 @@ function OvernightIntakePage() {
     const e: Record<string, string> = {};
 
     // Customer (everything required except email)
-    if (!is13Digits(job.confirmation)) e.confirmation = 'Confirmation must be 13 digits';
+    const confirmationError = validateConfirmation(String(job.confirmation || ''), identifierSettings);
+    if (confirmationError) e.confirmation = confirmationError;
     if (!job.customer?.trim()) e.customer = 'Customer Name is required';
     if (!is10Digits(job.phone)) e.phone = 'Phone must be 10 digits';
     if (job.prefEmail && !job.email?.trim()) e.email = 'Email is required when email updates are selected';
@@ -690,8 +706,15 @@ function OvernightIntakePage() {
     return e;
   };
 
+  const requiredLabels = useMemo<Record<string, string>>(
+    () => ({
+      ...REQUIRED_LABELS,
+      confirmation: identifierSettings.confirmationLabel,
+    }),
+    [identifierSettings.confirmationLabel]
+  );
   const currentStepErrors = validateStep(step.key);
-  const currentStepMissing = Object.keys(currentStepErrors).map((key) => REQUIRED_LABELS[key] || key);
+  const currentStepMissing = Object.keys(currentStepErrors).map((key) => requiredLabels[key] || key);
   const requiredDone = currentStepMissing.length === 0;
   const compactRequiredList = stepIdx > 0 && currentStepMissing.length > 3;
 
@@ -1101,15 +1124,15 @@ function OvernightIntakePage() {
             </div>
             <div className="grid">
               <div className="c3">
-                <label>Confirmation #</label>
+                <label>{identifierSettings.confirmationLabel}</label>
                 <Hint>{publicCopy.confirmationHelpText}</Hint>
                 <input
                   value={job.confirmation || ''}
                   onChange={(e) => setConfirmation(e.target.value)}
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={13}
-                  placeholder="State confirmation #"
+                  inputMode={confirmationInputMode(identifierSettings)}
+                  pattern={identifierSettings.confirmationValidation === 'freeform' ? undefined : '[0-9]*'}
+                  maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_13' ? 13 : 24}
+                  placeholder={identifierSettings.confirmationPlaceholder}
                   className={errors.confirmation ? 'err' : ''}
                   data-err="confirmation"
                   disabled={locked}

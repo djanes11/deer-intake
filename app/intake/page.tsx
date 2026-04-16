@@ -8,6 +8,15 @@ import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/a
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
+import {
+  confirmationInputMode,
+  identifierSettingsFromPublicCopy,
+  normalizeConfirmationInput,
+  normalizeTagInput,
+  tagInputMode,
+  validateConfirmation,
+  validateTag,
+} from '@/lib/identifiers';
 import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
@@ -457,6 +466,7 @@ function IntakePage() {
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [stateFormType, setStateFormType] = useState<StateFormType>('indiana');
+  const [identifierSettings, setIdentifierSettings] = useState(() => identifierSettingsFromPublicCopy(null));
   const [customerMatch, setCustomerMatch] = useState<CustomerLookupMatch | null>(null);
   const [customerMatches, setCustomerMatches] = useState<CustomerLookupMatch[]>([]);
   const [customerLookupBusy, setCustomerLookupBusy] = useState(false);
@@ -494,6 +504,7 @@ function IntakePage() {
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
           setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
           setStateFormType((j?.settings?.stateFormType as StateFormType) || 'indiana');
+          setIdentifierSettings(identifierSettingsFromPublicCopy(j?.settings?.publicCopy));
           setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         }
       })
@@ -979,12 +990,10 @@ useEffect(() => {
 
   const validate = (): string[] => {
     const missing: string[] = [];
-    // Tag: required (numbers only)
-    const tagDigits = digitsOnly(job.tag || '');
-    if (!tagDigits) missing.push('Tag Number');
-    // Confirmation: exactly 13 digits
-    const conf13 = digitsOnly(job.confirmation || '');
-    if (conf13.length !== 13) missing.push('Confirmation # (13 digits)');
+    const tagError = validateTag(String(job.tag || ''), identifierSettings);
+    if (tagError) missing.push(tagError);
+    const confirmationError = validateConfirmation(String(job.confirmation || ''), identifierSettings);
+    if (confirmationError) missing.push(confirmationError);
     if (!job.customer) missing.push('Customer Name');
     // Phone: store as 10 digits
     const phone10 = digitsOnly(job.phone || '');
@@ -1046,8 +1055,8 @@ useEffect(() => {
     const payload: Job = {
       ...job,
       // enforce standardized values on save
-      tag: digitsOnly(job.tag || ''),
-      confirmation: clip(digitsOnly(job.confirmation || ''), 13),
+      tag: normalizeTagInput(String(job.tag || ''), identifierSettings),
+      confirmation: normalizeConfirmationInput(String(job.confirmation || ''), identifierSettings),
       phone: clip(digitsOnly(job.phone || ''), 10),
       status:
         pnorm === 'Cape & Donate' || pnorm === 'Donate'
@@ -1364,17 +1373,17 @@ if (fresh?.exists && fresh.job) {
         <div className="summary">
           <div className="row">
             <div className="col tagCol">
-              <label>Tag Number</label>
+              <label>{identifierSettings.tagLabel}</label>
               <input
                 className="tagInput"
                 ref={tagRef}
                 value={job.tag || ''}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                onChange={(e) => setVal('tag', digitsOnly(e.target.value))}
-                placeholder="e.g. 1234"
+                inputMode={tagInputMode(identifierSettings)}
+                pattern={identifierSettings.tagFormat === 'letters_numbers' ? undefined : '[0-9]*'}
+                onChange={(e) => setVal('tag', normalizeTagInput(e.target.value, identifierSettings))}
+                placeholder={identifierSettings.startingTagNumber || identifierSettings.tagPlaceholder}
               />
-              <div className="muted" style={{ fontSize: 12 }}>Deer Tag</div>
+              <div className="muted" style={{ fontSize: 12 }}>{identifierSettings.tagLabel}</div>
             </div>
 
             <div className="col price">
@@ -1578,13 +1587,14 @@ if (fresh?.exists && fresh.job) {
           <h3>Customer</h3>
           <div className="grid">
             <div className="c3">
-              <label>Confirmation #</label>
+              <label>{identifierSettings.confirmationLabel}</label>
               <input
                 value={job.confirmation || ''}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={13}
-                onChange={(e) => setVal('confirmation', clip(digitsOnly(e.target.value), 13))}
+                inputMode={confirmationInputMode(identifierSettings)}
+                pattern={identifierSettings.confirmationValidation === 'freeform' ? undefined : '[0-9]*'}
+                maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_13' ? 13 : 24}
+                placeholder={identifierSettings.confirmationPlaceholder}
+                onChange={(e) => setVal('confirmation', normalizeConfirmationInput(e.target.value, identifierSettings))}
               />
             </div>
             <div className="c6">
@@ -2284,9 +2294,9 @@ if (fresh?.exists && fresh.job) {
                 const ok = await onSave();
                 if (!ok) return;
               }
-              const tagToPrint = digitsOnly(job.tag || '');
+              const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
               if (!tagToPrint) {
-                setMsg('Tag Number is required before printing labels');
+                setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
                 return;
               }
               setPrintMode('deer');
@@ -2349,9 +2359,9 @@ if (fresh?.exists && fresh.job) {
                 const ok = await onSave();
                 if (!ok) return;
               }
-              const tagToPrint = digitsOnly(job.tag || '');
+              const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
               if (!tagToPrint) {
-                setMsg('Tag Number is required before printing');
+                setMsg(`${identifierSettings.tagLabel} is required before printing`);
                 return;
               }
               try {

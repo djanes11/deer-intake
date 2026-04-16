@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
+import { identifierSettingsFromPublicCopy, normalizeTagInput, tagInputMode, validateTag } from '@/lib/identifiers';
 
 export const dynamic = 'force-dynamic';
 
@@ -127,6 +128,7 @@ export default function MissingTagsPage() {
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [identifierSettings, setIdentifierSettings] = useState(() => identifierSettingsFromPublicCopy(null));
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
   const refresh = async () => {
@@ -143,7 +145,7 @@ export default function MissingTagsPage() {
   };
 
   const setSelectedFromJob = (job: AnyRec | null, fallbackTag = '') => {
-    const normalized = digitsOnly(String(job?.tag ?? job?.Tag ?? fallbackTag));
+    const normalized = normalizeTagInput(String(job?.tag ?? job?.Tag ?? fallbackTag), identifierSettings);
     setSelectedTag(normalized);
     setSelectedJob(job);
     setJobErr('');
@@ -160,6 +162,7 @@ export default function MissingTagsPage() {
         if (!j?.ok) return;
         setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+        setIdentifierSettings(identifierSettingsFromPublicCopy(j?.settings?.publicCopy));
       })
       .catch(() => {});
   }, []);
@@ -179,7 +182,7 @@ export default function MissingTagsPage() {
   const count = rows.length;
 
   const loadJob = async (tag: string) => {
-    const normalized = digitsOnly(tag);
+    const normalized = normalizeTagInput(tag, identifierSettings);
     if (!normalized) return null;
     setSelectedTag(normalized);
     setSelectedJob(null);
@@ -199,7 +202,7 @@ export default function MissingTagsPage() {
   };
 
   const printAssignedSheet = async (tag: string) => {
-    const normalized = digitsOnly(tag);
+    const normalized = normalizeTagInput(tag, identifierSettings);
     if (!normalized) return;
 
     setErr('');
@@ -207,7 +210,7 @@ export default function MissingTagsPage() {
 
     try {
       let job = selectedJob;
-      const currentTag = digitsOnly(String(selectedJob?.tag ?? selectedJob?.Tag ?? ''));
+      const currentTag = normalizeTagInput(String(selectedJob?.tag ?? selectedJob?.Tag ?? ''), identifierSettings);
       if (!job || currentTag !== normalized) {
         job = await loadJob(normalized);
       }
@@ -228,7 +231,7 @@ export default function MissingTagsPage() {
   };
 
   const printAssignedLabel = async (tag: string, type: ThermalLabelType) => {
-    const normalized = digitsOnly(tag);
+    const normalized = normalizeTagInput(tag, identifierSettings);
     if (!normalized) return;
 
     setErr('');
@@ -236,7 +239,7 @@ export default function MissingTagsPage() {
 
     try {
       let job = selectedJob;
-      const currentTag = digitsOnly(String(selectedJob?.tag ?? selectedJob?.Tag ?? ''));
+      const currentTag = normalizeTagInput(String(selectedJob?.tag ?? selectedJob?.Tag ?? ''), identifierSettings);
       if (!job || currentTag !== normalized) {
         job = await loadJob(normalized);
       }
@@ -257,10 +260,11 @@ export default function MissingTagsPage() {
   const doAssign = async (row: Row) => {
     const pendingTag = row.tag || '';
     const draftKey = pendingTag || row.id || '';
-    const newTag = digitsOnly(drafts[draftKey] ?? '');
+    const newTag = normalizeTagInput(drafts[draftKey] ?? '', identifierSettings);
 
-    if (!/^\d{5,}$/.test(newTag)) {
-      setErr('Enter a valid tag number (digits only).');
+    const tagError = validateTag(newTag, identifierSettings);
+    if (tagError) {
+      setErr(tagError);
       return;
     }
 
@@ -413,8 +417,8 @@ export default function MissingTagsPage() {
               const draftKey = pendingTag || r.id || '';
               const isBusy = assigning === draftKey;
               const isDeleting = deleting === r.id;
-              const draft = digitsOnly(drafts[draftKey] ?? '');
-              const canUseDraft = /^\d{5,}$/.test(draft);
+              const draft = normalizeTagInput(drafts[draftKey] ?? '', identifierSettings);
+              const canUseDraft = !validateTag(draft, identifierSettings);
               return (
                 <div
                   key={pendingTag || r.id || Math.random()}
@@ -451,8 +455,9 @@ export default function MissingTagsPage() {
                   <div className="queue-actions">
                     <input
                       value={drafts[draftKey] ?? ''}
-                      onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: e.target.value }))}
-                      placeholder="Enter actual deer tag"
+                      onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: normalizeTagInput(e.target.value, identifierSettings) }))}
+                      placeholder={identifierSettings.tagPlaceholder || 'Enter actual deer tag'}
+                      inputMode={tagInputMode(identifierSettings)}
                       style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
                       disabled={!canEdit || isBusy || isDeleting || !r.id}
                     />
