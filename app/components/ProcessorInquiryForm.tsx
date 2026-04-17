@@ -108,7 +108,7 @@ export default function ProcessorInquiryForm() {
           value={form.message}
           onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
           style={{ ...inputStyle, minHeight: 120, resize: 'vertical' }}
-          placeholder="Tell us about after-hours drop-off, specialty products, labels, scan workflow, custom pricing, or anything unique about your shop."
+          placeholder="Tell us about public intake, specialty products, labels, scan workflow, custom pricing, or anything unique about your shop."
         />
       </label>
 

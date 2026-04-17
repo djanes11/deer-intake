@@ -12,7 +12,7 @@ export default async function FAQPublic() {
     : [
         {
           question: 'How do I use the Public Intake Form?',
-          answer: 'See the public intake guide for step-by-step instructions, after-hours drop-off, and what to do after you submit.',
+          answer: 'See the public intake guide for step-by-step instructions and what to do after you submit.',
         },
         {
           question: 'Where are you located?',

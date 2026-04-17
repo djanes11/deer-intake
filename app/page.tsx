@@ -471,9 +471,9 @@ function MarketingLanding() {
         'Yes. Process types, add-ons, specialty products, cut-option visibility, pricing, branding, and public-facing copy can all be managed per processor.',
     },
     {
-      question: 'Does it support after-hours drop-off?',
+      question: 'Does it support public intake and shop-specific workflows?',
       answer:
-        'Yes. Customers can submit intake before leaving the deer, and staff can review the entry, assign the permanent tag, and print the paperwork when the shop opens.',
+        'Yes. Processors can use public intake in the way that fits their shop, and staff can review entries, assign the permanent tag, and print paperwork whenever that workflow makes sense.',
     },
     {
       question: 'Can staff have different access levels?',
@@ -525,7 +525,7 @@ function MarketingLanding() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 6 }}>
               {[
-                { label: 'After-hours drop-off', note: 'Customers arrive with intake already entered' },
+                { label: 'Public intake workflow', note: 'Customers can enter cleaner information before staff review the deer' },
                 { label: 'Thermal labels + scanning', note: 'Faster floor workflow and clearer tag handling' },
                 { label: 'Processor-specific setup', note: 'Process types, add-ons, specialty items, and pricing' },
               ].map((item) => (
@@ -662,7 +662,7 @@ function MarketingLanding() {
             <div style={{ display: 'grid', gap: 10 }}>
               {[
                 'Share your annual deer volume and current workflow',
-                'Tell us whether you use after-hours drop-off, labels, texting, or specialty products',
+                'Tell us whether you use public intake, labels, texting, scanning, or specialty products',
                 'We can use that to shape a demo and onboarding plan',
               ].map((item) => (
                 <div key={item} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 10, alignItems: 'start' }}>
