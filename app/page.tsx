@@ -727,8 +727,8 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
   ];
   const serviceHighlights = [
     {
-      title: 'After-hours drop-off',
-      body: 'Submit your intake online, leave your deer with your confirmation details, and staff will assign the permanent tag the next morning.',
+      title: 'Public intake made simpler',
+      body: 'Customers can enter cleaner drop-off information ahead of time so staff can review the deer and assign the permanent tag without extra paperwork.',
     },
     {
       title: features?.smsEnabled ? 'Text or email updates' : 'Status updates online',

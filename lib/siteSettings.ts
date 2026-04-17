@@ -317,10 +317,11 @@ export async function getPublicSiteSettings(
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const requestHostname = hostname || (processorOverride ? '' : await getRequestHostname());
     const processor = processorOverride
       ? processorOverride
-      : hostname
-      ? await getProcessorContextForHostname(hostname)
+      : requestHostname
+      ? await getProcessorContextForHostname(requestHostname)
       : await getDefaultProcessorContext();
     let query = supabase
       .from('site_settings')
