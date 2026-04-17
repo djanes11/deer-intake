@@ -481,10 +481,7 @@ function OvernightIntakePage() {
     return out;
   }, [job.front, job.frontRoastCount, showFrontShoulderSteaks, showRoastCounts]);
   const preferredContact = job.prefSMS ? 'Text (SMS)' : job.prefCall ? 'Phone Call' : job.prefEmail ? 'Email' : 'Not selected';
-  const intakeHighlights = [
-    ...(publicCopy.intakeHighlights || []),
-    `Updates will be sent by ${preferredContact.toLowerCase()} when available for this processor.`,
-  ];
+  const intakeNotice = `Updates will be sent by ${preferredContact.toLowerCase()} when available for this processor.`;
   const reviewChecks = [
     ...(publicCopy.reviewChecklist || []),
   ];
@@ -977,13 +974,9 @@ function OvernightIntakePage() {
                 </ul>
               </div>
             </div>
-            <div className="intakeHighlights" role="status" aria-live="polite">
-              {intakeHighlights.map((item) => (
-                <div key={item} className="intakeHighlight">
-                  <span className="intakeHighlightDot" aria-hidden="true" />
-                  <span>{item}</span>
-                </div>
-              ))}
+            <div className="intakeNotice" role="status" aria-live="polite">
+              <span className="intakeHighlightDot" aria-hidden="true" />
+              <span>{intakeNotice}</span>
             </div>
           </>
         ) : null}
@@ -2277,16 +2270,10 @@ function OvernightIntakePage() {
           line-height: 1.5;
         }
         .thanksActions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
-        .intakeHighlights {
-          display: grid;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-        .intakeHighlight {
-          display: grid;
-          grid-template-columns: auto 1fr;
+        .intakeNotice {
+          display: flex;
           gap: 10px;
-          align-items: start;
+          align-items: center;
           padding: 10px 12px;
           border: 1px solid #dce7df;
           border-radius: 12px;
@@ -2294,6 +2281,7 @@ function OvernightIntakePage() {
           color: #173321;
           font-size: 13px;
           line-height: 1.5;
+          margin-bottom: 12px;
         }
         .intakeHighlightDot {
           width: 10px;
