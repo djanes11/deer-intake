@@ -1559,7 +1559,6 @@ function OvernightIntakePage() {
               </div>
             </section>
 
-            {specialtyEnabled && activeSpecialtyCatalog.length > 0 ? (
             <section>
               <h3>Packaging & Add-ons</h3>
               <div className="pkgGrid">
@@ -1602,6 +1601,7 @@ function OvernightIntakePage() {
                   </select>
                 </div>
 
+                {activeAddOnCatalog.length ? (
                 <div className="pkg" style={{ gridColumn: '1 / -1' }}>
                   <label>Add-Ons</label>
                   <div className="checks">
@@ -1627,9 +1627,9 @@ function OvernightIntakePage() {
                     })}
                   </div>
                 </div>
+                ) : null}
               </div>
             </section>
-            ) : null}
 
             <section>
               <h3>Backstrap</h3>
