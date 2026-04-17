@@ -297,7 +297,7 @@ export default function AdminSettingsPage() {
   const [msg, setMsg] = useState('');
   const [logoDropActive, setLogoDropActive] = useState(false);
   const [section, setSection] = useState<SettingsSection>('overview');
-  const [copySection, setCopySection] = useState<'home' | 'intake' | 'status' | 'faq'>('intake');
+  const [copySection, setCopySection] = useState<'intake' | 'status' | 'faq'>('intake');
 
   const headers: Record<string, string> = useMemo(
     () => ({
@@ -1472,7 +1472,6 @@ export default function AdminSettingsPage() {
             {[
               { key: 'intake', label: 'Intake Flow' },
               { key: 'status', label: 'Status Page' },
-              { key: 'home', label: 'Home Page' },
               { key: 'faq', label: 'FAQ' },
             ].map((item) => (
               <button
@@ -1485,57 +1484,6 @@ export default function AdminSettingsPage() {
               </button>
             ))}
           </div>
-
-          {copySection === 'home' && (
-          <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-            <div style={{ fontWeight: 900, color: '#0f172a' }}>Public Home Page</div>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontWeight: 800, color: '#0f172a' }}>Home headline</span>
-              <input
-                value={s.publicCopy?.homeHeadline || ''}
-                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, homeHeadline: e.target.value } })}
-                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontWeight: 800, color: '#0f172a' }}>Home intro paragraph</span>
-              <textarea
-                rows={3}
-                value={s.publicCopy?.homeIntro || ''}
-                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, homeIntro: e.target.value } })}
-                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontWeight: 800, color: '#0f172a' }}>How it works steps</span>
-              <textarea
-                rows={5}
-                value={(s.publicCopy?.homeHowItWorks || []).join('\n')}
-                onChange={(e) =>
-                  setS({
-                    ...s,
-                    publicCopy: {
-                      ...DEFAULT_PUBLIC_COPY,
-                      ...s.publicCopy,
-                      homeHowItWorks: e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
-                    },
-                  })
-                }
-                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
-                placeholder="One step per line"
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontWeight: 800, color: '#0f172a' }}>Pricing note</span>
-              <textarea
-                rows={2}
-                value={s.publicCopy?.pricingNote || ''}
-                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, pricingNote: e.target.value } })}
-                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
-              />
-            </label>
-          </div>
-          )}
 
           {copySection === 'intake' && (
           <>
@@ -1577,50 +1525,13 @@ export default function AdminSettingsPage() {
                 style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
               />
             </label>
+            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+              Home page headline, walkthrough steps, pricing note, and review checklist now use polished defaults so processors only need to edit the workflow wording that really changes by shop.
+            </div>
           </div>
 
           <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Review & Thank You</div>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Intake intro highlights</span>
-            <textarea
-              rows={4}
-              value={(s.publicCopy?.intakeHighlights || []).join('\n')}
-              onChange={(e) =>
-                setS({
-                  ...s,
-                  publicCopy: {
-                    ...DEFAULT_PUBLIC_COPY,
-                    ...s.publicCopy,
-                    intakeHighlights: e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
-                  },
-                })
-              }
-              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-              placeholder="One highlight per line"
-            />
-          </label>
-
-          <label style={{ display: 'grid', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: '#0f172a' }}>Review checklist</span>
-            <textarea
-              rows={4}
-              value={(s.publicCopy?.reviewChecklist || []).join('\n')}
-              onChange={(e) =>
-                setS({
-                  ...s,
-                  publicCopy: {
-                    ...DEFAULT_PUBLIC_COPY,
-                    ...s.publicCopy,
-                    reviewChecklist: e.target.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
-                  },
-                })
-              }
-              style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-              placeholder="One checklist item per line"
-            />
-          </label>
-
           <label style={{ display: 'grid', gap: 6 }}>
             <span style={{ fontWeight: 800, color: '#0f172a' }}>Pickup instructions</span>
             <textarea
@@ -1658,6 +1569,9 @@ export default function AdminSettingsPage() {
               style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
             />
           </label>
+          <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+            The intro highlights and review checklist stay on strong system defaults so processors do not have to rewrite every step of the customer flow.
+          </div>
           </div>
           </>
           )}
@@ -1675,16 +1589,7 @@ export default function AdminSettingsPage() {
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontWeight: 800, color: '#0f172a' }}>Best way to search box</span>
-              <textarea
-                rows={3}
-                value={s.publicCopy?.statusBestWay || ''}
-                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, statusBestWay: e.target.value } })}
-                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
-              />
-            </label>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <span style={{ fontWeight: 800, color: '#0f172a' }}>Lookup instructions</span>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Status page help text</span>
               <textarea
                 rows={2}
                 value={s.publicCopy?.statusLookupHelp || ''}
@@ -1708,6 +1613,9 @@ export default function AdminSettingsPage() {
                 style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
               />
             </label>
+            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+              The “best way to search” message stays on a polished default so the page stays consistent even if processors do not want to fine-tune every line.
+            </div>
           </div>
           )}
 
