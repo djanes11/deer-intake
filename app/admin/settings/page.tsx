@@ -1909,6 +1909,9 @@ export default function AdminSettingsPage() {
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
             Add optional extras to the intake form and control their pricing. Dedicated custom workflows stay out of this generic list so staff do not see duplicate choices.
           </div>
+          <div style={{ padding: 12, borderRadius: 12, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
+            Webbs access is managed by Wild Game Butcher Board in Processor Management. If this processor is approved for the dedicated Webbs workflow, it will appear automatically here in the right format.
+          </div>
           {s.features?.webbsEnabled ? (
             <div style={{ padding: 12, borderRadius: 12, background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', fontSize: 13, fontWeight: 700 }}>
               Webbs is using the dedicated custom workflow for this processor, so it is hidden from the generic add-on list. Keep using the Webbs pricing field in the Pricing section for that workflow.

@@ -122,6 +122,18 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const defaults = defaultPublicSiteSettings().branding;
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+
+    let existingProcessorFeatures = normalizeProcessorFeatures(defaultPublicSiteSettings().features);
+    if (processor.id) {
+      const { data: processorRow, error: processorLookupError } = await supabase
+        .from('processors')
+        .select('features')
+        .eq('id', processor.id)
+        .maybeSingle();
+      if (processorLookupError) throw processorLookupError;
+      existingProcessorFeatures = normalizeProcessorFeatures((processorRow as any)?.features || existingProcessorFeatures);
+    }
 
     const payload = {
       ...(processor?.id ? { processor_id: processor.id } : {}),
@@ -138,7 +150,11 @@ export async function POST(req: Request) {
       ...normalizePricing(body),
     };
 
-    const processorFeatures = normalizeProcessorFeatures(body?.features || defaultPublicSiteSettings().features);
+    const requestedFeatures = normalizeProcessorFeatures(body?.features || defaultPublicSiteSettings().features);
+    const processorFeatures = {
+      ...requestedFeatures,
+      webbsEnabled: existingProcessorFeatures.webbsEnabled,
+    };
     const processorPayload = {
       ...(body?.branding?.name ? { public_name: String(body.branding.name || '').trim() } : {}),
       public_tagline: String(body?.branding?.tagline || defaults.tagline),
@@ -153,7 +169,6 @@ export async function POST(req: Request) {
       updated_at: new Date().toISOString(),
     };
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
     let existingQuery = supabase.from('site_settings').select('id');
     existingQuery = processor.id ? existingQuery.eq('processor_id', processor.id) : existingQuery.eq('id', 1);
     const { data: existing, error: existingError } = await existingQuery.maybeSingle();
