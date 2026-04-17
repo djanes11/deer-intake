@@ -25,7 +25,6 @@ import {
   defaultAddOnCatalog,
   defaultProcessCatalog,
   deriveSelectedAddOnItems,
-  formatProcessTypePrice,
   filterVisibleAddOnItems,
   normalizeAddOnCatalog,
   normalizeJobAddOnItems,
@@ -1022,9 +1021,6 @@ useEffect(() => {
     if (!job.dropoff) missing.push('Drop-off Date');
     if (!job.sex) missing.push('Deer Sex');
     if (!job.processType) missing.push('Process Type');
-    if (selectedProcessType?.pricingMode === 'per_lb' && !(toMoneyOrNull(job.processingWeightLbs) && Number(toMoneyOrNull(job.processingWeightLbs))! > 0)) {
-      missing.push('Processing Weight (lbs)');
-    }
     if (job.prefSMS && !job.smsConsent) missing.push('SMS Consent');
     if (showRoastCounts && hindRoastOn && !toInt(job.hindRoastCount)) missing.push('Hind Roast Count');
     if (showRoastCounts && frontRoastOn && !toInt(job.frontRoastCount)) missing.push('Front Roast Count');
@@ -1100,7 +1096,7 @@ useEffect(() => {
       addOnItems: normalizeJobAddOnItems(selectedAddOnItems),
       processTypeSlug: selectedProcessType?.slug || null,
       processTypeRequiresCape: !!selectedProcessType?.triggersCapeWorkflow,
-      processingWeightLbs: selectedProcessType?.pricingMode === 'per_lb' ? (toMoneyOrNull(job.processingWeightLbs) ?? null) : null,
+      processingWeightLbs: null,
       specialtyItems: job.specialtyProducts ? normalizeJobSpecialtyItems((job as any).specialtyItems) : [],
       howKilled: job.howKilled || '',
 
@@ -1392,21 +1388,11 @@ if (fresh?.exists && fresh.job) {
               <label>Processing Price</label>
               <div className="money">{processingPriceUsed.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>
-                {selectedProcessType?.pricingMode === 'per_lb'
-                  ? `${formatProcessTypePrice(selectedProcessType)} + selected add-ons`
-                  : 'Base process type + selected add-ons'}
+                Base process type + selected add-ons
               </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' • override active' : ''}
               </div>
-              {selectedProcessType?.pricingMode === 'per_lb' ? (
-                <input
-                  inputMode="decimal"
-                  placeholder="Processing weight (lbs)"
-                  value={String((job as any).processingWeightLbs ?? '')}
-                  onChange={(e) => setVal('processingWeightLbs', e.target.value as any)}
-                />
-              ) : null}
               <input
                 inputMode="decimal"
                 placeholder="Override (optional)"

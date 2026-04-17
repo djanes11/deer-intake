@@ -115,7 +115,6 @@ type SettingsSection =
   | 'copy'
   | 'banner'
   | 'hours'
-  | 'pricing'
   | 'processes'
   | 'addons'
   | 'specialty'
@@ -128,7 +127,6 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
   'copy',
   'banner',
   'hours',
-  'pricing',
   'processes',
   'addons',
   'specialty',
@@ -226,10 +224,6 @@ const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
 };
 
 function processPriceSummary(item: ProcessTypeCatalogItem) {
-  if (item.pricingMode === 'per_lb') {
-    const rate = `$${Number(item.pricePerLb || 0).toFixed(2)}/lb`;
-    return item.minimumPrice > 0 ? `${rate} minimum $${Number(item.minimumPrice || 0).toFixed(2)}` : rate;
-  }
   return `$${Number(item.basePrice || 0).toFixed(2)} flat`;
 }
 
@@ -276,10 +270,14 @@ function processDraftRows(input: ProcessTypeCatalogItem[] | undefined | null, pr
   return rows.map((item, index) => ({
     slug: String(item?.slug || ''),
     name: String(item?.name || ''),
-    basePrice: Number.isFinite(Number(item?.basePrice)) ? Number(item?.basePrice) : Number(fallback[index]?.basePrice ?? 0),
-    pricingMode: item?.pricingMode === 'per_lb' ? 'per_lb' : 'flat',
-    pricePerLb: Number.isFinite(Number(item?.pricePerLb)) ? Number(item?.pricePerLb) : Number(fallback[index]?.pricePerLb ?? 0),
-    minimumPrice: Number.isFinite(Number(item?.minimumPrice)) ? Number(item?.minimumPrice) : Number(fallback[index]?.minimumPrice ?? 0),
+    basePrice: Number.isFinite(Number(item?.basePrice))
+      ? Number(item?.basePrice)
+      : item?.pricingMode === 'per_lb'
+        ? Number(item?.minimumPrice ?? fallback[index]?.basePrice ?? 0)
+        : Number(fallback[index]?.basePrice ?? 0),
+    pricingMode: 'flat',
+    pricePerLb: 0,
+    minimumPrice: 0,
     active: item?.active !== false,
     sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item?.sortOrder) : (index + 1) * 10,
     triggersCapeWorkflow: !!item?.triggersCapeWorkflow,
@@ -731,7 +729,7 @@ export default function AdminSettingsPage() {
     },
   ];
   const ownerReadyCount = ownerChecklist.filter((item) => item.done).length;
-  const essentialSectionKeys: SettingsSection[] = ['overview', 'branding', 'intake', 'hours', 'pricing', 'processes', 'addons', 'specialty'];
+  const essentialSectionKeys: SettingsSection[] = ['overview', 'branding', 'intake', 'hours', 'processes', 'addons', 'specialty'];
   const advancedSectionKeys: SettingsSection[] = ['copy', 'banner', 'notifications'];
 
   const sectionTabs = [
@@ -741,7 +739,6 @@ export default function AdminSettingsPage() {
     { key: 'copy', label: 'Public Copy & FAQ' },
     { key: 'banner', label: 'Banner' },
     { key: 'hours', label: 'Hours' },
-    { key: 'pricing', label: 'Pricing' },
     { key: 'processes', label: 'Process Types' },
     { key: 'addons', label: 'Add-Ons' },
     { key: 'specialty', label: 'Specialty Products' },
@@ -754,7 +751,6 @@ export default function AdminSettingsPage() {
     copy: 'Edit the wording customers see during intake, review, thank-you, and FAQ flows.',
     banner: 'Manage temporary alerts or notices shown across the public site.',
     hours: 'Set the pickup and contact hours shown on the public site.',
-    pricing: 'Control base processing prices and system-owned add-on pricing fields.',
     processes: 'Choose which process types are available and what each one costs.',
     addons: 'Manage generic add-ons that staff and customers can select on intake.',
     specialty: 'Control specialty products, names, and per-pound pricing.',
@@ -1898,93 +1894,27 @@ export default function AdminSettingsPage() {
         </div>
         )}
 
-        {section === 'pricing' && (
-        <div style={sectionCard}>
-          <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Pricing</div>
-          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            These values drive the intake totals, specialty totals, print sheet pricing, and customer-facing pricing copy. Add-on prices are managed in the Add-Ons section so everything optional stays in one place.
-          </div>
-
-          {[
-            ['standard_processing_price', 'Standard Processing'],
-            ['caped_price', 'Caped'],
-            ['cape_donate_price', 'Cape & Donate'],
-          ].map(([key, label]) => (
-            <div
-              key={key}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(220px, 1.5fr) minmax(120px, 0.7fr) auto',
-                gap: 10,
-                alignItems: 'center',
-                padding: 10,
-                borderRadius: 12,
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              <div style={{ fontWeight: 800, color: '#0f172a' }}>{label}</div>
-              <input
-                inputMode="decimal"
-                value={String((s.pricing as any)?.[key] ?? '')}
-                onChange={(e) => updatePricing(key as keyof SitePricing, e.target.value)}
-                style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
-              />
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#475569', minWidth: 72 }}>
-                {formatMoney(Number((s.pricing as any)?.[key] ?? 0))}
-              </div>
-            </div>
-          ))}
-
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setS({ ...s, pricing: DEFAULT_SITE_PRICING })}
-              style={{
-                padding: '10px 14px',
-                borderRadius: 10,
-                border: '1px solid #cbd5e1',
-                background: '#f8fafc',
-                color: '#0f172a',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              Reset Pricing Defaults
-            </button>
-          </div>
-        </div>
-        )}
-
         {section === 'processes' && (
         <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Process Types</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            Control which process options appear on intake forms, what they are called, and whether they use a flat fee or a per-pound rate.
+            Control which process options appear on intake forms, what they are called, and what each one costs. Process pricing now lives here so owners only have one place to manage it.
           </div>
           {processDraftRows(s.processCatalog, s.pricing).map((item, index) => (
             <div key={`process-${index}`} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr', gap: 10 }}>
                 <input value={item.name} onChange={(e) => updateProcessTypeItem(index, 'name', e.target.value)} placeholder="Display name" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
                 <input value={item.slug} onChange={(e) => updateProcessTypeItem(index, 'slug', e.target.value)} placeholder="slug" style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }} />
-                <select value={item.pricingMode} onChange={(e) => updateProcessTypeItem(index, 'pricingMode', e.target.value)} style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}>
-                  <option value="flat">Flat fee</option>
-                  <option value="per_lb">Per lb</option>
-                </select>
                 <input
                   inputMode="decimal"
-                  value={String(item.pricingMode === 'per_lb' ? item.pricePerLb ?? '' : item.basePrice ?? '')}
-                  onChange={(e) => updateProcessTypeItem(index, item.pricingMode === 'per_lb' ? 'pricePerLb' : 'basePrice', e.target.value)}
+                  value={String(item.basePrice ?? '')}
+                  onChange={(e) => updateProcessTypeItem(index, 'basePrice', e.target.value)}
                   placeholder="0"
                   style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
                 />
-                <input
-                  inputMode="decimal"
-                  value={String(item.minimumPrice ?? '')}
-                  onChange={(e) => updateProcessTypeItem(index, 'minimumPrice', e.target.value)}
-                  placeholder={item.pricingMode === 'per_lb' ? 'Min (optional)' : 'Min 0'}
-                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
-                />
+                <div style={{ display: 'grid', alignItems: 'center', fontSize: 13, fontWeight: 800, color: '#475569' }}>
+                  Flat price
+                </div>
               </div>
               <div style={{ fontSize: 12, fontWeight: 800, color: '#475569' }}>
                 Pricing: {processPriceSummary(item)}

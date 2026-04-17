@@ -161,10 +161,13 @@ export function normalizeProcessCatalog(input: unknown, pricing?: PricingLike | 
       return {
         slug,
         name: name || slug,
-        basePrice: money((item as any)?.basePrice ?? (item as any)?.price, 0),
-        pricingMode: (item as any)?.pricingMode === 'per_lb' ? 'per_lb' : 'flat',
-        pricePerLb: money((item as any)?.pricePerLb, 0),
-        minimumPrice: money((item as any)?.minimumPrice, 0),
+        basePrice: money(
+          (item as any)?.basePrice ?? (item as any)?.price,
+          (item as any)?.pricingMode === 'per_lb' ? money((item as any)?.minimumPrice, 0) : 0
+        ),
+        pricingMode: 'flat',
+        pricePerLb: 0,
+        minimumPrice: 0,
         active: (item as any)?.active !== false,
         sortOrder: sortOrder((item as any)?.sortOrder, (index + 1) * 10),
         triggersCapeWorkflow: !!((item as any)?.triggersCapeWorkflow),
@@ -309,21 +312,13 @@ export function calcCatalogProcessingPrice(
   addOnCatalogInput: unknown,
 ): number {
   const processType = resolveProcessType(job.processType, processCatalogInput);
-  const weight = money((job as any)?.processingWeightLbs, 0);
-  const base =
-    processType?.pricingMode === 'per_lb'
-      ? Math.max(processType.minimumPrice ?? 0, weight * (processType.pricePerLb ?? 0))
-      : processType?.basePrice ?? 0;
+  const base = processType?.basePrice ?? 0;
   if (!base && !deriveSelectedAddOnItems(job, addOnCatalogInput).length) return 0;
   const addOnTotal = deriveSelectedAddOnItems(job, addOnCatalogInput).reduce((sum, item) => sum + money(item.price), 0);
   return base + addOnTotal;
 }
 
 export function formatProcessTypePrice(item: ProcessTypeCatalogItem): string {
-  if (item.pricingMode === 'per_lb') {
-    const rate = `$${money(item.pricePerLb, 0).toFixed(2)}/lb`;
-    return item.minimumPrice > 0 ? `${rate} min $${money(item.minimumPrice, 0).toFixed(2)}` : rate;
-  }
   return `$${money(item.basePrice, 0).toFixed(2)}`;
 }
 
