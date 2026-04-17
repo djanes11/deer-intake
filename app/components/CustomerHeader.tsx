@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 type NavItem = { href: string; label: string; exact?: boolean };
 
@@ -24,6 +25,11 @@ type Branding = {
 export default function CustomerHeader(props: { branding?: Branding }) {
   const pathname = usePathname();
   const branding = props.branding || {};
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   const isActive = (item: NavItem) => {
     if (item.exact) return pathname === item.href;
@@ -60,14 +66,42 @@ export default function CustomerHeader(props: { branding?: Branding }) {
           </div>
         </Link>
 
-        <details className="public-header-menu">
-          <summary className="public-header-menu-toggle">Menu</summary>
-          <nav className="public-header-nav" aria-label="Public">
+        <nav className="public-header-nav public-header-nav-desktop" aria-label="Public">
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`public-header-link ${isActive(item) ? 'active' : ''}`}
+            >
+              {item.href === '/status' ? (
+                <>
+                  <span className="public-link-long">Check Status</span>
+                  <span className="public-link-short">Status</span>
+                </>
+              ) : (
+                item.label
+              )}
+            </Link>
+          ))}
+        </nav>
+
+        <div className={`public-header-menu ${menuOpen ? 'open' : ''}`}>
+          <button
+            type="button"
+            className="public-header-menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="public-mobile-nav"
+            onClick={() => setMenuOpen((prev) => !prev)}
+          >
+            Menu
+          </button>
+          <nav id="public-mobile-nav" className="public-header-nav public-header-nav-mobile" aria-label="Public">
             {NAV.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`public-header-link ${isActive(item) ? 'active' : ''}`}
+                onClick={() => setMenuOpen(false)}
               >
                 {item.href === '/status' ? (
                   <>
@@ -80,7 +114,7 @@ export default function CustomerHeader(props: { branding?: Branding }) {
               </Link>
             ))}
           </nav>
-        </details>
+        </div>
       </div>
     </header>
   );

@@ -289,13 +289,15 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
   align-items: center;
 }
 
-.public-site-header .public-header-menu {
+.public-site-header .public-header-nav-desktop {
   margin-left: auto;
+}
+
+.public-site-header .public-header-menu {
   position: relative;
 }
 
-.public-site-header .public-header-menu > summary {
-  list-style: none;
+.public-site-header .public-header-menu > .public-header-menu-toggle {
   cursor: pointer;
   display: none;
   padding: 10px 14px;
@@ -304,13 +306,10 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
   color: #e7dbc7;
   border: 1px solid rgba(200,138,61,.18);
   background: rgba(255,255,255,.03);
+  font: inherit;
 }
 
-.public-site-header .public-header-menu > summary::-webkit-details-marker {
-  display: none;
-}
-
-.public-site-header .public-header-menu[open] > summary {
+.public-site-header .public-header-menu.open > .public-header-menu-toggle {
   background: rgba(200,138,61,.08);
 }
 
@@ -364,13 +363,17 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
     margin-left: auto;
   }
 
-  .public-site-header .public-header-menu > summary {
+  .public-site-header .public-header-nav-desktop {
+    display: none;
+  }
+
+  .public-site-header .public-header-menu > .public-header-menu-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
   }
 
-  .public-site-header .public-header-nav {
+  .public-site-header .public-header-nav-mobile {
     display: none;
     position: absolute;
     top: calc(100% + 8px);
@@ -386,7 +389,7 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
     gap: 6px;
   }
 
-  .public-site-header .public-header-menu[open] .public-header-nav {
+  .public-site-header .public-header-menu.open .public-header-nav-mobile {
     display: flex;
   }
 
@@ -408,8 +411,12 @@ main { max-width: var(--wrap); margin: 18px auto; padding: 0 14px 40px; }
 }
 
 @media (min-width: 721px) {
-  .public-site-header .public-header-menu > summary {
+  .public-site-header .public-header-menu > .public-header-menu-toggle {
     display: none;
+  }
+
+  .public-site-header .public-header-nav-mobile {
+    display: none !important;
   }
 }
 
