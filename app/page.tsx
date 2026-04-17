@@ -311,9 +311,11 @@ export default async function Home() {
     return <MarketingLanding />;
   }
 
-  const settings = await getPublicSiteSettings();
-  const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
   const staffContext = IS_PUBLIC ? null : await getStaffProcessorContext().catch(() => null);
+  const settings = IS_PUBLIC
+    ? await getPublicSiteSettings()
+    : await getPublicSiteSettings(undefined, staffContext).catch(() => getPublicSiteSettings());
+  const dashboard = IS_PUBLIC ? null : await getDashboardSummary().catch(() => null);
   const onboarding = !IS_PUBLIC && staffContext?.role === 'admin'
     ? await getProcessorOnboardingSnapshot(staffContext.id).catch(() => null)
     : null;

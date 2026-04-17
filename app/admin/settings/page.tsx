@@ -1902,15 +1902,13 @@ export default function AdminSettingsPage() {
         <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Pricing</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            These values drive the intake totals, specialty totals, print sheet pricing, and customer-facing pricing copy.
+            These values drive the intake totals, specialty totals, print sheet pricing, and customer-facing pricing copy. Add-on prices are managed in the Add-Ons section so everything optional stays in one place.
           </div>
 
           {[
             ['standard_processing_price', 'Standard Processing'],
             ['caped_price', 'Caped'],
             ['cape_donate_price', 'Cape & Donate'],
-            ['beef_fat_add_on', 'Beef Fat Add-On'],
-            ['webbs_add_on', 'Webbs Add-On'],
           ].map(([key, label]) => (
             <div
               key={key}
