@@ -1003,50 +1003,6 @@ export default function AdminSettingsPage() {
               </div>
             ))}
           </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: 12,
-            }}
-          >
-            {[
-              {
-                title: 'Public Site',
-                body: 'Logo, business name, address, hours, banner, and the wording customers see.',
-                target: 'branding' as const,
-              },
-              {
-                title: 'Offerings & Pricing',
-                body: 'Process types, add-ons, specialty items, prices, and cut-option visibility.',
-                target: 'pricing' as const,
-              },
-              {
-                title: 'Customer Communication',
-                body: 'Intake wording, FAQ items, pickup instructions, and notification templates.',
-                target: 'copy' as const,
-              },
-            ].map((item) => (
-              <button
-                key={item.title}
-                type="button"
-                onClick={() => setSection(item.target)}
-                className="app-surface-light"
-                style={{
-                  padding: 16,
-                  display: 'grid',
-                  gap: 8,
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ fontWeight: 900, fontSize: 18, color: '#0f172a' }}>{item.title}</div>
-                <div style={{ color: '#64748b', fontSize: 14, lineHeight: 1.5 }}>{item.body}</div>
-                <div style={{ color: '#7c4b17', fontWeight: 800, fontSize: 13 }}>Open section</div>
-              </button>
-            ))}
-          </div>
         </div>
         )}
 

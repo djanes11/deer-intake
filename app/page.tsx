@@ -1379,9 +1379,6 @@ function StaffHome({
 
       <div style={statsGrid}>
         {[
-          { label: 'Public Intake - Needs tag', value: dashboard?.pendingTags ?? 0, href: '/overnight/review' },
-          { label: 'Print Queue', value: dashboard?.printQueue ?? 0, href: '/reports/print-queue' },
-          { label: 'Called - Pickup queue', value: dashboard?.calledQueue ?? 0, href: '/reports/called' },
           { label: 'Specialty Report - Open pounds', value: dashboard?.specialtyOpen ?? 0, href: '/reports/specialty' },
           { label: 'Today Drop-Offs', value: dashboard?.todayDropoffs ?? 0, href: '/search' },
           { label: 'State Form - Season PDF', value: dashboard?.seasonEntries ?? 0, href: '/reports/state-form' },

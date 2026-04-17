@@ -551,12 +551,6 @@ export default function StatusPage() {
               {publicCopy.statusIntro}
             </p>
           </div>
-          <div className="app-side-note">
-            <div style={{ fontWeight: 900, color: '#fff7e8' }}>Best way to search</div>
-            <div style={{ color: 'rgba(245,236,216,.84)', lineHeight: 1.55 }}>
-              {publicCopy.statusBestWay}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -627,7 +621,6 @@ export default function StatusPage() {
                 </div>
               </div>
             </div>
-
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {canScan ? (
                 <button type="button" onClick={handleScan} title="Scan code" style={{ ...secondaryBtn, whiteSpace: 'nowrap' }}>
@@ -637,10 +630,6 @@ export default function StatusPage() {
               <button disabled={loading} style={primaryBtn} aria-busy={loading}>
                 {loading ? 'Checking...' : 'Check Status'}
               </button>
-            </div>
-
-            <div style={{ fontSize: 13, opacity: 0.82 }}>
-              {`If one search does not work, try the other. ${identifierSettings.confirmationLabel} is usually the fastest place to start.`}
             </div>
           </form>
       </section>
@@ -740,14 +729,6 @@ export default function StatusPage() {
           />
         </section>
       ) : null}
-
-      <div style={{ marginTop: 4, opacity: 0.82, fontSize: 13, color: '#d5c8b5' }}>
-        Not seeing your order? Try your confirmation number first, or{' '}
-        <Link href="/faq-public" style={{ color: '#2f6f3f', textDecoration: 'none', fontWeight: 800 }}>
-          check the FAQ
-        </Link>
-        .
-      </div>
     </main>
   );
 }

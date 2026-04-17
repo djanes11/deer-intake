@@ -480,9 +480,6 @@ export default function SearchPage() {
               <div style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}>
                 {resultSummary}
               </div>
-              <div className="muted" style={{ marginTop: 6 }}>
-                Click once to preview. Double-click to open the full deer record.
-              </div>
             </div>
             {loading && <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>Loading...</div>}
             {err && <div className="app-surface-light" style={{ padding: 16, borderColor: '#ef4444', color: '#7f1d1d' }}>Error: {err}</div>}
@@ -515,7 +512,6 @@ export default function SearchPage() {
                           boxShadow: r.tag === selectedTag ? 'inset 5px 0 0 #2f7d42' : undefined,
                           color: r.tag === selectedTag ? '#111827' : undefined,
                         }}
-                        title="Click for preview, double-click to open"
                       >
                         <td><strong>{r.tag}</strong></td>
                         <td>
@@ -574,7 +570,7 @@ export default function SearchPage() {
                   <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '.04em' }}>Preview</div>
                   <div style={{ fontSize: 22, fontWeight: 900, marginTop: 4 }}>{selectedJob?.customer || selectedTag || 'Select a deer'}</div>
                   <div className="muted" style={{ marginTop: 4 }}>
-                    {selectedTag ? `Tag ${selectedTag}` : 'Click a result row to load details'}
+                    {selectedTag ? `Tag ${selectedTag}` : 'Select a deer'}
                     {selectedJob?.confirmation ? ` | Confirmation ${selectedJob.confirmation}` : ''}
                   </div>
                 </div>
@@ -624,9 +620,6 @@ export default function SearchPage() {
                   <div style={{ display: 'grid', gap: 12 }}>
                     <DetailBox title="Quick Summary">
                       <div><strong>Status:</strong> {statusSummary}</div>
-                      <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
-                      <div><strong>Email:</strong> {selectedJob.email || '-'}</div>
-                      <div><strong>Confirmation:</strong> {selectedJob.confirmation || '-'}</div>
                       <div><strong>Processing paid:</strong> ${Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0).toFixed(2)}</div>
                       <div><strong>Specialty paid:</strong> ${Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0).toFixed(2)}</div>
                     </DetailBox>

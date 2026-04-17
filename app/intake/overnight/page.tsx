@@ -1008,19 +1008,6 @@ function OvernightIntakePage() {
           </div>
         </div>
 
-        <div className={`mobileProgress ${stepIdx > 0 ? 'showCompact' : ''}`} aria-hidden={stepIdx === 0}>
-          <div className="mobileProgressMeta">
-            <span>{stepIdx} completed</span>
-            <span>{steps.length - stepIdx} to go</span>
-          </div>
-          <div className="mobileProgressTrack">
-            <div
-              className="mobileProgressFill"
-              style={{ width: `${((stepIdx + 1) / steps.length) * 100}%` }}
-            />
-          </div>
-        </div>
-
         <div className={`stepChips ${stepIdx > 0 ? 'mobileCollapse' : ''}`} aria-label="Progress">
           {steps.map((s, idx) => {
             const state = idx < stepIdx ? 'done' : idx === stepIdx ? 'current' : 'upcoming';
@@ -1042,20 +1029,6 @@ function OvernightIntakePage() {
             );
           })}
         </div>
-
-        {!requiredDone ? (
-          <div className={`requiredBox ${compactRequiredList ? 'compact' : ''}`} role="status" aria-live="polite">
-            <div className="requiredTitle">Finish these before moving on:</div>
-            <div className="requiredList">
-              {(compactRequiredList ? currentStepMissing.slice(0, 3) : currentStepMissing).map((item) => (
-                <span key={item} className="requiredPill">{item}</span>
-              ))}
-              {compactRequiredList ? (
-                <span className="requiredMore">+{currentStepMissing.length - 3} more</span>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
 
         <div className={`summary ${compactSummary ? 'compact' : ''}`}>
           {compactSummary ? (
