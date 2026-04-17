@@ -58,6 +58,11 @@ type PublicCopySettings = {
   confirmationPlaceholder: string;
   confirmationHelpText: string;
   confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
+  turnaroundEstimate: string;
+  acceptedPaymentMethods: Array<'cash' | 'card' | 'check' | 'other'>;
+  callBeforePickup: boolean;
+  storageFeeStartsAfterDays: number;
+  storageFeePolicy: string;
   pickupInstructions: string;
   thankYouMessage: string;
   statusIntro: string;
@@ -180,6 +185,11 @@ const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
   confirmationPlaceholder: 'State confirmation #',
   confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
   confirmationValidation: 'exact_13',
+  turnaroundEstimate: 'Turnaround time depends on season volume and the cuts you choose. The shop will contact you when your order is ready.',
+  acceptedPaymentMethods: ['cash', 'check', 'card'],
+  callBeforePickup: false,
+  storageFeeStartsAfterDays: 0,
+  storageFeePolicy: '',
   pickupInstructions:
     'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
   thankYouMessage:
@@ -721,6 +731,8 @@ export default function AdminSettingsPage() {
     },
   ];
   const ownerReadyCount = ownerChecklist.filter((item) => item.done).length;
+  const essentialSectionKeys: SettingsSection[] = ['overview', 'branding', 'intake', 'hours', 'pricing', 'processes', 'addons', 'specialty'];
+  const advancedSectionKeys: SettingsSection[] = ['copy', 'banner', 'notifications'];
 
   const sectionTabs = [
     { key: 'overview', label: 'Make This Yours' },
@@ -840,9 +852,9 @@ export default function AdminSettingsPage() {
       </section>
 
       <section className="app-surface-light" style={{ padding: 14, display: 'grid', gap: 12 }}>
-        <div className="app-section-head">
-          <div className="app-section-title">Settings Areas</div>
-          <div className="app-section-copy">Work through one settings section at a time to keep changes easier to review and save.</div>
+          <div className="app-section-head">
+            <div className="app-section-title">Settings Areas</div>
+          <div className="app-section-copy">Most processors only need the Essentials sections to get live. Advanced sections are there when you want to fine-tune messaging and alerts.</div>
         </div>
       </section>
 
@@ -871,24 +883,38 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <div style={{ display: 'grid', gap: 8 }}>
-            {sectionTabs.map((tab, index) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setSection(tab.key)}
-                style={{
-                  ...sectionButton(section === tab.key),
-                  width: '100%',
-                  textAlign: 'left',
-                  display: 'grid',
-                  gap: 4,
-                }}
-              >
-                <span style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>
-                  Section {index + 1}
-                </span>
-                <span>{tab.label}</span>
-              </button>
+            {[
+              { label: 'Essentials', keys: essentialSectionKeys, note: 'Most processors can stop here.' },
+              { label: 'Advanced', keys: advancedSectionKeys, note: 'Refine customer messaging and alerts.' },
+            ].map((group) => (
+              <div key={group.label} style={{ display: 'grid', gap: 8 }}>
+                <div style={{ display: 'grid', gap: 2 }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: '#7c4b17' }}>{group.label}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.45 }}>{group.note}</div>
+                </div>
+                {sectionTabs
+                  .map((tab, index) => ({ tab, index }))
+                  .filter(({ tab }) => group.keys.includes(tab.key))
+                  .map(({ tab, index }) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setSection(tab.key)}
+                      style={{
+                        ...sectionButton(section === tab.key),
+                        width: '100%',
+                        textAlign: 'left',
+                        display: 'grid',
+                        gap: 4,
+                      }}
+                    >
+                      <span style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>
+                        Section {index + 1}
+                      </span>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+              </div>
             ))}
           </div>
           <div
@@ -1481,8 +1507,85 @@ export default function AdminSettingsPage() {
                 style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
               />
             </label>
-            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
-              Home page headline, walkthrough steps, pricing note, and review checklist now use polished defaults so processors only need to edit the workflow wording that really changes by shop.
+          <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+            Home page headline, walkthrough steps, pricing note, and review checklist now use polished defaults so processors only need to edit the workflow wording that really changes by shop.
+          </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Shop Policies</div>
+            <label style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Turnaround estimate</span>
+              <textarea
+                rows={2}
+                value={s.publicCopy?.turnaroundEstimate || ''}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, turnaroundEstimate: e.target.value } })}
+                style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+              />
+            </label>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <span style={{ fontWeight: 800, color: '#0f172a' }}>Accepted payment methods</span>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                {[
+                  { value: 'cash', label: 'Cash' },
+                  { value: 'check', label: 'Check' },
+                  { value: 'card', label: 'Card' },
+                  { value: 'other', label: 'Other' },
+                ].map((item) => {
+                  const selected = (s.publicCopy?.acceptedPaymentMethods || []).includes(item.value as any);
+                  return (
+                    <label key={item.value} style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700, color: '#0f172a' }}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(e) => {
+                          const current = new Set(s.publicCopy?.acceptedPaymentMethods || []);
+                          if (e.target.checked) current.add(item.value as any);
+                          else current.delete(item.value as any);
+                          setS({
+                            ...s,
+                            publicCopy: {
+                              ...DEFAULT_PUBLIC_COPY,
+                              ...s.publicCopy,
+                              acceptedPaymentMethods: Array.from(current) as PublicCopySettings['acceptedPaymentMethods'],
+                            },
+                          });
+                        }}
+                      />
+                      {item.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <label style={{ display: 'flex', gap: 10, alignItems: 'center', fontWeight: 800, color: '#0f172a' }}>
+              <input
+                type="checkbox"
+                checked={!!s.publicCopy?.callBeforePickup}
+                onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, callBeforePickup: e.target.checked } })}
+              />
+              Ask customers to call before pickup
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 220px) minmax(0, 1fr)', gap: 12 }}>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontWeight: 800, color: '#0f172a' }}>Storage fee starts after days</span>
+                <input
+                  inputMode="numeric"
+                  value={String(s.publicCopy?.storageFeeStartsAfterDays ?? 0)}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, storageFeeStartsAfterDays: Math.max(0, Number(e.target.value || 0) || 0) } })}
+                  style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6 }}>
+                <span style={{ fontWeight: 800, color: '#0f172a' }}>Storage fee / hold policy</span>
+                <textarea
+                  rows={2}
+                  value={s.publicCopy?.storageFeePolicy || ''}
+                  onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, storageFeePolicy: e.target.value } })}
+                  style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
+                  placeholder="Optional: Orders not picked up after 7 days may incur a daily storage fee."
+                />
+              </label>
             </div>
           </div>
 

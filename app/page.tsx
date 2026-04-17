@@ -749,6 +749,15 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
       ? { label: 'Address', value: branding.address, href: branding.mapsUrl || undefined }
       : null,
   ].filter(Boolean) as Array<{ label: string; value: string; href?: string }>;
+  const acceptedPaymentLabels = ((publicCopy?.acceptedPaymentMethods || []) as string[])
+    .map((method) => ({ cash: 'Cash', card: 'Card', check: 'Check', other: 'Other' }[method] || method))
+    .filter(Boolean);
+  const policyRows = [
+    publicCopy?.turnaroundEstimate ? { label: 'Turnaround', value: publicCopy.turnaroundEstimate } : null,
+    acceptedPaymentLabels.length ? { label: 'Payment', value: acceptedPaymentLabels.join(', ') } : null,
+    publicCopy?.callBeforePickup ? { label: 'Pickup', value: 'Please call before pickup so staff can prepare your order.' } : null,
+    publicCopy?.storageFeePolicy ? { label: 'Hold Policy', value: publicCopy.storageFeePolicy } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
   const formatMoney = (value: number, prefix = '') => `${prefix}$${value.toFixed(2)}`;
   const colors = {
     bg: '#120f0d',
@@ -982,6 +991,22 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
         </div>
       </section>
 
+      {policyRows.length ? (
+        <section aria-label="Policies" style={{ marginTop: 12 }}>
+          <div style={panel}>
+            <div style={h3}>What to Expect</div>
+            <div style={{ ...twoCol, marginTop: 0 }}>
+              {policyRows.map((item) => (
+                <div key={item.label} style={{ ...supportRow, background: 'rgba(18,24,22,.88)' }}>
+                  <span style={supportLabel}>{item.label}</span>
+                  <span style={{ lineHeight: 1.55 }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <footer style={footer} aria-label="Footer">
         <div>&copy; {new Date().getFullYear()} {branding?.name || 'Game Butcher Board'}. All rights reserved.</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -1014,8 +1039,8 @@ function StaffHome({
   const roleLabel = role === 'admin' ? 'Admin' : role === 'staff' ? 'Staff' : role === 'readonly' ? 'Read-only' : 'Unknown';
   const primaryActions = canEdit
     ? [
-        { label: 'New Intake', href: '/intake', detail: 'Enter a new deer drop-off', accent: '#5b7a62' },
-        { label: 'Search Jobs', href: '/search', detail: 'Find a deer, print paperwork, or review details', accent: '#8fb3a8' },
+        { label: 'New Intake', href: '/intake', detail: 'Enter a new deer drop-off or update one by hand', accent: '#5b7a62' },
+        { label: scanEnabled ? 'Search Jobs' : 'Update Statuses', href: '/search', detail: scanEnabled ? 'Find a deer, print paperwork, or review details' : 'Find a deer and move it forward manually from search or intake', accent: '#8fb3a8' },
         ...(scanEnabled ? [{ label: 'Scan Tags', href: '/scan', detail: 'Scan tags to move deer through processing', accent: '#c88a3d' }] : []),
       ]
     : [
@@ -1323,7 +1348,7 @@ function StaffHome({
           <div style={{ fontWeight: 900, fontSize: 24 }}>Start with one of these</div>
           <div style={{ opacity: 0.82 }}>
             {canEdit
-              ? 'Choose the task you are doing right now: enter a deer, scan tags on the floor, or look up an existing record.'
+              ? (scanEnabled ? 'Choose the task you are doing right now: enter a deer, scan tags on the floor, or look up an existing record.' : 'This processor is using the manual workflow, so intake and search are the two main places to work.')
               : 'Your access is focused on viewing, printing, and monitoring progress. Search and reports are the main places to work.'}
           </div>
         </div>

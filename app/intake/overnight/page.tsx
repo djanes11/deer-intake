@@ -6,6 +6,7 @@ import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
+import type { PublicCopySettings } from '@/lib/siteSettings';
 import {
   confirmationInputMode,
   identifierSettingsFromPublicCopy,
@@ -292,7 +293,17 @@ function OvernightIntakePage() {
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [stateFormType, setStateFormType] = useState<StateFormType>('indiana');
-  const [publicCopy, setPublicCopy] = useState({
+  const [publicCopy, setPublicCopy] = useState<PublicCopySettings>({
+    homeHeadline: 'Professional wild game processing, with a cleaner customer experience.',
+    homeIntro: 'Submit your intake, choose your cuts, and check status online without guessing what happens next.',
+    homeHowItWorks: [
+      'Use the public intake form before or during drop-off so the shop has your information and cut selections right away.',
+      'Include your state confirmation number and leave your deer with your name and phone details for easy matching.',
+      'Staff assigns the permanent tag, reviews your order, and updates status as work moves forward.',
+      'Check status online anytime and pick up promptly once you are notified.',
+    ],
+    pricingNote:
+      'Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.',
     beforeDropoffChecklist: [
       'Have your state harvest/check-in confirmation number ready',
       'Leave your name, phone number, and confirmation details with the deer',
@@ -313,15 +324,44 @@ function OvernightIntakePage() {
     confirmationPlaceholder: 'State confirmation #',
     confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
     confirmationValidation: 'exact_13' as const,
+    turnaroundEstimate:
+      'Turnaround time depends on season volume and the cuts you choose. The shop will contact you when your order is ready.',
+    acceptedPaymentMethods: ['cash', 'check', 'card'],
+    callBeforePickup: false,
+    storageFeeStartsAfterDays: 0,
+    storageFeePolicy: '',
     pickupInstructions:
       'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
     thankYouMessage:
       'Save or screenshot this confirmation number before you close this page. You will need it to check your status until staff assign your deer tag.',
+    statusIntro:
+      'Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag. This page updates as your order moves through the shop.',
+    statusBestWay:
+      'Confirmation number works best before staff assign the permanent tag. After the tag is assigned, you can also search with the tag number and customer last name.',
+    statusLookupHelp:
+      'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
+    confirmationSearchHelp:
+      'Best for most customers. Use the number from your intake or state harvest/check-in.',
     tagLabel: 'Tag Number',
     tagPlaceholder: 'Deer tag number',
     tagFormat: 'digits_only' as const,
     tagMinLength: 5,
     startingTagNumber: '1000',
+    tagSearchHelp: 'Only use this after staff have assigned the real deer tag.',
+    faqItems: [
+      {
+        question: 'How do I use the Public Intake Form?',
+        answer: 'Open the public intake form, fill in the steps from top to bottom, and save your confirmation number when you finish.',
+      },
+      {
+        question: 'Where are you located?',
+        answer: 'Use the address and map link on this site for directions to the shop.',
+      },
+      {
+        question: 'How will I know my deer is ready?',
+        answer: 'We will use the contact method you selected on your intake form for updates, and you can also check status online.',
+      },
+    ],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -2140,6 +2180,16 @@ function OvernightIntakePage() {
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
               Staff will review your intake, assign the permanent tag, and use your selected contact method when an update is available.
             </p>
+            <div className="thanksList" style={{ marginTop: 12 }}>
+              {publicCopy.turnaroundEstimate ? <div>{publicCopy.turnaroundEstimate}</div> : null}
+              {Array.isArray(publicCopy.acceptedPaymentMethods) && publicCopy.acceptedPaymentMethods.length ? (
+                <div>
+                  Accepted payments: {publicCopy.acceptedPaymentMethods.map((method) => ({ cash: 'cash', check: 'check', card: 'card', other: 'other' }[method] || method)).join(', ')}.
+                </div>
+              ) : null}
+              {publicCopy.callBeforePickup ? <div>Please call the shop before pickup so staff can have your order ready.</div> : null}
+              {publicCopy.storageFeePolicy ? <div>{publicCopy.storageFeePolicy}</div> : null}
+            </div>
             <div className="thanksList">
               <div>1. Staff will review your intake and assign the real deer tag.</div>
               <div>2. Use this confirmation number on the status page until that tag is assigned.</div>

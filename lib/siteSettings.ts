@@ -65,6 +65,11 @@ export type PublicCopySettings = {
   confirmationPlaceholder: string;
   confirmationHelpText: string;
   confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
+  turnaroundEstimate: string;
+  acceptedPaymentMethods: Array<'cash' | 'card' | 'check' | 'other'>;
+  callBeforePickup: boolean;
+  storageFeeStartsAfterDays: number;
+  storageFeePolicy: string;
   pickupInstructions: string;
   thankYouMessage: string;
   statusIntro: string;
@@ -209,6 +214,11 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
       confirmationPlaceholder: 'State confirmation #',
       confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
       confirmationValidation: 'exact_13',
+      turnaroundEstimate: 'Turnaround time depends on season volume and the cuts you choose. The shop will contact you when your order is ready.',
+      acceptedPaymentMethods: ['cash', 'check', 'card'],
+      callBeforePickup: false,
+      storageFeeStartsAfterDays: 0,
+      storageFeePolicy: '',
       pickupInstructions:
         'Leave a note with your full name, phone number, and the last 5 digits of your confirmation number attached to the deer.',
       thankYouMessage:
@@ -279,6 +289,17 @@ export function normalizePublicCopy(input: any): PublicCopySettings {
       input?.confirmationValidation === 'digits_only' || input?.confirmationValidation === 'freeform'
         ? input.confirmationValidation
         : defaults.confirmationValidation,
+    turnaroundEstimate: String(input?.turnaroundEstimate || '').trim() || defaults.turnaroundEstimate,
+    acceptedPaymentMethods: (() => {
+      if (!Array.isArray(input?.acceptedPaymentMethods)) return defaults.acceptedPaymentMethods;
+      const methods = input.acceptedPaymentMethods
+        .map((item: any) => String(item || '').trim().toLowerCase())
+        .filter((item: string) => ['cash', 'card', 'check', 'other'].includes(item)) as PublicCopySettings['acceptedPaymentMethods'];
+      return methods.length ? methods : defaults.acceptedPaymentMethods;
+    })(),
+    callBeforePickup: !!input?.callBeforePickup,
+    storageFeeStartsAfterDays: Math.max(0, Math.min(60, Number(input?.storageFeeStartsAfterDays || 0) || 0)),
+    storageFeePolicy: String(input?.storageFeePolicy || '').trim(),
     pickupInstructions: String(input?.pickupInstructions || '').trim() || defaults.pickupInstructions,
     thankYouMessage: String(input?.thankYouMessage || '').trim() || defaults.thankYouMessage,
     statusIntro: String(input?.statusIntro || '').trim() || defaults.statusIntro,

@@ -463,6 +463,7 @@ function IntakePage() {
   const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
   const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [scanEnabled, setScanEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [stateFormType, setStateFormType] = useState<StateFormType>('indiana');
@@ -499,6 +500,7 @@ function IntakePage() {
           setProcessCatalog(normalizeProcessCatalog(j?.settings?.processCatalog, j?.settings));
           setAddOnCatalog(normalizeAddOnCatalog(j?.settings?.addOnCatalog, j?.settings));
           setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+          setScanEnabled(j?.settings?.features?.scanEnabled !== false);
           setSpecialtyCatalog(j?.settings?.features?.specialtyEnabled === false ? [] : normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, j?.settings));
           setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
           setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
@@ -1580,6 +1582,36 @@ if (fresh?.exists && fresh.job) {
               </div>
             </div>
           </div>
+
+          {!scanEnabled ? (
+            <div className="app-surface-light" style={{ marginTop: 14, padding: 14, display: 'grid', gap: 10 }}>
+              <div style={{ fontWeight: 900, color: '#0f172a' }}>Manual Workflow Shortcuts</div>
+              <div style={{ color: '#475569', lineHeight: 1.5 }}>
+                Scan flow is off for this processor, so use these buttons to move the order forward quickly without hunting through status dropdowns.
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {showMainStatus ? (
+                  <>
+                    <button type="button" className="btn secondary" onClick={() => setVal('status', 'Processing' as any)}>Start Processing</button>
+                    <button type="button" className="btn secondary" onClick={() => setVal('status', 'Finished' as any)}>Mark Finished</button>
+                    <button type="button" className="btn secondary" onClick={() => setVal('status', 'Called' as any)}>Mark Called</button>
+                  </>
+                ) : null}
+                {showCapingStatus ? (
+                  <button type="button" className="btn secondary" onClick={() => setVal('capingStatus', 'Caped' as any)}>Cape Finished</button>
+                ) : null}
+                {showWebbsStatus ? (
+                  <button type="button" className="btn secondary" onClick={() => setVal('webbsStatus', 'Delivered' as any)}>Webbs Delivered</button>
+                ) : null}
+                {showSpecialtyStatus ? (
+                  <>
+                    <button type="button" className="btn secondary" onClick={() => setVal('specialtyStatus', 'In Progress' as any)}>Specialty In Progress</button>
+                    <button type="button" className="btn secondary" onClick={() => setVal('specialtyStatus', 'Finished' as any)}>Specialty Finished</button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Customer */}

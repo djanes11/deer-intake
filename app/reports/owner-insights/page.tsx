@@ -26,6 +26,11 @@ type OwnerInsightRow = {
   picked_up_processing_at: string | null;
 };
 
+type InsightPolicySettings = {
+  storageFeeStartsAfterDays: number;
+  storageFeePolicy: string;
+};
+
 function diffHours(a: string | null | undefined, b: string | null | undefined) {
   const start = new Date(String(a || ''));
   const end = new Date(String(b || ''));
@@ -112,6 +117,11 @@ export default async function OwnerInsightsPage() {
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+  const { data: settingsRow } = await supabase
+    .from('site_settings')
+    .select('public_copy')
+    .eq('processor_id', processor.id)
+    .maybeSingle();
   const { data, error } = await supabase
     .from('jobs')
     .select('id,tag,confirmation,customer_name,phone,status,dropoff_date,processing_started_at,processing_finished_at,picked_up_processing,picked_up_processing_at')
@@ -119,6 +129,10 @@ export default async function OwnerInsightsPage() {
     .limit(2500);
 
   const rows = (data || []) as OwnerInsightRow[];
+  const policy = {
+    storageFeeStartsAfterDays: Math.max(0, Number((settingsRow as any)?.public_copy?.storageFeeStartsAfterDays || 0) || 0),
+    storageFeePolicy: String((settingsRow as any)?.public_copy?.storageFeePolicy || '').trim(),
+  } as InsightPolicySettings;
   const nowIso = new Date().toISOString();
 
   const slowestProcessing = rows
@@ -145,6 +159,9 @@ export default async function OwnerInsightsPage() {
   const readyHeld3d = readyValues.filter((value) => value >= 3).length;
   const readyHeld7d = readyValues.filter((value) => value >= 7).length;
   const readyHeld14d = readyValues.filter((value) => value >= 14).length;
+  const readyPastStorageThreshold = policy.storageFeeStartsAfterDays > 0
+    ? readyValues.filter((value) => value >= policy.storageFeeStartsAfterDays).length
+    : 0;
 
   return (
     <main style={{ maxWidth: 1180, margin: '24px auto', padding: '0 16px 40px', display: 'grid', gap: 16 }}>
@@ -170,6 +187,16 @@ export default async function OwnerInsightsPage() {
         <div style={{ padding: 12, borderRadius: 12, background: '#fff1f2', border: '1px solid #fecdd3', color: '#be123c', fontWeight: 800 }}>
           {String(error.message || error)}
         </div>
+      ) : null}
+
+      {policy.storageFeeStartsAfterDays > 0 ? (
+        <section style={{ padding: 14, borderRadius: 14, background: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', display: 'grid', gap: 6 }}>
+          <div style={{ fontWeight: 900 }}>Ready-order hold watch is on</div>
+          <div style={{ lineHeight: 1.5 }}>
+            {readyPastStorageThreshold} finished deer have been waiting at least {policy.storageFeeStartsAfterDays} day{policy.storageFeeStartsAfterDays === 1 ? '' : 's'} for pickup.
+            {policy.storageFeePolicy ? ` Policy on file: ${policy.storageFeePolicy}` : ''}
+          </div>
+        </section>
       ) : null}
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
@@ -201,6 +228,14 @@ export default async function OwnerInsightsPage() {
           <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>Ready 14+ Days</div>
           <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{readyHeld14d}</div>
         </div>
+        {policy.storageFeeStartsAfterDays > 0 ? (
+          <div style={cardStyle('rgba(154,52,18,.22)')}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>
+              Ready {policy.storageFeeStartsAfterDays}+ Days
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{readyPastStorageThreshold}</div>
+          </div>
+        ) : null}
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>

@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import ButcherOverlay from '@/app/components/ButcherOverlay';
 import { normalizeCutOptionSettings, type CutOptionSettings } from '@/lib/cutOptions';
 import { useScanner } from '@/lib/useScanner';
@@ -438,8 +439,16 @@ export default function ScanPage() {
       </section>
 
       {!scanEnabled ? (
-        <section className="card readonly-banner">
-          Scan workflow is turned off for this processor. Staff can still update deer manually from intake and search.
+        <section className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 12 }}>
+          <div style={{ fontWeight: 900, color: '#0f172a' }}>Manual workflow is active for this processor</div>
+          <div style={{ color: '#334155', lineHeight: 1.55 }}>
+            This shop is not using scan-based progression right now. Intake and Search are the main places to move deer forward, check balances, and review instructions.
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Link href="/intake" className="btn" style={{ textDecoration: 'none' }}>Open Intake</Link>
+            <Link href="/search" className="btn secondary" style={{ textDecoration: 'none' }}>Open Search</Link>
+            <Link href="/reports/calls" className="btn secondary" style={{ textDecoration: 'none' }}>Ready to Call</Link>
+          </div>
         </section>
       ) : null}
 
