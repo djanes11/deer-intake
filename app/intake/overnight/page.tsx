@@ -23,6 +23,7 @@ import {
   defaultAddOnCatalog,
   defaultProcessCatalog,
   deriveSelectedAddOnItems,
+  filterProcessCatalogBySex,
   filterVisibleAddOnItems,
   normalizeAddOnCatalog,
   normalizeJobAddOnItems,
@@ -408,6 +409,10 @@ function OvernightIntakePage() {
     () => normalizeProcessCatalog(processCatalog, pricing).filter((item) => item.active),
     [processCatalog, pricing]
   );
+  const availableProcessCatalog = useMemo(
+    () => filterProcessCatalogBySex(activeProcessCatalog, job.sex),
+    [activeProcessCatalog, job.sex]
+  );
   const activeAddOnCatalog = useMemo(
     () =>
       filterVisibleAddOnItems(
@@ -596,6 +601,14 @@ function OvernightIntakePage() {
     }));
     setSpecialtyModalOpen(false);
   }, [specialtyEnabled]);
+
+  useEffect(() => {
+    if (!job.sex || !job.processType) return;
+    const match = availableProcessCatalog.find((item) => item.name === job.processType || item.slug === String(job.processType || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+    if (match) return;
+    setJob((prev) => ({ ...prev, processType: '', processTypeSlug: null, processTypeRequiresCape: null }));
+    setErrors((prev) => ({ ...prev, processType: 'Choose a process type allowed for that deer sex' }));
+  }, [availableProcessCatalog, job.sex, job.processType]);
 
   useEffect(() => {
     setJob((p) => {
@@ -1508,11 +1521,12 @@ function OvernightIntakePage() {
                   disabled={locked}
                 >
                   <option value="">--</option>
-                  {activeProcessCatalog.map((item) => (
+                  {availableProcessCatalog.map((item) => (
                     <option key={item.slug} value={item.name}>{item.name}</option>
                   ))}
                 </select>
                 {errors.processType ? <div className="errText">{errors.processType}</div> : null}
+                {job.sex && !availableProcessCatalog.length ? <div className="errText">No process types are enabled for that deer sex yet.</div> : null}
               </div>
             </div>
           </section>

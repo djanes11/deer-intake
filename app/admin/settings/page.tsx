@@ -282,6 +282,8 @@ function processDraftRows(input: ProcessTypeCatalogItem[] | undefined | null, pr
     sortOrder: Number.isFinite(Number(item?.sortOrder)) ? Number(item?.sortOrder) : (index + 1) * 10,
     triggersCapeWorkflow: !!item?.triggersCapeWorkflow,
     donationOnly: !!item?.donationOnly,
+    allowBuck: item?.allowBuck !== false,
+    allowDoe: item?.allowDoe !== false,
   }));
 }
 
@@ -508,6 +510,8 @@ export default function AdminSettingsPage() {
           sortOrder: (current.length + 1) * 10,
           triggersCapeWorkflow: false,
           donationOnly: false,
+          allowBuck: true,
+          allowDoe: true,
         },
       ],
     });
@@ -1924,6 +1928,17 @@ export default function AdminSettingsPage() {
                 <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}><input type="checkbox" checked={item.triggersCapeWorkflow} onChange={(e) => updateProcessTypeItem(index, 'triggersCapeWorkflow', e.target.checked)} /> Cape workflow</label>
                 <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}><input type="checkbox" checked={item.donationOnly} onChange={(e) => updateProcessTypeItem(index, 'donationOnly', e.target.checked)} /> Donation option</label>
                 <button type="button" onClick={() => removeProcessType(index)} style={{ marginLeft: 'auto', padding: '8px 12px', borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', color: '#991b1b', fontWeight: 800, cursor: 'pointer' }}>Remove</button>
+              </div>
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>Show for</div>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
+                  <input type="checkbox" checked={item.allowBuck !== false} onChange={(e) => updateProcessTypeItem(index, 'allowBuck', e.target.checked)} />
+                  Buck
+                </label>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
+                  <input type="checkbox" checked={item.allowDoe !== false} onChange={(e) => updateProcessTypeItem(index, 'allowDoe', e.target.checked)} />
+                  Doe / Antlerless
+                </label>
               </div>
             </div>
           ))}

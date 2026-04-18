@@ -9,6 +9,8 @@ export type ProcessTypeCatalogItem = {
   sortOrder: number;
   triggersCapeWorkflow: boolean;
   donationOnly: boolean;
+  allowBuck: boolean;
+  allowDoe: boolean;
 };
 
 export type AddOnCatalogItem = {
@@ -87,6 +89,8 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       sortOrder: 10,
       triggersCapeWorkflow: false,
       donationOnly: false,
+      allowBuck: true,
+      allowDoe: true,
     },
     {
       slug: 'caped',
@@ -99,6 +103,8 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       sortOrder: 20,
       triggersCapeWorkflow: true,
       donationOnly: false,
+      allowBuck: true,
+      allowDoe: false,
     },
     {
       slug: 'skull-cap',
@@ -111,6 +117,8 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       sortOrder: 30,
       triggersCapeWorkflow: false,
       donationOnly: false,
+      allowBuck: true,
+      allowDoe: false,
     },
     {
       slug: 'european',
@@ -123,6 +131,8 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       sortOrder: 40,
       triggersCapeWorkflow: false,
       donationOnly: false,
+      allowBuck: true,
+      allowDoe: false,
     },
     {
       slug: 'cape-donate',
@@ -135,6 +145,8 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       sortOrder: 50,
       triggersCapeWorkflow: true,
       donationOnly: true,
+      allowBuck: true,
+      allowDoe: false,
     },
     {
       slug: 'donate',
@@ -147,6 +159,8 @@ export function defaultProcessCatalog(pricing?: PricingLike | null): ProcessType
       sortOrder: 60,
       triggersCapeWorkflow: false,
       donationOnly: true,
+      allowBuck: true,
+      allowDoe: true,
     },
   ];
 }
@@ -172,6 +186,8 @@ export function normalizeProcessCatalog(input: unknown, pricing?: PricingLike | 
         sortOrder: sortOrder((item as any)?.sortOrder, (index + 1) * 10),
         triggersCapeWorkflow: !!((item as any)?.triggersCapeWorkflow),
         donationOnly: !!((item as any)?.donationOnly),
+        allowBuck: (item as any)?.allowBuck !== false,
+        allowDoe: (item as any)?.allowDoe !== false,
       } satisfies ProcessTypeCatalogItem;
     })
     .filter(Boolean)
@@ -288,6 +304,25 @@ export function processCatalogLookup(processCatalogInput: unknown) {
   const bySlug = new Map(catalog.map((item) => [item.slug, item]));
   const byName = new Map(catalog.map((item) => [item.name.toLowerCase(), item]));
   return { catalog, bySlug, byName };
+}
+
+export function processTypeAllowedForSex(
+  item: ProcessTypeCatalogItem | null | undefined,
+  sex: unknown,
+): boolean {
+  if (!item) return false;
+  const normalizedSex = String(sex || '').trim().toLowerCase();
+  if (!normalizedSex) return true;
+  if (normalizedSex === 'buck') return item.allowBuck !== false;
+  if (normalizedSex === 'doe' || normalizedSex === 'antlerless') return item.allowDoe !== false;
+  return true;
+}
+
+export function filterProcessCatalogBySex(
+  processCatalogInput: unknown,
+  sex: unknown,
+): ProcessTypeCatalogItem[] {
+  return normalizeProcessCatalog(processCatalogInput).filter((item) => processTypeAllowedForSex(item, sex));
 }
 
 export function resolveProcessType(

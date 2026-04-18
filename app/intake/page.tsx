@@ -25,6 +25,7 @@ import {
   defaultAddOnCatalog,
   defaultProcessCatalog,
   deriveSelectedAddOnItems,
+  filterProcessCatalogBySex,
   filterVisibleAddOnItems,
   normalizeAddOnCatalog,
   normalizeJobAddOnItems,
@@ -803,6 +804,10 @@ useEffect(() => {
     () => normalizeProcessCatalog(processCatalog, pricing).filter((item) => item.active),
     [processCatalog, pricing]
   );
+  const availableProcessCatalog = useMemo(
+    () => filterProcessCatalogBySex(activeProcessCatalog, job.sex),
+    [activeProcessCatalog, job.sex]
+  );
   const activeAddOnCatalog = useMemo(
     () =>
       filterVisibleAddOnItems(
@@ -920,6 +925,13 @@ useEffect(() => {
   const showCapingStatus = capingFlow;
   const showWebbsStatus = webbsEnabled && webbsOn && procNorm !== 'Donate';
   const showSpecialtyStatus = !!job.specialtyProducts;
+
+  useEffect(() => {
+    if (!job.sex || !job.processType) return;
+    const match = availableProcessCatalog.find((item) => item.name === job.processType || item.slug === String(job.processType || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''));
+    if (match) return;
+    setJob((prev) => ({ ...prev, processType: '', processTypeSlug: null, processTypeRequiresCape: null }));
+  }, [availableProcessCatalog, job.sex, job.processType]);
 
   useEffect(() => {
     setJob((prev) => {
@@ -1825,10 +1837,13 @@ if (fresh?.exists && fresh.job) {
                 className="w-full min-w-[10rem]"
               >
                 <option value="">—</option>
-                {activeProcessCatalog.map((item) => (
+                {availableProcessCatalog.map((item) => (
                   <option key={item.slug} value={item.name}>{item.name}</option>
                 ))}
               </select>
+              {job.sex && !availableProcessCatalog.length ? (
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>No process types are enabled for that deer sex yet.</div>
+              ) : null}
             </div>
           </div>
         </section>
