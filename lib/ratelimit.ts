@@ -30,9 +30,6 @@ export async function sharedRateLimit(ip: string, key: string, limit = 20, windo
     let error: any = null;
 
     ({ data, error } = await supabase.rpc('shared_rate_limit', payload));
-    if (error?.code === '42883') {
-      ({ data, error } = await supabase.rpc('mcafee_rate_limit', payload));
-    }
 
     if (!error && data) {
       return {

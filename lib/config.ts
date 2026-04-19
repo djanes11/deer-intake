@@ -16,6 +16,7 @@ const LNG = num('NEXT_PUBLIC_LNG');
 // Phones / branding
 const PHONE_DISPLAY = env('NEXT_PUBLIC_PHONE_DISPLAY', '(502) 643-3916');
 const PHONE_E164 = env('NEXT_PUBLIC_PHONE_E164', '+15026433916');
+const SITE_NAME = env('NEXT_PUBLIC_SITE_NAME', 'Game Butcher Board');
 const LOGO_URL = env('NEXT_PUBLIC_LOGO_SRC', '/wgbb-logo.png');
 const LOCATION_LABEL = env('NEXT_PUBLIC_LOCATION_LABEL', 'Palmyra, IN');
 const PUBLIC_TAGLINE = env('NEXT_PUBLIC_PUBLIC_TAGLINE', 'Wild game intake, tracking, and processor operations in one place.');
@@ -32,7 +33,7 @@ function buildMapsUrl(explicit: string, lat: number, lng: number, address: strin
 }
 
 export const SITE = {
-  name: 'Wild Game Butcher Board',
+  name: SITE_NAME,
   locationLabel: LOCATION_LABEL,
   publicTagline: PUBLIC_TAGLINE,
   logoUrl: LOGO_URL,

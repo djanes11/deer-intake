@@ -60,6 +60,10 @@ async function getNotificationBranding() {
   return {
     businessName: String(settings.branding.name || 'Game Butcher Board'),
     phoneDisplay: String(settings.branding.phoneDisplay || ''),
+    pickupHours: settings.hours
+      .map((row) => [String(row.label || '').trim(), String(row.value || '').trim()].filter(Boolean).join(': '))
+      .filter(Boolean)
+      .join(', '),
     notificationTemplates: normalizeNotificationTemplates(settings.notificationTemplates, String(settings.branding.name || 'Game Butcher Board')),
   };
 }
@@ -74,6 +78,7 @@ function notificationVars(opts: {
   specialtyPrice?: number;
   businessName: string;
   phoneDisplay?: string;
+  pickupHours?: string;
 }) {
   const phoneDisplay = String(opts.phoneDisplay || '').trim();
   return {
@@ -86,7 +91,7 @@ function notificationVars(opts: {
     intakeLinkLine: opts.link ? `Click here to view your intake form: ${opts.link}` : '',
     statusUrl: statusPageLink(),
     statusLine: statusPageLink() ? `Status: ${statusPageLink()}` : '',
-    pickupHours: '6:00 pm-8:00 pm Monday-Friday, 9:00 am-5:00 pm Saturday, 9:00 am-12:00 pm Sunday.',
+    pickupHours: String(opts.pickupHours || '').trim(),
     processingDueLine: opts.paidProcessing
       ? 'Regular processing: PAID'
       : `Amount still owed (regular processing): $${Number(opts.processingPrice || 0).toFixed(2)}`,
@@ -108,6 +113,7 @@ function buildNotificationEmail(
     specialtyPrice?: number;
     businessName: string;
     phoneDisplay?: string;
+    pickupHours?: string;
     notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
   },
 ) {
@@ -153,6 +159,7 @@ function buildNotificationSms(
     specialtyPrice?: number;
     businessName: string;
     phoneDisplay?: string;
+    pickupHours?: string;
     notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
   },
 ) {
@@ -161,7 +168,7 @@ function buildNotificationSms(
   return renderNotificationTemplate(templates[eventKey].smsBody, vars).replace(/\s+/g, ' ').trim();
 }
 
-function buildIntakeEmail(opts: { name: string; tag: string; link: string; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildIntakeEmail(opts: { name: string; tag: string; link: string; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('intake', opts);
 }
 
@@ -179,7 +186,7 @@ function makePendingTag(confirmation13: string) {
 }
 
 
-function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('meat_finished', opts);
 }
 
@@ -187,23 +194,23 @@ function buildIntakeSms(opts: { tag: string; statusUrl: string; businessName: st
   return buildNotificationSms('intake', opts);
 }
 
-function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string; businessName: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationSms('meat_finished', opts);
 }
 
-function buildCapeFinishedSms(opts: { tag: string; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildCapeFinishedSms(opts: { tag: string; statusUrl: string; businessName: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationSms('cape_finished', opts);
 }
 
-function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildSpecialtyFinishedSms(opts: { tag: string; paidSpecialty: boolean; specialtyPrice: number; statusUrl: string; businessName: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationSms('specialty_finished', opts);
 }
 
-function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string; businessName: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationSms('webbs_delivered', opts);
 }
 
-function buildCapeFinishedEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildCapeFinishedEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('cape_finished', opts);
 }
 
@@ -214,12 +221,13 @@ function buildSpecialtyFinishedEmail(opts: {
   specialtyPrice: number;
   businessName: string;
   phoneDisplay: string;
+  pickupHours?: string;
   notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
 }) {
   return buildNotificationEmail('specialty_finished', opts);
 }
 
-function buildWebbsDeliveredEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildWebbsDeliveredEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('webbs_delivered', opts);
 }
 
@@ -526,6 +534,7 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
     link,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    pickupHours: branding.pickupHours,
     notificationTemplates: branding.notificationTemplates,
   });
 
@@ -645,6 +654,7 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     processingPrice: price,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    pickupHours: branding.pickupHours,
     notificationTemplates: branding.notificationTemplates,
   });
 
@@ -697,6 +707,7 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
     statusUrl: statusPageLink(),
     businessName: branding.businessName,
     notificationTemplates: branding.notificationTemplates,
+    pickupHours: branding.pickupHours,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -733,6 +744,7 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
     notificationTemplates: branding.notificationTemplates,
+    pickupHours: branding.pickupHours,
   });
 
   await sendEmail({
@@ -769,6 +781,7 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
     statusUrl: statusPageLink(),
     businessName: branding.businessName,
     notificationTemplates: branding.notificationTemplates,
+    pickupHours: branding.pickupHours,
   });
 
   const result = await sendSms({ to: String(locked.phone || ''), body });
@@ -825,6 +838,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
     notificationTemplates: branding.notificationTemplates,
+    pickupHours: branding.pickupHours,
   });
 
   await sendEmail({
@@ -2569,9 +2583,6 @@ export async function logCall(params: {
     let error: any = null;
 
     ({ data, error } = await supabaseServer.rpc('log_processor_call', payload));
-    if (error?.code === '42883') {
-      ({ data, error } = await supabaseServer.rpc('mcafee_log_call', payload));
-    }
 
     if (!error && data && data.ok !== false) {
       return { ok: true };
@@ -2655,9 +2666,6 @@ export async function markCalled(params: {
     let error: any = null;
 
     ({ data, error } = await supabaseServer.rpc('mark_processor_called', payload));
-    if (error?.code === '42883') {
-      ({ data, error } = await supabaseServer.rpc('mcafee_mark_called', payload));
-    }
 
     if (!error && data && data.ok !== false) {
       return {

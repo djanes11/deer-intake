@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { sharedRateLimit } from '@/lib/ratelimit';
 
 export const runtime = 'nodejs';
 
@@ -14,8 +15,25 @@ function clean(raw: unknown) {
   return String(raw || '').trim();
 }
 
+function getIp(req: Request) {
+  try {
+    return (
+      (req.headers.get('x-forwarded-for') || '').split(',')[0]?.trim() ||
+      req.headers.get('x-real-ip') ||
+      'unknown'
+    );
+  } catch {
+    return 'unknown';
+  }
+}
+
 export async function POST(req: Request) {
   try {
+    const rl = await sharedRateLimit(getIp(req), 'processor-interest', 5, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ ok: false, error: 'Rate limited' }, { status: 429 });
+    }
+
     const body = await req.json().catch(() => ({}));
     const businessName = clean(body?.businessName);
     const contactName = clean(body?.contactName);
@@ -25,6 +43,11 @@ export async function POST(req: Request) {
     const annualVolume = clean(body?.annualVolume);
     const currentWorkflow = clean(body?.currentWorkflow);
     const message = clean(body?.message);
+    const website = clean(body?.website);
+
+    if (website) {
+      return NextResponse.json({ ok: true });
+    }
 
     if (!businessName) {
       return NextResponse.json({ ok: false, error: 'Processor name is required.' }, { status: 400 });

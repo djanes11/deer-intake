@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
+import { DEFAULT_SITE_PRICING, normalizePricing } from '@/lib/pricing';
+import type { SitePricing } from '@/lib/pricing';
 
 export type SpecialtyLegacyFieldKey =
   | 'originalSummerSausageLbs'

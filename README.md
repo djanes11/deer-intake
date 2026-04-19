@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Deer Intake
 
-## Getting Started
+Deer Intake is a deer-first, wild-game-expandable operations app for processors. It combines:
 
-First, run the development server:
+- public intake before drop-off
+- staff intake and search
+- tag assignment and print queue
+- scan-driven processing flow
+- customer status lookup
+- notifications
+- pickup/payment tracking
+- owner reporting
+- multi-processor configuration
+
+It is intentionally **not** positioned as livestock software for cattle, pigs, or poultry.
+
+## Product Scope
+
+Current target:
+
+- deer processors in the U.S.
+- shops that only use cell phones
+- shops using labels and scanners
+- processors that may expand into other wild game later
+
+Out of scope:
+
+- cattle/pork/chicken production workflows
+- full slaughterhouse/USDA livestock ERP behavior
+
+## Core Commands
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run build
+npm run test:smoke
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Pilot Readiness
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Before inviting processors into a pilot, run:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run test:smoke
+npm run build
+```
 
-## Learn More
+Then walk through the docs in this order:
 
-To learn more about Next.js, take a look at the following resources:
+1. [Pilot Onboarding Checklist](C:/Users/Alyssa%20Janes/Desktop/deer-intake/docs/pilot-onboarding-checklist.md)
+2. [Pilot Runbook](C:/Users/Alyssa%20Janes/Desktop/deer-intake/docs/pilot-runbook.md)
+3. [Pilot Support Playbook](C:/Users/Alyssa%20Janes/Desktop/deer-intake/docs/pilot-support-playbook.md)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Smoke Test Coverage
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The smoke tests are lightweight checks for high-value behavior that should stay stable between pilot builds:
 
-## Deploy on Vercel
+- identifier normalization and validation
+- processor feature normalization
+- public copy normalization
+- process/add-on catalog behavior
+- state form registry coverage
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+These tests are not a replacement for end-to-end UI testing, but they do protect the most important configuration and workflow assumptions.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment Notes
+
+The app uses Next.js with Supabase-backed data and staff/public routing.
+
+Important operational expectations:
+
+- processor-facing behavior should not depend on tenant-specific hardcoded defaults
+- public forms should always be rate limited
+- staff access should rely on real staff auth/session flows, not public client tokens
+- every pilot deployment should have a rollback path and a named support contact
+
+## Key Pilot Docs
+
+- [Pilot Onboarding Checklist](C:/Users/Alyssa%20Janes/Desktop/deer-intake/docs/pilot-onboarding-checklist.md)
+- [Pilot Runbook](C:/Users/Alyssa%20Janes/Desktop/deer-intake/docs/pilot-runbook.md)
+- [Pilot Support Playbook](C:/Users/Alyssa%20Janes/Desktop/deer-intake/docs/pilot-support-playbook.md)

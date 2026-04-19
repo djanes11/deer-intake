@@ -11,6 +11,7 @@ type FormState = {
   annualVolume: string;
   currentWorkflow: string;
   message: string;
+  website: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -22,6 +23,7 @@ const EMPTY_FORM: FormState = {
   annualVolume: '',
   currentWorkflow: '',
   message: '',
+  website: '',
 };
 
 export default function ProcessorInquiryForm() {
@@ -111,6 +113,15 @@ export default function ProcessorInquiryForm() {
           placeholder="Tell us about public intake, specialty products, labels, scan workflow, custom pricing, or anything unique about your shop."
         />
       </label>
+
+      <input
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        value={form.website}
+        onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))}
+        style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+      />
 
       {message ? (
         <div style={{ color: '#166534', fontSize: 14, fontWeight: 700, padding: 12, borderRadius: 12, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>

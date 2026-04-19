@@ -12,7 +12,7 @@ export type ProcessorContext = {
 const DEFAULT_PROCESSOR_SLUG = (
   process.env.DEFAULT_PROCESSOR_SLUG ||
   process.env.PROCESSOR_SLUG ||
-  'mcafee'
+  ''
 ).trim().toLowerCase();
 const IS_PUBLIC = process.env.PUBLIC_MODE === '1';
 
@@ -111,6 +111,10 @@ async function getStaffProcessorContextFromRequest(): Promise<ProcessorContext |
 }
 
 async function getEnvDefaultProcessorContext(): Promise<ProcessorContext> {
+  if (!DEFAULT_PROCESSOR_SLUG) {
+    return { id: null, slug: '' };
+  }
+
   const now = Date.now();
   if (cachedProcessorContext && cachedProcessorContext.expiresAt > now) {
     return {

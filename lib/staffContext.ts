@@ -112,8 +112,7 @@ function getRequestedProcessorSlug(req?: Request | null) {
 
 function allowLegacyStaffAuth() {
   if (process.env.ALLOW_LEGACY_STAFF_AUTH === '1') return true;
-  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '0') return false;
-  return process.env.NODE_ENV !== 'production';
+  return false;
 }
 
 export async function getStaffIdentity(req?: Request | null): Promise<StaffIdentity> {

@@ -50,8 +50,7 @@ function getBearerToken(req: Request) {
 
 function allowLegacyStaffAuth() {
   if (process.env.ALLOW_LEGACY_STAFF_AUTH === '1') return true;
-  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '0') return false;
-  return process.env.NODE_ENV !== 'production';
+  return false;
 }
 
 export async function requireStaffAccess(req: Request): Promise<StaffAccessResult> {
@@ -100,7 +99,6 @@ export async function requireStaffAccess(req: Request): Promise<StaffAccessResul
   }
 
   if (!allowLegacy || (!hasApiToken && !hasBasicAuth)) {
-    if (process.env.NODE_ENV !== 'production') return { ok: true };
     return { ok: false, status: 401, error: 'Unauthorized' };
   }
 

@@ -51,15 +51,11 @@ export type SearchParams = {
 
 // ---------- TOKEN HEADER ----------
 export function tokenHeader(): Record<string, string> {
-  // Put this in Vercel for the *facility* deployment only.
-  // Do NOT put this in your public app env.
-  const t = (process.env.NEXT_PUBLIC_DEER_API_TOKEN || '').trim();
-  return t ? { 'x-api-token': t } : {};
+  return {};
 }
 
 export function tokenQuery(): string {
-  const t = (process.env.NEXT_PUBLIC_DEER_API_TOKEN || '').trim();
-  return t ? `token=${encodeURIComponent(t)}` : '';
+  return '';
 }
 
 // ----------- low-level fetch helpers (no-cache, JSON-safe) -----------

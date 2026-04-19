@@ -1,4 +1,4 @@
-import { StateFormType } from '@/lib/stateforms/types';
+import type { StateFormType } from '@/lib/stateforms/types';
 
 export function normalizeStateFormType(value: any): StateFormType {
   return value === 'ohio' || value === 'michigan' || value === 'indiana' ? value : 'indiana';

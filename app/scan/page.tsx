@@ -172,30 +172,19 @@ export default function ScanPage() {
 
   // ===== Supabase API (Next route) =====
   const JOBS_API = '/api/v2/jobs';
-  const PUBLIC_TOKEN =
-    (process.env.NEXT_PUBLIC_DEER_API_TOKEN ||
-      process.env.NEXT_PUBLIC_API_TOKEN ||
-      '') as string;
-
   async function jobsGET(params: Record<string, string>) {
     const url = new URL(JOBS_API, window.location.origin);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-    const headers: Record<string, string> = {};
-    if (PUBLIC_TOKEN) headers['x-api-token'] = PUBLIC_TOKEN;
-
-    const r = await fetch(url.toString(), { method: 'GET', headers, cache: 'no-store' });
+    const r = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j?.error || `GET ${params.action || ''} failed`);
     return j;
   }
 
   async function jobsPOST(body: any) {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (PUBLIC_TOKEN) headers['x-api-token'] = PUBLIC_TOKEN;
-
     const r = await fetch(JOBS_API, {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       cache: 'no-store',
     });

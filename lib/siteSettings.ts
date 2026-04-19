@@ -3,23 +3,28 @@ import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 import { headers } from 'next/headers';
 import { SITE } from '@/lib/config';
-import { CutOptionSettings, normalizeCutOptionSettings } from '@/lib/cutOptions';
-import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
-import { defaultSpecialtyCatalog, getProcessorSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
+import { normalizeCutOptionSettings } from '@/lib/cutOptions';
+import type { CutOptionSettings } from '@/lib/cutOptions';
+import { DEFAULT_SITE_PRICING, normalizePricing } from '@/lib/pricing';
+import type { SitePricing } from '@/lib/pricing';
+import { defaultSpecialtyCatalog, getProcessorSpecialtyCatalog } from '@/lib/specialtyCatalog';
+import type { SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import {
-  AddOnCatalogItem,
   defaultAddOnCatalog,
   defaultNotificationTemplates,
   defaultProcessCatalog,
   normalizeAddOnCatalog,
   normalizeNotificationTemplates,
   normalizeProcessCatalog,
+} from '@/lib/processorCatalog';
+import type {
+  AddOnCatalogItem,
   NotificationTemplateSet,
   ProcessTypeCatalogItem,
 } from '@/lib/processorCatalog';
 import { getDefaultProcessorContext, getProcessorContextForHostname, type ProcessorContext } from '@/lib/processorContext';
 import { normalizeStateFormType } from '@/lib/stateforms/catalog';
-import { StateFormType } from '@/lib/stateforms/types';
+import type { StateFormType } from '@/lib/stateforms/types';
 
 export type PublicHourRow = {
   label: string;

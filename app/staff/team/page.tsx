@@ -334,7 +334,7 @@ export default function StaffTeamPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#0f172a' }}
-                placeholder="mcafee-frontdesk"
+                placeholder="processor-frontdesk"
               />
             </label>
             <label style={{ display: 'grid', gap: 6 }}>
@@ -363,7 +363,7 @@ export default function StaffTeamPage() {
             </button>
           </div>
           <div style={{ color: '#64748b', fontSize: 14 }}>
-            Best for seasonal help, family members, or shop staff who just need a simple username and password. Usernames are unique across all processors, so it helps to use a shop-specific name like <strong>mcafee-frontdesk</strong>.
+            Best for seasonal help, family members, or shop staff who just need a simple username and password. Usernames are unique across all processors, so it helps to use a shop-specific name like <strong>processor-frontdesk</strong>.
             Temporary passwords must be at least <strong>8 characters</strong>, and staff will be prompted to choose their own password after first sign-in.
           </div>
         </div>
