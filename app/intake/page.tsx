@@ -2362,31 +2362,26 @@ useEffect(() => {
             {msg || (dirty ? 'Unsaved changes' : '')}
           </div>
 
-          <button
-            className="btn secondaryBtn"
-            type="button"
-            onClick={async () => {
-              if (dirty) {
+          <div className="actionsMain">
+            <button
+              className="btn"
+              type="button"
+              onClick={async () => {
                 const ok = await onSave();
                 if (!ok) return;
-              }
-              const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-              if (!tagToPrint) {
-                setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                return;
-              }
-              setPrintMode('deer');
-              setTimeout(() => {
-                window.print();
-                setTimeout(() => setPrintMode(''), 300);
-              }, 150);
-            }}
-            disabled={busy}
-          >
-            Deer Label
-          </button>
+                resetForNew();
+              }}
+              disabled={busy || !canEdit}
+            >
+              {busy ? 'Saving…' : 'Save & Start Next Deer'}
+            </button>
 
-          {canPrintCapeLabel(job) ? (
+            <button className="btn" onClick={onSave} disabled={busy || !canEdit}>
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+
+          <div className="actionsUtility">
             <button
               className="btn secondaryBtn"
               type="button"
@@ -2395,7 +2390,12 @@ useEffect(() => {
                   const ok = await onSave();
                   if (!ok) return;
                 }
-                setPrintMode('cape');
+                const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                if (!tagToPrint) {
+                  setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                  return;
+                }
+                setPrintMode('deer');
                 setTimeout(() => {
                   window.print();
                   setTimeout(() => setPrintMode(''), 300);
@@ -2403,76 +2403,80 @@ useEffect(() => {
               }}
               disabled={busy}
             >
-              Cape Label
+              Deer Label
             </button>
-          ) : null}
 
-          <button
-            className="btn secondaryBtn"
-            type="button"
-            onClick={async () => {
-              if (dirty) {
-                const ok = await onSave();
-                if (!ok) return;
-              }
-              setPrintMode('package');
-              setTimeout(() => {
-                window.print();
-                setTimeout(() => setPrintMode(''), 300);
-              }, 150);
-            }}
-            disabled={busy}
-          >
-            Package Label
-          </button>
+            {canPrintCapeLabel(job) ? (
+              <button
+                className="btn secondaryBtn"
+                type="button"
+                onClick={async () => {
+                  if (dirty) {
+                    const ok = await onSave();
+                    if (!ok) return;
+                  }
+                  setPrintMode('cape');
+                  setTimeout(() => {
+                    window.print();
+                    setTimeout(() => setPrintMode(''), 300);
+                  }, 150);
+                }}
+                disabled={busy}
+              >
+                Cape Label
+              </button>
+            ) : null}
 
-          <button
-            className="btn"
-            type="button"
-            onClick={async () => {
-              // Auto-save before printing to prevent lost intakes
-              if (dirty) {
-                const ok = await onSave();
-                if (!ok) return;
-              }
-              const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-              if (!tagToPrint) {
-                setMsg(`${identifierSettings.tagLabel} is required before printing`);
-                return;
-              }
-              try {
-                await markPrinted(tagToPrint);
-              } catch (e: any) {
-                setMsg(e?.message || 'Could not mark intake sheet as printed');
-                return;
-              }
-              setPrintMode('sheet');
-              setTimeout(() => {
-                window.print();
-                setTimeout(() => setPrintMode(''), 300);
-              }, 150);
-            }}
-            disabled={busy}
-          >
-            Print
-          </button>
+            <button
+              className="btn secondaryBtn"
+              type="button"
+              onClick={async () => {
+                if (dirty) {
+                  const ok = await onSave();
+                  if (!ok) return;
+                }
+                setPrintMode('package');
+                setTimeout(() => {
+                  window.print();
+                  setTimeout(() => setPrintMode(''), 300);
+                }, 150);
+              }}
+              disabled={busy}
+            >
+              Package Label
+            </button>
 
-          <button className="btn" onClick={onSave} disabled={busy || !canEdit}>
-            {busy ? 'Saving…' : 'Save'}
-          </button>
-
-          <button
-            className="btn"
-            type="button"
-            onClick={async () => {
-              const ok = await onSave();
-              if (!ok) return;
-              resetForNew();
-            }}
-            disabled={busy || !canEdit}
-          >
-            {busy ? 'Saving…' : 'Save & Start Next Deer'}
-          </button>
+            <button
+              className="btn secondaryBtn"
+              type="button"
+              onClick={async () => {
+                // Auto-save before printing to prevent lost intakes
+                if (dirty) {
+                  const ok = await onSave();
+                  if (!ok) return;
+                }
+                const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                if (!tagToPrint) {
+                  setMsg(`${identifierSettings.tagLabel} is required before printing`);
+                  return;
+                }
+                try {
+                  await markPrinted(tagToPrint);
+                } catch (e: any) {
+                  setMsg(e?.message || 'Could not mark intake sheet as printed');
+                  return;
+                }
+                setPrintMode('sheet');
+                setTimeout(() => {
+                  window.print();
+                  setTimeout(() => setPrintMode(''), 300);
+                }, 150);
+              }}
+              disabled={busy}
+            >
+              Print
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2773,11 +2777,26 @@ useEffect(() => {
         .count { display: inline-flex; align-items: center; gap: 6px; }
         .countInp { width: 70px; text-align: center; }
 
-        .actions { position: sticky; bottom: 0; background:#fff; padding: 10px 0; display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; align-items: center; border-top:1px solid #dce7df; }
+        .actions {
+          position: sticky;
+          bottom: 0;
+          background: rgba(255, 255, 255, 0.98);
+          padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          margin-top: 12px;
+          align-items: center;
+          border-top: 1px solid #dce7df;
+          box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+          backdrop-filter: blur(10px);
+        }
+        .actionsMain,
+        .actionsUtility { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .btn { padding: 8px 12px; border: 1px solid #235532; border-radius: 8px; background: #2f6f3f; color: #fff; font-weight: 800; cursor: pointer; }
         .secondaryBtn { background: #f3f8f4; color: #173321; border-color:#bfd2c2; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
-        .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; }
+        .status { min-height: 20px; font-size: 12px; color: #334155; margin-right:auto; max-width: 240px; }
         .status.ok { color: #065f46; }
         .status.err { color: #b91c1c; }
         .webbsSummaryCard { border: 1px solid #dbe3ea; border-radius: 16px; padding: 16px; background: #f8fafc; }
@@ -2929,6 +2948,36 @@ useEffect(() => {
           .webbsWorksheetRow { grid-template-columns: minmax(0, 1fr) 110px; }
           .modal { padding: 10px; }
           .modalCard { padding: 14px; max-height: 92vh; }
+          .actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            padding: 12px 0 calc(14px + env(safe-area-inset-bottom, 0px));
+          }
+          .status {
+            margin-right: 0;
+            max-width: none;
+            min-height: 0;
+          }
+          .actionsMain {
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+            gap: 8px;
+          }
+          .actionsMain .btn:first-child {
+            grid-column: 1 / -1;
+          }
+          .actionsUtility {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+          .actions .btn {
+            min-height: 46px;
+            white-space: normal;
+            line-height: 1.2;
+            padding: 10px 12px;
+          }
         }
       `}</style>
     </div>
