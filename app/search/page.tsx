@@ -520,9 +520,9 @@ export default function SearchPage() {
       {canShowResults && (
         <div className="search-layout">
           <section className="search-results-col">
-            <div className="app-surface-light results-summary-card" style={{ padding: 16, marginBottom: 12 }}>
+            <div className="app-surface-light results-summary-card" style={{ padding: 14, marginBottom: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>Results</div>
-              <div style={{ fontSize: 18, fontWeight: 900, marginTop: 4 }}>
+              <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>
                 {resultSummary}
               </div>
             </div>
@@ -534,10 +534,10 @@ export default function SearchPage() {
                 <table className="table search-results-table" style={{ width: '100%' }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 100 }}>Tag</th>
+                      <th style={{ width: 88 }}>Tag</th>
                       <th>Customer</th>
-                      <th style={{ width: 135 }}>Phone</th>
-                      <th style={{ width: 120 }}>Drop-off</th>
+                      <th style={{ width: 122 }}>Phone</th>
+                      <th style={{ width: 104 }}>Drop-off</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -551,26 +551,21 @@ export default function SearchPage() {
                         key={r.tag}
                         onClick={() => void loadDetails(r.tag!)}
                         onDoubleClick={() => openTag(r.tag!, (r as any).publicToken)}
-                        style={{
-                          cursor: 'pointer',
-                          background: r.tag === selectedTag ? '#dcfce7' : undefined,
-                          boxShadow: r.tag === selectedTag ? 'inset 5px 0 0 #2f7d42' : undefined,
-                          color: r.tag === selectedTag ? '#111827' : undefined,
-                        }}
+                        className={`search-result-row ${r.tag === selectedTag ? 'selected' : ''}`}
                       >
-                        <td><strong><HighlightText text={r.tag || '-'} query={q} /></strong></td>
+                        <td className="search-tag-cell"><strong><HighlightText text={r.tag || '-'} query={q} /></strong></td>
                         <td>
-                          <div style={{ fontWeight: 800 }}><HighlightText text={r.customer || '-'} query={q} /></div>
-                          <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>
+                          <div className="search-customer-name"><HighlightText text={r.customer || '-'} query={q} /></div>
+                          <div className="search-confirmation-line">
                             {r.confirmation ? <>Confirmation <HighlightText text={r.confirmation} query={q} /></> : 'No confirmation recorded'}
                           </div>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                          <div className="search-row-badges">
                             {rowBadges(r as any).map((badge) => (
-                              <span key={`${r.tag}-${badge}`} style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 999, background: '#eef2ff', color: '#334155' }}>{badge}</span>
+                              <span key={`${r.tag}-${badge}`} className="search-row-badge">{badge}</span>
                             ))}
                           </div>
                         </td>
-                        <td><HighlightText text={r.phone || '-'} query={q} /></td>
+                        <td className="search-phone-cell"><HighlightText text={r.phone || '-'} query={q} /></td>
                         <td>{formatDisplayDate(r.dropoff || '')}</td>
                       </tr>
                     ))}
@@ -945,6 +940,90 @@ export default function SearchPage() {
         .search-results-card {
           max-height: calc(100vh - 300px);
           overflow: auto;
+        }
+
+        .search-result-row {
+          cursor: pointer;
+          color: #f8fafc;
+          transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+        }
+
+        .search-result-row td {
+          padding-top: 9px;
+          padding-bottom: 9px;
+          vertical-align: top;
+          background: transparent;
+          color: inherit;
+          transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+        }
+
+        .search-result-row:hover td {
+          background: rgba(255,247,235,.08);
+          color: #fff7e8;
+        }
+
+        .search-result-row:hover td:first-child {
+          box-shadow: inset 4px 0 0 #c88a3d;
+        }
+
+        .search-result-row.selected td {
+          background: #dcfce7;
+          color: #111827;
+        }
+
+        .search-result-row.selected td:first-child {
+          box-shadow: inset 6px 0 0 #2f7d42;
+        }
+
+        .search-tag-cell {
+          width: 88px;
+          font-size: 14px;
+          line-height: 1.3;
+          word-break: break-word;
+        }
+
+        .search-customer-name {
+          font-weight: 900;
+          line-height: 1.15;
+        }
+
+        .search-confirmation-line {
+          font-size: 10px;
+          opacity: 0.78;
+          margin-top: 1px;
+          line-height: 1.25;
+        }
+
+        .search-row-badges {
+          display: flex;
+          gap: 5px;
+          flex-wrap: wrap;
+          margin-top: 5px;
+        }
+
+        .search-row-badge {
+          font-size: 10px;
+          font-weight: 800;
+          padding: 2px 6px;
+          border-radius: 999px;
+          background: #eef2ff;
+          color: #334155;
+          line-height: 1.2;
+        }
+
+        .search-result-row.selected .search-row-badge {
+          background: rgba(15,23,42,.08);
+          color: #1f2937;
+        }
+
+        .search-result-row:hover .search-row-badge {
+          background: rgba(255,255,255,.18);
+          color: #f8fafc;
+        }
+
+        .search-phone-cell {
+          white-space: nowrap;
+          font-size: 14px;
         }
 
         .search-preview-card {
