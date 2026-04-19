@@ -554,7 +554,7 @@ export default function SearchPage() {
                         className={`search-result-row ${r.tag === selectedTag ? 'selected' : ''}`}
                       >
                         <td className="search-tag-cell"><strong><HighlightText text={r.tag || '-'} query={q} /></strong></td>
-                        <td>
+                        <td className="search-customer-cell">
                           <div className="search-customer-name"><HighlightText text={r.customer || '-'} query={q} /></div>
                           <div className="search-confirmation-line">
                             {r.confirmation ? <>Confirmation <HighlightText text={r.confirmation} query={q} /></> : 'No confirmation recorded'}
@@ -982,9 +982,18 @@ export default function SearchPage() {
           word-break: break-word;
         }
 
+        .search-customer-cell {
+          width: 1%;
+        }
+
         .search-customer-name {
           font-weight: 900;
-          line-height: 1.15;
+          font-size: 12px;
+          line-height: 1.05;
+          max-width: 210px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .search-confirmation-line {
@@ -998,7 +1007,7 @@ export default function SearchPage() {
           display: flex;
           gap: 5px;
           flex-wrap: wrap;
-          margin-top: 5px;
+          margin-top: 4px;
         }
 
         .search-row-badge {
