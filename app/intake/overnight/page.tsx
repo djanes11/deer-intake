@@ -1717,59 +1717,61 @@ function OvernightIntakePage() {
         {/* Step: Extras */}
         {step.key === 'extras' && (
           <>
-            <section>
-              <h3>Specialty Products</h3>
-              <div className="grid">
-                <div className="c3 rowInline">
-                  <label className="chk tight pkg-beef">
-                    <input
-                      type="checkbox"
-                      checked={!!job.specialtyProducts}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setVal('specialtyProducts', checked);
-                        if (!checked) setJob((prev) => ({ ...prev, specialtyItems: [] }));
-                        if (checked) setSpecialtyModalOpen(true);
-                      }}
-                      disabled={locked}
-                    />
-                    <span><strong>Would like specialty products</strong></span>
-                  </label>
-                </div>
-                {job.specialtyProducts ? (
-                  <div className="c12">
-                    <div className="webbsSummaryCard">
-                      <div className="webbsSummaryHead">
-                        <div>
-                          <div className="webbsSummaryTitle">Specialty Order</div>
-                          <div className="muted" style={{ fontSize: 13 }}>{specialtySummaryText}</div>
+            {specialtyEnabled ? (
+              <section>
+                <h3>Specialty Products</h3>
+                <div className="grid">
+                  <div className="c3 rowInline">
+                    <label className="chk tight pkg-beef">
+                      <input
+                        type="checkbox"
+                        checked={!!job.specialtyProducts}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setVal('specialtyProducts', checked);
+                          if (!checked) setJob((prev) => ({ ...prev, specialtyItems: [] }));
+                          if (checked) setSpecialtyModalOpen(true);
+                        }}
+                        disabled={locked}
+                      />
+                      <span><strong>Would like specialty products</strong></span>
+                    </label>
+                  </div>
+                  {job.specialtyProducts ? (
+                    <div className="c12">
+                      <div className="webbsSummaryCard">
+                        <div className="webbsSummaryHead">
+                          <div>
+                            <div className="webbsSummaryTitle">Specialty Order</div>
+                            <div className="muted" style={{ fontSize: 13 }}>{specialtySummaryText}</div>
+                          </div>
+                          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                            <span className="badge">Products: {specialtyItems.length || 0}</span>
+                            <span className="badge">Total lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
+                          </div>
                         </div>
-                        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                          <span className="badge">Products: {specialtyItems.length || 0}</span>
-                          <span className="badge">Total lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
+                        {specialtyItems.length > 0 ? (
+                          <div className="webbsSummaryList">
+                            {specialtyItems.map((item) => (
+                              <div key={item.key} className="webbsSummaryLine">
+                                {item.label}: {item.pounds} lb
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="muted" style={{ fontSize: 13 }}>No specialty items entered yet.</div>
+                        )}
+                        <div style={{ marginTop: 12 }}>
+                          <button type="button" className="btn secondary" onClick={() => setSpecialtyModalOpen(true)} disabled={locked}>
+                            Fill Out Specialty Order
+                          </button>
                         </div>
-                      </div>
-                      {specialtyItems.length > 0 ? (
-                        <div className="webbsSummaryList">
-                          {specialtyItems.map((item) => (
-                            <div key={item.key} className="webbsSummaryLine">
-                              {item.label}: {item.pounds} lb
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="muted" style={{ fontSize: 13 }}>No specialty items entered yet.</div>
-                      )}
-                      <div style={{ marginTop: 12 }}>
-                        <button type="button" className="btn secondary" onClick={() => setSpecialtyModalOpen(true)} disabled={locked}>
-                          Fill Out Specialty Order
-                        </button>
                       </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
-            </section>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
 
             <section>
               <h3>Notes</h3>
@@ -1777,87 +1779,89 @@ function OvernightIntakePage() {
               <textarea rows={3} value={job.notes || ''} onChange={(e) => setVal('notes', e.target.value)} disabled={locked} />
             </section>
 
-            <section>
-              <h3>Webbs</h3>
-              <div className="grid">
-                <div className="c3 rowInline">
-                  <label className="chk tight pkg-beef">
-                    <input
-                      type="checkbox"
-                      checked={!!job.webbsOrder}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setVal('webbsOrder', e.target.checked);
-                        if (checked) setWebbsModalOpen(true);
-                      }}
-                      disabled={locked}
-                    />
-                    <span><strong>Webbs Order</strong></span>
-                    <span className="muted"> (+$20 fee)</span>
-                  </label>
-                </div>
+            {webbsEnabled ? (
+              <section>
+                <h3>Webbs</h3>
+                <div className="grid">
+                  <div className="c3 rowInline">
+                    <label className="chk tight pkg-beef">
+                      <input
+                        type="checkbox"
+                        checked={!!job.webbsOrder}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setVal('webbsOrder', e.target.checked);
+                          if (checked) setWebbsModalOpen(true);
+                        }}
+                        disabled={locked}
+                      />
+                      <span><strong>Webbs Order</strong></span>
+                      <span className="muted"> (+$20 fee)</span>
+                    </label>
+                  </div>
 
-                {webbsEnabled && job.webbsOrder && (
-                  <>
-                    <div className="c12">
-                      <div className="webbsSummaryCard">
-                        <div className="webbsSummaryHead">
-                          <div>
-                            <div className="webbsSummaryTitle">Webbs Order</div>
-                            <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
-                            <div style={{ marginTop: 8 }}>
-                              <a
-                                href={WEBBS_PRICE_SHEET_URL}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="webbsPdfLink"
-                              >
-                                Open Webbs price sheet (PDF)
-                              </a>
+                  {job.webbsOrder ? (
+                    <>
+                      <div className="c12">
+                        <div className="webbsSummaryCard">
+                          <div className="webbsSummaryHead">
+                            <div>
+                              <div className="webbsSummaryTitle">Webbs Order</div>
+                              <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
+                              <div style={{ marginTop: 8 }}>
+                                <a
+                                  href={WEBBS_PRICE_SHEET_URL}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="webbsPdfLink"
+                                >
+                                  Open Webbs price sheet (PDF)
+                                </a>
+                              </div>
+                            </div>
+                            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                              <span className="badge">
+                                {webbsOrderStyle === 'whole_deer_percent'
+                                  ? `Assigned: ${webbsAllocationTotal || 0}%`
+                                  : `Detailed lbs: ${webbsItemTotal || 0}`}
+                              </span>
                             </div>
                           </div>
-                          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                            <span className="badge">
-                              {webbsOrderStyle === 'whole_deer_percent'
-                                ? `Assigned: ${webbsAllocationTotal || 0}%`
-                                : `Detailed lbs: ${webbsItemTotal || 0}`}
-                            </span>
+                          {webbsOrderStyle === 'whole_deer_percent' ? (
+                            <div className="webbsSummaryList">
+                              {webbsAllocationLines.slice(0, 6).map((line) => (
+                                <div key={line} className="webbsSummaryLine">{line}</div>
+                              ))}
+                              {webbsAllocationLines.length > 6 ? <div className="webbsSummaryMore">+{webbsAllocationLines.length - 6} more items</div> : null}
+                            </div>
+                          ) : webbsItemLines.length > 0 ? (
+                            <div className="webbsSummaryList">
+                              {webbsItemLines.slice(0, 6).map((line) => (
+                                <div key={line} className="webbsSummaryLine">{line}</div>
+                              ))}
+                              {webbsItemLines.length > 6 ? <div className="webbsSummaryMore">+{webbsItemLines.length - 6} more items</div> : null}
+                            </div>
+                          ) : (
+                            <div className="muted" style={{ fontSize: 13 }}>No Webbs items entered yet.</div>
+                          )}
+                          {webbsAllocationOver ? (
+                            <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>
+                              Webbs percentages are over 100%. Reduce them before submitting.
+                            </div>
+                          ) : null}
+                          {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
+                          <div style={{ marginTop: 12 }}>
+                            <button type="button" className="btn secondary" onClick={() => setWebbsModalOpen(true)} disabled={locked}>
+                              Fill Out Webbs Order
+                            </button>
                           </div>
-                        </div>
-                        {webbsOrderStyle === 'whole_deer_percent' ? (
-                          <div className="webbsSummaryList">
-                            {webbsAllocationLines.slice(0, 6).map((line) => (
-                              <div key={line} className="webbsSummaryLine">{line}</div>
-                            ))}
-                            {webbsAllocationLines.length > 6 ? <div className="webbsSummaryMore">+{webbsAllocationLines.length - 6} more items</div> : null}
-                          </div>
-                        ) : webbsItemLines.length > 0 ? (
-                          <div className="webbsSummaryList">
-                            {webbsItemLines.slice(0, 6).map((line) => (
-                              <div key={line} className="webbsSummaryLine">{line}</div>
-                            ))}
-                            {webbsItemLines.length > 6 ? <div className="webbsSummaryMore">+{webbsItemLines.length - 6} more items</div> : null}
-                          </div>
-                        ) : (
-                          <div className="muted" style={{ fontSize: 13 }}>No Webbs items entered yet.</div>
-                        )}
-                        {webbsAllocationOver ? (
-                          <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>
-                            Webbs percentages are over 100%. Reduce them before submitting.
-                          </div>
-                        ) : null}
-                        {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
-                        <div style={{ marginTop: 12 }}>
-                          <button type="button" className="btn secondary" onClick={() => setWebbsModalOpen(true)} disabled={locked}>
-                            Fill Out Webbs Order
-                          </button>
                         </div>
                       </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </section>
+                    </>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
 
             <section>
               <h3>Communication Preference & Consent</h3>
