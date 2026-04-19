@@ -56,6 +56,7 @@ type PublicBrandingState = {
   phoneHref: string;
   mapsUrl: string;
   webbsEnabled: boolean;
+  specialtyEnabled: boolean;
 };
 
 type PublicCopyState = {
@@ -210,6 +211,7 @@ export default function StatusPage() {
     phoneHref,
     mapsUrl: SITE.mapsUrl,
     webbsEnabled: true,
+    specialtyEnabled: true,
   });
   const [publicCopy, setPublicCopy] = useState<PublicCopyState>(DEFAULT_STATUS_COPY);
   const identifierSettings = useMemo(() => identifierSettingsFromPublicCopy(publicCopy as any), [publicCopy]);
@@ -258,6 +260,7 @@ export default function StatusPage() {
             phoneHref: nextPhoneHref,
             mapsUrl: String(j.settings.branding.mapsUrl || SITE.mapsUrl),
             webbsEnabled: j.settings.features?.webbsEnabled !== false,
+            specialtyEnabled: j.settings.features?.specialtyEnabled !== false,
           });
         }
         if (j?.ok && j?.settings?.publicCopy) {
@@ -282,7 +285,15 @@ export default function StatusPage() {
   }, []);
 
   const priceProcessing = toNum(res?.priceProcessing);
-  const priceSpecialty = toNum(res?.priceSpecialty);
+  const rawPriceSpecialty = toNum(res?.priceSpecialty);
+  const specialtyApplies =
+    branding.specialtyEnabled &&
+    (
+      (typeof rawPriceSpecialty === 'number' && rawPriceSpecialty > 0) ||
+      !!res?.tracks?.specialtyStatus ||
+      (res?.paidSpecialty !== undefined && res?.paidSpecialty !== null && String(res.paidSpecialty) !== '')
+    );
+  const priceSpecialty = specialtyApplies ? rawPriceSpecialty : undefined;
   const rawPriceTotal = toNum(res?.priceTotal);
   const computedLineTotal =
     typeof priceProcessing === 'number' || typeof priceSpecialty === 'number'
@@ -681,7 +692,9 @@ export default function StatusPage() {
                 paidOverall
                   ? 'This order is marked paid.'
                   : typeof owedTotal === 'number'
-                    ? 'This is the current balance showing in our system for processing and specialty items.'
+                    ? specialtyApplies
+                      ? 'This is the current balance showing in our system for processing and specialty items.'
+                      : 'This is the current balance showing in our system for processing.'
                     : 'Pricing has not been posted yet.'
               }
             />
@@ -712,7 +725,7 @@ export default function StatusPage() {
               <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Payment Breakdown</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
                 <PaymentCard label="Processing" amount={priceProcessing} paid={paidOverall || paidProc} owed={owedProcessing} />
-                <PaymentCard label="Specialty" amount={priceSpecialty} paid={paidOverall || paidSpec} owed={owedSpecialty} />
+                {specialtyApplies ? <PaymentCard label="Specialty" amount={priceSpecialty} paid={paidOverall || paidSpec} owed={owedSpecialty} /> : null}
                 <PaymentCard label="Total" amount={priceTotal} paid={paidOverall} owed={owedTotal} />
               </div>
             </section>
