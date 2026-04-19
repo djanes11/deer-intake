@@ -2318,7 +2318,6 @@ if (fresh?.exists && fresh.job) {
 
             <div className="c12 muted" style={{ fontSize: 13 }}>
               We will use the selected method only. Phone calls are always made by a person.
-              {!smsEnabled ? ' Text updates are not included for this processor’s current plan.' : ''}
             </div>
           </div>
         </section>

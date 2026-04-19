@@ -1033,7 +1033,7 @@ export async function resendCustomerNotification(params: {
   const { data: row, error } = await withProcessorFilter(
     supabaseServer
     .from('jobs')
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .eq('tag', tag),
     processor.id
   )
@@ -1314,7 +1314,7 @@ export async function sendManualCustomerMessage(params: {
   if (!body) return { ok: false as const, error: 'Message body is required' };
 
   const { data: row, error } = await withProcessorFilter(
-    supabaseServer.from('jobs').select('*').eq('tag', tag),
+    supabaseServer.from('jobs').select(JOB_DETAIL_SELECT).eq('tag', tag),
     processor.id
   ).maybeSingle();
 
@@ -1635,7 +1635,7 @@ export async function getJobByTag(tag: string, opts: { processorContext?: Proces
   const { data, error } = await withProcessorFilter(
     supabaseServer
     .from('jobs')
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .eq('tag', tag)
     .is('pending_deleted_at', null),
     processor.id
@@ -1715,6 +1715,125 @@ const SEARCH_SELECT = `
   pending_deleted_at,
   pending_delete_reason,
   public_token
+`;
+
+const JOB_DETAIL_SELECT = `
+  id,
+  processor_id,
+  tag,
+  confirmation,
+  customer_name,
+  phone,
+  email,
+  hunting_license_number,
+  address,
+  city,
+  state,
+  zip,
+  county_killed,
+  dropoff_date,
+  deer_sex,
+  process_type,
+  process_type_slug,
+  process_type_requires_cape,
+  processing_weight_lbs,
+  status,
+  caping_status,
+  webbs_status,
+  specialty_status,
+  steak_size,
+  steak_size_other,
+  burger_size,
+  steaks_per_package,
+  beef_fat,
+  add_on_items,
+  hind_roast_count,
+  front_roast_count,
+  hind_steak,
+  hind_roast,
+  hind_grind,
+  hind_none,
+  front_steak,
+  front_roast,
+  front_grind,
+  front_none,
+  backstrap_prep,
+  backstrap_thickness,
+  backstrap_thickness_other,
+  specialty_products,
+  specialty_pounds,
+  original_summer_sausage_lbs,
+  summer_sausage_lbs,
+  summer_sausage_cheese_lbs,
+  jalapeno_summer_sausage_cheese_lbs,
+  sliced_jerky_lbs,
+  original_snack_sticks_lbs,
+  original_snack_sticks_cheese_lbs,
+  jalapeno_snack_sticks_cheese_lbs,
+  notes,
+  webbs_order,
+  webbs_order_form_number,
+  webbs_pounds,
+  webbs_paper_form_completed,
+  webbs_order_mode,
+  webbs_order_style,
+  webbs_items,
+  webbs_allocations,
+  price_processing,
+  price_specialty,
+  price_total,
+  amount_paid_processing,
+  amount_paid_specialty,
+  payment_method_processing,
+  payment_method_specialty,
+  paid,
+  paid_processing,
+  paid_specialty,
+  paid_processing_at,
+  paid_specialty_at,
+  requires_tag,
+  public_token,
+  public_link_sent_at,
+  dropoff_email_sent_at,
+  dropoff_sms_sent_at,
+  intake_sheet_printed_at,
+  intake_sheet_print_count,
+  updated_at,
+  pending_deleted_at,
+  pending_delete_reason,
+  finished_email_sent_at,
+  meat_finished_sms_sent_at,
+  cape_finished_email_sent_at,
+  cape_finished_sms_sent_at,
+  specialty_finished_email_sent_at,
+  specialty_finished_sms_sent_at,
+  webbs_delivered_email_sent_at,
+  webbs_delivered_sms_sent_at,
+  processing_started_at,
+  processing_finished_at,
+  picked_up_processing,
+  picked_up_processing_at,
+  picked_up_cape,
+  picked_up_cape_at,
+  picked_up_webbs,
+  picked_up_webbs_at,
+  picked_up_by,
+  pickup_notes,
+  call_attempts,
+  meat_attempts,
+  cape_attempts,
+  webbs_attempts,
+  last_call_at,
+  last_called_by,
+  last_call_outcome,
+  call_notes,
+  pref_email,
+  pref_sms,
+  pref_call,
+  sms_consent,
+  how_killed,
+  processing_price_override,
+  specialty_price_override
 `;
 
 async function searchReport(opts: { processorContext?: ProcessorContext | null } = {}): Promise<{ ok: boolean; rows: JobSearchRow[] }> {
@@ -1931,7 +2050,7 @@ let tagToStore: string;
     const { data: existingRow, error: existingError } = await withProcessorFilter(
       supabaseServer
       .from('jobs')
-      .select('*')
+      .select(JOB_DETAIL_SELECT)
       .eq('tag', rawTag),
       processor.id
     )
@@ -2252,7 +2371,7 @@ Object.keys(upsertPayload).forEach((k) => {
     .upsert(upsertPayload, {
       onConflict: processor.id ? 'processor_id,tag' : 'tag',
     })
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .maybeSingle();
 
   if (error) {
@@ -2316,7 +2435,7 @@ export async function progressJob(tag: string) {
   const { data: job, error: jobError } = await withProcessorFilter(
     supabaseServer
       .from('jobs')
-      .select('*')
+      .select(JOB_DETAIL_SELECT)
       .eq('tag', tag),
     processor.id
   ).maybeSingle();
@@ -2391,7 +2510,7 @@ export async function progressJob(tag: string) {
       .eq('id', job.id),
     processor.id
   )
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .maybeSingle();
 
   if (updErr) {
@@ -2468,7 +2587,7 @@ export async function logCall(params: {
 
   const { data: job, error: jobError } = await supabaseServer
     .from('jobs')
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .eq('tag', tag)
     .maybeSingle();
 
@@ -2558,7 +2677,7 @@ export async function markCalled(params: {
 
   const { data: job, error: jobError } = await supabaseServer
     .from('jobs')
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .eq('tag', tag)
     .maybeSingle();
 
@@ -3218,7 +3337,7 @@ export async function setJobTag(params: {
   const { data: job, error: jobErr } = await withProcessorFilter(
     supabaseServer
     .from('jobs')
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .eq('id', jobId),
     processor.id
   )
@@ -3252,7 +3371,7 @@ export async function setJobTag(params: {
     .eq('id', jobId),
     processor.id
   )
-    .select('*')
+    .select(JOB_DETAIL_SELECT)
     .maybeSingle();
 
   if (updErr) {

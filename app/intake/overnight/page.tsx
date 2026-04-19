@@ -1962,8 +1962,10 @@ function OvernightIntakePage() {
                 </div>
                 <div className="reviewCard">
                   <div className="reviewCardTitle">Extras & Contact</div>
-                  <div className="reviewLine">Specialty: {job.specialtyProducts ? specialtySummaryText : 'No specialty products'}</div>
-                  {job.specialtyProducts && specialtyItems.length > 0 ? (
+                  {specialtyEnabled ? (
+                    <div className="reviewLine">Specialty: {job.specialtyProducts ? specialtySummaryText : 'No specialty products'}</div>
+                  ) : null}
+                  {specialtyEnabled && job.specialtyProducts && specialtyItems.length > 0 ? (
                     <div className="reviewList">
                       {specialtyItems.map((item) => (
                         <div key={item.key} className="reviewListItem">{item.label.replace(' (lb)', '')}: {item.pounds} lb</div>

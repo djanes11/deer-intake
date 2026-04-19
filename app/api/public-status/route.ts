@@ -146,7 +146,7 @@ async function handle(confirmation: string, tag: string, lastName: string, hostn
 
     if (processor.id) query = query.eq('processor_id', processor.id);
 
-    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(5);
+    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(1);
 
     if (error) return { ok: false, error: 'Server error' };
 
@@ -164,7 +164,7 @@ async function handle(confirmation: string, tag: string, lastName: string, hostn
 
     if (processor.id) query = query.eq('processor_id', processor.id);
 
-    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(5);
+    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(1);
 
     if (error) return { ok: false, error: 'Server error' };
 

@@ -158,9 +158,17 @@ function customerFacingStatus(status?: string) {
   return 'Status updated';
 }
 
-function trackSummaries(res: LookupResult | null): TrackSummary[] {
+function trackSummaries(
+  res: LookupResult | null,
+  options?: {
+    webbsEnabled?: boolean;
+    specialtyEnabled?: boolean;
+  }
+): TrackSummary[] {
   if (!res) return [];
   const tracks = res.tracks || {};
+  const webbsEnabled = options?.webbsEnabled !== false;
+  const specialtyEnabled = options?.specialtyEnabled !== false;
   return [
     {
       key: 'meat',
@@ -190,7 +198,12 @@ function trackSummaries(res: LookupResult | null): TrackSummary[] {
       tone: statusTone(tracks.specialtyStatus),
       message: statusMessage('Specialty', tracks.specialtyStatus),
     },
-  ].filter((item) => item.value);
+  ].filter((item) => {
+    if (!item.value) return false;
+    if (item.key === 'webbs' && !webbsEnabled) return false;
+    if (item.key === 'specialty' && !specialtyEnabled) return false;
+    return true;
+  });
 }
 
 export default function StatusPage() {
@@ -226,10 +239,10 @@ export default function StatusPage() {
     return (
       READY_WORDS.some((w) => text(res.status).includes(w)) ||
       READY_WORDS.some((w) => text(t.capeStatus).includes(w)) ||
-      READY_WORDS.some((w) => text(t.webbsStatus).includes(w)) ||
-      READY_WORDS.some((w) => text(t.specialtyStatus).includes(w))
+      (branding.webbsEnabled && READY_WORDS.some((w) => text(t.webbsStatus).includes(w))) ||
+      (branding.specialtyEnabled && READY_WORDS.some((w) => text(t.specialtyStatus).includes(w)))
     );
-  }, [res]);
+  }, [res, branding.webbsEnabled, branding.specialtyEnabled]);
 
   useEffect(() => {
     latestReadyRef.current = isReady;
@@ -348,8 +361,8 @@ export default function StatusPage() {
           : undefined;
 
   const summaries = useMemo(
-    () => trackSummaries(res).filter((item) => branding.webbsEnabled || item.key !== 'webbs'),
-    [res, branding.webbsEnabled]
+    () => trackSummaries(res, { webbsEnabled: branding.webbsEnabled, specialtyEnabled: branding.specialtyEnabled }),
+    [res, branding.webbsEnabled, branding.specialtyEnabled]
   );
   const currentStage = summaries[0];
   const mapsUrl = branding.mapsUrl;
