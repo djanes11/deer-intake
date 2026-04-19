@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Shared staff shell stays platform-branded.
@@ -31,6 +31,7 @@ function closeMobileAndDropdown(el?: HTMLElement | null) {
 
 export default function Nav() {
   const pathname = usePathname();
+  const navRef = useRef<HTMLElement | null>(null);
   const [isAdminHost, setIsAdminHost] = useState(false);
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const [platformAdmin, setPlatformAdmin] = useState(false);
@@ -69,6 +70,18 @@ export default function Nav() {
       .catch(() => {});
   }, [isAdminHost]);
 
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (navRef.current?.contains(target)) return;
+      closeMobileAndDropdown();
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, []);
+
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageSettings = staffRole === 'admin';
   const canAccessMyAccount = isAdminHost || staffAuthType === 'supabase' || (staffAuthType === 'local' && mustChangePassword);
@@ -100,7 +113,7 @@ export default function Nav() {
         <input id="nav-check" type="checkbox" aria-label="Toggle navigation menu" />
         <label htmlFor="nav-check" className="menu-toggle">Menu</label>
 
-        <nav className="menu" aria-label="Primary">
+        <nav ref={navRef} className="menu" aria-label="Primary">
           {isAdminHost ? (
             <>
               <Link
