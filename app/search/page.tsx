@@ -375,6 +375,17 @@ export default function SearchPage() {
         { label: 'Last Updated', value: fmtDate(selectedJob.updatedAt) },
       ]
     : [];
+  const nextAction = useMemo(() => {
+    if (!selectedJob) return '';
+    const status = String(selectedJob.status || '').toLowerCase();
+    const due =
+      Math.max(0, Number(selectedJob.priceProcessing ?? selectedJob.price_processing ?? 0) - Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0)) +
+      Math.max(0, Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) - Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0));
+    if (!selectedJob.tag || String(selectedJob.tag).toUpperCase().startsWith('PENDING-')) return 'Assign the permanent tag after reviewing the intake.';
+    if (status.includes('called')) return due > 0 ? 'Collect the remaining balance at pickup.' : 'Ready for pickup handoff.';
+    if (status.includes('finished') || status.includes('ready')) return 'Contact the customer and move this deer into pickup follow-up.';
+    return 'Open the intake record to update statuses, print paperwork, or review instructions.';
+  }, [selectedJob]);
   const resultSummary = loading
     ? 'Searching...'
     : !canShowResults
@@ -649,6 +660,13 @@ export default function SearchPage() {
                   </div>
                 </div>
               </div>
+
+              {selectedJob ? (
+                <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#0f172a', display: 'grid', gap: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#64748b' }}>Next Best Action</div>
+                  <div style={{ fontWeight: 900 }}>{nextAction}</div>
+                </div>
+              ) : null}
 
               {detailLoading ? <div className="muted">Loading details...</div> : null}
               {detailErr ? <div className="card" style={{ borderColor: '#ef4444' }}>Error: {detailErr}</div> : null}

@@ -63,6 +63,22 @@ function ButcherIntakeInner() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const price = useMemo(() => calcTotal(job), [job]);
+  const watchFor = useMemo(() => {
+    const items: string[] = [];
+    if (String(job.notes || '').trim()) items.push(`Notes: ${String(job.notes || '').trim()}`);
+    if (job.beefFat) items.push('Add-on: Beef Fat');
+    if (job.webbsOrder) items.push(`Webbs: ${job.webbsPounds ? `${job.webbsPounds} lb entered` : 'Order on file'}`);
+    const specTotal = Number(job.originalSummerSausageLbs || 0)
+      + Number(job.summerSausageCheeseLbs || 0)
+      + Number(job.jalapenoSummerSausageCheeseLbs || 0)
+      + Number(job.originalSnackSticksLbs || 0)
+      + Number(job.originalSnackSticksCheeseLbs || 0)
+      + Number(job.jalapenoSnackSticksCheeseLbs || 0);
+    if (specTotal > 0) items.push(`Specialty total: ${specTotal} lb`);
+    const totalDue = Math.max(0, price - (job.Paid ? price : 0));
+    items.push(totalDue > 0 ? `Payment due: $${totalDue.toFixed(2)}` : 'Paid in full');
+    return items;
+  }, [job, price]);
 
   // Load job
   useEffect(() => {
@@ -201,6 +217,15 @@ function ButcherIntakeInner() {
           <div className="who">
             <div className="name">{job.customer || '-'}</div>
             <div className="notes" title={job.notes||''}>{(job.notes||'').slice(0,140)}</div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(250,204,21,.34)', background: 'rgba(120,53,15,.18)', color: '#fef3c7', display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>Watch For</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {watchFor.map((item) => (
+              <div key={item} style={{ fontWeight: 800, lineHeight: 1.4 }}>{item}</div>
+            ))}
           </div>
         </div>
 
