@@ -2280,16 +2280,17 @@ if (fresh?.exists && fresh.job) {
                   />
                   <span>Email</span>
                 </label>
-                <label className="chk">
-                  <input
-                    type="radio"
-                    name="preferred-contact-staff"
-                    checked={!!job.prefSMS}
-                    onChange={() => setContactMethod('sms')}
-                    disabled={!smsEnabled}
-                  />
-                  <span>Text (SMS)</span>
-                </label>
+                {smsEnabled ? (
+                  <label className="chk">
+                    <input
+                      type="radio"
+                      name="preferred-contact-staff"
+                      checked={!!job.prefSMS}
+                      onChange={() => setContactMethod('sms')}
+                    />
+                    <span>Text (SMS)</span>
+                  </label>
+                ) : null}
                 <label className="chk">
                   <input
                     type="radio"

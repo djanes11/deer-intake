@@ -1875,10 +1875,12 @@ function OvernightIntakePage() {
                       <input type="radio" name="preferred-contact-public" checked={!!job.prefEmail} onChange={() => setContactMethod('email')} disabled={locked} />
                       <span>Email</span>
                     </label>
-                    <label className="chk">
-                      <input type="radio" name="preferred-contact-public" checked={!!job.prefSMS} onChange={() => setContactMethod('sms')} disabled={locked || !smsEnabled} />
-                      <span>Text (SMS)</span>
-                    </label>
+                    {smsEnabled ? (
+                      <label className="chk">
+                        <input type="radio" name="preferred-contact-public" checked={!!job.prefSMS} onChange={() => setContactMethod('sms')} disabled={locked} />
+                        <span>Text (SMS)</span>
+                      </label>
+                    ) : null}
                     <label className="chk">
                       <input type="radio" name="preferred-contact-public" checked={!!job.prefCall} onChange={() => setContactMethod('call')} disabled={locked} />
                       <span>Phone Call</span>
@@ -1898,7 +1900,6 @@ function OvernightIntakePage() {
                       <div className="muted">No extra consent needed for email or staff phone calls.</div>
                     )}
                     {errors.smsConsent ? <div className="errText" data-err="smsConsent">{errors.smsConsent}</div> : null}
-                    {!smsEnabled ? <div className="muted">Text updates are not included for this processor&apos;s current plan.</div> : null}
                   </div>
                 </div>
               </div>
