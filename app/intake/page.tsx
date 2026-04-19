@@ -454,6 +454,7 @@ function IntakePage() {
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const [lastSavedAt, setLastSavedAt] = useState<string>('');
+  const [lastSavedTag, setLastSavedTag] = useState<string>('');
   const tagRef = useRef<HTMLInputElement | null>(null);
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
@@ -1132,6 +1133,7 @@ useEffect(() => {
 
       setMsg('Saved ✓');
       setLastSavedAt(new Date().toISOString());
+      setLastSavedTag(String(payload.tag || ''));
       setCustomerLookupCollapsedFor(String(payload.customer ?? job.customer ?? '').trim().toLowerCase());
       setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
 
@@ -1182,7 +1184,13 @@ if (fresh?.exists && fresh.job) {
   };
 
   const resetForNew = () => {
-    const fresh = newBlankJob('');
+    const fresh: Job = {
+      ...newBlankJob(''),
+      county: job.county || '',
+      dropoff: job.dropoff || '',
+      howKilled: (job.howKilled || '') as Job['howKilled'],
+      sex: (job.sex || '') as Job['sex'],
+    };
     setJob(fresh);
     setZipDirty(false);
     setMsg('');
@@ -1379,6 +1387,33 @@ if (fresh?.exists && fresh.job) {
           </div>
         </div>
 
+        {lastSavedAt && lastSavedTag && !dirty ? (
+          <div
+            className="app-surface-light"
+            style={{ marginBottom: 12, padding: 14, display: 'grid', gap: 10, color: '#0f172a', border: '1px solid #bbf7d0', background: '#f0fdf4' }}
+          >
+            <div style={{ fontWeight: 900 }}>Intake saved at {new Date(lastSavedAt).toLocaleTimeString()} for tag {lastSavedTag}.</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                className="btn secondaryBtn"
+                type="button"
+                onClick={() => {
+                  setPrintMode('sheet');
+                  setTimeout(() => {
+                    window.print();
+                    setTimeout(() => setPrintMode(''), 300);
+                  }, 150);
+                }}
+              >
+                Print Next
+              </button>
+              <button className="btn secondaryBtn" type="button" onClick={() => window.location.assign(`/butcher/intake?tag=${encodeURIComponent(lastSavedTag)}`)}>Open Butcher View</button>
+              <button className="btn secondaryBtn" type="button" onClick={() => window.location.assign(`/search?q=${encodeURIComponent(lastSavedTag)}`)}>Open Search</button>
+              <button className="btn secondaryBtn" type="button" onClick={resetForNew}>Start Next Deer</button>
+            </div>
+          </div>
+        ) : null}
+
         <fieldset disabled={!canEdit} style={{ display: 'contents', margin: 0, padding: 0, border: 0 }}>
         <div className="summary">
           <div className="row">
@@ -1504,7 +1539,7 @@ if (fresh?.exists && fresh.job) {
                     }}
                   />
                 </label>
-                <span className="badge">{processingRemaining <= 0 ? 'Processing Paid' : processingRemaining < processingPriceUsed ? 'Processing Partial' : 'Processing Unpaid'}</span>
+                <span className="badge">{processingRemaining <= 0 ? 'Paid in Full' : processingRemaining < processingPriceUsed ? 'Partial Payment' : 'Collect at Pickup'}</span>
                 <input
                   inputMode="decimal"
                   value={String((job as any).amountPaidProcessing ?? '')}
@@ -1537,7 +1572,7 @@ if (fresh?.exists && fresh.job) {
                         }}
                       />
                     </label>
-                    <span className="badge">{specialtyRemaining <= 0 ? 'Specialty Paid' : specialtyRemaining < specialtyPriceUsed ? 'Specialty Partial' : 'Specialty Unpaid'}</span>
+                    <span className="badge">{specialtyRemaining <= 0 ? 'Paid in Full' : specialtyRemaining < specialtyPriceUsed ? 'Partial Payment' : 'Collect at Pickup'}</span>
                     <input
                       inputMode="decimal"
                       value={String((job as any).amountPaidSpecialty ?? '')}
@@ -1576,7 +1611,7 @@ if (fresh?.exists && fresh.job) {
                     }}
                   />
                 </label>
-                <span className="badge">{fullPaid(job) ? 'Paid in Full' : 'Unpaid'}</span>
+                <span className="badge">{fullPaid(job) ? 'Paid in Full' : processingRemaining < processingPriceUsed || specialtyRemaining < specialtyPriceUsed ? 'Partial Payment' : 'Collect at Pickup'}</span>
               </div>
             </div>
           </div>
@@ -1841,6 +1876,11 @@ if (fresh?.exists && fresh.job) {
                   <option key={item.slug} value={item.name}>{item.name}</option>
                 ))}
               </select>
+              {job.sex === 'Doe' || job.sex === 'Antlerless' ? (
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  Buck-only options like cape work are hidden for this deer.
+                </div>
+              ) : null}
               {job.sex && !availableProcessCatalog.length ? (
                 <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>No process types are enabled for that deer sex yet.</div>
               ) : null}

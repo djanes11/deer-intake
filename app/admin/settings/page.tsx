@@ -1362,6 +1362,9 @@ export default function AdminSettingsPage() {
             <div style={{ fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
               If cape-first scanning is off, cape orders will scan like regular meat orders. Staff can still update cape status manually when needed.
             </div>
+            <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+              Turning off scan flow keeps intake and search as the main workflow for status updates.
+            </div>
           </div>
           <div
             style={{
@@ -2023,6 +2026,9 @@ export default function AdminSettingsPage() {
               Specialty products are turned off for this processor. This counts as complete setup and customers will not see specialty product fields.
             </div>
           ) : null}
+          <div style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>
+            Turning off specialty removes it from intake, review, print, and butcher views.
+          </div>
 
           {s.features?.specialtyEnabled !== false ? specialtyDraftRows(s.specialtyCatalog, s.pricing).map((item, index) => (
             <div

@@ -1526,6 +1526,7 @@ function OvernightIntakePage() {
                   ))}
                 </select>
                 {errors.processType ? <div className="errText">{errors.processType}</div> : null}
+                {job.sex === 'Doe' || job.sex === 'Antlerless' ? <div className="errText" style={{ color: '#475569' }}>Buck-only options like cape work are hidden for this deer.</div> : null}
                 {job.sex && !availableProcessCatalog.length ? <div className="errText">No process types are enabled for that deer sex yet.</div> : null}
               </div>
             </div>
@@ -2182,7 +2183,7 @@ function OvernightIntakePage() {
               <div className="thanksConfValue">{job.confirmation || 'Saved'}</div>
             </div>
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
-              {publicCopy.thankYouMessage}
+              {publicCopy.thankYouMessage} Your intake is saved. Staff still reviews every deer before assigning the final tag.
             </p>
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
               {publicCopy.pickupInstructions}

@@ -25,6 +25,40 @@ const RESEND_EVENTS = [
 
 type ResendEventKey = (typeof RESEND_EVENTS)[number]['key'];
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function HighlightText({ text, query }: { text: string; query: string }) {
+  const source = String(text || '');
+  const term = String(query || '').trim();
+  if (!source || !term || term.startsWith('@')) return <>{source || '-'}</>;
+  const regex = new RegExp(`(${escapeRegExp(term)})`, 'ig');
+  return (
+    <>
+      {source.split(regex).map((part, index) =>
+        part.toLowerCase() === term.toLowerCase() ? (
+          <mark key={`${part}-${index}`} style={{ background: '#fef08a', color: '#111827', padding: '0 2px', borderRadius: 4 }}>{part}</mark>
+        ) : (
+          <span key={`${part}-${index}`}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
+function rowBadges(row: Record<string, any>) {
+  const badges: string[] = [];
+  if (!row.tag || String(row.tag).toUpperCase().startsWith('PENDING-')) badges.push('Needs tag');
+  const status = String(row.status || '').toLowerCase();
+  if (status.includes('finished') || status.includes('ready') || status.includes('called')) badges.push('Ready');
+  const due =
+    Math.max(0, Number(row.priceProcessing ?? row.price_processing ?? 0) - Number(row.amountPaidProcessing ?? row.amount_paid_processing ?? 0)) +
+    Math.max(0, Number(row.priceSpecialty ?? row.price_specialty ?? 0) - Number(row.amountPaidSpecialty ?? row.amount_paid_specialty ?? 0));
+  if (due > 0) badges.push('Unpaid');
+  return badges;
+}
+
 export default function SearchPage() {
   const router = useRouter();
 
@@ -498,7 +532,7 @@ export default function SearchPage() {
                   <tbody>
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={4} style={{ padding: 14 }}>No results.</td>
+                        <td colSpan={4} style={{ padding: 14 }}>No results. Try a tag number, confirmation number, phone number, or part of the customer name.</td>
                       </tr>
                     )}
                     {rows.map((r) => (
@@ -513,14 +547,19 @@ export default function SearchPage() {
                           color: r.tag === selectedTag ? '#111827' : undefined,
                         }}
                       >
-                        <td><strong>{r.tag}</strong></td>
+                        <td><strong><HighlightText text={r.tag || '-'} query={q} /></strong></td>
                         <td>
-                          <div style={{ fontWeight: 800 }}>{r.customer || '-'}</div>
+                          <div style={{ fontWeight: 800 }}><HighlightText text={r.customer || '-'} query={q} /></div>
                           <div style={{ fontSize: 12, opacity: 0.72, marginTop: 2 }}>
-                            {r.confirmation ? `Confirmation ${r.confirmation}` : 'No confirmation recorded'}
+                            {r.confirmation ? <>Confirmation <HighlightText text={r.confirmation} query={q} /></> : 'No confirmation recorded'}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                            {rowBadges(r as any).map((badge) => (
+                              <span key={`${r.tag}-${badge}`} style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 999, background: '#eef2ff', color: '#334155' }}>{badge}</span>
+                            ))}
                           </div>
                         </td>
-                        <td>{r.phone || '-'}</td>
+                        <td><HighlightText text={r.phone || '-'} query={q} /></td>
                         <td>{formatDisplayDate(r.dropoff || '')}</td>
                       </tr>
                     ))}
@@ -528,7 +567,7 @@ export default function SearchPage() {
                 </table>
                 <div className="search-results-mobile">
                   {rows.length === 0 ? (
-                    <div style={{ padding: 14 }}>No results.</div>
+                    <div style={{ padding: 14 }}>No results. Try a tag number, confirmation number, phone number, or part of the customer name.</div>
                   ) : (
                     rows.map((r) => (
                       <button
@@ -541,7 +580,7 @@ export default function SearchPage() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'start' }}>
                           <div>
                             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', opacity: 0.66 }}>Tag</div>
-                            <div style={{ fontSize: 18, fontWeight: 900, marginTop: 2 }}>{r.tag || '-'}</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, marginTop: 2 }}><HighlightText text={r.tag || '-'} query={q} /></div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', opacity: 0.66 }}>Drop-off</div>
@@ -549,10 +588,15 @@ export default function SearchPage() {
                           </div>
                         </div>
                         <div style={{ display: 'grid', gap: 4 }}>
-                          <div style={{ fontWeight: 800 }}>{r.customer || '-'}</div>
-                          <div className="muted" style={{ fontSize: 13 }}>{r.phone || '-'}</div>
+                          <div style={{ fontWeight: 800 }}><HighlightText text={r.customer || '-'} query={q} /></div>
+                          <div className="muted" style={{ fontSize: 13 }}><HighlightText text={r.phone || '-'} query={q} /></div>
                           <div className="muted" style={{ fontSize: 12 }}>
-                            {r.confirmation ? `Confirmation ${r.confirmation}` : 'No confirmation recorded'}
+                            {r.confirmation ? <>Confirmation <HighlightText text={r.confirmation} query={q} /></> : 'No confirmation recorded'}
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {rowBadges(r as any).map((badge) => (
+                              <span key={`mobile-${r.tag}-${badge}`} style={{ fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 999, background: '#eef2ff', color: '#334155' }}>{badge}</span>
+                            ))}
                           </div>
                         </div>
                       </button>
@@ -620,6 +664,7 @@ export default function SearchPage() {
                   <div style={{ display: 'grid', gap: 12 }}>
                     <DetailBox title="Quick Summary">
                       <div><strong>Status:</strong> {statusSummary}</div>
+                      <div><strong>Balance status:</strong> {paymentSummary.toLowerCase().includes('partial') ? 'Partial payment on file' : paymentSummary.toLowerCase().includes('unpaid') ? 'Collect at pickup' : 'Paid in full'}</div>
                       <div><strong>Processing paid:</strong> ${Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0).toFixed(2)}</div>
                       <div><strong>Specialty paid:</strong> ${Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0).toFixed(2)}</div>
                     </DetailBox>

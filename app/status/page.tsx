@@ -580,6 +580,7 @@ export default function StatusPage() {
               <div style={{ fontWeight: 900 }}>{`Search by ${identifierSettings.confirmationLabel.toLowerCase()} first.`}</div>
               <div style={{ color: '#475569', lineHeight: 1.5 }}>
                 {publicCopy.statusBestWay}
+                {' '}If the final tag is not assigned yet, keep using your confirmation number.
               </div>
             </div>
             <div

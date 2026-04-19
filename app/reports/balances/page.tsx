@@ -195,7 +195,7 @@ export default async function BalancesPage() {
             </div>
           </div>
           {!readyUnpaid.length ? (
-            <div style={{ padding: 16, color: '#64748b' }}>No ready unpaid orders right now.</div>
+            <div style={{ padding: 16, color: '#64748b' }}>No ready unpaid orders right now. Once an order is finished and still has money due, it will show here for pickup collection.</div>
           ) : (
             <div style={{ display: 'grid' }}>
               {readyUnpaid.map((row, idx) => (
@@ -213,7 +213,7 @@ export default async function BalancesPage() {
             </div>
           </div>
           {!largestBalances.length ? (
-            <div style={{ padding: 16, color: '#64748b' }}>No open balances right now.</div>
+            <div style={{ padding: 16, color: '#64748b' }}>No open balances right now. New unpaid processing or specialty balances will show here automatically.</div>
           ) : (
             <div style={{ display: 'grid' }}>
               {largestBalances.map((row, idx) => (

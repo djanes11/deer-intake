@@ -639,7 +639,7 @@ export default function CalledPickupQueue() {
       {loading ? (
         <div className="empty">Loading...</div>
       ) : filteredRows.length === 0 ? (
-        <div className="empty">Nobody currently in Called.</div>
+        <div className="empty">Nobody currently in Called. Orders will show here after staff marks them called from the ready-to-contact workflow.</div>
       ) : (
         <div className="table-wrap">
           <div className="thead" style={{ gridTemplateColumns: gridCols }}>

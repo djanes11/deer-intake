@@ -212,9 +212,13 @@ export default function PrintSheet({ tag, job, hideHeader, webbsEnabled = true }
   }, [job?.['Processing Price'], job?.priceProcessing, job?.processing_price, job?.price_processing]);
 
   const processingPrice = processingOverride ?? processingStored ?? proc;
+  const processingPaid = numOrNull(jpick(job, ['amountPaidProcessing', 'amount_paid_processing'])) ?? 0;
 
   const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [specialtyItems]);
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
+  const specialtyPaid = numOrNull(jpick(job, ['amountPaidSpecialty', 'amount_paid_specialty'])) ?? 0;
+  const processingDue = Math.max(0, processingPrice - processingPaid);
+  const specialtyDue = Math.max(0, specialtyPrice - specialtyPaid);
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job?.webbsItems), [job?.webbsItems]);
   const webbsAllocations = useMemo(() => normalizeWebbsAllocations(job?.webbsAllocations), [job?.webbsAllocations]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(job?.webbsItems), [job?.webbsItems]);
@@ -596,6 +600,21 @@ return () => {
               </div>
               <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row grid12 meat-row">
+        <div className={`col-12 box ${(hasNotes || addOnItems.length || hasSpecialty || hasWebbs) ? 'attentionBox' : ''}`}>
+          <div className="label">Watch For</div>
+          <div className={`val ${(hasNotes || addOnItems.length || hasSpecialty || hasWebbs) ? 'attentionValue' : ''}`}>
+            {[
+              hasNotes ? `Notes: ${notesText}` : null,
+              addOnItems.length ? `Add-ons: ${addOnItems.map((item) => item.name).join(', ')}` : null,
+              hasSpecialty ? `Specialty total: ${specialtyLbs || 0} lb` : null,
+              hasWebbs ? `Webbs: ${webbsSummaryText}` : null,
+              (processingDue + specialtyDue) > 0 ? `Payment due: ${money(processingDue + specialtyDue)}` : 'Paid in full',
+            ].filter(Boolean).join(' | ')}
           </div>
         </div>
       </div>

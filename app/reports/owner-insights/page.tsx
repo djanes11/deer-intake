@@ -302,7 +302,7 @@ export default async function OwnerInsightsPage() {
             </div>
           </div>
           {!oldestReady.length ? (
-            <div style={{ padding: 16, color: '#64748b' }}>No finished deer are currently waiting on pickup.</div>
+            <div style={{ padding: 16, color: '#64748b' }}>No finished deer are currently waiting on pickup. Once finished orders are saved without pickup completed, they will show here with their ready age.</div>
           ) : (
             <div style={{ display: 'grid' }}>
               {oldestReady.map((row, idx) => (
