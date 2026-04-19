@@ -466,7 +466,57 @@ export default function CallReportPage() {
         </section>
       ) : null}
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="mobile-call-list">
+        {(!rows || rows.length === 0) ? (
+          <div className="mobile-empty">
+            <div className="mobile-empty-title">Nothing to call right now.</div>
+            <div className="mobile-empty-copy">
+              Orders will show up here once processing, cape, or Webbs work is ready and the customer prefers a phone call.
+            </div>
+          </div>
+        ) : (
+          rows.map((r) => {
+            const key = r.tag + '|' + r.__track;
+            const isSel = selectedKey === key;
+            const pay = paymentSummary(r);
+            const isMeat = r.__track === 'meat';
+            return (
+              <button
+                type="button"
+                key={key}
+                className={`mobile-call-card ${isSel ? 'selected' : ''}`}
+                onClick={() => setSelectedKey(key)}
+              >
+                <div className="mobile-call-top">
+                  <div>
+                    <div className="mobile-call-name">{(r as any).customer || 'Unknown customer'}</div>
+                    <div className="mobile-call-sub">
+                      Tag {r.tag} {((r as any).confirmation ? `| ${(r as any).confirmation}` : '')}
+                    </div>
+                  </div>
+                  <span className={'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : 'purple')}>
+                    {trackLabel(r.__track)}
+                  </span>
+                </div>
+                <div className="mobile-call-meta">
+                  <span>{(r as any).phone || 'No phone'}</span>
+                  <span>Attempts {attemptsFor(r)}</span>
+                  <span>
+                    {isMeat ? (pay.totalDue > 0 ? `${money(pay.totalDue)} due` : 'Paid') : 'Included'}
+                  </span>
+                </div>
+                <div className="mobile-call-next">
+                  {attemptsFor(r) === 0
+                    ? 'Next: make the first call attempt.'
+                    : 'Next: add another attempt or mark this track called.'}
+                </div>
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      <div className="card desktop-call-table" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="table-scroll">
           <table className="table call-table">
             <thead>
@@ -711,6 +761,112 @@ export default function CallReportPage() {
         .muted { color: #9ca3af; }
         .customer-name, .balance-main { font-weight: 850; }
         .customer-sub, .balance-sub { color: #9ca3af; font-size: 13px; }
+        .mobile-call-list { display: none; }
+        .mobile-call-card {
+          width: 100%;
+          display: grid;
+          gap: 10px;
+          text-align: left;
+          padding: 14px;
+          border: 1px solid rgba(154, 116, 60, 0.2);
+          border-radius: 16px;
+          background: rgba(14, 13, 12, 0.88);
+          color: #f8fafc;
+          appearance: none;
+          cursor: pointer;
+        }
+        .mobile-call-card.selected {
+          border-color: #89c096;
+          background: rgba(20, 39, 26, 0.96);
+          box-shadow: inset 0 0 0 1px rgba(137, 192, 150, 0.28);
+        }
+        .mobile-call-top {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-start;
+        }
+        .mobile-call-name {
+          font-size: 18px;
+          font-weight: 900;
+          line-height: 1.1;
+        }
+        .mobile-call-sub {
+          margin-top: 4px;
+          color: #cbd5e1;
+          font-size: 13px;
+        }
+        .mobile-call-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          color: #dbe4ee;
+          font-size: 13px;
+        }
+        .mobile-call-meta span,
+        .mobile-call-next {
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.06);
+        }
+        .mobile-call-next {
+          color: #f3d38a;
+          font-weight: 800;
+          line-height: 1.35;
+          border-radius: 12px;
+        }
+        .mobile-empty {
+          border: 1px solid rgba(154, 116, 60, 0.18);
+          border-radius: 16px;
+          padding: 16px;
+          background: rgba(14, 13, 12, 0.88);
+          color: #f8fafc;
+        }
+        .mobile-empty-title {
+          font-weight: 900;
+          font-size: 18px;
+        }
+        .mobile-empty-copy {
+          margin-top: 6px;
+          color: #cbd5e1;
+          line-height: 1.45;
+        }
+        @media (max-width: 820px) {
+          .selected-title { font-size: 22px; }
+          .selected-tag {
+            display: block;
+            margin-left: 0;
+            margin-top: 6px;
+          }
+          .mobile-call-list {
+            display: grid;
+            gap: 12px;
+          }
+          .desktop-call-table {
+            display: none;
+          }
+          .toolbar-inner {
+            align-items: stretch;
+          }
+          .sel {
+            width: 100%;
+          }
+          .toolbar-actions {
+            width: 100%;
+          }
+          .toolbar-actions > * {
+            flex: 1 1 100%;
+          }
+          .toolbar-notes {
+            width: 100%;
+            max-width: none;
+          }
+          .btn,
+          .btn.secondary {
+            width: 100%;
+            justify-content: center;
+          }
+        }
       `}</style>
     </main>
   );

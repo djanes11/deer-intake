@@ -156,7 +156,7 @@ export default function PrintQueuePage() {
         {header}
 
         {selectedTag ? (
-          <div style={{ display: 'grid', gap: 10, padding: 14, border: '1px solid #d7eadb', borderRadius: 12, background: '#f4fbf4' }}>
+          <div className="selected-print-card" style={{ display: 'grid', gap: 10, padding: 14, border: '1px solid #d7eadb', borderRadius: 12, background: '#f4fbf4' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700 }}>Selected For Print</div>
@@ -166,8 +166,11 @@ export default function PrintQueuePage() {
                     <span style={{ opacity: 0.75 }}> for {selectedJob.customer || selectedJob.customer_name}</span>
                   ) : null}
                 </div>
+                <div style={{ marginTop: 8, fontSize: 13, color: '#3f5f43', lineHeight: 1.4 }}>
+                  Next: refresh the sheet if needed, then print it once. Printing from this page removes it from the queue.
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <div className="selected-print-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="btn" onClick={() => loadJob(selectedTag)} disabled={!!printing}>
                   Refresh Sheet
                 </button>
@@ -198,7 +201,9 @@ export default function PrintQueuePage() {
           ) : rows.length === 0 ? (
             <div style={{ padding: 16 }}>
               <div style={{ fontWeight: 700 }}>No intake sheets are waiting to be printed.</div>
-              <div style={{ marginTop: 4, opacity: 0.72 }}>You are caught up for now.</div>
+              <div style={{ marginTop: 4, opacity: 0.72, lineHeight: 1.45 }}>
+                You are caught up for now. New intake sheets will appear here after staff saves an order that has not been printed yet.
+              </div>
             </div>
           ) : (
             rows.map((r) => {
@@ -234,6 +239,8 @@ export default function PrintQueuePage() {
                     </div>
                   </div>
 
+                  <div className="queue-next">Next: load the sheet to review it, then print once and remove it from the queue.</div>
+
                   <div className="queue-actions">
                     <button className="btn" onClick={() => loadJob(tag)} disabled={isPrinting}>
                       Load Sheet
@@ -252,6 +259,15 @@ export default function PrintQueuePage() {
       <div className="print-only">{selectedJob ? <PrintSheet job={selectedJob} webbsEnabled={webbsEnabled} /> : null}</div>
 
       <style jsx>{`
+        .selected-print-card {
+          box-shadow: 0 8px 18px rgba(47, 111, 63, 0.08);
+        }
+        .queue-next {
+          font-size: 13px;
+          font-weight: 700;
+          color: #516a56;
+          line-height: 1.4;
+        }
         .queue-actions {
           display: grid;
           gap: 10px;
@@ -262,8 +278,15 @@ export default function PrintQueuePage() {
           display: none;
         }
         @media (max-width: 720px) {
+          .selected-print-actions {
+            width: 100%;
+          }
+          .selected-print-actions :global(button),
           .queue-actions {
             grid-template-columns: 1fr;
+          }
+          .queue-actions :global(button) {
+            width: 100%;
           }
         }
         @media print {

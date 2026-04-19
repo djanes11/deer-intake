@@ -639,67 +639,110 @@ export default function CalledPickupQueue() {
       {loading ? (
         <div className="empty">Loading...</div>
       ) : filteredRows.length === 0 ? (
-        <div className="empty">Nobody currently in Called. Orders will show here after staff marks them called from the ready-to-contact workflow.</div>
+        <div className="empty">
+          <div className="empty-title">Nobody is waiting in the pickup queue right now.</div>
+          <div className="empty-copy">
+            Orders will show here after staff marks them called from the ready-to-contact workflow. If you expected someone here, check whether they are still in Search, Call Report, or already marked picked up.
+          </div>
+        </div>
       ) : (
-        <div className="table-wrap">
-          <div className="thead" style={{ gridTemplateColumns: gridCols }}>
-            <div>Tag</div>
-            <div>Customer</div>
-            <div>Track</div>
-            <div>Called</div>
-            <div>Balance</div>
-            <div>Payment</div>
-            <div>Waiting</div>
-            <div>Pickup</div>
+        <>
+          <div className="mobile-called-list">
+            {filteredRows.map((r) => {
+              const key = `${r.tag}|${r.track}`;
+              const isSel = key === selectedKey;
+              return (
+                <button
+                  type="button"
+                  key={`mobile:${r.tag}:${r.track}:${r.calledAt || ''}`}
+                  className={`mobile-called-card ${isSel ? 'selected' : ''}`}
+                  onClick={() => setSelectedKey(key)}
+                >
+                  <div className="mobile-called-top">
+                    <div>
+                      <div className="mobile-called-name">{r.customer || 'Unknown customer'}</div>
+                      <div className="mobile-called-sub">Tag {r.tag || '-'} | Confirmation {r.confirmation || '-'}</div>
+                    </div>
+                    <TrackBadge track={r.track} />
+                  </div>
+                  <div className="mobile-called-meta">
+                    <span>{r.phone || 'No phone'}</span>
+                    <span>{r.calledAt ? `Called ${ageSince(r.calledAt)} ago` : 'Not stamped yet'}</span>
+                    <span>{r.pickedUp ? 'Picked up' : 'Awaiting pickup'}</span>
+                  </div>
+                  <div className="mobile-called-balance">
+                    <div className="mobile-called-balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
+                    <div className="mobile-called-balance-sub">
+                      {r.track === 'meat'
+                        ? (r.totalDue > 0 ? 'Next: collect payment and mark picked up.' : 'Next: confirm the handoff and mark picked up.')
+                        : 'Next: hand off this track and mark it complete.'}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {filteredRows.map((r, i) => {
-            const key = `${r.tag}|${r.track}`;
-            const isSel = key === selectedKey;
-            return (
-              <div
-                key={`${r.tag}:${r.track}:${r.calledAt || ''}`}
-                className={`trow ${isSel ? 'selected' : ''} ${i % 2 ? 'odd' : ''}`}
-                onClick={() => setSelectedKey(key)}
-                style={{ gridTemplateColumns: gridCols }}
-                title="Click to select"
-              >
-                <div>
-                  <a
-                    href={canUpdate ? `/intake?tag=${encodeURIComponent(r.tag)}` : `/intake/${encodeURIComponent(r.tag)}`}
-                    target="_blank"
-                    rel="noopener"
-                    onClick={(e) => { e.stopPropagation(); openIntake(r.tag); }}
-                  >
-                    {r.tag || '-'}
-                  </a>
-                </div>
-                <div className="customer-cell">
-                  <div className="customer-name">{r.customer || '-'}</div>
-                  <div className="customer-sub">
-                    Confirmation {r.confirmation || '-'}
-                    {r.phone ? ` | ${r.phone}` : ''}
+          <div className="table-wrap">
+            <div className="thead" style={{ gridTemplateColumns: gridCols }}>
+              <div>Tag</div>
+              <div>Customer</div>
+              <div>Track</div>
+              <div>Called</div>
+              <div>Balance</div>
+              <div>Payment</div>
+              <div>Waiting</div>
+              <div>Pickup</div>
+            </div>
+
+            {filteredRows.map((r, i) => {
+              const key = `${r.tag}|${r.track}`;
+              const isSel = key === selectedKey;
+              return (
+                <div
+                  key={`${r.tag}:${r.track}:${r.calledAt || ''}`}
+                  className={`trow ${isSel ? 'selected' : ''} ${i % 2 ? 'odd' : ''}`}
+                  onClick={() => setSelectedKey(key)}
+                  style={{ gridTemplateColumns: gridCols }}
+                  title="Click to select"
+                >
+                  <div>
+                    <a
+                      href={canUpdate ? `/intake?tag=${encodeURIComponent(r.tag)}` : `/intake/${encodeURIComponent(r.tag)}`}
+                      target="_blank"
+                      rel="noopener"
+                      onClick={(e) => { e.stopPropagation(); openIntake(r.tag); }}
+                    >
+                      {r.tag || '-'}
+                    </a>
                   </div>
-                </div>
-                <div><TrackBadge track={r.track} /></div>
-                <div>{r.calledAt ? formatDisplayDateTime(r.calledAt) : '-'}</div>
-                <div className="balance-cell">
-                  <div className="balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
-                  {r.track === 'meat' ? (
-                    <div className="balance-sub">
-                      Proc {money(r.procDue)} | Spec {money(r.specDue)}
+                  <div className="customer-cell">
+                    <div className="customer-name">{r.customer || '-'}</div>
+                    <div className="customer-sub">
+                      Confirmation {r.confirmation || '-'}
+                      {r.phone ? ` | ${r.phone}` : ''}
                     </div>
-                  ) : (
-                    <div className="balance-sub">No charge on this track</div>
-                  )}
+                  </div>
+                  <div><TrackBadge track={r.track} /></div>
+                  <div>{r.calledAt ? formatDisplayDateTime(r.calledAt) : '-'}</div>
+                  <div className="balance-cell">
+                    <div className="balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
+                    {r.track === 'meat' ? (
+                      <div className="balance-sub">
+                        Proc {money(r.procDue)} | Spec {money(r.specDue)}
+                      </div>
+                    ) : (
+                      <div className="balance-sub">No charge on this track</div>
+                    )}
+                  </div>
+                  <div><PaymentBadge row={r} /></div>
+                  <div>{ageSince(r.calledAt)}</div>
+                  <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge">Waiting</span>}</div>
                 </div>
-                <div><PaymentBadge row={r} /></div>
-                <div>{ageSince(r.calledAt)}</div>
-                <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge">Waiting</span>}</div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <div className="toolbar">
@@ -982,6 +1025,15 @@ export default function CalledPickupQueue() {
           border-radius: 12px;
           padding: 12px;
         }
+        .empty-title {
+          font-weight: 900;
+          font-size: 18px;
+        }
+        .empty-copy {
+          margin-top: 6px;
+          color: #cbd5e1;
+          line-height: 1.45;
+        }
         .err {
           background: #fff1f2;
           border: 1px solid #fecdd3;
@@ -1002,6 +1054,66 @@ export default function CalledPickupQueue() {
         .btn.secondary { background: #101715; color: #e5e7eb; border-color: #304336; }
         .btn.small { padding: 6px 10px; font-size: 14px; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
+        .mobile-called-list { display: none; }
+        .mobile-called-card {
+          width: 100%;
+          display: grid;
+          gap: 10px;
+          text-align: left;
+          padding: 14px;
+          border: 1px solid #1f2c24;
+          border-radius: 16px;
+          background: #101715;
+          color: #f8fafc;
+          appearance: none;
+          cursor: pointer;
+        }
+        .mobile-called-card.selected {
+          border-color: #1f6f3e;
+          background: #062d25;
+          box-shadow: inset 0 0 0 1px rgba(49, 148, 87, 0.22);
+        }
+        .mobile-called-top {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-start;
+        }
+        .mobile-called-name {
+          font-size: 18px;
+          font-weight: 900;
+          line-height: 1.1;
+        }
+        .mobile-called-sub {
+          margin-top: 4px;
+          color: #cbd5e1;
+          font-size: 13px;
+        }
+        .mobile-called-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .mobile-called-meta span {
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.07);
+          font-size: 13px;
+        }
+        .mobile-called-balance {
+          display: grid;
+          gap: 4px;
+        }
+        .mobile-called-balance-main {
+          font-size: 20px;
+          font-weight: 900;
+        }
+        .mobile-called-balance-sub {
+          color: #f3d38a;
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1.4;
+        }
         @media (max-width: 960px) {
           .pickup-filters {
             grid-template-columns: 1fr !important;
@@ -1044,6 +1156,39 @@ export default function CalledPickupQueue() {
           gap: 8px;
           align-items: center;
           flex-wrap: wrap;
+        }
+        @media (max-width: 820px) {
+          .selected-title { font-size: 22px; }
+          .selected-tag {
+            display: block;
+            margin-left: 0;
+            margin-top: 6px;
+          }
+          .mobile-called-list {
+            display: grid;
+            gap: 12px;
+          }
+          .table-wrap {
+            display: none;
+          }
+          .toolbar-inner {
+            align-items: stretch;
+          }
+          .sel {
+            width: 100%;
+          }
+          .toolbar-actions {
+            width: 100%;
+          }
+          .toolbar-actions > * {
+            flex: 1 1 100%;
+          }
+          .btn,
+          .btn.secondary,
+          .btn.small {
+            width: 100%;
+            justify-content: center;
+          }
         }
       `}</style>
     </main>
