@@ -1091,7 +1091,7 @@ function OvernightIntakePage() {
               </div>
               <div className="compactSummarySub">
                 <span>Processing ${processingPrice.toFixed(2)}</span>
-                <span>Specialty ${specialtyPrice.toFixed(2)}</span>
+                {specialtyEnabled ? <span>Specialty ${specialtyPrice.toFixed(2)}</span> : null}
               </div>
             </div>
           ) : (
@@ -1111,11 +1111,13 @@ function OvernightIntakePage() {
                   </div>
                 </div>
 
-                <div className="col price">
-                  <label>Specialty Estimate</label>
-                  <div className="money">{specialtyPrice.toFixed(2)}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
-                </div>
+                {specialtyEnabled ? (
+                  <div className="col price">
+                    <label>Specialty Estimate</label>
+                    <div className="money">{specialtyPrice.toFixed(2)}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="row small">
