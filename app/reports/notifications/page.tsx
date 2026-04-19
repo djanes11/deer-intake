@@ -182,7 +182,9 @@ export default async function NotificationActivityPage() {
           </div>
 
           {activities.length === 0 ? (
-            <div style={{ padding: 16, color: '#475569' }}>No notification activity yet.</div>
+            <div style={{ padding: 16, color: '#475569', lineHeight: 1.55 }}>
+              No notification activity yet. Email and text updates will appear here after staff send messages manually or the workflow sends ready and status notices.
+            </div>
           ) : activities.map((row, idx) => {
             const tone = statusTone(row.status);
             const shownStatus = displayStatus(row.status);

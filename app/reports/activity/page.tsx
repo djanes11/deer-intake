@@ -98,7 +98,9 @@ export default async function ActivityReportPage() {
         </div>
 
         {!data?.length ? (
-          <div style={{ padding: 16, color: '#64748b' }}>No activity logged yet.</div>
+          <div style={{ padding: 16, color: '#475569', lineHeight: 1.55 }}>
+            No activity is logged yet. Actions like saving intakes, changing settings, printing, sending notifications, and updating staff will start showing here automatically.
+          </div>
         ) : (
           <div style={{ display: 'grid' }}>
             {data.map((row: any, idx: number) => (

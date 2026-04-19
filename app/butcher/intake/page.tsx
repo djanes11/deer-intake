@@ -87,8 +87,8 @@ function ButcherIntakeInner() {
       try{
         const res = await getJob(tag);
         if (res?.exists && res.job) setJob(res.job);
-        else setMsg('Tag not found');
-      }catch(e:any){ setMsg(e?.message || 'Load failed'); }
+        else setMsg('We could not find that tag. Go back to Search or Scan and try the deer again.');
+      }catch(e:any){ setMsg(`Could not load this butcher view. ${e?.message || 'Try Search or Scan again.'}`); }
     })();
     // Fullscreen + wake lock
     (async () => {
@@ -107,11 +107,11 @@ function ButcherIntakeInner() {
         setMsg('Finished');
         setTimeout(()=> router.replace('/scan'), 800);
       } else {
-        setMsg(res?.error || 'Cannot finish');
+        setMsg(res?.error || 'Could not finish this deer from the scan page. Try scanning again or open the intake to update it manually.');
         setTimeout(()=> setMsg(''), 1200);
       }
     } catch (e:any) {
-      setMsg(e?.message || 'Finish failed');
+      setMsg(`Could not finish this deer from the scan page. ${e?.message || 'Try scanning again or open the intake to update it manually.'}`);
       setTimeout(()=> setMsg(''), 1200);
     }
   });
@@ -142,9 +142,9 @@ function ButcherIntakeInner() {
       setBusy(true); setMsg('');
       const res = await saveJob(job);
       if (!res?.ok) throw new Error(res?.error || 'Save failed');
-      setMsg('Saved');
+      setMsg('Saved. Scan the same tag again when the work is done, or return to Search for the next deer.');
       setTimeout(()=> setMsg(''), 1000);
-    }catch(e:any){ setMsg(e?.message || 'Save failed'); }
+    }catch(e:any){ setMsg(`Could not save these butcher changes. ${e?.message || 'Try again, or open the intake form if this keeps happening.'}`); }
     finally{ setBusy(false); }
   };
 
@@ -200,8 +200,8 @@ function ButcherIntakeInner() {
   return (
     <main className="page-wrap butcher-mode">
       <div className="butcher-root" ref={rootRef}>
-        <div style={{ marginBottom: 12, color: '#dbe7f2', fontWeight: 800 }}>
-          Keep this page simple on the cutting floor: review the deer, confirm the tag, and scan the same tag again when the work is done.
+        <div style={{ marginBottom: 12, color: '#f3f4f6', fontWeight: 800, lineHeight: 1.45 }}>
+          Next: review the deer, watch the highlighted callouts, then scan the same tag again when the work is done.
         </div>
         <div className="toprow">
           <div className="tagbox">

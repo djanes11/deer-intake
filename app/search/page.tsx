@@ -210,10 +210,10 @@ export default function SearchPage() {
       }, 150);
       if (selectedTag === tag) {
         await loadDetails(tag);
-        setPrintMsg('Marked printed from search preview.');
+        setPrintMsg('Marked printed. If the printer did not respond, try Print Queue or print again from this page.');
       }
     } catch (e: any) {
-      setErr(e?.message || 'Print failed');
+      setErr(`Could not print this intake sheet. ${e?.message || 'Try again, or open the intake record and print from there.'}`);
       setPrinting('');
     }
   };
@@ -226,7 +226,7 @@ export default function SearchPage() {
     try {
       const res = await getJob(tag);
       const job = (res?.job || null) as Record<string, any> | null;
-      if (!job) throw new Error('Could not load label details.');
+      if (!job) throw new Error('Could not load the label details.');
       setPrintJob(job);
       setPrintMode(type);
       setTimeout(() => {
@@ -235,7 +235,7 @@ export default function SearchPage() {
         setPrinting('');
       }, 150);
     } catch (e: any) {
-      setErr(e?.message || 'Label print failed');
+      setErr(`Could not print that label. ${e?.message || 'Try again, or open the intake record and print from there.'}`);
       setPrinting('');
     }
   };
@@ -362,7 +362,7 @@ export default function SearchPage() {
       setManualBody('');
       if (manualChannel === 'email') setManualSubject('');
     } catch (e: any) {
-      setResendMsg(e?.message || 'Could not send message.');
+      setResendMsg(`Could not send that message. ${e?.message || 'Check the contact method and try again.'}`);
     } finally {
       setManualBusy(false);
     }
@@ -413,7 +413,7 @@ export default function SearchPage() {
       await loadDetails(selectedTag);
       setResendMsg(`Resent ${labelForEvent(event)} by ${json.channel} to ${json.destination}.`);
     } catch (e: any) {
-      setResendMsg(e?.message || 'Resend failed.');
+      setResendMsg(`Could not resend that notification. ${e?.message || 'Try again, or send a manual update instead.'}`);
     } finally {
       setResendBusy('');
     }
@@ -440,7 +440,7 @@ export default function SearchPage() {
       await loadDetails(selectedTag);
       setResendMsg(`Reset ${labelForEvent(event)} notification flags.`);
     } catch (e: any) {
-      setResendMsg(e?.message || 'Reset failed.');
+      setResendMsg(`Could not reset those notification flags. ${e?.message || 'Try again.'}`);
     } finally {
       setResetBusy('');
     }
@@ -466,7 +466,7 @@ export default function SearchPage() {
       await loadDetails(selectedTag);
       setPrintMsg('Marked unprinted. This deer will show up in the print queue again.');
     } catch (e: any) {
-      setPrintMsg(e?.message || 'Could not mark unprinted.');
+      setPrintMsg(`Could not send this deer back to the print queue. ${e?.message || 'Try again, or print directly from this page.'}`);
     }
   };
 

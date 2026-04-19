@@ -456,6 +456,8 @@ function IntakePage() {
   const [lastSavedAt, setLastSavedAt] = useState<string>('');
   const [lastSavedTag, setLastSavedTag] = useState<string>('');
   const tagRef = useRef<HTMLInputElement | null>(null);
+  const confirmationRef = useRef<HTMLInputElement | null>(null);
+  const customerRef = useRef<HTMLInputElement | null>(null);
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
@@ -483,14 +485,35 @@ function IntakePage() {
     return currentJson !== lastSavedJson;
   }, [currentJson, lastSavedJson]);
 
+  const workflowCue = useMemo(() => {
+    if (busy) return 'Next: finishing the save...';
+    if (dirty) return 'Next: save this intake before printing or moving on.';
+    if (lastSavedTag) return 'Next: print paperwork, open butcher view, or start the next deer.';
+    return 'Next: fill in the deer details, then save the intake.';
+  }, [busy, dirty, lastSavedTag]);
+
   useUnsavedChanges({
     when: dirty && !busy,
     message: 'You have NOT saved this intake. Leave without saving?',
   });
 
+  const focusPrimaryField = (opts?: { select?: boolean }) => {
+    const target =
+      !(job.tag || '').trim() ? tagRef.current :
+      !(job.confirmation || '').trim() ? confirmationRef.current :
+      customerRef.current;
+    if (!target) return;
+    target.focus();
+    if (opts?.select) {
+      try {
+        target.select();
+      } catch {}
+    }
+  };
+
   useEffect(() => {
-    tagRef.current?.focus();
-  }, []);
+    focusPrimaryField();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetch('/api/staff/site-settings', { cache: 'no-store' })
@@ -1127,59 +1150,62 @@ useEffect(() => {
       setBusy(true);
       const res = await saveJob(payload);
       if (!res?.ok) {
-        setMsg(res?.error || 'Save failed');
+        setMsg(`Could not save this intake. ${res?.error || 'Check the required fields and try again.'}`);
         return false;
       }
 
       setMsg('Saved ✓');
       setLastSavedAt(new Date().toISOString());
+      setMsg('Saved. You can print, open butcher view, or start the next deer.');
       setLastSavedTag(String(payload.tag || ''));
       setCustomerLookupCollapsedFor(String(payload.customer ?? job.customer ?? '').trim().toLowerCase());
       setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
 
       // Re-load after save (use the standardized tag from payload)
-    if (payload.tag) {
-        const fresh = await getJob(payload.tag);
-if (fresh?.exists && fresh.job) {
-  const j: any = fresh.job;
+      if (payload.tag) {
+        try {
+          const fresh = await getJob(payload.tag);
+          if (fresh?.exists && fresh.job) {
+            const j: any = fresh.job;
 
-  const merged: Job = {
-    ...job,
-    ...j,
-    confirmation:
-      j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
-    webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
-    paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
-    paidSpecialty:  !!(j.paidSpecialty  ?? j.PaidSpecialty  ?? j.Paid_Specialty),
-    addOnItems: normalizeJobAddOnItems((j as any).addOnItems),
+            const merged: Job = {
+              ...job,
+              ...j,
+              confirmation:
+                j.confirmation ?? j['Confirmation #'] ?? j['Confirmation'] ?? job.confirmation ?? '',
+              webbsOrderStyle: normalizeWebbsOrderStyle((j as any).webbsOrderStyle),
+              paidProcessing: !!(j.paidProcessing ?? j.PaidProcessing ?? j.Paid_Processing),
+              paidSpecialty: !!(j.paidSpecialty ?? j.PaidSpecialty ?? j.Paid_Specialty),
+              addOnItems: normalizeJobAddOnItems((j as any).addOnItems),
+              prefEmail: asBool(j.prefEmail),
+              prefSMS: asBool(j.prefSMS),
+              prefCall: asBool(j.prefCall),
+              smsConsent: asBool(j.smsConsent),
+              autoCallConsent: asBool(j.autoCallConsent),
+              webbsItems: normalizeWebbsOrderItems(j.webbsItems),
+              webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
+            };
 
-    prefEmail:  asBool(j.prefEmail),
-    prefSMS:    asBool(j.prefSMS),
-    prefCall:   asBool(j.prefCall),
-    smsConsent: asBool(j.smsConsent),
-    autoCallConsent: asBool(j.autoCallConsent),
-    webbsItems: normalizeWebbsOrderItems(j.webbsItems),
-    webbsAllocations: normalizeWebbsAllocations((j as any).webbsAllocations),
-  };
+            const fp = fullPaid(merged);
+            merged.Paid = !!(j.Paid ?? j.paid ?? fp);
+            merged.paid = !!(j.Paid ?? j.paid ?? fp);
 
-  const fp = fullPaid(merged);
-  merged.Paid = !!(j.Paid ?? j.paid ?? fp);
-  merged.paid = !!(j.Paid ?? j.paid ?? fp);
-
-  setJob(merged);
-  setLastSavedJson(stableStringify(snapshotJob(merged)));
-  setLastSavedAt(new Date().toISOString());
-}
-
+            setJob(merged);
+            setLastSavedJson(stableStringify(snapshotJob(merged)));
+            setLastSavedAt(new Date().toISOString());
+          }
+        } catch {
+          setMsg(`Saved, but the page could not refresh from the server. You can keep working or reopen tag ${payload.tag} from Search if needed.`);
+        }
       }
 
       return true;
     } catch (e: any) {
-      setMsg(e?.message || String(e));
+      setMsg(`Could not save this intake. ${e?.message || String(e)}`);
       return false;
     } finally {
       setBusy(false);
-      setTimeout(() => setMsg(''), 1500);
+      setTimeout(() => setMsg(''), 2600);
     }
   };
 
@@ -1206,9 +1232,9 @@ if (fresh?.exists && fresh.job) {
       // ignore
     }
 
-    // Put the cursor back on Tag Number for fast counter workflow
-    requestAnimationFrame(() => tagRef.current?.focus());
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Put the cursor back on the next likely field for fast counter workflow
+    requestAnimationFrame(() => focusPrimaryField({ select: true }));
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
@@ -1384,6 +1410,10 @@ if (fresh?.exists && fresh.job) {
           <div className={`miniChip ${fullPaid(job) ? 'ok' : 'warn'}`}>
             <span className="miniLabel">Paid</span>
             <span className="miniValue">{fullPaid(job) ? 'Paid in Full' : 'Unpaid'}</span>
+          </div>
+          <div className="miniChip cue">
+            <span className="miniLabel">Next</span>
+            <span className="miniValue">{workflowCue}</span>
           </div>
         </div>
 
@@ -1625,6 +1655,7 @@ if (fresh?.exists && fresh.job) {
             <div className="c3">
               <label>{identifierSettings.confirmationLabel}</label>
               <input
+                ref={confirmationRef}
                 value={job.confirmation || ''}
                 inputMode={confirmationInputMode(identifierSettings)}
                 pattern={identifierSettings.confirmationValidation === 'freeform' ? undefined : '[0-9]*'}
@@ -1636,6 +1667,7 @@ if (fresh?.exists && fresh.job) {
             <div className="c6">
               <label>Customer Name</label>
               <input
+                ref={customerRef}
                 value={job.customer || ''}
                 onChange={(e) => setVal('customer', e.target.value)}
               />
@@ -2439,7 +2471,7 @@ if (fresh?.exists && fresh.job) {
             }}
             disabled={busy || !canEdit}
           >
-            {busy ? 'Saving…' : 'Save & New'}
+            {busy ? 'Saving…' : 'Save & Start Next Deer'}
           </button>
         </div>
       </div>
@@ -2656,7 +2688,7 @@ if (fresh?.exists && fresh.job) {
         .rowInline { display: flex; align-items: center; padding-top: 22px; gap: 8px; }
         .checks { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
         .chk { display: inline-flex; align-items: center; gap: 6px; }
-        .muted { color: #6b7280; font-size: 12px; }
+        .muted { color: #475569; font-size: 12px; }
 
         .summaryMini {
           position: sticky;
@@ -2695,6 +2727,13 @@ if (fresh?.exists && fresh.job) {
           border-color: #facc15;
           color: #854d0e;
         }
+        .miniChip.cue {
+          max-width: min(460px, 100%);
+          align-items: flex-start;
+          border-color: #cbd5e1;
+          background: #f8fafc;
+          color: #0f172a;
+        }
         .miniLabel {
           font-size: 11px;
           text-transform: uppercase;
@@ -2704,6 +2743,11 @@ if (fresh?.exists && fresh.job) {
         .miniValue {
           font-size: 14px;
           font-weight: 900;
+        }
+        .miniChip.cue .miniValue {
+          font-size: 13px;
+          line-height: 1.35;
+          font-weight: 800;
         }
         .summary { position: static; background: #f5f8ff; border: 1px solid #d8e3f5; border-radius: 10px; padding: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.06); z-index:5; }
         .summary .row { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); align-items: start; }
