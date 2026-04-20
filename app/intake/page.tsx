@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -348,7 +348,7 @@ async function markPrinted(tag: string) {
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', 'âœ“', 'âœ”'].includes(s);
 };
 
 type AnyRec = Record<string, any>;
@@ -374,7 +374,7 @@ const coerce = <T extends readonly string[]>(v: string | undefined, list: T): T[
 /* ===== Suspense wrapper ===== */
 export default function Page() {
   return (
-    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>Loading…</div></div>}>
+    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>Loadingâ€¦</div></div>}>
       <IntakePage />
     </Suspense>
   );
@@ -914,7 +914,7 @@ useEffect(() => {
       parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} lb total`);
     }
     if (specialtyPriceUsed) parts.push(`$${specialtyPriceUsed.toFixed(2)}`);
-    return parts.length ? parts.join(' • ') : 'Specialty products selected';
+    return parts.length ? parts.join(' â€¢ ') : 'Specialty products selected';
   }, [job.specialtyProducts, specialtyItems, specialtyPriceUsed]);
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
@@ -1154,7 +1154,7 @@ useEffect(() => {
         return false;
       }
 
-      setMsg('Saved ✓');
+      setMsg('Saved âœ“');
       setLastSavedAt(new Date().toISOString());
       setMsg('Saved. You can print, open butcher view, or start the next deer.');
       setLastSavedTag(String(payload.tag || ''));
@@ -1468,7 +1468,7 @@ useEffect(() => {
                 Base process type + selected add-ons
               </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' • override active' : ''}
+                Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' â€¢ override active' : ''}
               </div>
               <input
                 inputMode="decimal"
@@ -1483,7 +1483,7 @@ useEffect(() => {
               <div className="money">{specialtyPriceUsed.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Auto: {specialtyPriceAuto.toFixed(2)}{specialtyOverride != null ? ' • override active' : ''}
+                Auto: {specialtyPriceAuto.toFixed(2)}{specialtyOverride != null ? ' â€¢ override active' : ''}
               </div>
               <input
                 inputMode="decimal"
@@ -1672,7 +1672,7 @@ useEffect(() => {
                 onChange={(e) => setVal('customer', e.target.value)}
               />
               {customerLookupBusy && customerLookupVisible ? (
-                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer info…</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer infoâ€¦</div>
               ) : customerLookupVisible && customerMatches.length > 1 ? (
                 <div className="customerMatchList">
                   <div className="customerMatchTitle">Possible previous customers</div>
@@ -1685,10 +1685,10 @@ useEffect(() => {
                     >
                       <span>
                         <strong>{match.customer || 'Saved customer'}</strong>
-                        {match.tag ? ` • tag ${match.tag}` : ''}
-                        {match.dropoff ? ` • ${match.dropoff}` : ''}
+                        {match.tag ? ` â€¢ tag ${match.tag}` : ''}
+                        {match.dropoff ? ` â€¢ ${match.dropoff}` : ''}
                       </span>
-                      <span>{[match.phone, match.city, match.state].filter(Boolean).join(' • ') || 'Use saved contact info'}</span>
+                      <span>{[match.phone, match.city, match.state].filter(Boolean).join(' â€¢ ') || 'Use saved contact info'}</span>
                     </button>
                   ))}
                 </div>
@@ -1696,8 +1696,8 @@ useEffect(() => {
                 <div className="customerMatch">
                   <div>
                     Previous intake found
-                    {customerMatch.tag ? ` • tag ${customerMatch.tag}` : ''}
-                    {customerMatch.dropoff ? ` • ${customerMatch.dropoff}` : ''}
+                    {customerMatch.tag ? ` â€¢ tag ${customerMatch.tag}` : ''}
+                    {customerMatch.dropoff ? ` â€¢ ${customerMatch.dropoff}` : ''}
                   </div>
                   <button type="button" className="miniFillBtn" onClick={applyCustomerMatch}>
                     Use Saved Info
@@ -1754,7 +1754,7 @@ useEffect(() => {
                 value={job.state || ''}
                 onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 <option value="IN">IN</option>
                 <option value="KY">KY</option>
                 <option value="--">--</option>
@@ -1833,7 +1833,7 @@ useEffect(() => {
                     <div className="historyMeta">
                       {[match.tag ? `Tag ${match.tag}` : '', match.dropoff || '', match.phone || '']
                         .filter(Boolean)
-                        .join(' • ')}
+                        .join(' â€¢ ')}
                     </div>
                     <div className="historyMeta">
                       {[match.address, match.city, match.state, match.zip].filter(Boolean).join(', ') || 'No saved address'}
@@ -1875,7 +1875,7 @@ useEffect(() => {
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 <option value="Buck">Buck</option>
                 <option value="Doe">Doe</option>
                 <option value="Antlerless">Antlerless</option>
@@ -1889,7 +1889,7 @@ useEffect(() => {
                 onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 <option value="Gun">Gun</option>
                 <option value="Archery">Archery</option>
                 <option value="Vehicle">Vehicle</option>
@@ -1903,7 +1903,7 @@ useEffect(() => {
                 onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 {availableProcessCatalog.map((item) => (
                   <option key={item.slug} value={item.name}>{item.name}</option>
                 ))}
@@ -2362,51 +2362,27 @@ useEffect(() => {
             {msg || (dirty ? 'Unsaved changes' : '')}
           </div>
 
-          <div className="actionsMain">
-            <button
-              className="btn"
-              type="button"
-              onClick={async () => {
-                const ok = await onSave();
-                if (!ok) return;
-                resetForNew();
-              }}
-              disabled={busy || !canEdit}
-            >
-              {busy ? 'Saving…' : 'Save & Start Next Deer'}
-            </button>
-
-            <button className="btn" onClick={onSave} disabled={busy || !canEdit}>
-              {busy ? 'Saving…' : 'Save'}
-            </button>
-          </div>
-
-          <div className="actionsUtility">
-            <button
-              className="btn secondaryBtn"
-              type="button"
-              onClick={async () => {
-                if (dirty) {
+          <div className="actionsDesktop">
+            <div className="actionsMain">
+              <button
+                className="btn"
+                type="button"
+                onClick={async () => {
                   const ok = await onSave();
                   if (!ok) return;
-                }
-                const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                if (!tagToPrint) {
-                  setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                  return;
-                }
-                setPrintMode('deer');
-                setTimeout(() => {
-                  window.print();
-                  setTimeout(() => setPrintMode(''), 300);
-                }, 150);
-              }}
-              disabled={busy}
-            >
-              Deer Label
-            </button>
+                  resetForNew();
+                }}
+                disabled={busy || !canEdit}
+              >
+                {busy ? 'Saving…' : 'Save & Start Next Deer'}
+              </button>
 
-            {canPrintCapeLabel(job) ? (
+              <button className="btn" onClick={onSave} disabled={busy || !canEdit}>
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+
+            <div className="actionsUtility">
               <button
                 className="btn secondaryBtn"
                 type="button"
@@ -2415,7 +2391,12 @@ useEffect(() => {
                     const ok = await onSave();
                     if (!ok) return;
                   }
-                  setPrintMode('cape');
+                  const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                  if (!tagToPrint) {
+                    setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                    return;
+                  }
+                  setPrintMode('deer');
                   setTimeout(() => {
                     window.print();
                     setTimeout(() => setPrintMode(''), 300);
@@ -2423,63 +2404,202 @@ useEffect(() => {
                 }}
                 disabled={busy}
               >
-                Cape Label
+                Deer Label
               </button>
-            ) : null}
 
-            <button
-              className="btn secondaryBtn"
-              type="button"
-              onClick={async () => {
-                if (dirty) {
-                  const ok = await onSave();
-                  if (!ok) return;
-                }
-                setPrintMode('package');
-                setTimeout(() => {
-                  window.print();
-                  setTimeout(() => setPrintMode(''), 300);
-                }, 150);
-              }}
-              disabled={busy}
-            >
-              Package Label
-            </button>
+              {canPrintCapeLabel(job) ? (
+                <button
+                  className="btn secondaryBtn"
+                  type="button"
+                  onClick={async () => {
+                    if (dirty) {
+                      const ok = await onSave();
+                      if (!ok) return;
+                    }
+                    setPrintMode('cape');
+                    setTimeout(() => {
+                      window.print();
+                      setTimeout(() => setPrintMode(''), 300);
+                    }, 150);
+                  }}
+                  disabled={busy}
+                >
+                  Cape Label
+                </button>
+              ) : null}
 
-            <button
-              className="btn secondaryBtn"
-              type="button"
-              onClick={async () => {
-                // Auto-save before printing to prevent lost intakes
-                if (dirty) {
-                  const ok = await onSave();
-                  if (!ok) return;
-                }
-                const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                if (!tagToPrint) {
-                  setMsg(`${identifierSettings.tagLabel} is required before printing`);
-                  return;
-                }
-                try {
-                  await markPrinted(tagToPrint);
-                } catch (e: any) {
-                  setMsg(e?.message || 'Could not mark intake sheet as printed');
-                  return;
-                }
-                setPrintMode('sheet');
-                setTimeout(() => {
-                  window.print();
-                  setTimeout(() => setPrintMode(''), 300);
-                }, 150);
-              }}
-              disabled={busy}
-            >
-              Print
-            </button>
+              <button
+                className="btn secondaryBtn"
+                type="button"
+                onClick={async () => {
+                  if (dirty) {
+                    const ok = await onSave();
+                    if (!ok) return;
+                  }
+                  setPrintMode('package');
+                  setTimeout(() => {
+                    window.print();
+                    setTimeout(() => setPrintMode(''), 300);
+                  }, 150);
+                }}
+                disabled={busy}
+              >
+                Package Label
+              </button>
+
+              <button
+                className="btn secondaryBtn"
+                type="button"
+                onClick={async () => {
+                  // Auto-save before printing to prevent lost intakes
+                  if (dirty) {
+                    const ok = await onSave();
+                    if (!ok) return;
+                  }
+                  const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                  if (!tagToPrint) {
+                    setMsg(`${identifierSettings.tagLabel} is required before printing`);
+                    return;
+                  }
+                  try {
+                    await markPrinted(tagToPrint);
+                  } catch (e: any) {
+                    setMsg(e?.message || 'Could not mark intake sheet as printed');
+                    return;
+                  }
+                  setPrintMode('sheet');
+                  setTimeout(() => {
+                    window.print();
+                    setTimeout(() => setPrintMode(''), 300);
+                  }, 150);
+                }}
+                disabled={busy}
+              >
+                Print
+              </button>
+            </div>
+          </div>
+
+          <div className="actionsMobile">
+            <details className="actionMenu">
+              <summary className="actionMenuSummary">Save Options</summary>
+              <div className="actionMenuList">
+                <button className="actionMenuBtn" type="button" onClick={onSave} disabled={busy || !canEdit}>
+                  {busy ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  className="actionMenuBtn"
+                  type="button"
+                  onClick={async () => {
+                    const ok = await onSave();
+                    if (!ok) return;
+                    resetForNew();
+                  }}
+                  disabled={busy || !canEdit}
+                >
+                  {busy ? 'Saving…' : 'Save & Start Next Deer'}
+                </button>
+              </div>
+            </details>
+
+            <details className="actionMenu">
+              <summary className="actionMenuSummary">Print Options</summary>
+              <div className="actionMenuList">
+                <button
+                  className="actionMenuBtn"
+                  type="button"
+                  onClick={async () => {
+                    if (dirty) {
+                      const ok = await onSave();
+                      if (!ok) return;
+                    }
+                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                    if (!tagToPrint) {
+                      setMsg(`${identifierSettings.tagLabel} is required before printing`);
+                      return;
+                    }
+                    try {
+                      await markPrinted(tagToPrint);
+                    } catch (e: any) {
+                      setMsg(e?.message || 'Could not mark intake sheet as printed');
+                      return;
+                    }
+                    setPrintMode('sheet');
+                    setTimeout(() => {
+                      window.print();
+                      setTimeout(() => setPrintMode(''), 300);
+                    }, 150);
+                  }}
+                  disabled={busy}
+                >
+                  Print Intake
+                </button>
+                <button
+                  className="actionMenuBtn"
+                  type="button"
+                  onClick={async () => {
+                    if (dirty) {
+                      const ok = await onSave();
+                      if (!ok) return;
+                    }
+                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                    if (!tagToPrint) {
+                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                      return;
+                    }
+                    setPrintMode('deer');
+                    setTimeout(() => {
+                      window.print();
+                      setTimeout(() => setPrintMode(''), 300);
+                    }, 150);
+                  }}
+                  disabled={busy}
+                >
+                  Print Deer Label
+                </button>
+                {canPrintCapeLabel(job) ? (
+                  <button
+                    className="actionMenuBtn"
+                    type="button"
+                    onClick={async () => {
+                      if (dirty) {
+                        const ok = await onSave();
+                        if (!ok) return;
+                      }
+                      setPrintMode('cape');
+                      setTimeout(() => {
+                        window.print();
+                        setTimeout(() => setPrintMode(''), 300);
+                      }, 150);
+                    }}
+                    disabled={busy}
+                  >
+                    Print Cape Label
+                  </button>
+                ) : null}
+                <button
+                  className="actionMenuBtn"
+                  type="button"
+                  onClick={async () => {
+                    if (dirty) {
+                      const ok = await onSave();
+                      if (!ok) return;
+                    }
+                    setPrintMode('package');
+                    setTimeout(() => {
+                      window.print();
+                      setTimeout(() => setPrintMode(''), 300);
+                    }, 150);
+                  }}
+                  disabled={busy}
+                >
+                  Print Package Label
+                </button>
+              </div>
+            </details>
           </div>
         </div>
       </div>
-
       <div className="print-only">
         {printMode === 'sheet' ? <PrintSheet job={job} webbsEnabled={webbsEnabled} /> : null}
         {printMode === 'deer' ? <ThermalLabelSheet job={job} type="deer" brandingName={brandingName} /> : null}
@@ -2791,8 +2911,51 @@ useEffect(() => {
           box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
           backdrop-filter: blur(10px);
         }
+        .actionsDesktop { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .actionsMain,
         .actionsUtility { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .actionsMobile { display: none; }
+        .actionMenu { position: relative; }
+        .actionMenuSummary {
+          list-style: none;
+          padding: 10px 14px;
+          border: 1px solid #bfd2c2;
+          border-radius: 12px;
+          background: #f7fbf8;
+          color: #173321;
+          font-weight: 800;
+          cursor: pointer;
+          user-select: none;
+        }
+        .actionMenuSummary::-webkit-details-marker { display: none; }
+        .actionMenuSummary::after { content: '▾'; float: right; opacity: 0.7; }
+        .actionMenu[open] .actionMenuSummary::after { content: '▴'; }
+        .actionMenuList {
+          position: absolute;
+          right: 0;
+          bottom: calc(100% + 8px);
+          min-width: min(280px, calc(100vw - 32px));
+          display: grid;
+          gap: 8px;
+          padding: 10px;
+          border-radius: 14px;
+          border: 1px solid #dce7df;
+          background: #ffffff;
+          box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+          z-index: 20;
+        }
+        .actionMenuBtn {
+          width: 100%;
+          text-align: left;
+          padding: 11px 12px;
+          border-radius: 10px;
+          border: 1px solid #d6e6d8;
+          background: #f7fbf8;
+          color: #173321;
+          font-weight: 800;
+          cursor: pointer;
+        }
+        .actionMenuBtn:disabled { opacity: .6; cursor: not-allowed; }
         .btn { padding: 8px 12px; border: 1px solid #235532; border-radius: 8px; background: #2f6f3f; color: #fff; font-weight: 800; cursor: pointer; }
         .secondaryBtn { background: #f3f8f4; color: #173321; border-color:#bfd2c2; }
         .btn:disabled { opacity: .6; cursor: not-allowed; }
@@ -2959,27 +3122,32 @@ useEffect(() => {
             max-width: none;
             min-height: 0;
           }
-          .actionsMain {
-            display: grid;
-            grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-            gap: 8px;
-          }
-          .actionsMain .btn:first-child {
-            grid-column: 1 / -1;
-          }
-          .actionsUtility {
+          .actionsDesktop { display: none; }
+          .actionsMobile {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
           }
-          .actions .btn {
+          .actionMenu {
+            width: 100%;
+          }
+          .actionMenuSummary {
             min-height: 46px;
-            white-space: normal;
-            line-height: 1.2;
-            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            white-space: nowrap;
+          }
+          .actionMenuList {
+            left: 0;
+            right: auto;
+            min-width: 100%;
           }
         }
       `}</style>
     </div>
   );
 }
+
+
+

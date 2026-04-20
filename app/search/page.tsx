@@ -1047,6 +1047,14 @@ export default function SearchPage() {
             grid-template-columns: 1fr;
           }
 
+          .search-preview-col {
+            order: -1;
+          }
+
+          .search-results-col {
+            order: 2;
+          }
+
           .search-toolbar-summary {
             width: 100%;
             margin-left: 0;
