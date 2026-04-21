@@ -156,7 +156,7 @@ export default async function BalancesPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Balances</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 780, lineHeight: 1.5 }}>
-          Use this page to see who still owes money, which ready orders still need collected, and where the biggest unpaid balances are sitting.
+          Use this page to see who still owes money, which ready-for-pickup orders still need collected, and where the biggest unpaid balances are sitting.
         </div>
       </section>
 
@@ -180,7 +180,7 @@ export default async function BalancesPage() {
           <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{money(totals.total)}</div>
         </div>
         <div style={cardStyle('rgba(88,141,102,.22)')}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>Ready & Unpaid</div>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: '#b7a98d' }}>Ready for Pickup & Unpaid</div>
           <div style={{ fontSize: 28, fontWeight: 950, marginTop: 8 }}>{money(totals.readyTotal)}</div>
           <div style={{ marginTop: 4, color: '#b7a98d', fontSize: 13, fontWeight: 700 }}>{readyUnpaid.length} orders</div>
         </div>
@@ -189,13 +189,13 @@ export default async function BalancesPage() {
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
         <div style={{ border: '1px solid #d6dee8', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            <div style={{ fontWeight: 900, color: '#0f172a' }}>Ready But Unpaid</div>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Ready for Pickup & Unpaid</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
               Orders that are ready for pickup but still need money collected.
             </div>
           </div>
           {!readyUnpaid.length ? (
-            <div style={{ padding: 16, color: '#64748b' }}>No ready unpaid orders right now. Once an order is finished and still has money due, it will show here for pickup collection.</div>
+            <div style={{ padding: 16, color: '#64748b' }}>No ready-for-pickup unpaid orders right now. Once an order is finished and still has money due, it will show here for pickup collection.</div>
           ) : (
             <div style={{ display: 'grid' }}>
               {readyUnpaid.map((row, idx) => (
@@ -250,14 +250,14 @@ function BalanceListRow({ row, idx }: { row: BalanceRow; idx: number }) {
           </div>
           <div style={{ fontSize: 14, color: '#475569' }}>
             Confirmation {row.confirmation || '-'}
-            {row.phone ? ` • ${row.phone}` : ''}
+            {row.phone ? ` | ${row.phone}` : ''}
           </div>
         </div>
         <div style={{ display: 'grid', justifyItems: 'end', gap: 4 }}>
           <div style={{ fontSize: 22, fontWeight: 950, color: '#166534' }}>{money(total)}</div>
           {row.tag ? (
             <Link href={`/intake/${encodeURIComponent(row.tag)}`} style={{ fontSize: 13, fontWeight: 800 }}>
-              Open deer details
+              Open Intake
             </Link>
           ) : null}
         </div>
@@ -272,3 +272,4 @@ function BalanceListRow({ row, idx }: { row: BalanceRow; idx: number }) {
     </div>
   );
 }
+

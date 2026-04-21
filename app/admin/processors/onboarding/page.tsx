@@ -36,39 +36,24 @@ type CreatedSummary = {
   firstAdminEmail: string;
 };
 
-const PRESET_COPY: Record<ProcessorPreset, { label: string; description: string; features: ProcessorFeatures; perDeerRate: string; checklist: string[] }> = {
+const PRESET_COPY: Record<ProcessorPreset, { label: string; description: string; features: ProcessorFeatures; perDeerRate: string }> = {
   phone: {
     label: 'Phone-First Shop',
     description: 'Best for smaller deer processors that mostly work from phones and need a simple launch path.',
     features: { plan: 'basic', smsEnabled: false, webbsEnabled: false },
     perDeerRate: '2',
-    checklist: [
-      'Keep the first week focused on intake, search, and status lookups.',
-      'Train one owner/admin first, then add simple local staff logins.',
-      'Use printed intake sheets as the fallback while staff learn the flow.',
-    ],
   },
   counter: {
     label: 'Front Counter + Desktop',
     description: 'For shops that run intake and pickup from one or two front-counter workstations.',
     features: { plan: 'texting', smsEnabled: true, webbsEnabled: false },
     perDeerRate: '3',
-    checklist: [
-      'Test search and pickup flow on both desktop and mobile.',
-      'Turn on texting so customers use status updates instead of calling.',
-      'Run one live deer all the way from intake to pickup before launch.',
-    ],
   },
   scanner: {
     label: 'Scanner + Label Shop',
     description: 'For busier processors that want labels, scanning, and stronger production-floor workflow.',
     features: { plan: 'custom', smsEnabled: true, webbsEnabled: true },
     perDeerRate: '5',
-    checklist: [
-      'Verify public, staff, and scan workflows before opening season traffic.',
-      'Test each print path: intake sheet, deer label, cape label, and package label.',
-      'Decide who owns scan and pickup handoff during the busiest days of season.',
-    ],
   },
 };
 
@@ -115,6 +100,12 @@ export default function ProcessorOnboardingWizardPage() {
 
   const preset = PRESET_COPY[form.preset];
   const stepTitles = ['Shop Setup', 'Workflow Fit', 'Owner Access', 'Go Live'];
+  const stepFocus = [
+    'Name the shop clearly and make sure the public and staff hostnames look right.',
+    'Match the processor to the right operating style so the defaults fit on day one.',
+    'Set up the first real admin so the owner can sign in without waiting on you.',
+    'Run the launch checks so the first deer does not become the test case.',
+  ];
 
   const missing = useMemo(() => {
     const problems: string[] = [];
@@ -126,6 +117,18 @@ export default function ProcessorOnboardingWizardPage() {
     if (form.firstAdminPassword.trim() && form.firstAdminPassword.trim().length < 8) problems.push('First admin password must be at least 8 characters');
     return problems;
   }, [form]);
+
+  const setupSnapshot = useMemo(() => {
+    const items = [
+      `Preset: ${preset.label}`,
+      `Plan: ${form.features.plan}`,
+      `Billing: ${form.billingStatus} / ${form.billingCycle}`,
+      `Per deer: $${form.perDeerRate || '0'}`,
+      form.firstAdminEmail.trim() ? `Owner admin: ${form.firstAdminEmail.trim()}` : 'Owner admin: not entered yet',
+      form.publicHostname.trim() ? `Public host: ${form.publicHostname.trim()}` : 'Public host: not entered yet',
+    ];
+    return items;
+  }, [form.billingCycle, form.billingStatus, form.features.plan, form.firstAdminEmail, form.perDeerRate, form.publicHostname, preset.label]);
 
   const updateForm = (patch: Partial<WizardForm>) => setForm((prev) => ({ ...prev, ...patch }));
 
@@ -491,21 +494,27 @@ export default function ProcessorOnboardingWizardPage() {
 
           <aside className="wizardSidebar">
             <div className="wizardSidebarCard">
-              <div className="wizardSidebarKicker">Preset</div>
-              <div className="wizardSidebarTitle">{preset.label}</div>
-              <div className="wizardSidebarCopy">{preset.description}</div>
+              <div className="wizardSidebarKicker">Focus Right Now</div>
+              <div className="wizardSidebarTitle">{stepTitles[step]}</div>
+              <div className="wizardSidebarCopy">{stepFocus[step]}</div>
               <div className="wizardSidebarList">
-                {preset.checklist.map((item) => (
+                {setupSnapshot.map((item) => (
                   <div key={item} className="wizardSidebarItem">{item}</div>
                 ))}
               </div>
             </div>
 
             <div className="wizardSidebarCard">
-              <div className="wizardSidebarKicker">Readiness</div>
-              <div className="wizardSidebarTitle">{missing.length ? 'Still needs attention' : 'Ready to create'}</div>
+              <div className="wizardSidebarKicker">{created ? 'Launch Status' : 'Readiness'}</div>
+              <div className="wizardSidebarTitle">{created ? 'Processor created' : missing.length ? 'Still needs attention' : 'Ready to create'}</div>
               <div className="wizardSidebarList">
-                {missing.length ? missing.map((item) => (
+                {created ? (
+                  <>
+                    <div className="wizardSidebarItem ok">{created.publicName} is ready for launch checks.</div>
+                    <div className="wizardSidebarItem">Public: {created.publicHostname || 'Not set'}</div>
+                    <div className="wizardSidebarItem">Staff: {created.staffHostname || 'Not set'}</div>
+                  </>
+                ) : missing.length ? missing.map((item) => (
                   <div key={item} className="wizardSidebarItem warn">{item}</div>
                 )) : (
                   <div className="wizardSidebarItem ok">Core creation fields are filled out.</div>

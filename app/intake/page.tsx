@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -348,7 +348,7 @@ async function markPrinted(tag: string) {
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', 'âœ“', 'âœ”'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
 };
 
 type AnyRec = Record<string, any>;
@@ -374,7 +374,7 @@ const coerce = <T extends readonly string[]>(v: string | undefined, list: T): T[
 /* ===== Suspense wrapper ===== */
 export default function Page() {
   return (
-    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>Loadingâ€¦</div></div>}>
+    <Suspense fallback={<div className="form-card"><div style={{ padding: 16 }}>Loading...</div></div>}>
       <IntakePage />
     </Suspense>
   );
@@ -486,10 +486,10 @@ function IntakePage() {
   }, [currentJson, lastSavedJson]);
 
   const workflowCue = useMemo(() => {
-    if (busy) return 'Next: finishing the save...';
-    if (dirty) return 'Next: save this intake before printing or moving on.';
-    if (lastSavedTag) return 'Next: print paperwork, open butcher view, or start the next deer.';
-    return 'Next: fill in the deer details, then save the intake.';
+    if (busy) return 'Finishing the save...';
+    if (dirty) return 'Save this intake before printing or moving on.';
+    if (lastSavedTag) return 'Print the intake, open butcher view, or start the next deer.';
+    return 'Fill in the deer details, then save the intake.';
   }, [busy, dirty, lastSavedTag]);
 
   useUnsavedChanges({
@@ -914,7 +914,7 @@ useEffect(() => {
       parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} lb total`);
     }
     if (specialtyPriceUsed) parts.push(`$${specialtyPriceUsed.toFixed(2)}`);
-    return parts.length ? parts.join(' â€¢ ') : 'Specialty products selected';
+    return parts.length ? parts.join(' | ') : 'Specialty products selected';
   }, [job.specialtyProducts, specialtyItems, specialtyPriceUsed]);
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(webbsItems), [webbsItems]);
@@ -1154,9 +1154,8 @@ useEffect(() => {
         return false;
       }
 
-      setMsg('Saved âœ“');
       setLastSavedAt(new Date().toISOString());
-      setMsg('Saved. You can print, open butcher view, or start the next deer.');
+      setMsg('Saved. You can print the intake, open butcher view, or start the next deer.');
       setLastSavedTag(String(payload.tag || ''));
       setCustomerLookupCollapsedFor(String(payload.customer ?? job.customer ?? '').trim().toLowerCase());
       setLastSavedJson(stableStringify(snapshotJob({ ...job, ...payload }))); // baseline immediately
@@ -1391,9 +1390,11 @@ useEffect(() => {
           <div style={{ fontWeight: 800 }}>
             {lastSavedAt ? `Last successful save: ${new Date(lastSavedAt).toLocaleString()}` : 'This intake has not been saved yet.'}
           </div>
-          <div style={{ fontSize: 13 }}>
-            If a scanner or printer gives you trouble, you can still save the intake, print the full sheet, and use Search as your fallback workflow.
-          </div>
+          {!lastSavedAt ? (
+            <div style={{ fontSize: 13 }}>
+              Save first, then print the intake or use Search as your fallback workflow if a scanner or printer gives you trouble.
+            </div>
+          ) : null}
         </div>
 
         <div className="summaryMini">
@@ -1422,7 +1423,7 @@ useEffect(() => {
             className="app-surface-light"
             style={{ marginBottom: 12, padding: 14, display: 'grid', gap: 10, color: '#0f172a', border: '1px solid #bbf7d0', background: '#f0fdf4' }}
           >
-            <div style={{ fontWeight: 900 }}>Intake saved at {new Date(lastSavedAt).toLocaleTimeString()} for tag {lastSavedTag}.</div>
+            <div style={{ fontWeight: 900 }}>Saved for tag {lastSavedTag} at {new Date(lastSavedAt).toLocaleTimeString()}.</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button
                 className="btn secondaryBtn"
@@ -1435,7 +1436,7 @@ useEffect(() => {
                   }, 150);
                 }}
               >
-                Print Next
+                Print Intake
               </button>
               <button className="btn secondaryBtn" type="button" onClick={() => window.location.assign(`/butcher/intake?tag=${encodeURIComponent(lastSavedTag)}`)}>Open Butcher View</button>
               <button className="btn secondaryBtn" type="button" onClick={() => window.location.assign(`/search?q=${encodeURIComponent(lastSavedTag)}`)}>Open Search</button>
@@ -1468,7 +1469,7 @@ useEffect(() => {
                 Base process type + selected add-ons
               </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' â€¢ override active' : ''}
+                Auto: {processingPriceAuto.toFixed(2)}{processingOverride != null ? ' | override active' : ''}
               </div>
               <input
                 inputMode="decimal"
@@ -1483,7 +1484,7 @@ useEffect(() => {
               <div className="money">{specialtyPriceUsed.toFixed(2)}</div>
               <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Auto: {specialtyPriceAuto.toFixed(2)}{specialtyOverride != null ? ' â€¢ override active' : ''}
+                Auto: {specialtyPriceAuto.toFixed(2)}{specialtyOverride != null ? ' | override active' : ''}
               </div>
               <input
                 inputMode="decimal"
@@ -1672,7 +1673,7 @@ useEffect(() => {
                 onChange={(e) => setVal('customer', e.target.value)}
               />
               {customerLookupBusy && customerLookupVisible ? (
-                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer infoâ€¦</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer info…</div>
               ) : customerLookupVisible && customerMatches.length > 1 ? (
                 <div className="customerMatchList">
                   <div className="customerMatchTitle">Possible previous customers</div>
@@ -1685,10 +1686,10 @@ useEffect(() => {
                     >
                       <span>
                         <strong>{match.customer || 'Saved customer'}</strong>
-                        {match.tag ? ` â€¢ tag ${match.tag}` : ''}
-                        {match.dropoff ? ` â€¢ ${match.dropoff}` : ''}
+                        {match.tag ? ` | tag ${match.tag}` : ''}
+                        {match.dropoff ? ` | ${match.dropoff}` : ''}
                       </span>
-                      <span>{[match.phone, match.city, match.state].filter(Boolean).join(' â€¢ ') || 'Use saved contact info'}</span>
+                      <span>{[match.phone, match.city, match.state].filter(Boolean).join(' | ') || 'Use saved contact info'}</span>
                     </button>
                   ))}
                 </div>
@@ -1696,8 +1697,8 @@ useEffect(() => {
                 <div className="customerMatch">
                   <div>
                     Previous intake found
-                    {customerMatch.tag ? ` â€¢ tag ${customerMatch.tag}` : ''}
-                    {customerMatch.dropoff ? ` â€¢ ${customerMatch.dropoff}` : ''}
+                    {customerMatch.tag ? ` | tag ${customerMatch.tag}` : ''}
+                    {customerMatch.dropoff ? ` | ${customerMatch.dropoff}` : ''}
                   </div>
                   <button type="button" className="miniFillBtn" onClick={applyCustomerMatch}>
                     Use Saved Info
@@ -1754,7 +1755,7 @@ useEffect(() => {
                 value={job.state || ''}
                 onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}
               >
-                <option value="">â€”</option>
+                <option value="">—</option>
                 <option value="IN">IN</option>
                 <option value="KY">KY</option>
                 <option value="--">--</option>
@@ -1833,7 +1834,7 @@ useEffect(() => {
                     <div className="historyMeta">
                       {[match.tag ? `Tag ${match.tag}` : '', match.dropoff || '', match.phone || '']
                         .filter(Boolean)
-                        .join(' â€¢ ')}
+                        .join(' | ')}
                     </div>
                     <div className="historyMeta">
                       {[match.address, match.city, match.state, match.zip].filter(Boolean).join(', ') || 'No saved address'}
@@ -1875,7 +1876,7 @@ useEffect(() => {
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">â€”</option>
+                <option value="">—</option>
                 <option value="Buck">Buck</option>
                 <option value="Doe">Doe</option>
                 <option value="Antlerless">Antlerless</option>
@@ -1889,7 +1890,7 @@ useEffect(() => {
                 onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">â€”</option>
+                <option value="">—</option>
                 <option value="Gun">Gun</option>
                 <option value="Archery">Archery</option>
                 <option value="Vehicle">Vehicle</option>
@@ -1903,7 +1904,7 @@ useEffect(() => {
                 onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">â€”</option>
+                <option value="">—</option>
                 {availableProcessCatalog.map((item) => (
                   <option key={item.slug} value={item.name}>{item.name}</option>
                 ))}
@@ -2374,11 +2375,11 @@ useEffect(() => {
                 }}
                 disabled={busy || !canEdit}
               >
-                {busy ? 'Saving…' : 'Save & Start Next Deer'}
+                {busy ? 'Saving�' : 'Save & Start Next Deer'}
               </button>
 
               <button className="btn" onClick={onSave} disabled={busy || !canEdit}>
-                {busy ? 'Saving…' : 'Save'}
+                {busy ? 'Saving�' : 'Save'}
               </button>
             </div>
 
@@ -2475,7 +2476,7 @@ useEffect(() => {
                 }}
                 disabled={busy}
               >
-                Print
+                Print Intake
               </button>
             </div>
           </div>
@@ -2485,7 +2486,7 @@ useEffect(() => {
               <summary className="actionMenuSummary">Save Options</summary>
               <div className="actionMenuList">
                 <button className="actionMenuBtn" type="button" onClick={onSave} disabled={busy || !canEdit}>
-                  {busy ? 'Saving…' : 'Save'}
+                  {busy ? 'Saving�' : 'Save'}
                 </button>
                 <button
                   className="actionMenuBtn"
@@ -2497,7 +2498,7 @@ useEffect(() => {
                   }}
                   disabled={busy || !canEdit}
                 >
-                  {busy ? 'Saving…' : 'Save & Start Next Deer'}
+                  {busy ? 'Saving�' : 'Save & Start Next Deer'}
                 </button>
               </div>
             </details>
@@ -2928,8 +2929,8 @@ useEffect(() => {
           user-select: none;
         }
         .actionMenuSummary::-webkit-details-marker { display: none; }
-        .actionMenuSummary::after { content: '▾'; float: right; opacity: 0.7; }
-        .actionMenu[open] .actionMenuSummary::after { content: '▴'; }
+        .actionMenuSummary::after { content: '?'; float: right; opacity: 0.7; }
+        .actionMenu[open] .actionMenuSummary::after { content: '?'; }
         .actionMenuList {
           position: absolute;
           right: 0;
@@ -3148,6 +3149,7 @@ useEffect(() => {
     </div>
   );
 }
+
 
 
 

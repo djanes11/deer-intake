@@ -828,7 +828,7 @@ export default function SearchPage() {
                       {canEdit ? 'Open Intake' : 'Open Details'}
                     </button>
                     <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
-                      {printing === selectedTag ? 'Preparing...' : 'Print'}
+                      {printing === selectedTag ? 'Preparing...' : 'Print Intake'}
                     </button>
                     <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>
                       Deer Label
@@ -864,7 +864,7 @@ export default function SearchPage() {
               {selectedJob ? (
                 <>
                   {pickupQuickView ? (
-                    <DetailBox title="Pickup Quick View">
+                    <DetailBox title="Counter Summary">
                       <div className="pickupQuickGrid">
                         <div className="pickupQuickCard">
                           <div className="pickupQuickLabel">Total due</div>
@@ -883,8 +883,12 @@ export default function SearchPage() {
                       </div>
 
                       <div className="pickupQuickBreakdown">
+                        <div><strong>Status:</strong> {statusSummary}</div>
+                        <div><strong>Balance status:</strong> {paymentSummary.toLowerCase().includes('partial') ? 'Partial payment on file' : paymentSummary.toLowerCase().includes('unpaid') ? 'Collect at pickup' : 'Paid in full'}</div>
                         <div><strong>Processing due:</strong> {money(pickupQuickView.procDue)}</div>
                         <div><strong>Specialty due:</strong> {money(pickupQuickView.specDue)}</div>
+                        <div><strong>Processing paid:</strong> {money(Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0))}</div>
+                        <div><strong>Specialty paid:</strong> {money(Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0))}</div>
                         <div><strong>Processing pickup:</strong> {pickupQuickView.processingPickedUp ? 'Picked up' : 'Not picked up'}</div>
                         <div><strong>Cape pickup:</strong> {pickupQuickView.capePickedUp ? 'Picked up' : 'Not picked up'}</div>
                         <div><strong>Webbs pickup:</strong> {pickupQuickView.webbsPickedUp ? 'Picked up' : 'Not picked up'}</div>
@@ -991,13 +995,6 @@ export default function SearchPage() {
                   ) : null}
 
                   <div style={{ display: 'grid', gap: 12 }}>
-                    <DetailBox title="Quick Summary">
-                      <div><strong>Status:</strong> {statusSummary}</div>
-                      <div><strong>Balance status:</strong> {paymentSummary.toLowerCase().includes('partial') ? 'Partial payment on file' : paymentSummary.toLowerCase().includes('unpaid') ? 'Collect at pickup' : 'Paid in full'}</div>
-                      <div><strong>Processing paid:</strong> ${Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0).toFixed(2)}</div>
-                      <div><strong>Specialty paid:</strong> ${Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0).toFixed(2)}</div>
-                    </DetailBox>
-
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
                       {quickFacts.map((fact) => (
                         <div
@@ -1262,10 +1259,15 @@ export default function SearchPage() {
           box-shadow: inset 5px 0 0 #2f7d42;
         }
 
-        .search-results-card {
-          max-height: calc(100vh - 300px);
-          overflow: auto;
-        }
+          .search-results-card {
+            max-height: calc(100vh - 300px);
+            overflow: auto;
+          }
+
+          .results-summary-card {
+            display: grid;
+            gap: 8px;
+          }
 
         .search-result-row {
           cursor: pointer;
@@ -1576,6 +1578,10 @@ export default function SearchPage() {
 
           .search-results-mobile.collapsed {
             display: none;
+          }
+
+          .results-summary-card {
+            margin-bottom: 8px;
           }
 
           .search-results-table {

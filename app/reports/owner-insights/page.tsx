@@ -179,7 +179,7 @@ export default async function OwnerInsightsPage() {
         </div>
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Owner Insights</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 780, lineHeight: 1.5 }}>
-          Use this page to spot slow-processing deer and finished orders that have been sitting too long before pickup for <strong>{processor.slug}</strong>.
+          Use this page to spot slow-processing deer and orders that are ready for pickup but have been sitting too long for <strong>{processor.slug}</strong>.
         </div>
       </section>
 
@@ -271,14 +271,14 @@ export default async function OwnerInsightsPage() {
                       </div>
                       <div style={{ fontSize: 14, color: '#475569' }}>
                         Confirmation {row.confirmation || '-'}
-                        {row.phone ? ` • ${row.phone}` : ''}
+                        {row.phone ? ` | ${row.phone}` : ''}
                       </div>
                     </div>
                     <div style={{ display: 'grid', justifyItems: 'end', gap: 4 }}>
                       <div style={{ fontSize: 22, fontWeight: 950, color: '#9a3412' }}>{fmtHours(row.processingHours)}</div>
                       {row.tag ? (
                         <Link href={`/intake/${encodeURIComponent(row.tag)}`} style={{ fontSize: 13, fontWeight: 800 }}>
-                          Open deer details
+                          Open Intake
                         </Link>
                       ) : null}
                     </div>
@@ -296,13 +296,13 @@ export default async function OwnerInsightsPage() {
 
         <div style={{ border: '1px solid #d6dee8', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            <div style={{ fontWeight: 900, color: '#0f172a' }}>Oldest Ready, Not Picked Up</div>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Oldest Ready for Pickup</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
-              Finished deer still waiting on pickup, ranked by how long they have been sitting ready for the customer.
+              Orders that are ready for pickup and still waiting on the customer, ranked by how long they have been sitting.
             </div>
           </div>
           {!oldestReady.length ? (
-            <div style={{ padding: 16, color: '#64748b' }}>No finished deer are currently waiting on pickup. Once finished orders are saved without pickup completed, they will show here with their ready age.</div>
+            <div style={{ padding: 16, color: '#64748b' }}>No ready-for-pickup deer are currently waiting on pickup. Once finished orders are saved without pickup completed, they will show here with their ready age.</div>
           ) : (
             <div style={{ display: 'grid' }}>
               {oldestReady.map((row, idx) => (
@@ -326,14 +326,14 @@ export default async function OwnerInsightsPage() {
                       </div>
                       <div style={{ fontSize: 14, color: '#475569' }}>
                         Confirmation {row.confirmation || '-'}
-                        {row.phone ? ` • ${row.phone}` : ''}
+                        {row.phone ? ` | ${row.phone}` : ''}
                       </div>
                     </div>
                     <div style={{ display: 'grid', justifyItems: 'end', gap: 4 }}>
                       <div style={{ fontSize: 22, fontWeight: 950, color: '#166534' }}>{fmtDays(row.readyDays)}</div>
                       {row.tag ? (
                         <Link href={`/intake/${encodeURIComponent(row.tag)}`} style={{ fontSize: 13, fontWeight: 800 }}>
-                          Open deer details
+                          Open Intake
                         </Link>
                       ) : null}
                     </div>
@@ -352,3 +352,4 @@ export default async function OwnerInsightsPage() {
     </main>
   );
 }
+
