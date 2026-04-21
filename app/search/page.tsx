@@ -309,7 +309,7 @@ export default function SearchPage() {
     const specDue = specialtyDue(selectedJob);
     const due = procDue + specDue;
     const pickupState = String(selectedJob.status || '').toLowerCase().includes('called')
-      ? 'Waiting for pickup'
+      ? 'Ready for pickup'
       : String(selectedJob.status || '').toLowerCase().includes('finished') || String(selectedJob.status || '').toLowerCase().includes('ready')
         ? 'Ready to contact'
         : 'Still in process';

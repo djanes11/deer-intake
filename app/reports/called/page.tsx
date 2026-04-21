@@ -438,7 +438,7 @@ export default function CalledPickupQueue() {
           <div className="metric-value">{summary.openCount}</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Ready & Unpaid</div>
+          <div className="metric-label">Ready for Pickup & Unpaid</div>
           <div className="metric-value">{summary.readyUnpaidCount}</div>
           <div className="metric-sub">{money(summary.readyUnpaidTotal)} still open</div>
         </div>
@@ -504,7 +504,7 @@ export default function CalledPickupQueue() {
         <section className="selected-card">
           <div className="selected-top">
             <div>
-              <div className="selected-eyebrow">Selected Pickup</div>
+              <div className="selected-eyebrow">Ready for Pickup</div>
               <div className="selected-title">
                 {selected.customer || 'Unknown customer'}
                 <span className="selected-tag">Tag {selected.tag}</span>
@@ -532,7 +532,7 @@ export default function CalledPickupQueue() {
               <div className="fact-label">Payment</div>
               <div className="fact-value">
                 {selected.track === 'meat'
-                  ? selected.totalDue > 0 ? 'Collect at pickup' : 'Already paid'
+                  ? selected.totalDue > 0 ? 'Collect at pickup' : 'Paid in full'
                   : 'Not required'}
               </div>
               <div className="fact-sub">
@@ -552,7 +552,7 @@ export default function CalledPickupQueue() {
             </div>
             <div className="fact">
               <div className="fact-label">Pickup Status</div>
-              <div className="fact-value">{selected.pickedUp ? 'Picked up' : 'Awaiting pickup'}</div>
+              <div className="fact-value">{selected.pickedUp ? 'Picked up' : 'Ready for pickup'}</div>
               <div className="fact-sub">
                 {selected.pickedUpAt ? formatDisplayDateTime(selected.pickedUpAt) : 'Still in called queue'}
               </div>
@@ -668,14 +668,14 @@ export default function CalledPickupQueue() {
                   <div className="mobile-called-meta">
                     <span>{r.phone || 'No phone'}</span>
                     <span>{r.calledAt ? `Called ${ageSince(r.calledAt)} ago` : 'Not stamped yet'}</span>
-                    <span>{r.pickedUp ? 'Picked up' : 'Awaiting pickup'}</span>
+                    <span>{r.pickedUp ? 'Picked up' : 'Ready for pickup'}</span>
                   </div>
                   <div className="mobile-called-balance">
                     <div className="mobile-called-balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
                     <div className="mobile-called-balance-sub">
                       {r.track === 'meat'
-                        ? (r.totalDue > 0 ? 'Next: collect payment and mark picked up.' : 'Next: confirm the handoff and mark picked up.')
-                        : 'Next: hand off this track and mark it complete.'}
+                        ? (r.totalDue > 0 ? 'Next: collect payment and mark picked up.' : 'Next: confirm pickup and mark it complete.')
+                        : 'Next: confirm pickup and mark it complete.'}
                     </div>
                   </div>
                 </button>
@@ -737,7 +737,7 @@ export default function CalledPickupQueue() {
                   </div>
                   <div><PaymentBadge row={r} /></div>
                   <div>{ageSince(r.calledAt)}</div>
-                  <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge">Waiting</span>}</div>
+                  <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge">Ready</span>}</div>
                 </div>
               );
             })}
@@ -826,7 +826,7 @@ export default function CalledPickupQueue() {
                 }
               }}
             >
-              {busy === `pu:${selected?.tag}:${selected?.track}` ? 'Saving...' : selected?.pickedUp ? 'Picked Up' : `Mark ${selected?.track === 'meat' ? 'Picked Up' : 'Handed Off'}`}
+              {busy === `pu:${selected?.tag}:${selected?.track}` ? 'Saving...' : selected?.pickedUp ? 'Picked Up' : 'Mark Picked Up'}
             </button>
           </div>
         </div>

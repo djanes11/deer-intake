@@ -296,7 +296,7 @@ export default async function OwnerInsightsPage() {
 
         <div style={{ border: '1px solid #d6dee8', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
-            <div style={{ fontWeight: 900, color: '#0f172a' }}>Oldest Ready for Pickup</div>
+            <div style={{ fontWeight: 900, color: '#0f172a' }}>Ready for Pickup Aging</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
               Orders that are ready for pickup and still waiting on the customer, ranked by how long they have been sitting.
             </div>

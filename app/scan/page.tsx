@@ -1,4 +1,4 @@
-// app/scan/page.tsx — scan-only (Supabase via /api/v2/jobs)
+﻿// app/scan/page.tsx - scan-only (Supabase via /api/v2/jobs)
 'use client';
 
 import React, { useState } from 'react';
@@ -56,7 +56,7 @@ export default function ScanPage() {
       ]
     : [
         'All deer use the same scan flow: first scan starts processing, second finishes processing.',
-        'Cape status can still be updated manually from intake or search when needed.',
+        'Cape status can still be updated manually from Intake or Search when needed.',
         'If the scanner misses a tag, type it manually below and submit one scan.',
       ];
 
@@ -140,7 +140,7 @@ export default function ScanPage() {
     if (typeof v === 'boolean') return v;
     const s = String(v ?? '').trim().toLowerCase();
     if (!s || ['0', 'false', 'no', 'off', 'none', 'n/a', 'na'].includes(s)) return false;
-    if (['true', 'yes', 'y', 'x', '1', '✓', '✔', 'on'].includes(s)) return true;
+    if (['true', 'yes', 'y', 'x', '1', 'âœ“', 'âœ”', 'on'].includes(s)) return true;
     const n = Number(s);
     return Number.isFinite(n) ? n > 0 : !!s;
   };
@@ -193,7 +193,7 @@ export default function ScanPage() {
     return j;
   }
 
-  // ===== Map Supabase Job (camelCase) → overlay row (sheet-like headers) =====
+  // ===== Map Supabase Job (camelCase) â†’ overlay row (sheet-like headers) =====
   function jobToCanon(job: AnyRec, tagFallback: string): AnyRec {
     const j = job || {};
     const out: AnyRec = {
@@ -353,7 +353,7 @@ export default function ScanPage() {
     }
 
     if (isFinishedLike(next)) {
-      setStatus({ kind: 'ok', text: `Tag ${tag}: Processing -> Finished.` });
+      setStatus({ kind: 'ok', text: `Tag ${tag}: Processing complete.` });
       setOverlayOn(false);
       setOverlayJob(null);
       return;
@@ -371,7 +371,7 @@ export default function ScanPage() {
     }
 
     if (isFinishedLike(liveStatus)) {
-      setStatus({ kind: 'ok', text: `Tag ${tag}: moved to Finished/Ready.` });
+      setStatus({ kind: 'ok', text: `Tag ${tag}: Processing complete.` });
       setOverlayOn(false);
       setOverlayJob(null);
       return;
@@ -436,7 +436,7 @@ export default function ScanPage() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <Link href="/intake" className="btn" style={{ textDecoration: 'none' }}>Open Intake</Link>
             <Link href="/search" className="btn secondary" style={{ textDecoration: 'none' }}>Open Search</Link>
-            <Link href="/reports/calls" className="btn secondary" style={{ textDecoration: 'none' }}>Ready to Call</Link>
+            <Link href="/reports/calls" className="btn secondary" style={{ textDecoration: 'none' }}>Open Call Queue</Link>
           </div>
         </section>
       ) : null}
@@ -444,7 +444,7 @@ export default function ScanPage() {
       <section className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 8 }}>
         <div style={{ fontWeight: 900, color: '#0f172a' }}>Backup plan if hardware gives you trouble</div>
         <div style={{ color: '#334155', lineHeight: 1.5 }}>
-          No scanner or thermal printer is required to keep working. You can update statuses from Search or Intake, print the full intake sheet, and keep the floor moving even if the scan station is having a bad moment.
+          No scanner or thermal printer is required to keep working. You can update statuses from Search or Intake, print the intake, and keep the floor moving even if the scan station is having a bad moment.
         </div>
       </section>
 
@@ -533,5 +533,6 @@ export default function ScanPage() {
     </main>
   );
 }
+
 
 
