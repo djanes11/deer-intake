@@ -737,7 +737,7 @@ export default function CalledPickupQueue() {
                   </div>
                   <div><PaymentBadge row={r} /></div>
                   <div>{ageSince(r.calledAt)}</div>
-                  <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge">Ready</span>}</div>
+                  <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge ready">Ready</span>}</div>
                 </div>
               );
             })}
@@ -1017,6 +1017,7 @@ export default function CalledPickupQueue() {
         .badge.ok { background: #235532; }
         .badge.warn { background: #9a3412; }
         .badge.neutral { background: #374151; }
+        .badge.ready { background: #1d4ed8; }
         .muted { color: #9ca3af; }
         .empty {
           background: #101715;
@@ -1158,15 +1159,34 @@ export default function CalledPickupQueue() {
           flex-wrap: wrap;
         }
         @media (max-width: 820px) {
+          .selected-card {
+            padding: 14px;
+            border-radius: 16px;
+          }
           .selected-title { font-size: 22px; }
           .selected-tag {
             display: block;
             margin-left: 0;
             margin-top: 6px;
           }
+          .selected-grid {
+            grid-template-columns: 1fr;
+          }
+          .fact {
+            padding: 12px;
+          }
           .mobile-called-list {
             display: grid;
             gap: 12px;
+          }
+          .mobile-called-card {
+            padding: 12px;
+            border-radius: 14px;
+          }
+          .mobile-called-balance {
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
           }
           .table-wrap {
             display: none;

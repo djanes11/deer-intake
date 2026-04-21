@@ -827,7 +827,7 @@ export default function SearchPage() {
                     >
                       {canEdit ? 'Open Intake' : 'Open Details'}
                     </button>
-                    <button className="btn" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
+                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
                       {printing === selectedTag ? 'Preparing...' : 'Print Intake'}
                     </button>
                     <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>

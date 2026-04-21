@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -348,7 +348,7 @@ async function markPrinted(tag: string) {
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '✓', '✔'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', 'âœ“', 'âœ”'].includes(s);
 };
 
 type AnyRec = Record<string, any>;
@@ -1673,7 +1673,7 @@ useEffect(() => {
                 onChange={(e) => setVal('customer', e.target.value)}
               />
               {customerLookupBusy && customerLookupVisible ? (
-                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer info…</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer infoâ€¦</div>
               ) : customerLookupVisible && customerMatches.length > 1 ? (
                 <div className="customerMatchList">
                   <div className="customerMatchTitle">Possible previous customers</div>
@@ -1755,7 +1755,7 @@ useEffect(() => {
                 value={job.state || ''}
                 onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 <option value="IN">IN</option>
                 <option value="KY">KY</option>
                 <option value="--">--</option>
@@ -1876,7 +1876,7 @@ useEffect(() => {
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 <option value="Buck">Buck</option>
                 <option value="Doe">Doe</option>
                 <option value="Antlerless">Antlerless</option>
@@ -1890,7 +1890,7 @@ useEffect(() => {
                 onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 <option value="Gun">Gun</option>
                 <option value="Archery">Archery</option>
                 <option value="Vehicle">Vehicle</option>
@@ -1904,7 +1904,7 @@ useEffect(() => {
                 onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">—</option>
+                <option value="">â€”</option>
                 {availableProcessCatalog.map((item) => (
                   <option key={item.slug} value={item.name}>{item.name}</option>
                 ))}
@@ -2375,11 +2375,11 @@ useEffect(() => {
                 }}
                 disabled={busy || !canEdit}
               >
-                {busy ? 'Saving�' : 'Save & Start Next Deer'}
+                {busy ? 'Saving...' : 'Save & Start Next Deer'}
               </button>
 
-              <button className="btn" onClick={onSave} disabled={busy || !canEdit}>
-                {busy ? 'Saving�' : 'Save'}
+              <button className="btn secondaryBtn" onClick={onSave} disabled={busy || !canEdit}>
+                {busy ? 'Saving...' : 'Save'}
               </button>
             </div>
 
@@ -2486,7 +2486,7 @@ useEffect(() => {
               <summary className="actionMenuSummary">Save Options</summary>
               <div className="actionMenuList">
                 <button className="actionMenuBtn" type="button" onClick={onSave} disabled={busy || !canEdit}>
-                  {busy ? 'Saving�' : 'Save'}
+                  {busy ? 'Saving...' : 'Save'}
                 </button>
                 <button
                   className="actionMenuBtn"
@@ -2498,7 +2498,7 @@ useEffect(() => {
                   }}
                   disabled={busy || !canEdit}
                 >
-                  {busy ? 'Saving�' : 'Save & Start Next Deer'}
+                  {busy ? 'Saving...' : 'Save & Start Next Deer'}
                 </button>
               </div>
             </details>
@@ -3149,6 +3149,7 @@ useEffect(() => {
     </div>
   );
 }
+
 
 
 

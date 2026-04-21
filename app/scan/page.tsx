@@ -21,6 +21,7 @@ export default function ScanPage() {
 
   const [overlayOn, setOverlayOn] = useState(false);
   const [overlayJob, setOverlayJob] = useState<AnyRec | null>(null);
+  const scanStateLabel = !scanEnabled ? 'Manual workflow' : lastTag ? `Last tag ${lastTag}` : 'Ready for next scan';
 
   React.useEffect(() => {
     const loadSettings = async () => {
@@ -441,16 +442,15 @@ export default function ScanPage() {
         </section>
       ) : null}
 
-      <section className="app-surface-light" style={{ padding: 16, display: 'grid', gap: 8 }}>
+      <section className="app-surface-light scan-fallback-card" style={{ padding: 16, display: 'grid', gap: 8 }}>
         <div style={{ fontWeight: 900, color: '#0f172a' }}>Backup plan if hardware gives you trouble</div>
         <div style={{ color: '#334155', lineHeight: 1.5 }}>
           No scanner or thermal printer is required to keep working. You can update statuses from Search or Intake, print the intake, and keep the floor moving even if the scan station is having a bad moment.
         </div>
       </section>
 
-      {/* visible status panel */}
       <div
-        className="app-surface"
+        className="app-surface scan-status-bar"
         style={{
           padding: '14px 16px',
           color: '#e5e7eb',
@@ -460,8 +460,11 @@ export default function ScanPage() {
           backdropFilter: 'blur(6px)',
         }}
       >
-        <div style={{ fontSize: 16, opacity: 0.9 }}>Scanner ready</div>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>{lastTag ? `Last scanned: ${lastTag}` : 'Awaiting tag...'}</div>
+        <div style={{ display: 'grid', gap: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>Scan Status</div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{scanEnabled ? 'Scanner ready' : 'Scanner disabled'}</div>
+        </div>
+        <div className="scan-status-chip">{scanStateLabel}</div>
       </div>
 
       <div
@@ -520,16 +523,47 @@ export default function ScanPage() {
         </div>
       )}
 
-      <ButcherOverlay
-        job={overlayJob ?? undefined}
-        visible={overlayOn}
+        <ButcherOverlay
+          job={overlayJob ?? undefined}
+          visible={overlayOn}
         manualTag={manualTag}
         manualBusy={manualBusy}
         webbsEnabled={webbsEnabled}
         cutOptions={cutOptions}
-        onManualTagChange={setManualTag}
-        onManualSubmit={() => void handleManualSubmit()}
-      />
+          onManualTagChange={setManualTag}
+          onManualSubmit={() => void handleManualSubmit()}
+        />
+
+      <style jsx>{`
+        .scan-status-bar {
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .scan-status-chip {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(200,138,61,.34);
+          background: rgba(255,255,255,.06);
+          color: #fff7e8;
+          font-weight: 800;
+          text-align: center;
+        }
+        .scan-fallback-card {
+          border: 1px solid #dbe4ee;
+        }
+        @media (max-width: 760px) {
+          .scan-status-bar {
+            display: grid !important;
+            justify-content: stretch !important;
+          }
+          .scan-status-chip {
+            width: 100%;
+          }
+        }
+      `}</style>
     </main>
   );
 }

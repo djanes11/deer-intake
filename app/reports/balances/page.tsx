@@ -63,6 +63,23 @@ function cardStyle(accent: string): React.CSSProperties {
   };
 }
 
+function panelStyle(): React.CSSProperties {
+  return {
+    border: '1px solid #d6dee8',
+    borderRadius: 16,
+    background: '#fff',
+    overflow: 'hidden',
+  };
+}
+
+function panelHeaderStyle(): React.CSSProperties {
+  return {
+    padding: '14px 16px',
+    borderBottom: '1px solid #e2e8f0',
+    background: '#f8fafc',
+  };
+}
+
 export default async function BalancesPage() {
   const processor = await getStaffProcessorContext();
   const platformAdmin = await isPlatformAdmin();
@@ -187,8 +204,8 @@ export default async function BalancesPage() {
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16 }}>
-        <div style={{ border: '1px solid #d6dee8', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+        <div style={panelStyle()}>
+          <div style={panelHeaderStyle()}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Ready for Pickup & Unpaid</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
               Orders that are ready for pickup but still need money collected.
@@ -205,8 +222,8 @@ export default async function BalancesPage() {
           )}
         </div>
 
-        <div style={{ border: '1px solid #d6dee8', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+        <div style={panelStyle()}>
+          <div style={panelHeaderStyle()}>
             <div style={{ fontWeight: 900, color: '#0f172a' }}>Largest Open Balances</div>
             <div style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>
               The largest unpaid orders across processing and specialty work.
