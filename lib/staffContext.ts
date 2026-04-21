@@ -14,7 +14,7 @@ export type StaffIdentity = {
   processorSlug?: string | null;
   role?: 'admin' | 'staff' | 'readonly' | null;
   mustChangePassword?: boolean | null;
-  authType: 'supabase' | 'local' | 'api_token' | 'basic' | 'none';
+  authType: 'supabase' | 'local' | 'none';
 };
 
 export type StaffMembership = {
@@ -38,17 +38,6 @@ function createSupabaseAdmin() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false } });
-}
-
-function parseBasicAuth(header: string | null) {
-  const value = String(header || '');
-  if (!value.startsWith('Basic ')) return null;
-  try {
-    const [user, pass] = Buffer.from(value.slice(6), 'base64').toString('utf8').split(':', 2);
-    return { user, pass };
-  } catch {
-    return null;
-  }
 }
 
 function parseCookie(header: string | null, key: string) {
@@ -110,11 +99,6 @@ function getRequestedProcessorSlug(req?: Request | null) {
   }
 }
 
-function allowLegacyStaffAuth() {
-  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '1') return true;
-  return false;
-}
-
 export async function getStaffIdentity(req?: Request | null): Promise<StaffIdentity> {
   const supabase = createSupabaseAdmin();
   const bearer = await getBearerToken(req);
@@ -152,22 +136,7 @@ export async function getStaffIdentity(req?: Request | null): Promise<StaffIdent
         };
       }
     } catch {
-      // Fall through to legacy auth modes.
-    }
-  }
-
-  const apiToken = String(process.env.DEER_API_TOKEN || '').trim();
-  const headerToken = String(req?.headers.get('x-api-token') || '').trim();
-  if (allowLegacyStaffAuth() && apiToken && headerToken && headerToken === apiToken) {
-    return { userId: null, email: null, authType: 'api_token' };
-  }
-
-  const basicUser = String(process.env.BASIC_AUTH_USER || '').trim();
-  const basicPass = String(process.env.BASIC_AUTH_PASS || '').trim();
-  if (allowLegacyStaffAuth() && basicUser && basicPass) {
-    const creds = parseBasicAuth(req?.headers.get('authorization') || null);
-    if (creds && creds.user === basicUser && creds.pass === basicPass) {
-      return { userId: null, email: null, authType: 'basic' };
+      // Fall through to anonymous identity.
     }
   }
 

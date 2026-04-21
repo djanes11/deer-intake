@@ -13,19 +13,10 @@ export type ProcessorPermission =
   | 'manage_team'
   | 'manage_notifications';
 
-function isLegacyFullAccess(context: StaffProcessorContext) {
-  return (
-    (context.authType === 'basic' || context.authType === 'api_token') &&
-    !context.role
-  );
-}
-
 export function hasProcessorPermission(
   context: Pick<StaffProcessorContext, 'role' | 'authType'>,
   permission: ProcessorPermission
 ) {
-  if (isLegacyFullAccess(context as StaffProcessorContext)) return true;
-
   switch (permission) {
     case 'view':
     case 'print':

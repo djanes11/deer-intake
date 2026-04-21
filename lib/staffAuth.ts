@@ -8,18 +8,6 @@ type StaffAccessResult =
   | { ok: true }
   | { ok: false; status: number; error: string };
 
-function parseBasicAuth(header: string | null) {
-  const value = String(header || '');
-  if (!value.startsWith('Basic ')) return null;
-
-  try {
-    const [user, pass] = Buffer.from(value.slice(6), 'base64').toString('utf8').split(':', 2);
-    return { user, pass };
-  } catch {
-    return null;
-  }
-}
-
 async function getSupabaseUserFromBearer(token: string) {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -48,11 +36,6 @@ function getBearerToken(req: Request) {
   return '';
 }
 
-function allowLegacyStaffAuth() {
-  if (process.env.ALLOW_LEGACY_STAFF_AUTH === '1') return true;
-  return false;
-}
-
 export async function requireStaffAccess(req: Request): Promise<StaffAccessResult> {
   const bearer = getBearerToken(req);
   if (bearer) {
@@ -64,42 +47,6 @@ export async function requireStaffAccess(req: Request): Promise<StaffAccessResul
   if (localToken) {
     const session = await getLocalStaffSessionByToken(localToken);
     if (session?.active) return { ok: true };
-  }
-
-  const apiToken = String(process.env.DEER_API_TOKEN || '').trim();
-  const basicUser = String(process.env.BASIC_AUTH_USER || '').trim();
-  const basicPass = String(process.env.BASIC_AUTH_PASS || '').trim();
-
-  const hasApiToken = !!apiToken;
-  const hasBasicAuth = !!basicUser && !!basicPass;
-  const allowLegacy = allowLegacyStaffAuth();
-
-  const headerToken = String(req.headers.get('x-api-token') || '').trim();
-  if (allowLegacy && hasApiToken && headerToken && headerToken === apiToken) {
-    return { ok: true };
-  }
-
-  if (allowLegacy && hasApiToken) {
-    try {
-      const url = new URL(req.url);
-      const queryToken = String(url.searchParams.get('token') || '').trim();
-      if (queryToken && queryToken === apiToken) {
-        return { ok: true };
-      }
-    } catch {
-      // Ignore malformed URLs and continue with other auth checks.
-    }
-  }
-
-  if (allowLegacy && hasBasicAuth) {
-    const creds = parseBasicAuth(req.headers.get('authorization'));
-    if (creds && creds.user === basicUser && creds.pass === basicPass) {
-      return { ok: true };
-    }
-  }
-
-  if (!allowLegacy || (!hasApiToken && !hasBasicAuth)) {
-    return { ok: false, status: 401, error: 'Unauthorized' };
   }
 
   return { ok: false, status: 401, error: 'Unauthorized' };

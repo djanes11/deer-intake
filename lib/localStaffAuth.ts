@@ -137,6 +137,13 @@ export async function updateLocalStaffPassword(input: {
     .select('id,processor_id,username,role,active,must_change_password,created_at,updated_at')
     .single();
   if (resp.error) throw resp.error;
+
+  const { error: sessionError } = await supabase
+    .from('staff_local_sessions')
+    .delete()
+    .eq('local_user_id', localUserId);
+  if (sessionError) throw sessionError;
+
   return resp.data;
 }
 

@@ -46,9 +46,6 @@ function verifyToken(tag: string, token: string | undefined, jobPublicToken: str
     if (legacy && t && t === legacy) return true;
   }
 
-  // If neither is configured, allow (dev only)
-  if (!SIGNING_SECRET && !pub) return true;
-
   return false;
 }
 

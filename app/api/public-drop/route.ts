@@ -171,7 +171,7 @@ export async function POST(req: NextRequest) {
 
   const identifierSettings = identifierSettingsFromPublicCopy(settings.publicCopy);
   let confirmation = await reserveConfirmation(String(rawJob.confirmation || '').trim(), hostname, identifierSettings);
-  const publicToken = String(rawJob.publicToken || '').trim() || genPublicToken();
+  const publicToken = genPublicToken();
 
   try {
     let result: Awaited<ReturnType<typeof saveJob>> | null = null;
