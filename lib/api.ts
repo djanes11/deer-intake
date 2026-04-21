@@ -6,8 +6,7 @@
 // - Frontend calls /api/v2/jobs; server uses service role + lib/jobsSupabase.ts.
 //
 // Auth:
-// - Sends token via header: x-api-token
-// - Optionally supports query token where older routes still need it.
+// - Client requests rely on normal staff session cookies.
 
 export type AnyRec = Record<string, any>;
 type Json = Record<string, any>;

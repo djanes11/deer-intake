@@ -35,7 +35,7 @@ export default function Nav() {
   const [isAdminHost, setIsAdminHost] = useState(false);
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const [platformAdmin, setPlatformAdmin] = useState(false);
-  const [staffAuthType, setStaffAuthType] = useState<'supabase' | 'local' | 'api_token' | 'basic' | 'none'>('none');
+  const [staffAuthType, setStaffAuthType] = useState<'supabase' | 'local' | 'none'>('none');
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [scanEnabled, setScanEnabled] = useState(true);
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
@@ -53,7 +53,7 @@ export default function Nav() {
         if (!json?.ok) return;
         setStaffRole((json?.processor?.role as 'admin' | 'staff' | 'readonly' | null) || null);
         setPlatformAdmin(json?.platformAdmin === true);
-        setStaffAuthType((json?.identity?.authType as 'supabase' | 'local' | 'api_token' | 'basic' | 'none') || 'none');
+        setStaffAuthType((json?.identity?.authType as 'supabase' | 'local' | 'none') || 'none');
         setMustChangePassword(json?.identity?.mustChangePassword === true);
       })
       .catch(() => {});

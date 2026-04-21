@@ -18,8 +18,8 @@ function fmtDate(v: string | null | undefined) {
 function actorLabel(row: any) {
   if (row.actor_username) return row.actor_username;
   if (row.actor_email) return row.actor_email;
-  if (row.actor_auth_type === 'api_token') return 'API token';
-  if (row.actor_auth_type === 'basic') return 'Basic auth';
+  if (row.actor_auth_type === 'supabase') return 'Email staff user';
+  if (row.actor_auth_type === 'local') return 'Local staff user';
   return 'Unknown user';
 }
 
