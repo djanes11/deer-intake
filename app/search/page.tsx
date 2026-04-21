@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import type { Job } from '@/lib/api';
-import { getJob, searchJobs, tokenHeader } from '@/lib/api';
+import { getJob, saveJob, searchJobs, tokenHeader } from '@/lib/api';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { specialtyBreakdown } from '@/lib/specialty';
 import { filterVisibleAddOnItems, normalizeJobAddOnItems } from '@/lib/processorCatalog';
@@ -59,6 +59,27 @@ function rowBadges(row: Record<string, any>) {
   return badges;
 }
 
+function processingDue(row: Record<string, any> | null | undefined) {
+  if (!row) return 0;
+  return Math.max(0, Number(row.priceProcessing ?? row.price_processing ?? 0) - Number(row.amountPaidProcessing ?? row.amount_paid_processing ?? 0));
+}
+
+function specialtyDue(row: Record<string, any> | null | undefined) {
+  if (!row) return 0;
+  return Math.max(0, Number(row.priceSpecialty ?? row.price_specialty ?? 0) - Number(row.amountPaidSpecialty ?? row.amount_paid_specialty ?? 0));
+}
+
+function totalDue(row: Record<string, any> | null | undefined) {
+  return processingDue(row) + specialtyDue(row);
+}
+
+function money(value: number) {
+  return `$${Number(value || 0).toFixed(2)}`;
+}
+
+type PaymentMethod = 'cash' | 'card' | 'check' | 'other';
+type PickupTrack = 'meat' | 'cape' | 'webbs';
+
 export default function SearchPage() {
   const router = useRouter();
 
@@ -84,6 +105,12 @@ export default function SearchPage() {
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
+  const [mobileMatchesOpen, setMobileMatchesOpen] = useState(true);
+  const [quickPickupBy, setQuickPickupBy] = useState('');
+  const [quickPickupNotes, setQuickPickupNotes] = useState('');
+  const [quickPaymentMethod, setQuickPaymentMethod] = useState<PaymentMethod>('cash');
+  const [pickupActionBusy, setPickupActionBusy] = useState('');
+  const [pickupActionMsg, setPickupActionMsg] = useState<string | null>(null);
   const debounced = useDebounced(q, 300);
 
   useEffect(() => {
@@ -121,11 +148,15 @@ export default function SearchPage() {
       setErr(null);
       try {
         const res = await searchJobs(term);
-        if (!cancelled) setRows(res.rows || []);
+        if (!cancelled) {
+          setRows(res.rows || []);
+          setMobileMatchesOpen(true);
+        }
       } catch (e: any) {
         if (!cancelled) {
           setErr(e?.message || 'Search failed');
           setRows([]);
+          setMobileMatchesOpen(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -144,6 +175,7 @@ export default function SearchPage() {
       setDetailErr(null);
       setResendMsg(null);
       setPrintMsg(null);
+      setPickupActionMsg(null);
     }
   }, [rows, selectedTag]);
 
@@ -160,10 +192,12 @@ export default function SearchPage() {
   const loadDetails = async (tag: string) => {
     if (!tag) return;
     setSelectedTag(tag);
+    setMobileMatchesOpen(false);
     setDetailLoading(true);
     setDetailErr(null);
     setResendMsg(null);
     setPrintMsg(null);
+    setPickupActionMsg(null);
     setManualSubject('');
     setManualBody('');
     try {
@@ -250,8 +284,8 @@ export default function SearchPage() {
 
   const paymentSummary = useMemo(() => {
     if (!selectedJob) return '-';
-    const procDue = Math.max(0, Number(selectedJob.priceProcessing ?? selectedJob.price_processing ?? 0) - Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0));
-    const specDue = Math.max(0, Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) - Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0));
+    const procDue = processingDue(selectedJob);
+    const specDue = specialtyDue(selectedJob);
     const procMethod = String(selectedJob.paymentMethodProcessing ?? selectedJob.payment_method_processing ?? '').trim();
     const specMethod = String(selectedJob.paymentMethodSpecialty ?? selectedJob.payment_method_specialty ?? '').trim();
     const proc = procDue <= 0
@@ -267,6 +301,57 @@ export default function SearchPage() {
           : 'Specialty unpaid'
       : null;
     return [proc, spec].filter(Boolean).join(' | ');
+  }, [selectedJob]);
+
+  const pickupQuickView = useMemo(() => {
+    if (!selectedJob) return null;
+    const procDue = processingDue(selectedJob);
+    const specDue = specialtyDue(selectedJob);
+    const due = procDue + specDue;
+    const pickupState = String(selectedJob.status || '').toLowerCase().includes('called')
+      ? 'Waiting for pickup'
+      : String(selectedJob.status || '').toLowerCase().includes('finished') || String(selectedJob.status || '').toLowerCase().includes('ready')
+        ? 'Ready to contact'
+        : 'Still in process';
+    const processingPickedUp = !!(selectedJob.pickedUpProcessing ?? selectedJob.picked_up_processing);
+    const capePickedUp = !!(selectedJob.pickedUpCape ?? selectedJob.picked_up_cape);
+    const webbsPickedUp = !!(selectedJob.pickedUpWebbs ?? selectedJob.picked_up_webbs);
+    const pickedUpBy = String(selectedJob.pickedUpBy ?? selectedJob.picked_up_by ?? '').trim();
+    const pickupNotes = String(selectedJob.pickupNotes ?? selectedJob.pickup_notes ?? '').trim();
+    return {
+      due,
+      procDue,
+      specDue,
+      pickupState,
+      processingPickedUp,
+      capePickedUp,
+      webbsPickedUp,
+      pickedUpBy,
+      pickupNotes,
+    };
+  }, [selectedJob]);
+
+  useEffect(() => {
+    if (!selectedJob) {
+      setQuickPickupBy('');
+      setQuickPickupNotes('');
+      setQuickPaymentMethod('cash');
+      return;
+    }
+    setQuickPickupBy(String(selectedJob.pickedUpBy ?? selectedJob.picked_up_by ?? '').trim());
+    setQuickPickupNotes(String(selectedJob.pickupNotes ?? selectedJob.pickup_notes ?? '').trim());
+    const method = String(
+      selectedJob.paymentMethodProcessing ??
+      selectedJob.payment_method_processing ??
+      selectedJob.paymentMethodSpecialty ??
+      selectedJob.payment_method_specialty ??
+      ''
+    ).trim().toLowerCase();
+    if (method === 'cash' || method === 'card' || method === 'check' || method === 'other') {
+      setQuickPaymentMethod(method);
+      return;
+    }
+    setQuickPaymentMethod('cash');
   }, [selectedJob]);
 
   const notificationRows = useMemo(() => {
@@ -378,9 +463,7 @@ export default function SearchPage() {
   const nextAction = useMemo(() => {
     if (!selectedJob) return '';
     const status = String(selectedJob.status || '').toLowerCase();
-    const due =
-      Math.max(0, Number(selectedJob.priceProcessing ?? selectedJob.price_processing ?? 0) - Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0)) +
-      Math.max(0, Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) - Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0));
+    const due = totalDue(selectedJob);
     if (!selectedJob.tag || String(selectedJob.tag).toUpperCase().startsWith('PENDING-')) return 'Assign the permanent tag after reviewing the intake.';
     if (status.includes('called')) return due > 0 ? 'Collect the remaining balance at pickup.' : 'Ready for pickup handoff.';
     if (status.includes('finished') || status.includes('ready')) return 'Contact the customer and move this deer into pickup follow-up.';
@@ -470,6 +553,69 @@ export default function SearchPage() {
     }
   };
 
+  const recordQuickPayment = async (kind: 'processing' | 'specialty') => {
+    if (!selectedJob || !selectedTag) return;
+    const due = kind === 'processing' ? processingDue(selectedJob) : specialtyDue(selectedJob);
+    if (due <= 0) {
+      setPickupActionMsg(`${kind === 'processing' ? 'Processing' : 'Specialty'} is already paid in full.`);
+      return;
+    }
+    const currentPaid = Number(
+      kind === 'processing'
+        ? (selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0)
+        : (selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0)
+    ) || 0;
+    setPickupActionBusy(kind);
+    setPickupActionMsg(null);
+    try {
+      await saveJob(
+        kind === 'processing'
+          ? ({
+              tag: selectedTag,
+              amountPaidProcessing: currentPaid + due,
+              paymentMethodProcessing: quickPaymentMethod,
+            } as any)
+          : ({
+              tag: selectedTag,
+              amountPaidSpecialty: currentPaid + due,
+              paymentMethodSpecialty: quickPaymentMethod,
+            } as any)
+      );
+      await loadDetails(selectedTag);
+      setPickupActionMsg(`Marked ${kind} paid in full by ${quickPaymentMethod}.`);
+    } catch (e: any) {
+      setPickupActionMsg(`Could not update ${kind} payment. ${e?.message || 'Try again.'}`);
+    } finally {
+      setPickupActionBusy('');
+    }
+  };
+
+  const markTrackPickedUp = async (track: PickupTrack) => {
+    if (!selectedTag) return;
+    setPickupActionBusy(`pickup-${track}`);
+    setPickupActionMsg(null);
+    const now = new Date().toISOString();
+    const shared = {
+      pickedUpBy: quickPickupBy.trim() || null,
+      pickupNotes: quickPickupNotes.trim() || null,
+    };
+    try {
+      if (track === 'meat') {
+        await saveJob({ tag: selectedTag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now, ...shared } as any);
+      } else if (track === 'cape') {
+        await saveJob({ tag: selectedTag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now, ...shared } as any);
+      } else {
+        await saveJob({ tag: selectedTag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now, ...shared } as any);
+      }
+      await loadDetails(selectedTag);
+      setPickupActionMsg(`Marked ${track === 'meat' ? 'processing' : track} pickup complete.`);
+    } catch (e: any) {
+      setPickupActionMsg(`Could not mark ${track} pickup. ${e?.message || 'Try again.'}`);
+    } finally {
+      setPickupActionBusy('');
+    }
+  };
+
   return (
     <main className="app-frame">
       <section className="app-hero">
@@ -511,6 +657,40 @@ export default function SearchPage() {
         </form>
       </div>
 
+      {selectedJob ? (
+        <div className="app-surface-light search-mobile-selected">
+          <div className="search-mobile-selected-top">
+            <div>
+              <div className="search-mobile-selected-kicker">Selected Deer</div>
+              <div className="search-mobile-selected-title">{selectedJob.customer || selectedTag}</div>
+              <div className="search-mobile-selected-meta">
+                {selectedTag ? `Tag ${selectedTag}` : 'No tag assigned'}
+                {pickupQuickView ? ` | ${pickupQuickView.pickupState}` : ''}
+              </div>
+            </div>
+            <div className={`search-mobile-balance-chip ${pickupQuickView && pickupQuickView.due > 0 ? 'warn' : 'ok'}`}>
+              {pickupQuickView ? (pickupQuickView.due > 0 ? `${money(pickupQuickView.due)} due` : 'Paid') : '-'}
+            </div>
+          </div>
+          <div className="search-mobile-selected-actions">
+            <button
+              className="btn"
+              type="button"
+              onClick={() => {
+                const rowToken = rows.find((row) => row.tag === selectedTag) as any;
+                selectedTag && openTag(selectedTag, selectedJob?.publicToken || selectedJob?.public_token || rowToken?.publicToken);
+              }}
+              disabled={!selectedTag}
+            >
+              {canEdit ? 'Open Intake' : 'Open Details'}
+            </button>
+            <button className="btn secondary mobile-only-inline" type="button" onClick={() => setMobileMatchesOpen((prev) => !prev)}>
+              {mobileMatchesOpen ? 'Hide Matches' : 'Show Matches'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {!canShowResults && (
         <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>
           Start typing above to find a deer.
@@ -519,12 +699,21 @@ export default function SearchPage() {
 
       {canShowResults && (
         <div className="search-layout">
-          <section className="search-results-col">
+          <section className="search-results-col" id="search-results">
             <div className="app-surface-light results-summary-card" style={{ padding: 14, marginBottom: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', opacity: 0.72 }}>Results</div>
               <div style={{ fontSize: 17, fontWeight: 900, marginTop: 2 }}>
                 {resultSummary}
               </div>
+              {selectedJob ? (
+                <button
+                  type="button"
+                  className="btn secondary search-mobile-toggle"
+                  onClick={() => setMobileMatchesOpen((prev) => !prev)}
+                >
+                  {mobileMatchesOpen ? 'Hide Match List' : 'Show Match List'}
+                </button>
+              ) : null}
             </div>
             {loading && <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>Loading...</div>}
             {err && <div className="app-surface-light" style={{ padding: 16, borderColor: '#ef4444', color: '#7f1d1d' }}>Error: {err}</div>}
@@ -571,7 +760,7 @@ export default function SearchPage() {
                     ))}
                   </tbody>
                 </table>
-                <div className="search-results-mobile">
+                <div className={`search-results-mobile ${mobileMatchesOpen ? '' : 'collapsed'}`}>
                   {rows.length === 0 ? (
                     <div style={{ padding: 14 }}>No results. Try a tag number, confirmation number, phone number, or part of the customer name.</div>
                   ) : (
@@ -674,6 +863,133 @@ export default function SearchPage() {
 
               {selectedJob ? (
                 <>
+                  {pickupQuickView ? (
+                    <DetailBox title="Pickup Quick View">
+                      <div className="pickupQuickGrid">
+                        <div className="pickupQuickCard">
+                          <div className="pickupQuickLabel">Total due</div>
+                          <div className="pickupQuickValue">{money(pickupQuickView.due)}</div>
+                          <div className="pickupQuickSub">
+                            {pickupQuickView.due > 0 ? 'Collect at pickup' : 'Nothing left to collect'}
+                          </div>
+                        </div>
+                        <div className="pickupQuickCard">
+                          <div className="pickupQuickLabel">Pickup stage</div>
+                          <div className="pickupQuickValue">{pickupQuickView.pickupState}</div>
+                          <div className="pickupQuickSub">
+                            {pickupQuickView.processingPickedUp ? 'Processing already picked up' : 'Still waiting on handoff'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pickupQuickBreakdown">
+                        <div><strong>Processing due:</strong> {money(pickupQuickView.procDue)}</div>
+                        <div><strong>Specialty due:</strong> {money(pickupQuickView.specDue)}</div>
+                        <div><strong>Processing pickup:</strong> {pickupQuickView.processingPickedUp ? 'Picked up' : 'Not picked up'}</div>
+                        <div><strong>Cape pickup:</strong> {pickupQuickView.capePickedUp ? 'Picked up' : 'Not picked up'}</div>
+                        <div><strong>Webbs pickup:</strong> {pickupQuickView.webbsPickedUp ? 'Picked up' : 'Not picked up'}</div>
+                        <div><strong>Picked up by:</strong> {pickupQuickView.pickedUpBy || 'Not recorded'}</div>
+                      </div>
+
+                      {pickupQuickView.pickupNotes ? (
+                        <div className="pickupQuickNotes">
+                          <strong>Pickup notes:</strong> {pickupQuickView.pickupNotes}
+                        </div>
+                      ) : null}
+
+                      {canEdit ? (
+                        <div className="pickupQuickActions">
+                          <div className="pickupQuickActionGrid">
+                            <label className="pickupQuickField">
+                              <span>Payment method</span>
+                              <select value={quickPaymentMethod} onChange={(e) => setQuickPaymentMethod(e.target.value as PaymentMethod)}>
+                                <option value="cash">Cash</option>
+                                <option value="card">Card</option>
+                                <option value="check">Check</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </label>
+                            <label className="pickupQuickField">
+                              <span>Picked up by</span>
+                              <input value={quickPickupBy} onChange={(e) => setQuickPickupBy(e.target.value)} placeholder="Customer or helper name" />
+                            </label>
+                          </div>
+
+                          <label className="pickupQuickField">
+                            <span>Pickup notes</span>
+                            <textarea
+                              rows={2}
+                              value={quickPickupNotes}
+                              onChange={(e) => setQuickPickupNotes(e.target.value)}
+                              placeholder="Optional note for this handoff"
+                            />
+                          </label>
+
+                          <div className="pickupQuickButtonRow">
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void recordQuickPayment('processing')}
+                              disabled={pickupActionBusy !== '' || pickupQuickView.procDue <= 0}
+                            >
+                              {pickupActionBusy === 'processing' ? 'Saving...' : pickupQuickView.procDue > 0 ? `Mark Processing Paid (${money(pickupQuickView.procDue)})` : 'Processing Paid'}
+                            </button>
+                            <button
+                              className="btn"
+                              type="button"
+                              onClick={() => void recordQuickPayment('specialty')}
+                              disabled={pickupActionBusy !== '' || pickupQuickView.specDue <= 0}
+                            >
+                              {pickupActionBusy === 'specialty' ? 'Saving...' : pickupQuickView.specDue > 0 ? `Mark Specialty Paid (${money(pickupQuickView.specDue)})` : 'Specialty Paid'}
+                            </button>
+                          </div>
+
+                          <div className="pickupQuickButtonRow">
+                            <button
+                              className="btn secondary"
+                              type="button"
+                              onClick={() => void markTrackPickedUp('meat')}
+                              disabled={pickupActionBusy !== '' || pickupQuickView.processingPickedUp}
+                            >
+                              {pickupActionBusy === 'pickup-meat' ? 'Saving...' : pickupQuickView.processingPickedUp ? 'Processing Picked Up' : 'Mark Processing Picked Up'}
+                            </button>
+                            {canPrintCapeLabel(selectedJob) ? (
+                              <button
+                                className="btn secondary"
+                                type="button"
+                                onClick={() => void markTrackPickedUp('cape')}
+                                disabled={pickupActionBusy !== '' || pickupQuickView.capePickedUp}
+                              >
+                                {pickupActionBusy === 'pickup-cape' ? 'Saving...' : pickupQuickView.capePickedUp ? 'Cape Picked Up' : 'Mark Cape Picked Up'}
+                              </button>
+                            ) : null}
+                            {webbsEnabled && selectedJob.webbsOrder ? (
+                              <button
+                                className="btn secondary"
+                                type="button"
+                                onClick={() => void markTrackPickedUp('webbs')}
+                                disabled={pickupActionBusy !== '' || pickupQuickView.webbsPickedUp}
+                              >
+                                {pickupActionBusy === 'pickup-webbs' ? 'Saving...' : pickupQuickView.webbsPickedUp ? 'Webbs Picked Up' : 'Mark Webbs Picked Up'}
+                              </button>
+                            ) : null}
+                          </div>
+
+                          {pickupActionMsg ? <div className="pickupQuickFeedback">{pickupActionMsg}</div> : null}
+                        </div>
+                      ) : null}
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <button className="btn secondary" type="button" onClick={() => router.push('/reports/called')}>
+                          Open Pickup Queue
+                        </button>
+                        <button className="btn secondary" type="button" onClick={() => router.push('/reports/balances')}>
+                          Open Balances
+                        </button>
+                      </div>
+                    </DetailBox>
+                  ) : null}
+
                   <div style={{ display: 'grid', gap: 12 }}>
                     <DetailBox title="Quick Summary">
                       <div><strong>Status:</strong> {statusSummary}</div>
@@ -918,6 +1234,15 @@ export default function SearchPage() {
           display: none;
         }
 
+        .search-mobile-toggle,
+        .mobile-only-inline {
+          display: none;
+        }
+
+        .search-mobile-selected {
+          display: none;
+        }
+
         .search-result-mobile-card {
           width: 100%;
           display: grid;
@@ -1042,6 +1367,109 @@ export default function SearchPage() {
           overflow: auto;
         }
 
+        .pickupQuickGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+          gap: 10px;
+        }
+
+        .pickupQuickCard {
+          border: 1px solid #dbe4ee;
+          border-radius: 14px;
+          padding: 12px;
+          background: #ffffff;
+          display: grid;
+          gap: 6px;
+        }
+
+        .pickupQuickLabel {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .05em;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+
+        .pickupQuickValue {
+          font-size: 20px;
+          font-weight: 950;
+          color: #0f172a;
+        }
+
+        .pickupQuickSub {
+          color: #475569;
+          font-size: 13px;
+          line-height: 1.45;
+        }
+
+        .pickupQuickBreakdown {
+          display: grid;
+          gap: 6px;
+          color: #334155;
+        }
+
+        .pickupQuickNotes {
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid #dbe4ee;
+          background: #f8fafc;
+          color: #334155;
+          line-height: 1.5;
+        }
+
+        .pickupQuickActions {
+          display: grid;
+          gap: 10px;
+          padding-top: 4px;
+        }
+
+        .pickupQuickActionGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          gap: 10px;
+        }
+
+        .pickupQuickField {
+          display: grid;
+          gap: 6px;
+          color: #334155;
+          font-weight: 700;
+        }
+
+        .pickupQuickField span {
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+
+        .pickupQuickField input,
+        .pickupQuickField select,
+        .pickupQuickField textarea {
+          width: 100%;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid #d6dee8;
+          background: #fff;
+          color: #0f172a;
+        }
+
+        .pickupQuickButtonRow {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .pickupQuickFeedback {
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid #bfdbfe;
+          background: #eff6ff;
+          color: #1d4ed8;
+          font-weight: 700;
+        }
+
         @media (max-width: 1100px) {
           .search-layout {
             grid-template-columns: 1fr;
@@ -1073,12 +1501,93 @@ export default function SearchPage() {
         }
 
         @media (max-width: 760px) {
+          .search-mobile-toggle,
+          .mobile-only-inline {
+            display: inline-flex;
+            justify-content: center;
+          }
+
+          .search-mobile-selected {
+            display: grid;
+            gap: 10px;
+            position: sticky;
+            top: 10px;
+            z-index: 7;
+            padding: 14px;
+            margin-bottom: 10px;
+            border: 1px solid #dbe4ee;
+          }
+
+          .search-mobile-selected-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: start;
+          }
+
+          .search-mobile-selected-kicker {
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: #64748b;
+          }
+
+          .search-mobile-selected-title {
+            font-size: 20px;
+            font-weight: 950;
+            color: #0f172a;
+            margin-top: 4px;
+          }
+
+          .search-mobile-selected-meta {
+            color: #475569;
+            margin-top: 4px;
+            line-height: 1.45;
+          }
+
+          .search-mobile-balance-chip {
+            padding: 8px 10px;
+            border-radius: 999px;
+            font-weight: 900;
+            white-space: nowrap;
+            border: 1px solid #dbe4ee;
+            background: #f8fafc;
+            color: #334155;
+          }
+
+          .search-mobile-balance-chip.warn {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+          }
+
+          .search-mobile-balance-chip.ok {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+            color: #166534;
+          }
+
+          .search-mobile-selected-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+
+          .search-results-mobile.collapsed {
+            display: none;
+          }
+
           .search-results-table {
             display: none;
           }
 
           .search-results-mobile {
             display: block;
+          }
+
+          .search-preview-card {
+            top: 12px;
           }
         }
 
@@ -1131,3 +1640,4 @@ function useDebounced(value: string, delay = 300) {
   }, [value, delay]);
   return v;
 }
+

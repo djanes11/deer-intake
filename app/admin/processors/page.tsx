@@ -339,6 +339,9 @@ export default function AdminProcessorsPage() {
           <button type="button" onClick={() => setMode('create')} style={navButton(mode === 'create')}>
             Onboard New Processor
           </button>
+          <a href="/admin/processors/onboarding" style={{ textDecoration: 'none' }}>
+            <div style={navButton(false)}>Guided Wizard</div>
+          </a>
         </div>
       </section>
 
