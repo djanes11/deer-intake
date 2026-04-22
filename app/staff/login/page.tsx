@@ -143,6 +143,7 @@ export default function StaffLoginPage() {
   return (
     <main style={{ maxWidth: 1080, margin: '34px auto', padding: '0 16px' }}>
       <div
+        className="login-shell"
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(280px, 0.95fr) minmax(360px, 460px)',
@@ -151,6 +152,7 @@ export default function StaffLoginPage() {
         }}
       >
         <section
+          className="login-hero"
           style={{
             borderRadius: 24,
             padding: 28,
@@ -375,6 +377,49 @@ export default function StaffLoginPage() {
           </form>
         </section>
       </div>
+
+      <style jsx>{`
+        .login-shell {
+          min-width: 0;
+        }
+        .login-hero {
+          min-width: 0;
+        }
+        @media (max-width: 860px) {
+          .login-shell {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+          }
+          .login-hero {
+            padding: 18px !important;
+            border-radius: 18px !important;
+            gap: 14px !important;
+          }
+          .login-hero img {
+            width: 56px !important;
+            height: 56px !important;
+            border-radius: 14px !important;
+          }
+          .login-hero h1 {
+            font-size: 28px !important;
+          }
+        }
+        @media (max-width: 640px) {
+          .card {
+            padding: 16px !important;
+            border-radius: 18px !important;
+          }
+          .card form {
+            gap: 12px !important;
+          }
+          .card input {
+            padding: 14px 12px !important;
+          }
+          .card .btn {
+            min-height: 48px;
+          }
+        }
+      `}</style>
     </main>
   );
 }
