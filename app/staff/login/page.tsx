@@ -17,6 +17,7 @@ export default function StaffLoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -56,6 +57,7 @@ export default function StaffLoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setRedirecting(false);
     setError('');
     try {
       await fetch('/api/staff/session', { method: 'DELETE', cache: 'no-store' }).catch(() => {});
@@ -77,6 +79,7 @@ export default function StaffLoginPage() {
         const sessionJson = await sessionRes.json().catch(() => ({}));
         if (!sessionRes.ok || !sessionJson?.ok) throw new Error(sessionJson?.error || `HTTP ${sessionRes.status}`);
         if (data.user?.app_metadata?.wgbb_force_password_change) {
+          setRedirecting(true);
           router.replace(`/staff/account?next=${encodeURIComponent(next)}&force=1`);
           router.refresh();
           return;
@@ -93,17 +96,19 @@ export default function StaffLoginPage() {
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
         if (json?.session?.mustChangePassword) {
+          setRedirecting(true);
           router.replace(`/staff/account?next=${encodeURIComponent(next)}&force=1`);
           router.refresh();
           return;
         }
       }
+      setRedirecting(true);
       router.replace(next);
       router.refresh();
     } catch (e: any) {
       setError(String(e?.message || e));
-    } finally {
       setBusy(false);
+      setRedirecting(false);
     }
   }
 
@@ -346,7 +351,7 @@ export default function StaffLoginPage() {
           <button
             className="btn"
             type="submit"
-            disabled={busy}
+            disabled={busy || redirecting}
             style={{
               width: '100%',
               justifyContent: 'center',
@@ -356,7 +361,7 @@ export default function StaffLoginPage() {
               fontWeight: 900,
             }}
           >
-            {busy ? 'Signing In...' : 'Sign In'}
+            {redirecting ? 'Opening Portal...' : busy ? 'Signing In...' : 'Sign In'}
           </button>
           {mode === 'admin' ? (
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', fontSize: 14 }}>
