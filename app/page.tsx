@@ -1413,7 +1413,6 @@ function StaffHome({
 
       <div style={statsGrid} className="staff-dashboard-stats-grid">
         {[
-          { label: 'Specialty Report - Open pounds', value: dashboard?.specialtyOpen ?? 0, href: '/reports/specialty' },
           { label: 'Today Drop-Offs', value: dashboard?.todayDropoffs ?? 0, href: '/search' },
           { label: 'State Form - Season PDF', value: dashboard?.seasonEntries ?? 0, href: '/reports/state-form' },
         ].map((item) => (
@@ -1524,70 +1523,6 @@ function StaffHome({
         </section>
       ) : null}
 
-      <div style={splitGrid} className="staff-dashboard-reports-grid">
-        <div style={{ ...card, gridColumn: 'span 2' }} className="staff-dashboard-reports-card">
-          <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>
-            Reports
-          </div>
-
-          <div style={list}>
-            <Link href="/reports/calls" style={linkStyle}>
-              <div className="staff-dashboard-report-row" style={row}>
-                <div style={dot('rgba(51,117,71,.9)')} />
-                <div style={{ fontWeight: 800 }}>Call Report - Ready to Call {dashboard ? `(${dashboard.calledQueue})` : ''}</div>
-              </div>
-            </Link>
-
-            <Link href="/reports/specialty" style={linkStyle}>
-              <div className="staff-dashboard-report-row" style={row}>
-                <div style={dot('rgba(200,70,25,.9)')} />
-                <div style={{ fontWeight: 800 }}>Specialty Totals - Open lbs</div>
-              </div>
-            </Link>
-
-            <Link href="/overnight/review" style={linkStyle}>
-              <div className="staff-dashboard-report-row" style={row}>
-                <div style={dot('rgba(167,115,18,.9)')} />
-                <div style={{ fontWeight: 800 }}>Public Intake - Needs Tag {dashboard ? `(${dashboard.pendingTags})` : ''}</div>
-              </div>
-            </Link>
-
-            <Link href="/reports/called" style={linkStyle}>
-              <div className="staff-dashboard-report-row" style={row}>
-                <div style={dot('rgba(115,75,170,.95)')} />
-                <div style={{ fontWeight: 800 }}>Called - Pickup Queue</div>
-              </div>
-            </Link>
-
-            <Link href="/reports/state-form" style={linkStyle}>
-              <div className="staff-dashboard-report-row" style={row}>
-                <div style={dot('rgba(79,126,91,.9)')} />
-                <div style={{ fontWeight: 800 }}>State Form - Season PDF {dashboard ? `(${dashboard.seasonEntries})` : ''}</div>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        <div style={card} className="staff-dashboard-reference-card">
-          <div style={mini}>Reference</div>
-          <div className="staff-dashboard-reference-links">
-            <Link href="/tips" style={linkStyle}>
-              <div className="staff-dashboard-reference-link">
-                <div style={{ fontWeight: 900, fontSize: 18 }}>Tip Sheet</div>
-                <div style={{ opacity: 0.8, marginTop: 4 }}>Short reminders for staff</div>
-              </div>
-            </Link>
-            <Link href="/faq" style={linkStyle}>
-              <div className="staff-dashboard-reference-link">
-                <div style={{ fontWeight: 900, fontSize: 18 }}>FAQ</div>
-                <div style={{ opacity: 0.8, marginTop: 4 }}>
-                  Customer questions &amp; answers
-                </div>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </div>
     </main>
     <style>{`
       .staff-dashboard-primary-card,
