@@ -1186,9 +1186,10 @@ function StaffHome({
   const fmtMoney = (v: number | null | undefined) => (typeof v === 'number' ? `$${v.toFixed(2)}` : '$0.00');
 
   return (
-    <main className="watermark" style={shell}>
+    <>
+    <main className="watermark staff-dashboard-shell" style={shell}>
       <div style={header}>
-        <div style={headerTop}>
+        <div style={headerTop} className="staff-dashboard-header-top">
           <div>
             <div
               style={{
@@ -1207,12 +1208,12 @@ function StaffHome({
               Start with the main jobs for {processorName || 'this processor'} and work through what needs attention today.
             </p>
           </div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div style={processorBadge} aria-label="Current processor">
+          <div style={{ display: 'grid', gap: 8 }} className="staff-dashboard-meta">
+            <div style={processorBadge} aria-label="Current processor" className="staff-dashboard-badge">
               <span style={processorLabel}>Processor</span>
               <span>{processorName || 'Unassigned'}</span>
             </div>
-            <div style={roleBadge} aria-label="Current role">
+            <div style={roleBadge} aria-label="Current role" className="staff-dashboard-badge">
               <span style={roleLabelStyle}>Access</span>
               <span>{roleLabel}</span>
             </div>
@@ -1239,7 +1240,10 @@ function StaffHome({
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 12 }}>
+          <div
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 12 }}
+            className="staff-dashboard-kpis"
+          >
             {[
               {
                 label: 'Setup Progress',
@@ -1319,21 +1323,21 @@ function StaffHome({
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }} className="staff-dashboard-actions">
             <Link href="/admin/settings?section=overview" style={{ textDecoration: 'none' }}>
-              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+              <div className="btn secondary dashboard-inline-action" style={{ display: 'inline-flex', justifyContent: 'center' }}>
                 Open Processor Settings
               </div>
             </Link>
             <Link href="/staff/team" style={{ textDecoration: 'none' }}>
-              <div className="btn secondary" style={{ display: 'inline-flex', justifyContent: 'center' }}>
+              <div className="btn secondary dashboard-inline-action" style={{ display: 'inline-flex', justifyContent: 'center' }}>
                 Add Staff
               </div>
             </Link>
             {ownerChecklist.publicHostname ? (
               <a href={`https://${ownerChecklist.publicHostname}`} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                 <div
-                  className="btn secondary"
+                  className="btn secondary dashboard-inline-action"
                   style={{ display: 'inline-flex', justifyContent: 'center' }}
                 >
                   Test Public Intake
@@ -1354,11 +1358,14 @@ function StaffHome({
               : 'Your access is focused on viewing, printing, and monitoring progress. Search and reports are the main places to work.'}
           </div>
         </div>
-        <div style={primaryGrid}>
+        <div style={primaryGrid} className="staff-dashboard-primary-grid">
           {primaryActions.map((action) => (
             <Link key={action.label} href={action.href} style={linkStyle}>
-              <div style={{ ...card, padding: 18, background: 'rgba(14,13,12,.9)', borderColor: 'rgba(200,138,61,.12)' }}>
-                <div style={{ ...mini, color: action.accent }}>{action.label}</div>
+              <div
+                className="staff-dashboard-primary-card"
+                style={{ ...card, padding: 18, background: 'rgba(14,13,12,.9)', borderColor: 'rgba(200,138,61,.12)' }}
+              >
+                <div style={{ ...mini, color: action.accent }}>Go To</div>
                 <div style={{ fontWeight: 900, fontSize: 20, marginTop: 8 }}>{action.label}</div>
                 <div style={{ opacity: 0.8, marginTop: 6, lineHeight: 1.5 }}>{action.detail}</div>
               </div>
@@ -1367,18 +1374,18 @@ function StaffHome({
         </div>
       </section>
 
-      <div style={splitGrid}>
+      <div style={splitGrid} className="staff-dashboard-split-grid">
         <section style={card}>
           <div style={{ ...mini, color: '#8fb3a8' }}>Queue Snapshot</div>
           <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
             {queueHighlights.map((item) => (
               <Link key={item.label} href={item.href} style={linkStyle}>
-                <div style={{ ...row, gridTemplateColumns: '1fr auto', background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+                <div className="staff-dashboard-queue-row" style={{ ...row, gridTemplateColumns: '1fr auto', background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
                   <div style={{ display: 'grid', gap: 4 }}>
                     <div style={{ fontWeight: 900 }}>{item.label}</div>
                     <div style={{ opacity: 0.78, fontSize: 13, lineHeight: 1.45 }}>{item.hint}</div>
                   </div>
-                  <div style={{ fontSize: 30, fontWeight: 950 }}>{item.value}</div>
+                  <div className="staff-dashboard-queue-value" style={{ fontSize: 30, fontWeight: 950 }}>{item.value}</div>
                 </div>
               </Link>
             ))}
@@ -1388,15 +1395,15 @@ function StaffHome({
         <section style={card}>
           <div style={{ ...mini, color: '#8fb3a8' }}>Today’s Focus</div>
           <div style={{ display: 'grid', gap: 10, marginTop: 10 }}>
-            <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+            <div className="staff-dashboard-focus-row" style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#5b7a62')} />
               <div>Use <strong>Search</strong> when you need to find one deer, reprint paperwork, or check a customer record.</div>
             </div>
-            <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+            <div className="staff-dashboard-focus-row" style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#c88a3d')} />
               <div>{canEdit ? (scanEnabled ? 'The scan page will move deer forward in the right order based on how that deer was set up.' : 'This processor is using manual status updates, so intake and search are the main places to update deer.') : 'Read-only access still lets you print sheets and labels without changing statuses.'}</div>
             </div>
-            <div style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
+            <div className="staff-dashboard-focus-row" style={{ ...row, background: 'rgba(14,13,12,.88)', borderColor: 'rgba(255,255,255,.06)' }}>
               <div style={dot('#8fb3a8')} />
               <div>{role === 'admin' ? 'Owner Snapshot below shows what is ready, what is unpaid, and how work is moving.' : 'Use the reports below to see what is ready, what has been called, and what still needs action.'}</div>
             </div>
@@ -1404,14 +1411,14 @@ function StaffHome({
         </section>
       </div>
 
-      <div style={statsGrid}>
+      <div style={statsGrid} className="staff-dashboard-stats-grid">
         {[
           { label: 'Specialty Report - Open pounds', value: dashboard?.specialtyOpen ?? 0, href: '/reports/specialty' },
           { label: 'Today Drop-Offs', value: dashboard?.todayDropoffs ?? 0, href: '/search' },
           { label: 'State Form - Season PDF', value: dashboard?.seasonEntries ?? 0, href: '/reports/state-form' },
         ].map((item) => (
           <Link key={item.label} href={item.href} style={linkStyle}>
-            <div style={{ ...card, padding: 14 }}>
+            <div className="staff-dashboard-stat-card" style={{ ...card, padding: 14 }}>
               <div style={mini}>{item.label}</div>
               <div style={{ fontSize: 30, fontWeight: 950, marginTop: 6 }}>{item.value}</div>
             </div>
@@ -1426,7 +1433,7 @@ function StaffHome({
             <div style={{ fontWeight: 900, fontSize: 22 }}>Today’s business view</div>
             <div style={{ opacity: 0.84 }}>Quick counts for pickup readiness, open balances, and recent intake volume.</div>
           </div>
-          <div style={ownerGrid}>
+          <div style={ownerGrid} className="staff-dashboard-owner-grid">
             {[
               { label: 'Ready for Pickup', value: dashboard?.readyForPickup ?? 0 },
               { label: 'Unpaid Processing', value: dashboard?.unpaidProcessing ?? 0 },
@@ -1436,6 +1443,7 @@ function StaffHome({
               { label: 'Ready & Unpaid', value: fmtMoney((dashboard as any)?.readyUnpaidAmount ?? 0) },
             ].map((item) => (
               <div
+                className="staff-dashboard-owner-card"
                 key={item.label}
                 style={{
                   border: '1px solid rgba(200,138,61,.14)',
@@ -1449,7 +1457,7 @@ function StaffHome({
               </div>
             ))}
           </div>
-          <div style={{ ...ownerGrid, marginTop: 12, marginBottom: 0 }}>
+          <div style={{ ...ownerGrid, marginTop: 12, marginBottom: 0 }} className="staff-dashboard-owner-grid staff-dashboard-owner-grid-secondary">
             {[
               { label: 'Avg Processing Time', value: fmtHours((dashboard as any)?.avgProcessingHours) },
               { label: 'Avg Ready Hold Time', value: fmtDays((dashboard as any)?.avgReadyAgeDays) },
@@ -1459,6 +1467,7 @@ function StaffHome({
               { label: 'Ready 14+ Days', value: (dashboard as any)?.readyHeld14d ?? 0 },
             ].map((item) => (
               <div
+                className="staff-dashboard-owner-card"
                 key={item.label}
                 style={{
                   border: '1px solid rgba(200,138,61,.14)',
@@ -1473,9 +1482,10 @@ function StaffHome({
             ))}
           </div>
           <div style={{ marginTop: 14 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }} className="staff-dashboard-actions">
               <Link
                 href="/reports/owner-insights"
+                className="dashboard-inline-link"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1493,6 +1503,7 @@ function StaffHome({
               </Link>
               <Link
                 href="/reports/balances"
+                className="dashboard-inline-link"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -1513,43 +1524,43 @@ function StaffHome({
         </section>
       ) : null}
 
-      <div style={splitGrid}>
-        <div style={{ ...card, gridColumn: 'span 2' }}>
+      <div style={splitGrid} className="staff-dashboard-reports-grid">
+        <div style={{ ...card, gridColumn: 'span 2' }} className="staff-dashboard-reports-card">
           <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 8 }}>
             Reports
           </div>
 
           <div style={list}>
             <Link href="/reports/calls" style={linkStyle}>
-              <div style={row}>
+              <div className="staff-dashboard-report-row" style={row}>
                 <div style={dot('rgba(51,117,71,.9)')} />
                 <div style={{ fontWeight: 800 }}>Call Report - Ready to Call {dashboard ? `(${dashboard.calledQueue})` : ''}</div>
               </div>
             </Link>
 
             <Link href="/reports/specialty" style={linkStyle}>
-              <div style={row}>
+              <div className="staff-dashboard-report-row" style={row}>
                 <div style={dot('rgba(200,70,25,.9)')} />
                 <div style={{ fontWeight: 800 }}>Specialty Totals - Open lbs</div>
               </div>
             </Link>
 
             <Link href="/overnight/review" style={linkStyle}>
-              <div style={row}>
+              <div className="staff-dashboard-report-row" style={row}>
                 <div style={dot('rgba(167,115,18,.9)')} />
                 <div style={{ fontWeight: 800 }}>Public Intake - Needs Tag {dashboard ? `(${dashboard.pendingTags})` : ''}</div>
               </div>
             </Link>
 
             <Link href="/reports/called" style={linkStyle}>
-              <div style={row}>
+              <div className="staff-dashboard-report-row" style={row}>
                 <div style={dot('rgba(115,75,170,.95)')} />
                 <div style={{ fontWeight: 800 }}>Called - Pickup Queue</div>
               </div>
             </Link>
 
             <Link href="/reports/state-form" style={linkStyle}>
-              <div style={row}>
+              <div className="staff-dashboard-report-row" style={row}>
                 <div style={dot('rgba(79,126,91,.9)')} />
                 <div style={{ fontWeight: 800 }}>State Form - Season PDF {dashboard ? `(${dashboard.seasonEntries})` : ''}</div>
               </div>
@@ -1557,25 +1568,144 @@ function StaffHome({
           </div>
         </div>
 
-        <div style={card}>
+        <div style={card} className="staff-dashboard-reference-card">
           <div style={mini}>Reference</div>
-          <Link href="/tips" style={linkStyle}>
-            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-              Tip Sheet
-            </div>
-          </Link>
-          <div style={{ opacity: 0.8, marginTop: 4 }}>Short reminders for staff</div>
-          <div style={{ height: 10 }} />
-          <Link href="/faq" style={linkStyle}>
-            <div style={{ fontWeight: 900, fontSize: 18, marginTop: 6 }}>
-              FAQ
-            </div>
-          </Link>
-          <div style={{ opacity: 0.8, marginTop: 4 }}>
-            Customer questions &amp; answers
+          <div className="staff-dashboard-reference-links">
+            <Link href="/tips" style={linkStyle}>
+              <div className="staff-dashboard-reference-link">
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Tip Sheet</div>
+                <div style={{ opacity: 0.8, marginTop: 4 }}>Short reminders for staff</div>
+              </div>
+            </Link>
+            <Link href="/faq" style={linkStyle}>
+              <div className="staff-dashboard-reference-link">
+                <div style={{ fontWeight: 900, fontSize: 18 }}>FAQ</div>
+                <div style={{ opacity: 0.8, marginTop: 4 }}>
+                  Customer questions &amp; answers
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </div>
     </main>
+    <style>{`
+      .staff-dashboard-primary-card,
+      .staff-dashboard-queue-row,
+      .staff-dashboard-report-row,
+      .staff-dashboard-reference-link,
+      .dashboard-inline-action,
+      .dashboard-inline-link,
+      .staff-dashboard-badge {
+        transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+      }
+
+      .staff-dashboard-primary-card:hover,
+      .staff-dashboard-queue-row:hover,
+      .staff-dashboard-report-row:hover,
+      .staff-dashboard-reference-link:hover,
+      .dashboard-inline-link:hover {
+        transform: translateY(-1px);
+        border-color: rgba(200, 138, 61, 0.24);
+      }
+
+      .staff-dashboard-reference-links {
+        display: grid;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .staff-dashboard-reference-link {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 14px;
+        background: rgba(14, 13, 12, 0.88);
+      }
+
+      @media (max-width: 920px) {
+        .staff-dashboard-header-top,
+        .staff-dashboard-split-grid,
+        .staff-dashboard-reports-grid {
+          grid-template-columns: 1fr !important;
+        }
+
+        .staff-dashboard-meta {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          align-items: stretch;
+        }
+
+        .staff-dashboard-badge,
+        .dashboard-inline-action,
+        .dashboard-inline-link {
+          width: 100%;
+          justify-content: center;
+        }
+
+        .staff-dashboard-reports-card {
+          grid-column: auto !important;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .staff-dashboard-shell {
+          padding-top: 16px;
+        }
+
+        .staff-dashboard-header-top {
+          gap: 14px;
+        }
+
+        .staff-dashboard-meta,
+        .staff-dashboard-primary-grid,
+        .staff-dashboard-stats-grid,
+        .staff-dashboard-owner-grid,
+        .staff-dashboard-kpis {
+          grid-template-columns: 1fr !important;
+        }
+
+        .staff-dashboard-primary-card,
+        .staff-dashboard-owner-card,
+        .staff-dashboard-stat-card {
+          padding: 16px !important;
+        }
+
+        .staff-dashboard-queue-row {
+          grid-template-columns: 1fr !important;
+          gap: 10px !important;
+          align-items: start !important;
+        }
+
+        .staff-dashboard-queue-value {
+          justify-self: start;
+          min-width: 56px;
+          padding: 6px 12px;
+          border-radius: 999px;
+          background: rgba(200, 138, 61, 0.14);
+          border: 1px solid rgba(200, 138, 61, 0.2);
+          font-size: 22px !important;
+          line-height: 1;
+        }
+
+        .staff-dashboard-focus-row,
+        .staff-dashboard-report-row {
+          grid-template-columns: 1fr !important;
+          gap: 8px !important;
+          align-items: start !important;
+        }
+
+        .staff-dashboard-focus-row > :first-child,
+        .staff-dashboard-report-row > :first-child {
+          width: 12px;
+          height: 12px;
+          margin-bottom: 2px;
+        }
+
+        .staff-dashboard-actions {
+          display: grid !important;
+          grid-template-columns: 1fr;
+        }
+      }
+    `}</style>
+    </>
   );
 }
