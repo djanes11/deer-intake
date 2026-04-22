@@ -28,6 +28,8 @@ type Row = {
   paymentMethodSpec?: 'cash' | 'card' | 'check' | 'other' | null;
   paidProcessing?: boolean;
   paidSpecialty?: boolean;
+  paidProcessingAt?: string;
+  paidSpecialtyAt?: string;
   pickedUp?: boolean;
   pickedUpAt?: string;
   pickedUpBy?: string;
@@ -133,6 +135,8 @@ async function fetchCalled(): Promise<Row[]> {
     const amountPaidSpec = Number(r?.amountPaidSpecialty ?? r?.amount_paid_specialty ?? 0) || 0;
     const paymentMethodProc = String(r?.paymentMethodProcessing ?? r?.payment_method_processing ?? '').trim().toLowerCase() || null;
     const paymentMethodSpec = String(r?.paymentMethodSpecialty ?? r?.payment_method_specialty ?? '').trim().toLowerCase() || null;
+    const paidProcessingAt = String(r?.paidProcessingAt ?? r?.paid_processing_at ?? '').trim() || undefined;
+    const paidSpecialtyAt = String(r?.paidSpecialtyAt ?? r?.paid_specialty_at ?? '').trim() || undefined;
     const procDue = remaining(priceProc, amountPaidProc);
     const specDue = remaining(priceSpec, amountPaidSpec);
     const pickedUpProcessing = !!(r?.pickedUpProcessing ?? r?.picked_up_processing ?? r?.['Picked Up - Processing']);
@@ -167,6 +171,8 @@ async function fetchCalled(): Promise<Row[]> {
         totalDue: procDue + specDue,
         paidProcessing,
         paidSpecialty,
+        paidProcessingAt,
+        paidSpecialtyAt,
         pickedUp: pickedUpProcessing,
         pickedUpAt: pickedUpProcessingAt,
         pickedUpBy,
@@ -193,6 +199,8 @@ async function fetchCalled(): Promise<Row[]> {
         totalDue: 0,
         paidProcessing,
         paidSpecialty,
+        paidProcessingAt,
+        paidSpecialtyAt,
         pickedUp: pickedUpCape,
         pickedUpAt: pickedUpCapeAt,
         pickedUpBy,
@@ -219,6 +227,8 @@ async function fetchCalled(): Promise<Row[]> {
         totalDue: 0,
         paidProcessing,
         paidSpecialty,
+        paidProcessingAt,
+        paidSpecialtyAt,
         pickedUp: pickedUpWebbs,
         pickedUpAt: pickedUpWebbsAt,
         pickedUpBy,
@@ -248,6 +258,32 @@ async function recordPayment(
       ? ({ tag, amountPaidSpecialty: amount, paymentMethodSpecialty: method } as any)
       : ({ tag, amountPaidProcessing: amount, paymentMethodProcessing: method } as any),
   );
+}
+
+function mergePaymentUpdate(row: Row, job: any): Row {
+  const priceProc = Number(job?.priceProcessing ?? job?.price_processing ?? row.priceProc ?? 0) || 0;
+  const priceSpec = Number(job?.priceSpecialty ?? job?.price_specialty ?? row.priceSpec ?? 0) || 0;
+  const amountPaidProc = Number(job?.amountPaidProcessing ?? job?.amount_paid_processing ?? row.amountPaidProc ?? 0) || 0;
+  const amountPaidSpec = Number(job?.amountPaidSpecialty ?? job?.amount_paid_specialty ?? row.amountPaidSpec ?? 0) || 0;
+  const procDue = remaining(priceProc, amountPaidProc);
+  const specDue = remaining(priceSpec, amountPaidSpec);
+
+  return {
+    ...row,
+    priceProc,
+    priceSpec,
+    amountPaidProc,
+    amountPaidSpec,
+    procDue,
+    specDue,
+    totalDue: row.track === 'meat' ? procDue + specDue : row.totalDue,
+    paymentMethodProc: (String(job?.paymentMethodProcessing ?? job?.payment_method_processing ?? row.paymentMethodProc ?? '').trim().toLowerCase() || null) as any,
+    paymentMethodSpec: (String(job?.paymentMethodSpecialty ?? job?.payment_method_specialty ?? row.paymentMethodSpec ?? '').trim().toLowerCase() || null) as any,
+    paidProcessing: Boolean(job?.paidProcessing ?? job?.paid_processing ?? row.paidProcessing),
+    paidSpecialty: Boolean(job?.paidSpecialty ?? job?.paid_specialty ?? row.paidSpecialty),
+    paidProcessingAt: String(job?.paidProcessingAt ?? job?.paid_processing_at ?? row.paidProcessingAt ?? '').trim() || undefined,
+    paidSpecialtyAt: String(job?.paidSpecialtyAt ?? job?.paid_specialty_at ?? row.paidSpecialtyAt ?? '').trim() || undefined,
+  };
 }
 
 async function markPickedUp(tag: string, track: Track, pickedUpBy?: string, pickupNotes?: string) {
@@ -544,6 +580,24 @@ export default function CalledPickupQueue() {
               </div>
             </div>
             <div className="fact">
+              <div className="fact-label">Paid At</div>
+              <div className="fact-value">
+                {selected.track === 'meat'
+                  ? selected.paidProcessingAt || selected.paidSpecialtyAt
+                    ? 'Payment recorded'
+                    : 'Not fully paid'
+                  : 'Included'}
+              </div>
+              <div className="fact-sub">
+                {selected.track === 'meat'
+                  ? [
+                      selected.paidProcessingAt ? `Processing ${formatDisplayDateTime(selected.paidProcessingAt)}` : null,
+                      selected.paidSpecialtyAt ? `Specialty ${formatDisplayDateTime(selected.paidSpecialtyAt)}` : null,
+                    ].filter(Boolean).join(' | ') || 'Processing and specialty will show here once they are fully paid.'
+                  : 'Cape and Webbs tracks do not record a separate payment timestamp here.'}
+              </div>
+            </div>
+            <div className="fact">
               <div className="fact-label">Waiting</div>
               <div className="fact-value">{ageSince(selected.calledAt)}</div>
               <div className="fact-sub">
@@ -771,12 +825,15 @@ export default function CalledPickupQueue() {
                 if (!Number.isFinite(amount) || amount <= 0) return;
                 setBusy(`paid:${selected.tag}:processing`);
                 try {
-                  await recordPayment(
+                  const res = await recordPayment(
                     selected.tag,
                     'processing',
                     Math.min(selected.amountPaidProc + amount, selected.priceProc),
                     processingPaymentMethod,
                   );
+                  if (res?.job) {
+                    setRows((prev) => prev.map((row) => (row.tag === selected.tag ? mergePaymentUpdate(row, res.job) : row)));
+                  }
                   await load();
                 } finally {
                   setBusy('');
@@ -796,12 +853,15 @@ export default function CalledPickupQueue() {
                 if (!Number.isFinite(amount) || amount <= 0) return;
                 setBusy(`paid:${selected.tag}:specialty`);
                 try {
-                  await recordPayment(
+                  const res = await recordPayment(
                     selected.tag,
                     'specialty',
                     Math.min(selected.amountPaidSpec + amount, selected.priceSpec),
                     specialtyPaymentMethod,
                   );
+                  if (res?.job) {
+                    setRows((prev) => prev.map((row) => (row.tag === selected.tag ? mergePaymentUpdate(row, res.job) : row)));
+                  }
                   await load();
                 } finally {
                   setBusy('');
