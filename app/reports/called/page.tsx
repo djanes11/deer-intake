@@ -15,6 +15,7 @@ type Row = {
   customer: string;
   phone: string;
   track: Track;
+  queueAt?: string;
   calledAt?: string;
   readyAt?: string;
   priceProc: number;
@@ -75,6 +76,12 @@ function isCalled(value?: string) {
   return String(value || '').trim().toLowerCase() === 'called';
 }
 
+function isReadyLike(value?: string) {
+  const v = String(value || '').trim().toLowerCase();
+  if (!v || v === 'called' || v === 'picked up') return false;
+  return /finish|ready|complete|completed|done|caped|delivered/.test(v);
+}
+
 function ageSince(value?: string) {
   if (!value) return '-';
   const when = new Date(value);
@@ -106,6 +113,12 @@ async function fetchCalled(): Promise<Row[]> {
 
     const calledAt =
       String(r?.lastCallAt ?? r?.lastCalledAt ?? r?.['Last Call At'] ?? r?.calledAt ?? '').trim() || undefined;
+    const meatFinishedSmsSentAt = String(r?.meatFinishedSmsSentAt ?? r?.meat_finished_sms_sent_at ?? '').trim() || undefined;
+    const meatFinishedEmailSentAt = String(r?.meatFinishedEmailSentAt ?? r?.finished_email_sent_at ?? '').trim() || undefined;
+    const capeFinishedSmsSentAt = String(r?.capeFinishedSmsSentAt ?? r?.cape_finished_sms_sent_at ?? '').trim() || undefined;
+    const capeFinishedEmailSentAt = String(r?.capeFinishedEmailSentAt ?? r?.cape_finished_email_sent_at ?? '').trim() || undefined;
+    const webbsDeliveredSmsSentAt = String(r?.webbsDeliveredSmsSentAt ?? r?.webbs_delivered_sms_sent_at ?? '').trim() || undefined;
+    const webbsDeliveredEmailSentAt = String(r?.webbsDeliveredEmailSentAt ?? r?.webbs_delivered_email_sent_at ?? '').trim() || undefined;
 
     const savedProc = Number(
       r?.priceProcessing ??
@@ -151,15 +164,20 @@ async function fetchCalled(): Promise<Row[]> {
 
     const processingFinishedAt = String(r?.processingFinishedAt ?? r?.processing_finished_at ?? '').trim() || undefined;
 
-    if (isCalled(status)) {
+    const meatReadyAt = processingFinishedAt || meatFinishedSmsSentAt || meatFinishedEmailSentAt || calledAt;
+    const capeReadyAt = capeFinishedSmsSentAt || capeFinishedEmailSentAt || calledAt;
+    const webbsReadyAt = webbsDeliveredSmsSentAt || webbsDeliveredEmailSentAt || calledAt;
+
+    if (isCalled(status) || isReadyLike(status)) {
       out.push({
         tag,
         confirmation,
         customer,
         phone,
         track: 'meat',
+        queueAt: calledAt || meatReadyAt,
         calledAt,
-        readyAt: processingFinishedAt || calledAt,
+        readyAt: meatReadyAt,
         priceProc,
         priceSpec,
         amountPaidProc,
@@ -179,15 +197,16 @@ async function fetchCalled(): Promise<Row[]> {
         pickupNotes,
       });
     }
-    if (isCalled(capingStatus)) {
+    if (isCalled(capingStatus) || isReadyLike(capingStatus)) {
       out.push({
         tag,
         confirmation,
         customer,
         phone,
         track: 'cape',
+        queueAt: calledAt || capeReadyAt,
         calledAt,
-        readyAt: calledAt,
+        readyAt: capeReadyAt,
         priceProc,
         priceSpec,
         amountPaidProc,
@@ -207,15 +226,16 @@ async function fetchCalled(): Promise<Row[]> {
         pickupNotes,
       });
     }
-    if (isCalled(webbsStatus)) {
+    if (isCalled(webbsStatus) || isReadyLike(webbsStatus)) {
       out.push({
         tag,
         confirmation,
         customer,
         phone,
         track: 'webbs',
+        queueAt: calledAt || webbsReadyAt,
         calledAt,
-        readyAt: calledAt,
+        readyAt: webbsReadyAt,
         priceProc,
         priceSpec,
         amountPaidProc,
@@ -239,7 +259,7 @@ async function fetchCalled(): Promise<Row[]> {
 
   const order: Record<Track, number> = { meat: 0, cape: 1, webbs: 2 };
   out.sort((a, b) => {
-    const at = (a.calledAt || '').localeCompare(b.calledAt || '');
+    const at = (a.queueAt || a.calledAt || a.readyAt || '').localeCompare(b.queueAt || b.calledAt || b.readyAt || '');
     if (at !== 0) return -at;
     return order[a.track] - order[b.track];
   });
@@ -548,7 +568,13 @@ export default function CalledPickupQueue() {
               <div className="selected-meta">
                 <span>Confirmation {selected.confirmation || '-'}</span>
                 <span>{selected.phone || 'No phone'}</span>
-                <span>{selected.calledAt ? `Called ${formatDisplayDateTime(selected.calledAt)}` : 'Not stamped yet'}</span>
+                <span>
+                  {selected.calledAt
+                    ? `Called ${formatDisplayDateTime(selected.calledAt)}`
+                    : selected.readyAt
+                      ? `Ready ${formatDisplayDateTime(selected.readyAt)}`
+                      : 'Not stamped yet'}
+                </span>
               </div>
             </div>
             <TrackBadge track={selected.track} />
@@ -599,16 +625,18 @@ export default function CalledPickupQueue() {
             </div>
             <div className="fact">
               <div className="fact-label">Waiting</div>
-              <div className="fact-value">{ageSince(selected.calledAt)}</div>
+              <div className="fact-value">{ageSince(selected.queueAt || selected.calledAt || selected.readyAt)}</div>
               <div className="fact-sub">
-                {selected.calledAt ? formatDisplayDateTime(selected.calledAt) : 'No called timestamp'}
+                {selected.queueAt || selected.calledAt || selected.readyAt
+                  ? formatDisplayDateTime(selected.queueAt || selected.calledAt || selected.readyAt)
+                  : 'No ready timestamp'}
               </div>
             </div>
             <div className="fact">
               <div className="fact-label">Pickup Status</div>
               <div className="fact-value">{selected.pickedUp ? 'Picked up' : 'Ready for pickup'}</div>
               <div className="fact-sub">
-                {selected.pickedUpAt ? formatDisplayDateTime(selected.pickedUpAt) : 'Still in called queue'}
+                {selected.pickedUpAt ? formatDisplayDateTime(selected.pickedUpAt) : 'Still in pickup queue'}
               </div>
             </div>
             <div className="fact fact-wide">
@@ -721,7 +749,13 @@ export default function CalledPickupQueue() {
                   </div>
                   <div className="mobile-called-meta">
                     <span>{r.phone || 'No phone'}</span>
-                    <span>{r.calledAt ? `Called ${ageSince(r.calledAt)} ago` : 'Not stamped yet'}</span>
+                    <span>
+                      {r.calledAt
+                        ? `Called ${ageSince(r.calledAt)} ago`
+                        : r.readyAt
+                          ? `Ready ${ageSince(r.queueAt || r.readyAt)} ago`
+                          : 'Not stamped yet'}
+                    </span>
                     <span>{r.pickedUp ? 'Picked up' : 'Ready for pickup'}</span>
                   </div>
                   <div className="mobile-called-balance">
@@ -778,7 +812,7 @@ export default function CalledPickupQueue() {
                     </div>
                   </div>
                   <div><TrackBadge track={r.track} /></div>
-                  <div>{r.calledAt ? formatDisplayDateTime(r.calledAt) : '-'}</div>
+                  <div>{r.calledAt ? formatDisplayDateTime(r.calledAt) : r.readyAt ? `Ready ${formatDisplayDateTime(r.readyAt)}` : '-'}</div>
                   <div className="balance-cell">
                     <div className="balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
                     {r.track === 'meat' ? (
@@ -790,7 +824,7 @@ export default function CalledPickupQueue() {
                     )}
                   </div>
                   <div><PaymentBadge row={r} /></div>
-                  <div>{ageSince(r.calledAt)}</div>
+                  <div>{ageSince(r.queueAt || r.calledAt || r.readyAt)}</div>
                   <div>{r.pickedUp ? <span className="badge ok">Done</span> : <span className="badge ready">Ready</span>}</div>
                 </div>
               );
