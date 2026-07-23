@@ -348,7 +348,7 @@ async function markPrinted(tag: string) {
 const asBool = (v: any): boolean => {
   if (typeof v === 'boolean') return v;
   const s = String(v ?? '').trim().toLowerCase();
-  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', 'âœ“', 'âœ”'].includes(s);
+  return ['true', 'yes', 'y', '1', 'on', 'paid', 'x', '\u2713', '\u2714'].includes(s);
 };
 
 type AnyRec = Record<string, any>;
@@ -1673,7 +1673,7 @@ useEffect(() => {
                 onChange={(e) => setVal('customer', e.target.value)}
               />
               {customerLookupBusy && customerLookupVisible ? (
-                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer infoâ€¦</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Looking up previous customer info...</div>
               ) : customerLookupVisible && customerMatches.length > 1 ? (
                 <div className="customerMatchList">
                   <div className="customerMatchTitle">Possible previous customers</div>
@@ -1755,7 +1755,7 @@ useEffect(() => {
                 value={job.state || ''}
                 onChange={(e) => { setZipDirty(false); setVal('state', e.target.value as 'IN' | 'KY' | ''); }}
               >
-                <option value="">â€”</option>
+                <option value="">-</option>
                 <option value="IN">IN</option>
                 <option value="KY">KY</option>
                 <option value="--">--</option>
@@ -1876,7 +1876,7 @@ useEffect(() => {
                 onChange={(e) => setVal('sex', e.target.value as Job['sex'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">â€”</option>
+                <option value="">-</option>
                 <option value="Buck">Buck</option>
                 <option value="Doe">Doe</option>
                 <option value="Antlerless">Antlerless</option>
@@ -1890,7 +1890,7 @@ useEffect(() => {
                 onChange={(e) => setVal('howKilled', e.target.value as Job['howKilled'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">â€”</option>
+                <option value="">-</option>
                 <option value="Gun">Gun</option>
                 <option value="Archery">Archery</option>
                 <option value="Vehicle">Vehicle</option>
@@ -1904,7 +1904,7 @@ useEffect(() => {
                 onChange={(e) => setVal('processType', e.target.value as Job['processType'])}
                 className="w-full min-w-[10rem]"
               >
-                <option value="">â€”</option>
+                <option value="">-</option>
                 {availableProcessCatalog.map((item) => (
                   <option key={item.slug} value={item.name}>{item.name}</option>
                 ))}

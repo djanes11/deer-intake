@@ -141,7 +141,7 @@ export default function ScanPage() {
     if (typeof v === 'boolean') return v;
     const s = String(v ?? '').trim().toLowerCase();
     if (!s || ['0', 'false', 'no', 'off', 'none', 'n/a', 'na'].includes(s)) return false;
-    if (['true', 'yes', 'y', 'x', '1', 'âœ“', 'âœ”', 'on'].includes(s)) return true;
+    if (['true', 'yes', 'y', 'x', '1', '\u2713', '\u2714', 'on'].includes(s)) return true;
     const n = Number(s);
     return Number.isFinite(n) ? n > 0 : !!s;
   };
@@ -194,7 +194,7 @@ export default function ScanPage() {
     return j;
   }
 
-  // ===== Map Supabase Job (camelCase) â†’ overlay row (sheet-like headers) =====
+  // ===== Map Supabase Job (camelCase) -> overlay row (sheet-like headers) =====
   function jobToCanon(job: AnyRec, tagFallback: string): AnyRec {
     const j = job || {};
     const out: AnyRec = {
