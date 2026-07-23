@@ -6,6 +6,7 @@ import {
   specialtyPrice as calcSpecialtyPrice,
   specialtyTotalLbs,
 } from '@/lib/specialty';
+import { normalizeCutOptionSettings, type CutOptionSettings } from '@/lib/cutOptions';
 import {
   hasWebbsOrder,
   normalizeWebbsAllocations,
@@ -26,10 +27,13 @@ export interface PrintSheetProps {
   job?: AnyRec | null;
   hideHeader?: boolean;
   webbsEnabled?: boolean;
+  smsEnabled?: boolean;
+  specialtyEnabled?: boolean;
+  cutOptions?: Partial<CutOptionSettings> | null;
 }
 
-const CHK = '☑';
-const BOX = '☐';
+const CHK = '\u2611';
+const BOX = '\u2610';
 
 /* ---------------- helpers ---------------- */
 function jpick<T = any>(obj: AnyRec | null | undefined, keys: string[]): T | undefined {
@@ -63,6 +67,13 @@ function money(n: number): string {
   return '$' + (Number.isFinite(n) ? n.toFixed(2) : '0.00');
 }
 
+function printColClass(count: number): string {
+  if (count <= 1) return 'col-12';
+  if (count === 2) return 'col-6';
+  if (count === 3) return 'col-4';
+  return 'col-3';
+}
+
 function shortWebbsLabel(label: string): string {
   return label
     .replace(/^Venison\s+/i, 'V. ')
@@ -89,7 +100,7 @@ function truthyFactory(job: AnyRec | null | undefined) {
       if (v === undefined || v === null || v === '') continue;
       if (typeof v === 'boolean') return v;
       const s = String(v).trim().toLowerCase();
-      if (['true','1','yes','y','x','t','on','✓','☑'].includes(s)) return true;
+      if (['true','1','yes','y','x','t','on','\u2713','\u2611'].includes(s)) return true;
       if (!Number.isNaN(Number(s)) && Number(s) > 0) return true;
       return false;
     }
@@ -131,10 +142,23 @@ function suggestedProcessingPrice(proc: any, beef: any, webbs: any): number {
   return base + beefAdd + webbsAdd;
 }
 /* ---------------- component ---------------- */
-export default function PrintSheet({ tag, job, hideHeader, webbsEnabled = true }: PrintSheetProps) {
+export default function PrintSheet({
+  tag,
+  job,
+  hideHeader,
+  webbsEnabled = true,
+  smsEnabled = true,
+  specialtyEnabled = true,
+  cutOptions,
+}: PrintSheetProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const truthy = truthyFactory(job);
   const textVal = textValFactory(job);
+  const normalizedCutOptions = useMemo(() => normalizeCutOptionSettings(cutOptions || {}), [cutOptions]);
+  const showFrontShoulderSteaks = normalizedCutOptions.showFrontShoulderSteaks !== false;
+  const showSteakThickness = normalizedCutOptions.showSteakThickness !== false;
+  const showBackstrapThickness = normalizedCutOptions.showBackstrapThickness !== false;
+  const showRoastCounts = normalizedCutOptions.showRoastCounts !== false;
 
   const tagKey = useMemo(
     () => String((job && (job['Tag'] ?? job.tag ?? job?.tag_id ?? job?.tagId)) ?? tag ?? ''),
@@ -237,7 +261,10 @@ export default function PrintSheet({ tag, job, hideHeader, webbsEnabled = true }
   );
   const webbsPaperFormCompleted = truthy('webbsPaperFormCompleted', 'webbs_paper_form_completed');
   const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
-  const hasSpecialty = truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') || hasSpecialtySelection(job);
+  const hasSpecialty = specialtyEnabled && (
+    truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') ||
+    hasSpecialtySelection(job)
+  );
   const hasWebbs = webbsEnabled && hasWebbsOrder(jpick(job, ['Webbs Order', 'webbsOrder', 'webbs_order']));
   const webbsSummaryText = useMemo(
     () =>
@@ -300,16 +327,61 @@ const frontNone  = truthy('Front - None','frontNone',   (frontObj as any)['Front
 
 const hindSelections = [
   hindSteak ? 'Steak' : '',
-  hindRoast ? `Roast${hindRoastCnt ? ` (${hindRoastCnt})` : ''}` : '',
+  hindRoast ? `Roast${showRoastCounts && hindRoastCnt ? ` (${hindRoastCnt})` : ''}` : '',
   hindGrind ? 'Grind' : '',
   hindNone ? 'None' : '',
 ].filter(Boolean);
 
+const frontSteak = truthy('Front - Steak','frontSteak', (frontObj as any)['Front - Steak'], (frontObj as any).steak);
 const frontSelections = [
-  frontRoast ? `Roast${frontRoastCnt ? ` (${frontRoastCnt})` : ''}` : '',
+  showFrontShoulderSteaks && frontSteak ? 'Steak' : '',
+  frontRoast ? `Roast${showRoastCounts && frontRoastCnt ? ` (${frontRoastCnt})` : ''}` : '',
   frontGrind ? 'Grind' : '',
   frontNone ? 'None' : '',
 ].filter(Boolean);
+
+const steakThicknessRaw = textVal('Steak Thickness','Steak Size','steak','steakSize','steak_size');
+const steakThicknessValue =
+  steakThicknessRaw === 'Other'
+    ? textVal('Steak Thickness Other', 'Steak Size Other', 'steakOther', 'steak_size_other')
+    : steakThicknessRaw;
+const steaksPerPackage = textVal(
+  'Steaks per Package','Steaks Per Package',
+  'Steaks/Package','Steaks Per Pkg',
+  'steaksPerPackage','steaks_per_package','SteaksPerPackage'
+);
+const burgerSize = textVal('Burger Size','burgerSize','burger_size');
+const addOnSummary = addOnItems.map((item) => `${item.name}${item.price ? ` (+${money(item.price)})` : ''}`).join(' | ');
+const meatDetailFields = [
+  showSteakThickness && steakThicknessValue ? { label: 'Steak Thickness', value: steakThicknessValue } : null,
+  steaksPerPackage ? { label: 'Steaks per Package', value: steaksPerPackage } : null,
+  burgerSize ? { label: 'Burger Size', value: burgerSize } : null,
+  addOnSummary ? { label: 'Add-Ons', value: addOnSummary } : null,
+].filter(Boolean) as Array<{ label: string; value: string }>;
+
+const backstrapPrep = textVal(
+  'Backstrap Prep','backstrapPrep','backstrap_prep',
+  'Back Strap Prep','back_strap_prep'
+);
+const backstrapThicknessRaw = textVal(
+  'Backstrap Thickness','backstrapThickness','backstrap_thickness',
+  'Back Strap Thickness','back_strap_thickness'
+);
+const backstrapThicknessValue =
+  backstrapThicknessRaw === 'Other'
+    ? textVal('Backstrap Thickness Other', 'backstrapThicknessOther', 'backstrap_thickness_other')
+    : backstrapThicknessRaw;
+const backstrapFields = [
+  backstrapPrep ? { label: 'Backstrap Prep', value: backstrapPrep } : null,
+  showBackstrapThickness && backstrapThicknessValue ? { label: 'Backstrap Thickness', value: backstrapThicknessValue } : null,
+].filter(Boolean) as Array<{ label: string; value: string }>;
+
+const contactPreferenceItems = [
+  truthy('Pref Email','prefEmail') ? 'Email' : null,
+  smsEnabled && truthy('Pref SMS','prefSMS') ? 'Text (SMS)' : null,
+  truthy('Pref Call','prefCall') ? 'Phone Call' : null,
+].filter(Boolean);
+const showSmsConsent = smsEnabled && truthy('Pref SMS','prefSMS');
 
   /* -------- barcode on every copy -------- */
   useEffect(() => {
@@ -380,8 +452,8 @@ return () => {
       }
       const MM_PER_IN = 25.4;
       const DPI = 96;
-      const MARGIN_MM = 6.5;
-      const SAFETY_PX = 6;
+      const MARGIN_MM = 5;
+      const SAFETY_PX = 18;
       const printable = Math.round(11 * DPI - 2 * MARGIN_MM * (DPI / MM_PER_IN)) - SAFETY_PX;
 
       pages.forEach((p) => {
@@ -396,7 +468,7 @@ return () => {
           const h = page.scrollHeight;
           const needsShrink = h > printable;
           const rawScale = needsShrink ? printable / h : 1;
-          const scale = Math.max(0.82, Math.min(1, Number(rawScale.toFixed(3))));
+          const scale = Math.max(0.68, Math.min(1, Number(rawScale.toFixed(3))));
 
           page.style.setProperty('--print-scale', String(scale));
           page.dataset.overflow = scale < 0.999 ? '1' : '0';
@@ -405,11 +477,24 @@ return () => {
 
     };
     adjust();
+    const t1 = setTimeout(adjust, 60);
+    const t2 = setTimeout(adjust, 250);
+    const t3 = setTimeout(adjust, 700);
     const onBeforePrint = () => setTimeout(adjust, 0);
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeprint', onBeforePrint);
-      return () => window.removeEventListener('beforeprint', onBeforePrint);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+        window.removeEventListener('beforeprint', onBeforePrint);
+      };
     }
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
   }, [copies, tagKey]);
 
   const renderCopy = (i: number) => (
@@ -506,103 +591,71 @@ return () => {
         <div className="col-6 box">
           <div className="label">Hind Quarter</div>
           <div className="val cutSummary">
-            {hindSelections.length ? hindSelections.join(' | ') : '—'}
+            {hindSelections.length ? hindSelections.join(' | ') : '-'}
           </div>
         </div>
         <div className="col-6 box">
           <div className="label">Front Shoulder</div>
           <div className="val cutSummary">
-            {frontSelections.length ? frontSelections.join(' | ') : '—'}
+            {frontSelections.length ? frontSelections.join(' | ') : '-'}
           </div>
         </div>
       </div>
 
       {/* Row E */}
-      <div className="row grid12 meat-row">
-        <div className="col-4 box">
-          <div className="label">Steak Thickness</div>
-          <div className="val">
-            {textVal(
-              'Steak Thickness','Steak Size','steak','steakSize','steak_size'
-            ) === 'Other'
-              ? textVal('Steak Thickness Other', 'Steak Size Other', 'steakOther', 'steak_size_other')
-              : textVal(
-                  'Steak Thickness','Steak Size','steak','steakSize','steak_size'
-                )}
-          </div>
+      {meatDetailFields.length ? (
+        <div className="row grid12 meat-row">
+          {meatDetailFields.map((field) => (
+            <div key={field.label} className={`${printColClass(meatDetailFields.length)} box`}>
+              <div className="label">{field.label}</div>
+              <div className="val">{field.value}</div>
+            </div>
+          ))}
         </div>
-        <div className="col-4 box">
-          <div className="label">Steaks per Package</div>
-          <div className="val">
-            {textVal(
-              'Steaks per Package','Steaks Per Package',
-              'Steaks/Package','Steaks Per Pkg',
-              'steaksPerPackage','steaks_per_package','SteaksPerPackage'
-            )}
-          </div>
-        </div>
-
-        <div className="col-4 box">
-          <div className="label">Burger Size</div>
-          <div className="val">
-            {textVal('Burger Size','burgerSize','burger_size')}
-          </div>
-        </div>
-
-        <div className="col-4 box">
-          <div className="label">Add-Ons</div>
-          <div className="val">
-            {addOnItems.length ? addOnItems.map((item) => `${item.name}${item.price ? ` (+${money(item.price)})` : ''}`).join(' | ') : 'No add-ons'}
-          </div>
-        </div>
-      </div>
+      ) : null}
 
       {/* Row: Backstrap */}
-      <div className="row grid12 meat-row">
-        <div className="col-12 box">
-          <div className="label">Backstrap Prep</div>
-          <div className="val bs-val">
-            {textVal(
-              'Backstrap Prep','backstrapPrep','backstrap_prep',
-              'Back Strap Prep','back_strap_prep'
-            )}
-          </div>
+      {backstrapFields.length ? (
+        <div className="row grid12 meat-row">
+          {backstrapFields.map((field) => (
+            <div key={field.label} className={`${printColClass(backstrapFields.length)} box`}>
+              <div className="label">{field.label}</div>
+              <div className="val bs-val">{field.value}</div>
+            </div>
+          ))}
         </div>
-      </div>
+      ) : null}
 
       {/* Row F */}
-      <div className="row grid12 meat-row">
-        <div className={`col-3 box ${hasSpecialty ? 'attentionBox specialtyFlagBox' : ''}`}>
-          <div className="label">Specialty Products</div>
-          <div className={`val ${hasSpecialty ? 'attentionValue' : ''}`}>
-            <strong className="check">{hasSpecialty ? CHK : BOX}</strong>{' '}
-            {hasSpecialty ? 'SPECIALTY ORDER' : 'No specialty products'}
+      {hasSpecialty ? (
+        <div className="row grid12 meat-row">
+          <div className="col-3 box attentionBox specialtyFlagBox">
+            <div className="label">Specialty Products</div>
+            <div className="val attentionValue">
+              <strong className="check">{CHK}</strong> SPECIALTY ORDER
+            </div>
           </div>
-        </div>
 
-        <div className={`col-9 box ${hasSpecialty ? 'attentionBox specialtyDetailBox' : ''}`}>
-          <div className="label">Specialty Detail (lb)</div>
-          <div className={`val ${hasSpecialty ? 'attentionValue' : ''}`}>
-            <div className="specRow">
-              <div className="specLine">
-                {specialtyItems.filter((item) => item.pounds > 0).length > 0 ? (
-                  specialtyItems
+          <div className="col-9 box attentionBox specialtyDetailBox">
+            <div className="label">Specialty Detail (lb)</div>
+            <div className="val attentionValue">
+              <div className="specRow">
+                <div className="specLine">
+                  {specialtyItems
                     .filter((item) => item.pounds > 0)
                     .map((item, idx) => (
                       <span key={item.key}>
                         {idx > 0 ? ' | ' : ''}
                         <b>{item.shortLabel}:</b> {item.pounds || ''}
                       </span>
-                    ))
-                ) : (
-                  <span>No specialty products selected</span>
-                )}
+                    ))}
+                </div>
+                <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
               </div>
-              <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="row grid12 meat-row">
         <div className={`col-12 box ${(hasNotes || addOnItems.length || hasSpecialty || hasWebbs) ? 'attentionBox' : ''}`}>
@@ -620,25 +673,27 @@ return () => {
       </div>
 
       {/* Row G */}
-      <div className="row grid12 meat-row">
-        <div className={`col-12 box ${hasNotes ? 'attentionBox notesBox' : ''}`}>
-          <div className="label">Notes</div>
-          <div className={`val ${hasNotes ? 'attentionValue notesValue' : ''}`}>{notesText || 'No additional notes'}</div>
-        </div>
-      </div>
-
-      {webbsEnabled ? (
+      {hasNotes ? (
         <div className="row grid12 meat-row">
-          <div className={`col-3 box ${hasWebbs ? 'attentionBox webbsFlagBox' : ''}`}>
+          <div className="col-12 box attentionBox notesBox">
+            <div className="label">Notes</div>
+            <div className="val attentionValue notesValue">{notesText}</div>
+          </div>
+        </div>
+      ) : null}
+
+      {hasWebbs ? (
+        <div className="row grid12 meat-row">
+          <div className="col-3 box attentionBox webbsFlagBox">
             <div className="label">Webbs Order</div>
-            <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
-              <strong className="check">{hasWebbs ? CHK : BOX}</strong>{' '}
-              {hasWebbs ? 'WEBBS ORDER' : 'No Webbs order'}
+            <div className="val attentionValue">
+              <strong className="check">{CHK}</strong>{' '}
+              WEBBS ORDER
             </div>
           </div>
-          <div className={`col-9 box ${hasWebbs ? 'attentionBox webbsDetailBox' : ''}`}>
+          <div className="col-9 box attentionBox webbsDetailBox">
             <div className="label">Webbs Details</div>
-            <div className={`val ${hasWebbs ? 'attentionValue' : ''}`}>
+            <div className="val attentionValue">
               <div className="webbsMetaRow">
                 <div><b>Summary:</b> {webbsSummaryText}</div>
                 <div><b>Style:</b> {webbsOrderStyleLabel(webbsOrderStyle)}</div>
@@ -674,20 +729,20 @@ return () => {
         <div className="col-12 box">
           <div className="label">Contact Preference</div>
           <div className="val">
-            <span className="check">{truthy('Pref Email','prefEmail') ? CHK : BOX}</span> Email &nbsp;&nbsp;
-            <span className="check">{truthy('Pref SMS','prefSMS') ? CHK : BOX}</span> Text (SMS) &nbsp;&nbsp;
-            <span className="check">{truthy('Pref Call','prefCall') ? CHK : BOX}</span> Phone Call
+            {contactPreferenceItems.length ? contactPreferenceItems.join(' | ') : 'Not selected'}
           </div>
         </div>
       </div>
-      <div className="row grid12">
-        <div className="col-12 box">
-          <div className="label">Consent</div>
-          <div className="val">
-            <div><span className="check">{truthy('SMS Consent','smsConsent','consentSMS') ? CHK : BOX}</span> I consent to receive informational SMS</div>
+      {showSmsConsent ? (
+        <div className="row grid12">
+          <div className="col-12 box">
+            <div className="label">Consent</div>
+            <div className="val">
+              <div><span className="check">{truthy('SMS Consent','smsConsent','consentSMS') ? CHK : BOX}</span> I consent to receive informational SMS</div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Row J */}
       <div className="row grid12">

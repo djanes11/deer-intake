@@ -2602,7 +2602,15 @@ useEffect(() => {
         </div>
       </div>
       <div className="print-only">
-        {printMode === 'sheet' ? <PrintSheet job={job} webbsEnabled={webbsEnabled} /> : null}
+        {printMode === 'sheet' ? (
+          <PrintSheet
+            job={job}
+            webbsEnabled={webbsEnabled}
+            smsEnabled={smsEnabled}
+            specialtyEnabled={specialtyEnabled}
+            cutOptions={cutOptions}
+          />
+        ) : null}
         {printMode === 'deer' ? <ThermalLabelSheet job={job} type="deer" brandingName={brandingName} /> : null}
         {printMode === 'cape' ? <ThermalLabelSheet job={job} type="cape" brandingName={brandingName} /> : null}
         {printMode === 'package' ? <ThermalLabelSheet job={job} type="package" brandingName={brandingName} /> : null}

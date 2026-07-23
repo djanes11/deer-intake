@@ -6,6 +6,7 @@ import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import type { Job } from '@/lib/api';
 import { getJob, saveJob, searchJobs, tokenHeader } from '@/lib/api';
+import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { specialtyBreakdown } from '@/lib/specialty';
 import { filterVisibleAddOnItems, normalizeJobAddOnItems } from '@/lib/processorCatalog';
@@ -69,10 +70,6 @@ function specialtyDue(row: Record<string, any> | null | undefined) {
   return Math.max(0, Number(row.priceSpecialty ?? row.price_specialty ?? 0) - Number(row.amountPaidSpecialty ?? row.amount_paid_specialty ?? 0));
 }
 
-function totalDue(row: Record<string, any> | null | undefined) {
-  return processingDue(row) + specialtyDue(row);
-}
-
 function money(value: number) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
@@ -103,6 +100,9 @@ export default function SearchPage() {
   const [manualBody, setManualBody] = useState('');
   const [manualBusy, setManualBusy] = useState(false);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
+  const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const [mobileMatchesOpen, setMobileMatchesOpen] = useState(true);
@@ -119,6 +119,9 @@ export default function SearchPage() {
       .then((j) => {
         if (!j?.ok) return;
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+        setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
+        setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+        setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
         setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
       })
       .catch(() => {});
@@ -276,16 +279,19 @@ export default function SearchPage() {
 
   const preferredContact = useMemo(() => {
     if (!selectedJob) return '-';
-    if (selectedJob.prefSMS) return selectedJob.smsConsent ? 'Text (SMS)' : 'Text selected, no consent';
+    if (selectedJob.prefSMS) {
+      if (!smsEnabled) return 'Text selected before SMS was turned off';
+      return selectedJob.smsConsent ? 'Text (SMS)' : 'Text selected, no consent';
+    }
     if (selectedJob.prefEmail) return 'Email';
     if (selectedJob.prefCall) return 'Phone Call';
     return 'Not selected';
-  }, [selectedJob]);
+  }, [selectedJob, smsEnabled]);
 
   const paymentSummary = useMemo(() => {
     if (!selectedJob) return '-';
     const procDue = processingDue(selectedJob);
-    const specDue = specialtyDue(selectedJob);
+    const specDue = specialtyEnabled ? specialtyDue(selectedJob) : 0;
     const procMethod = String(selectedJob.paymentMethodProcessing ?? selectedJob.payment_method_processing ?? '').trim();
     const specMethod = String(selectedJob.paymentMethodSpecialty ?? selectedJob.payment_method_specialty ?? '').trim();
     const proc = procDue <= 0
@@ -293,7 +299,7 @@ export default function SearchPage() {
       : procDue < Number(selectedJob.priceProcessing ?? selectedJob.price_processing ?? 0)
         ? `Processing partial${procMethod ? ` (${procMethod})` : ''}`
         : 'Processing unpaid';
-    const spec = selectedJob.specialtyProducts
+    const spec = specialtyEnabled && selectedJob.specialtyProducts
       ? specDue <= 0
         ? `Specialty paid${specMethod ? ` (${specMethod})` : ''}`
         : specDue < Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0)
@@ -301,12 +307,12 @@ export default function SearchPage() {
           : 'Specialty unpaid'
       : null;
     return [proc, spec].filter(Boolean).join(' | ');
-  }, [selectedJob]);
+  }, [selectedJob, specialtyEnabled]);
 
   const pickupQuickView = useMemo(() => {
     if (!selectedJob) return null;
     const procDue = processingDue(selectedJob);
-    const specDue = specialtyDue(selectedJob);
+    const specDue = specialtyEnabled ? specialtyDue(selectedJob) : 0;
     const due = procDue + specDue;
     const pickupState = String(selectedJob.status || '').toLowerCase().includes('called')
       ? 'Ready for pickup'
@@ -329,7 +335,7 @@ export default function SearchPage() {
       pickedUpBy,
       pickupNotes,
     };
-  }, [selectedJob]);
+  }, [selectedJob, specialtyEnabled]);
 
   useEffect(() => {
     if (!selectedJob) {
@@ -362,8 +368,11 @@ export default function SearchPage() {
       { label: 'Cape Finished', email: selectedJob.capeFinishedEmailSentAt, sms: selectedJob.capeFinishedSmsSentAt },
       { label: 'Specialty Finished', email: selectedJob.specialtyFinishedEmailSentAt, sms: selectedJob.specialtyFinishedSmsSentAt },
       { label: 'Webbs Delivered', email: selectedJob.webbsDeliveredEmailSentAt, sms: selectedJob.webbsDeliveredSmsSentAt },
-    ].filter((row) => webbsEnabled || row.label !== 'Webbs Delivered');
-  }, [selectedJob, webbsEnabled]);
+    ].filter((row) =>
+      (webbsEnabled || row.label !== 'Webbs Delivered') &&
+      (specialtyEnabled || row.label !== 'Specialty Finished')
+    );
+  }, [selectedJob, webbsEnabled, specialtyEnabled]);
 
   const latestNotificationAt = useMemo(() => {
     const values = notificationRows.flatMap((row) => [row.email, row.sms]).filter(Boolean) as string[];
@@ -375,7 +384,7 @@ export default function SearchPage() {
   const canEdit = staffRole === 'admin' || staffRole === 'staff';
   const canManageNotifications = staffRole === 'admin';
   const canManualEmail = !!selectedJob?.email;
-  const canManualSms = !!selectedJob?.phone && !!selectedJob?.smsConsent;
+  const canManualSms = smsEnabled && !!selectedJob?.phone && !!selectedJob?.smsConsent;
   const statusSummary = selectedJob
     ? [selectedJob.status || 'No meat status', selectedJob.capingStatus ? `Cape: ${selectedJob.capingStatus}` : null]
         .filter(Boolean)
@@ -396,9 +405,9 @@ export default function SearchPage() {
     );
   }, [selectedJob, webbsEnabled]);
   const selectedSearchSpecialtyItems = useMemo(() => {
-    if (!selectedJob) return [];
+    if (!selectedJob || !specialtyEnabled) return [];
     return specialtyBreakdown(selectedJob).filter((item) => item.pounds > 0);
-  }, [selectedJob]);
+  }, [selectedJob, specialtyEnabled]);
 
   useEffect(() => {
     if (!selectedJob) return;
@@ -454,21 +463,20 @@ export default function SearchPage() {
   };
   const quickFacts = selectedJob
     ? [
-        { label: 'Preferred Contact', value: preferredContact },
-        { label: 'Payment', value: paymentSummary },
         { label: 'Last Printed', value: fmtDate(selectedJob.intakeSheetPrintedAt) },
+        { label: 'Print Count', value: selectedJob.intakeSheetPrintCount ?? 0 },
         { label: 'Last Updated', value: fmtDate(selectedJob.updatedAt) },
       ]
     : [];
   const nextAction = useMemo(() => {
     if (!selectedJob) return '';
     const status = String(selectedJob.status || '').toLowerCase();
-    const due = totalDue(selectedJob);
+    const due = processingDue(selectedJob) + (specialtyEnabled ? specialtyDue(selectedJob) : 0);
     if (!selectedJob.tag || String(selectedJob.tag).toUpperCase().startsWith('PENDING-')) return 'Assign the permanent tag after reviewing the intake.';
     if (status.includes('called')) return due > 0 ? 'Collect the remaining balance at pickup.' : 'Ready for pickup handoff.';
     if (status.includes('finished') || status.includes('ready')) return 'Contact the customer and move this deer into pickup follow-up.';
     return 'Open the intake record to update statuses, print paperwork, or review instructions.';
-  }, [selectedJob]);
+  }, [selectedJob, specialtyEnabled]);
   const resultSummary = loading
     ? 'Searching...'
     : !canShowResults
@@ -841,7 +849,13 @@ export default function SearchPage() {
                     <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
                       Package Label
                     </button>
+                    {canEdit && selectedJob?.intakeSheetPrintedAt ? (
+                      <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>
+                        Mark Unprinted
+                      </button>
+                    ) : null}
                   </div>
+                  {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
                 </div>
               </div>
 
@@ -886,12 +900,12 @@ export default function SearchPage() {
                         <div><strong>Status:</strong> {statusSummary}</div>
                         <div><strong>Balance status:</strong> {paymentSummary.toLowerCase().includes('partial') ? 'Partial payment on file' : paymentSummary.toLowerCase().includes('unpaid') ? 'Collect at pickup' : 'Paid in full'}</div>
                         <div><strong>Processing due:</strong> {money(pickupQuickView.procDue)}</div>
-                        <div><strong>Specialty due:</strong> {money(pickupQuickView.specDue)}</div>
+                        {specialtyEnabled ? <div><strong>Specialty due:</strong> {money(pickupQuickView.specDue)}</div> : null}
                         <div><strong>Processing paid:</strong> {money(Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0))}</div>
-                        <div><strong>Specialty paid:</strong> {money(Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0))}</div>
+                        {specialtyEnabled ? <div><strong>Specialty paid:</strong> {money(Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0))}</div> : null}
                         <div><strong>Processing pickup:</strong> {pickupQuickView.processingPickedUp ? 'Picked up' : 'Not picked up'}</div>
                         <div><strong>Cape pickup:</strong> {pickupQuickView.capePickedUp ? 'Picked up' : 'Not picked up'}</div>
-                        <div><strong>Webbs pickup:</strong> {pickupQuickView.webbsPickedUp ? 'Picked up' : 'Not picked up'}</div>
+                        {webbsEnabled && selectedJob.webbsOrder ? <div><strong>Webbs pickup:</strong> {pickupQuickView.webbsPickedUp ? 'Picked up' : 'Not picked up'}</div> : null}
                         <div><strong>Picked up by:</strong> {pickupQuickView.pickedUpBy || 'Not recorded'}</div>
                       </div>
 
@@ -938,14 +952,16 @@ export default function SearchPage() {
                             >
                               {pickupActionBusy === 'processing' ? 'Saving...' : pickupQuickView.procDue > 0 ? `Mark Processing Paid (${money(pickupQuickView.procDue)})` : 'Processing Paid'}
                             </button>
-                            <button
-                              className="btn"
-                              type="button"
-                              onClick={() => void recordQuickPayment('specialty')}
-                              disabled={pickupActionBusy !== '' || pickupQuickView.specDue <= 0}
-                            >
-                              {pickupActionBusy === 'specialty' ? 'Saving...' : pickupQuickView.specDue > 0 ? `Mark Specialty Paid (${money(pickupQuickView.specDue)})` : 'Specialty Paid'}
-                            </button>
+                            {specialtyEnabled && (selectedJob.specialtyProducts || pickupQuickView.specDue > 0 || Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) > 0) ? (
+                              <button
+                                className="btn"
+                                type="button"
+                                onClick={() => void recordQuickPayment('specialty')}
+                                disabled={pickupActionBusy !== '' || pickupQuickView.specDue <= 0}
+                              >
+                                {pickupActionBusy === 'specialty' ? 'Saving...' : pickupQuickView.specDue > 0 ? `Mark Specialty Paid (${money(pickupQuickView.specDue)})` : 'Specialty Paid'}
+                              </button>
+                            ) : null}
                           </div>
 
                           <div className="pickupQuickButtonRow">
@@ -982,15 +998,6 @@ export default function SearchPage() {
                           {pickupActionMsg ? <div className="pickupQuickFeedback">{pickupActionMsg}</div> : null}
                         </div>
                       ) : null}
-
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <button className="btn secondary" type="button" onClick={() => router.push('/reports/called')}>
-                          Open Pickup Queue
-                        </button>
-                        <button className="btn secondary" type="button" onClick={() => router.push('/reports/balances')}>
-                          Open Balances
-                        </button>
-                      </div>
                     </DetailBox>
                   ) : null}
 
@@ -1016,7 +1023,7 @@ export default function SearchPage() {
                     </div>
 
                     <DetailBox title="Order Details">
-                      <div><strong>Specialty:</strong> {selectedSearchSpecialtyItems.length ? `${selectedSearchSpecialtyItems.length} products selected` : 'Not selected'}</div>
+                      {specialtyEnabled ? <div><strong>Specialty:</strong> {selectedSearchSpecialtyItems.length ? `${selectedSearchSpecialtyItems.length} products selected` : 'Not selected'}</div> : null}
                       <div><strong>Add-ons:</strong> {selectedSearchAddOns.length ? selectedSearchAddOns.map((item) => item.name).join(', ') : 'No add-ons selected'}</div>
                       {selectedSearchSpecialtyItems.length ? (
                         <div style={{ paddingTop: 6 }}>
@@ -1030,10 +1037,10 @@ export default function SearchPage() {
                           </div>
                         </div>
                       ) : null}
-                      {webbsEnabled ? (
+                      {webbsEnabled && selectedJob.webbsOrder ? (
                         <>
                           <div><strong>Webbs paper form:</strong> {selectedJob.webbsPaperFormCompleted ? 'Completed' : 'Not marked'}</div>
-                          <div><strong>Webbs:</strong> {selectedJob.webbsOrder ? webbsStyleLabel(selectedJob.webbsOrderStyle) : 'No Webbs order'}</div>
+                          <div><strong>Webbs:</strong> {webbsStyleLabel(selectedJob.webbsOrderStyle)}</div>
                         </>
                       ) : null}
                       <div><strong>Pending intake removed:</strong> {fmtDate(selectedJob.pendingDeletedAt)}</div>
@@ -1068,7 +1075,11 @@ export default function SearchPage() {
                           <div style={{ fontSize: 13, color: '#4b5563' }}>
                             Destination: {manualChannel === 'email' ? (selectedJob.email || 'No email on file') : (selectedJob.phone || 'No phone on file')}
                           </div>
-                          {!selectedJob.smsConsent ? (
+                          {!smsEnabled ? (
+                            <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.5 }}>
+                              Text message sending is turned off in processor settings.
+                            </div>
+                          ) : !selectedJob.smsConsent ? (
                             <div style={{ fontSize: 13, color: '#991b1b', lineHeight: 1.5 }}>
                               Text message sending is disabled for this deer because the customer has not opted in to SMS.
                             </div>
@@ -1108,19 +1119,13 @@ export default function SearchPage() {
                       )}
                     </DetailBox>
 
-                    <DetailBox title="Print Control">
-                      <div><strong>Print count:</strong> {selectedJob.intakeSheetPrintCount ?? 0}</div>
-                      <div style={{ paddingTop: 6 }}>
-                        <button className="btn" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob.intakeSheetPrintedAt}>
-                          Mark Unprinted
-                        </button>
-                      </div>
-                      {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
-                    </DetailBox>
                   </div>
 
-                  <div style={{ display: 'grid', gap: 8 }}>
-                    <div style={{ fontWeight: 900, fontSize: 18 }}>Notification History</div>
+                  <details className="notificationHistoryDisclosure">
+                    <summary>
+                      <span>Notification History</span>
+                      <span className="notificationHistorySummary">Last: {fmtDate(latestNotificationAt)}</span>
+                    </summary>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
                       <div style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, color: '#111827' }}>
                         <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#6b7280' }}>Last Notification</div>
@@ -1156,10 +1161,12 @@ export default function SearchPage() {
                               <span style={{ color: '#4b5563', fontWeight: 700 }}>Email</span>
                               <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.email)}</span>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                              <span style={{ color: '#4b5563', fontWeight: 700 }}>SMS</span>
-                              <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.sms)}</span>
-                            </div>
+                            {smsEnabled ? (
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                                <span style={{ color: '#4b5563', fontWeight: 700 }}>SMS</span>
+                                <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.sms)}</span>
+                              </div>
+                            ) : null}
                           </div>
                           {canManageNotifications ? (
                             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1184,7 +1191,7 @@ export default function SearchPage() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </details>
                   {resendMsg ? <div className="muted" style={{ fontSize: 13 }}>{resendMsg}</div> : null}
                 </>
               ) : null}
@@ -1194,7 +1201,15 @@ export default function SearchPage() {
       )}
 
       <div className="print-only">
-        {printMode === 'sheet' && printJob ? <PrintSheet job={printJob} webbsEnabled={webbsEnabled} /> : null}
+        {printMode === 'sheet' && printJob ? (
+          <PrintSheet
+            job={printJob}
+            webbsEnabled={webbsEnabled}
+            smsEnabled={smsEnabled}
+            specialtyEnabled={specialtyEnabled}
+            cutOptions={cutOptions}
+          />
+        ) : null}
         {printMode === 'deer' && printJob ? <ThermalLabelSheet job={printJob} type="deer" brandingName={brandingName} /> : null}
         {printMode === 'cape' && printJob ? <ThermalLabelSheet job={printJob} type="cape" brandingName={brandingName} /> : null}
         {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} /> : null}
@@ -1470,6 +1485,36 @@ export default function SearchPage() {
           background: #eff6ff;
           color: #1d4ed8;
           font-weight: 700;
+        }
+
+        .notificationHistoryDisclosure {
+          display: grid;
+          gap: 10px;
+          border: 1px solid #d1d5db;
+          border-radius: 14px;
+          padding: 12px 14px;
+          background: #f8fafc;
+          color: #111827;
+        }
+
+        .notificationHistoryDisclosure summary {
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: center;
+          font-weight: 900;
+          font-size: 16px;
+        }
+
+        .notificationHistoryDisclosure[open] summary {
+          margin-bottom: 10px;
+        }
+
+        .notificationHistorySummary {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 800;
         }
 
         @media (max-width: 1100px) {

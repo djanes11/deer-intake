@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
+import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { identifierSettingsFromPublicCopy, normalizeTagInput, tagInputMode, validateTag } from '@/lib/identifiers';
 
 export const dynamic = 'force-dynamic';
@@ -128,6 +129,9 @@ export default function MissingTagsPage() {
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
+  const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [identifierSettings, setIdentifierSettings] = useState(() => identifierSettingsFromPublicCopy(null));
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
 
@@ -162,6 +166,9 @@ export default function MissingTagsPage() {
         if (!j?.ok) return;
         setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+        setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
+        setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+        setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
         setIdentifierSettings(identifierSettingsFromPublicCopy(j?.settings?.publicCopy));
       })
       .catch(() => {});
@@ -482,7 +489,15 @@ export default function MissingTagsPage() {
       </div>
 
       <div className="print-only">
-        {printMode === 'sheet' && selectedJob ? <PrintSheet job={selectedJob} webbsEnabled={webbsEnabled} /> : null}
+        {printMode === 'sheet' && selectedJob ? (
+          <PrintSheet
+            job={selectedJob}
+            webbsEnabled={webbsEnabled}
+            smsEnabled={smsEnabled}
+            specialtyEnabled={specialtyEnabled}
+            cutOptions={cutOptions}
+          />
+        ) : null}
         {printMode === 'deer' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="deer" brandingName={brandingName} /> : null}
         {printMode === 'cape' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="cape" brandingName={brandingName} /> : null}
         {printMode === 'package' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="package" brandingName={brandingName} /> : null}

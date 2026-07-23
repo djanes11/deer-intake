@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
+import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,9 @@ export default function PrintQueuePage() {
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<AnyRec | null>(null);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
+  const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
 
   const refresh = async () => {
     setErr('');
@@ -87,6 +91,9 @@ export default function PrintQueuePage() {
       .then((j) => {
         if (!j?.ok) return;
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
+        setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
+        setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+        setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
       })
       .catch(() => {});
   }, []);
@@ -256,7 +263,17 @@ export default function PrintQueuePage() {
         </div>
       </div>
 
-      <div className="print-only">{selectedJob ? <PrintSheet job={selectedJob} webbsEnabled={webbsEnabled} /> : null}</div>
+      <div className="print-only">
+        {selectedJob ? (
+          <PrintSheet
+            job={selectedJob}
+            webbsEnabled={webbsEnabled}
+            smsEnabled={smsEnabled}
+            specialtyEnabled={specialtyEnabled}
+            cutOptions={cutOptions}
+          />
+        ) : null}
+      </div>
 
       <style jsx>{`
         .selected-print-card {
