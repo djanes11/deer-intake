@@ -894,38 +894,6 @@ export default function SearchPage() {
                 </div>
               </div>
 
-              {labelPreviewJob && labelPreviewMode ? (
-                <div className="labelPreviewCard">
-                  <div className="labelPreviewHead">
-                    <div>
-                      <div className="labelPreviewKicker">Label Preview</div>
-                      <div className="labelPreviewTitle">{labelModeLabel(labelPreviewMode)}</div>
-                    </div>
-                    <button
-                      className="btn secondary"
-                      type="button"
-                      onClick={() => {
-                        const labelElement = labelPreviewRef.current?.querySelector('.thermalLabelPrintJob') as HTMLElement | null;
-                        openElementPrintPreview(labelElement, {
-                          title: labelModeLabel(labelPreviewMode),
-                          onError: (message) => setErr(message),
-                        });
-                      }}
-                    >
-                      Print Again
-                    </button>
-                  </div>
-                  <div className="labelPreviewStage" ref={labelPreviewRef}>
-                    <ThermalLabelSheet
-                      job={labelPreviewJob}
-                      type={labelPreviewMode}
-                      brandingName={brandingName}
-                      brandingLogoUrl={brandingLogoUrl}
-                    />
-                  </div>
-                </div>
-              ) : null}
-
               {selectedJob ? (
                 <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#0f172a', display: 'grid', gap: 4 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#64748b' }}>Next Best Action</div>
@@ -1283,50 +1251,32 @@ export default function SearchPage() {
         {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 
+      {labelPreviewJob && labelPreviewMode ? (
+        <div className="label-print-source" ref={labelPreviewRef} aria-hidden="true">
+          <ThermalLabelSheet
+            job={labelPreviewJob}
+            type={labelPreviewMode}
+            brandingName={brandingName}
+            brandingLogoUrl={brandingLogoUrl}
+          />
+        </div>
+      ) : null}
+
       <style jsx>{`
         .print-only {
           display: none;
         }
 
-        .labelPreviewCard {
-          display: grid;
-          gap: 10px;
-          padding: 12px;
-          border: 1px solid #cbd5e1;
-          border-radius: 12px;
-          background: #f8fafc;
-          color: #0f172a;
+        .label-print-source {
+          position: fixed;
+          top: 0;
+          left: -10000px;
+          width: 3.5in;
+          height: auto;
           overflow: hidden;
-        }
-
-        .labelPreviewHead {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .labelPreviewKicker {
-          font-size: 11px;
-          font-weight: 900;
-          letter-spacing: .06em;
-          text-transform: uppercase;
-          color: #64748b;
-        }
-
-        .labelPreviewTitle {
-          margin-top: 2px;
-          font-size: 15px;
-          font-weight: 900;
-          color: #0f172a;
-        }
-
-        .labelPreviewStage {
-          width: 100%;
-          max-width: 3.5in;
-          overflow-x: auto;
-          background: #ffffff;
+          opacity: 0;
+          pointer-events: none;
+          z-index: -1;
         }
 
         .search-toolbar-summary {
@@ -1758,6 +1708,10 @@ export default function SearchPage() {
 
           .print-only {
             display: block !important;
+          }
+
+          .label-print-source {
+            display: none !important;
           }
         }
       `}</style>
