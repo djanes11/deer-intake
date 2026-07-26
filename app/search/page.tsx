@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
-import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
+import { openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
 import { getJob, saveJob, searchJobs, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -97,6 +97,8 @@ export default function SearchPage() {
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelPrintMode>('');
   const [labelPreviewJob, setLabelPreviewJob] = useState<Record<string, any> | null>(null);
   const [labelPreviewMode, setLabelPreviewMode] = useState<'' | ThermalLabelPrintMode>('');
+  const [pendingLabelPrint, setPendingLabelPrint] = useState(0);
+  const labelPreviewRef = useRef<HTMLDivElement | null>(null);
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<Record<string, any> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -232,6 +234,23 @@ export default function SearchPage() {
     }
   };
 
+  useEffect(() => {
+    if (!pendingLabelPrint || !labelPreviewJob || !labelPreviewMode) return;
+    const timer = window.setTimeout(() => {
+      const labelElement = labelPreviewRef.current?.querySelector('.thermalLabelPrintJob') as HTMLElement | null;
+      openElementPrintPreview(labelElement, {
+        title: labelModeLabel(labelPreviewMode),
+        onAfterPrint: () => setPrinting(''),
+        onError: (message) => {
+          setErr(message);
+          setPrinting('');
+        },
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [pendingLabelPrint, labelPreviewJob, labelPreviewMode]);
+
   const printTag = async (tag: string) => {
     if (!tag) return;
     setPrinting(tag);
@@ -281,12 +300,7 @@ export default function SearchPage() {
       if (!job) throw new Error('Could not load the label details.');
       setLabelPreviewJob(job);
       setLabelPreviewMode(type);
-      setPrintJob(job);
-      setPrintMode(type);
-      openBrowserPrintPreview(() => {
-        setPrintMode('');
-        setPrinting('');
-      });
+      setPendingLabelPrint((value) => value + 1);
     } catch (e: any) {
       setErr(`Could not print that label. ${e?.message || 'Try again, or open the intake record and print from there.'}`);
       setPrinting('');
@@ -891,15 +905,17 @@ export default function SearchPage() {
                       className="btn secondary"
                       type="button"
                       onClick={() => {
-                        setPrintJob(labelPreviewJob);
-                        setPrintMode(labelPreviewMode);
-                        openBrowserPrintPreview(() => setPrintMode(''));
+                        const labelElement = labelPreviewRef.current?.querySelector('.thermalLabelPrintJob') as HTMLElement | null;
+                        openElementPrintPreview(labelElement, {
+                          title: labelModeLabel(labelPreviewMode),
+                          onError: (message) => setErr(message),
+                        });
                       }}
                     >
                       Print Again
                     </button>
                   </div>
-                  <div className="labelPreviewStage">
+                  <div className="labelPreviewStage" ref={labelPreviewRef}>
                     <ThermalLabelSheet
                       job={labelPreviewJob}
                       type={labelPreviewMode}
