@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
-import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import type { Job } from '@/lib/api';
 import { getJob, saveJob, searchJobs, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -86,7 +86,7 @@ export default function SearchPage() {
   const [err, setErr] = useState<string | null>(null);
   const [printing, setPrinting] = useState('');
   const [printJob, setPrintJob] = useState<Record<string, any> | null>(null);
-  const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
+  const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelPrintMode>('');
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<Record<string, any> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -257,7 +257,7 @@ export default function SearchPage() {
     }
   };
 
-  const printLabel = async (tag: string, type: ThermalLabelType) => {
+  const printLabel = async (tag: string, type: ThermalLabelPrintMode) => {
     if (!tag) return;
     setPrinting(tag);
     setErr(null);
@@ -844,6 +844,11 @@ export default function SearchPage() {
                       Deer Label
                     </button>
                     {canPrintAntlerLabel(selectedJob) ? (
+                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer-antler')} disabled={!selectedTag || printing === selectedTag}>
+                        Deer + Antler
+                      </button>
+                    ) : null}
+                    {canPrintAntlerLabel(selectedJob) ? (
                       <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>
                         Antler Tag
                       </button>
@@ -1214,6 +1219,7 @@ export default function SearchPage() {
         ) : null}
         {printMode === 'deer' && printJob ? <ThermalLabelSheet job={printJob} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'antler' && printJob ? <ThermalLabelSheet job={printJob} type="antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
+        {printMode === 'deer-antler' && printJob ? <ThermalLabelSheet job={printJob} type="deer-antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 

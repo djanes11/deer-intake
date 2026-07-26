@@ -1,10 +1,13 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import JsBarcode from 'jsbarcode';
 
 type AnyRec = Record<string, any>;
 
 export type ThermalLabelType = 'deer' | 'antler' | 'cape' | 'package';
+export type ThermalLabelPrintMode = ThermalLabelType | 'deer-antler';
+type RenderLabelType = Exclude<ThermalLabelType, 'cape'>;
 
 export function canPrintCapeLabel(job: AnyRec | null | undefined) {
   const processType = String(job?.processType || job?.['Process Type'] || '').trim().toLowerCase();
@@ -24,6 +27,10 @@ function value(job: AnyRec | null | undefined, keys: string[]) {
   return '';
 }
 
+function normalizeLabelType(type: ThermalLabelType): RenderLabelType {
+  return type === 'cape' ? 'antler' : type;
+}
+
 export default function ThermalLabelSheet({
   job,
   type,
@@ -31,43 +38,27 @@ export default function ThermalLabelSheet({
   brandingLogoUrl,
 }: {
   job?: AnyRec | null;
-  type: ThermalLabelType;
+  type: ThermalLabelPrintMode;
   brandingName?: string;
   brandingLogoUrl?: string;
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [logoFailed, setLogoFailed] = useState(false);
-  const labelType = type === 'cape' ? 'antler' : type;
-  const brand = brandingName || 'Wild Game Butcher Board';
+  const labelTypes: RenderLabelType[] =
+    type === 'deer-antler' ? ['deer', 'antler'] : [normalizeLabelType(type)];
+  const brand =
+    String(brandingName || '').trim() ||
+    value(job, ['brandingName', 'processorName', 'processor_name', 'publicName', 'public_name']) ||
+    'Wild Game Butcher Board';
   const logoUrl =
     String(brandingLogoUrl || '').trim() ||
     value(job, ['brandingLogoUrl', 'processorLogoUrl', 'logoUrl', 'logo_url']) ||
     '/wgbb-logo.png';
-  const customer = value(job, ['customer', 'Customer', 'customer_name', 'Customer Name']) || 'Unknown Customer';
-  const confirmation = value(job, ['confirmation', 'Confirmation #', 'Confirmation', 'confirmationNumber']);
-  const phone = value(job, ['phone', 'Phone', 'Phone Number', 'phoneNumber']);
-  const tag = value(job, ['tag', 'Tag', 'tag_id', 'tagId']);
-  const processType = value(job, ['processType', 'Process Type', 'process_type']);
-  const sex = value(job, ['sex', 'Sex', 'Deer Sex']);
+  const customer = value(job, ['customer', 'Customer', 'customerName', 'customer_name', 'Customer Name', 'fullName', 'Full Name']) || 'Unknown Customer';
+  const confirmation = value(job, ['confirmation', 'Confirmation #', 'Confirmation', 'confirmationNumber', 'confirmation_number', 'Confirmation Number']);
+  const phone = value(job, ['phone', 'Phone', 'Phone #', 'Phone Number', 'phoneNumber', 'customerPhone', 'customer_phone', 'Customer Phone']);
+  const tag = value(job, ['tag', 'Tag', 'tagId', 'tag_id', 'tagNumber', 'tag_number', 'Tag Number']);
   const shouldShowBarcode = !!tag;
-
-  const title =
-    labelType === 'antler' ? 'Antler Tag' : labelType === 'package' ? 'Package Label' : 'Deer Tag';
-  const footer =
-    labelType === 'antler'
-      ? 'Attach to antlers'
-      : labelType === 'package'
-      ? 'Finished package'
-      : 'Main deer tag';
-  const primaryLabel = labelType === 'package' ? 'Customer' : 'Tag';
-  const primaryValue = labelType === 'package' ? customer : tag || '-';
-  const metadata = [
-    labelType === 'package' ? (tag ? `Tag ${tag}` : null) : customer,
-    confirmation ? `Conf ${confirmation}` : null,
-    labelType === 'antler' && sex ? sex : null,
-    labelType !== 'package' && processType ? processType : null,
-    labelType === 'deer' && phone ? phone : null,
-  ].filter(Boolean).join(' | ');
 
   useEffect(() => {
     setLogoFailed(false);
@@ -81,12 +72,10 @@ export default function ThermalLabelSheet({
 
     const drawAll = () => {
       try {
-        const JB = typeof window !== 'undefined' ? (window as any).JsBarcode : null;
-        if (!JB) return;
         nodes.forEach((el) => {
           try {
             while (el.firstChild) el.removeChild(el.firstChild);
-            JB(el, tag, {
+            JsBarcode(el, tag, {
               format: 'CODE128',
               lineColor: '#111',
               width: 1.05,
@@ -100,26 +89,7 @@ export default function ThermalLabelSheet({
       } catch {}
     };
 
-    const ensureLib = () => {
-      if (typeof window !== 'undefined' && (window as any).JsBarcode) {
-        drawAll();
-        return;
-      }
-      if (typeof document !== 'undefined') {
-        const existing = document.querySelector('script[data-jsbarcode="1"]') as HTMLScriptElement | null;
-        if (existing) {
-          existing.addEventListener('load', drawAll, { once: true });
-          return;
-        }
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-        s.dataset.jsbarcode = '1';
-        s.onload = drawAll;
-        document.head.appendChild(s);
-      }
-    };
-
-    ensureLib();
+    drawAll();
     const t1 = setTimeout(drawAll, 60);
     const t2 = setTimeout(drawAll, 220);
     const onBeforePrint = () => setTimeout(drawAll, 0);
@@ -136,9 +106,31 @@ export default function ThermalLabelSheet({
     };
   }, [shouldShowBarcode, tag]);
 
-  return (
-    <div className="thermalLabelRoot" ref={rootRef}>
-      <div className={`thermalLabel thermalLabel--${labelType}`}>
+  const renderLabel = (labelType: RenderLabelType, index: number) => {
+    const title =
+      labelType === 'antler' ? 'Antler Tag' : labelType === 'package' ? 'Package Label' : 'Deer Tag';
+    const footer =
+      labelType === 'antler'
+        ? 'Attach to antlers'
+        : labelType === 'package'
+        ? 'Finished package'
+        : 'Main deer tag';
+    const customerSizeClass =
+      customer.length > 40
+        ? 'thermalLabel__fieldValue--tiny'
+        : customer.length > 30
+        ? 'thermalLabel__fieldValue--small'
+        : '';
+    const fields = [
+      { label: 'Customer', value: customer, className: `thermalLabel__field--customer ${customerSizeClass}`.trim() },
+      { label: 'Conf', value: confirmation || '-' },
+      { label: 'Tag', value: tag || '-' },
+      { label: 'Phone', value: phone || '-' },
+    ];
+
+    return (
+      <div key={`${labelType}-${index}`} className="thermalLabelRoot">
+        <div className={`thermalLabel thermalLabel--${labelType}`}>
         <div className="thermalLabel__top">
           <div className="thermalLabel__brandWrap">
             {!logoFailed && logoUrl ? (
@@ -151,10 +143,13 @@ export default function ThermalLabelSheet({
           <div className="thermalLabel__type">{title}</div>
         </div>
         <div className="thermalLabel__body">
-          <div className="thermalLabel__primary">
-            <div className="thermalLabel__label">{primaryLabel}</div>
-            <div className="thermalLabel__value">{primaryValue}</div>
-            <div className="thermalLabel__meta">{metadata || '-'}</div>
+          <div className="thermalLabel__details">
+            {fields.map((field) => (
+              <div key={field.label} className={`thermalLabel__field ${field.className || ''}`}>
+                <div className="thermalLabel__label">{field.label}</div>
+                <div className="thermalLabel__fieldValue">{field.value}</div>
+              </div>
+            ))}
           </div>
           {shouldShowBarcode ? (
             <div className="thermalLabel__barcodeWrap">
@@ -162,15 +157,31 @@ export default function ThermalLabelSheet({
             </div>
           ) : (
             <div className="thermalLabel__secondary">
-              <div className="thermalLabel__label">Confirmation</div>
-              <div>{confirmation || '-'}</div>
+              <div className="thermalLabel__label">No Barcode</div>
+              <div>{tag || 'Missing tag'}</div>
             </div>
           )}
         </div>
         <div className="thermalLabel__footer">{footer}</div>
       </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className={`thermalLabelPrintJob ${labelTypes.length > 1 ? 'thermalLabelPrintJob--batch' : ''}`} ref={rootRef}>
+      {labelTypes.map(renderLabel)}
 
       <style jsx>{`
+        .thermalLabelPrintJob {
+          display: block;
+          background: #fff;
+        }
+
+        .thermalLabelRoot + .thermalLabelRoot {
+          margin-top: 0.08in;
+        }
+
         .thermalLabelRoot {
           display: block;
           width: 3.5in;
@@ -190,8 +201,8 @@ export default function ThermalLabelSheet({
           box-sizing: border-box;
           padding: 0.035in 0.045in;
           display: grid;
-          grid-template-rows: 0.22in minmax(0, 1fr) 0.13in;
-          gap: 0.018in;
+          grid-template-rows: 0.2in minmax(0, 1fr) 0.1in;
+          gap: 0.014in;
           font-family: Arial, Helvetica, sans-serif;
           overflow: hidden;
         }
@@ -207,7 +218,7 @@ export default function ThermalLabelSheet({
           align-items: center;
           gap: 0.05in;
           border-bottom: 1px solid #111;
-          padding-bottom: 0.018in;
+          padding-bottom: 0.012in;
         }
 
         .thermalLabel__brandWrap {
@@ -239,7 +250,7 @@ export default function ThermalLabelSheet({
 
         .thermalLabel__brand {
           min-width: 0;
-          max-width: 1.55in;
+          max-width: 1.62in;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -261,16 +272,31 @@ export default function ThermalLabelSheet({
 
         .thermalLabel__body {
           display: grid;
-          grid-template-columns: minmax(0, 1.08in) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 2.12in) minmax(0, 1.18in);
           gap: 0.045in;
-          align-items: center;
+          align-items: stretch;
           min-height: 0;
         }
 
-        .thermalLabel__primary {
+        .thermalLabel__details {
           display: grid;
-          gap: 0.01in;
+          grid-template-rows: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr));
+          gap: 0.012in;
           min-width: 0;
+          min-height: 0;
+        }
+
+        .thermalLabel__field {
+          display: grid;
+          grid-template-columns: 0.42in minmax(0, 1fr);
+          align-items: baseline;
+          gap: 0.03in;
+          min-width: 0;
+          min-height: 0;
+        }
+
+        .thermalLabel__field--customer {
+          align-items: start;
         }
 
         .thermalLabel__label {
@@ -279,28 +305,34 @@ export default function ThermalLabelSheet({
           text-transform: uppercase;
           letter-spacing: 0.04em;
           line-height: 1;
-        }
-
-        .thermalLabel__value {
-          min-width: 0;
-          font-size: 19px;
-          font-weight: 900;
-          line-height: 0.95;
           white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
         }
 
-        .thermalLabel--package .thermalLabel__value {
-          font-size: 14px;
+        .thermalLabel__fieldValue {
+          min-width: 0;
+          font-size: 8.3px;
+          font-weight: 800;
+          line-height: 1.04;
+          overflow-wrap: anywhere;
+        }
+
+        .thermalLabel__field--customer .thermalLabel__fieldValue {
+          font-size: 8.8px;
+          font-weight: 900;
           line-height: 1;
         }
 
-        .thermalLabel__meta {
-          min-width: 0;
+        .thermalLabel__field--customer.thermalLabel__fieldValue--small .thermalLabel__fieldValue {
+          font-size: 7.4px;
+          line-height: 1;
+        }
+
+        .thermalLabel__field--customer.thermalLabel__fieldValue--tiny .thermalLabel__fieldValue {
           font-size: 6.4px;
-          font-weight: 700;
-          line-height: 1.05;
+          line-height: 1;
+        }
+
+        .thermalLabel__field:not(.thermalLabel__field--customer) .thermalLabel__fieldValue {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -314,7 +346,7 @@ export default function ThermalLabelSheet({
 
         .thermalLabel__footer {
           border-top: 1px solid #111;
-          padding-top: 0.018in;
+          padding-top: 0.012in;
           font-size: 6.2px;
           font-weight: 700;
           letter-spacing: 0.03em;
@@ -335,7 +367,7 @@ export default function ThermalLabelSheet({
 
         .thermalLabel__barcodeWrap :global(svg) {
           width: 100%;
-          max-width: 2.18in;
+          max-width: 1.18in;
           height: 0.42in;
           display: block;
         }
@@ -346,12 +378,29 @@ export default function ThermalLabelSheet({
             margin: 0;
           }
 
+          .thermalLabelPrintJob {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+
+          .thermalLabelRoot + .thermalLabelRoot {
+            margin-top: 0 !important;
+          }
+
           .thermalLabelRoot {
             padding: 0;
             min-height: auto;
             width: 3.5in !important;
             height: 1.125in !important;
             overflow: hidden !important;
+            break-after: page !important;
+            page-break-after: always !important;
+          }
+
+          .thermalLabelRoot:last-of-type {
+            break-after: auto !important;
+            page-break-after: auto !important;
           }
 
           .thermalLabel {

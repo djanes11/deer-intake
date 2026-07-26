@@ -4,7 +4,7 @@ import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob, tokenHeader } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
-import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -453,7 +453,7 @@ function IntakePage() {
   const [msg, setMsg] = useState<string>('');
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
   const [brandingLogoUrl, setBrandingLogoUrl] = useState('/wgbb-logo.png');
-  const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
+  const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelPrintMode>('');
   const [lastSavedAt, setLastSavedAt] = useState<string>('');
   const [lastSavedTag, setLastSavedTag] = useState<string>('');
   const tagRef = useRef<HTMLInputElement | null>(null);
@@ -2419,6 +2419,37 @@ useEffect(() => {
                       const ok = await onSave();
                       if (!ok) return;
                     }
+                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                    if (!tagToPrint) {
+                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                      return;
+                    }
+                    setPrintMode('deer-antler');
+                    setTimeout(() => {
+                      window.print();
+                      setTimeout(() => setPrintMode(''), 300);
+                    }, 150);
+                  }}
+                  disabled={busy}
+                >
+                  Deer + Antler Tags
+                </button>
+              ) : null}
+
+              {canPrintAntlerLabel(job) ? (
+                <button
+                  className="btn secondaryBtn"
+                  type="button"
+                  onClick={async () => {
+                    if (dirty) {
+                      const ok = await onSave();
+                      if (!ok) return;
+                    }
+                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                    if (!tagToPrint) {
+                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                      return;
+                    }
                     setPrintMode('antler');
                     setTimeout(() => {
                       window.print();
@@ -2569,6 +2600,36 @@ useEffect(() => {
                         const ok = await onSave();
                         if (!ok) return;
                       }
+                      const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                      if (!tagToPrint) {
+                        setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                        return;
+                      }
+                      setPrintMode('deer-antler');
+                      setTimeout(() => {
+                        window.print();
+                        setTimeout(() => setPrintMode(''), 300);
+                      }, 150);
+                    }}
+                    disabled={busy}
+                  >
+                    Print Deer + Antler Tags
+                  </button>
+                ) : null}
+                {canPrintAntlerLabel(job) ? (
+                  <button
+                    className="actionMenuBtn"
+                    type="button"
+                    onClick={async () => {
+                      if (dirty) {
+                        const ok = await onSave();
+                        if (!ok) return;
+                      }
+                      const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                      if (!tagToPrint) {
+                        setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                        return;
+                      }
                       setPrintMode('antler');
                       setTimeout(() => {
                         window.print();
@@ -2615,6 +2676,7 @@ useEffect(() => {
         ) : null}
         {printMode === 'deer' ? <ThermalLabelSheet job={job} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'antler' ? <ThermalLabelSheet job={job} type="antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
+        {printMode === 'deer-antler' ? <ThermalLabelSheet job={job} type="deer-antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'package' ? <ThermalLabelSheet job={job} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 

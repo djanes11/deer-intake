@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useRef } from 'react';
+import JsBarcode from 'jsbarcode';
 import {
   hasSpecialtySelection,
   specialtyBreakdown,
@@ -392,31 +393,16 @@ const showSmsConsent = smsEnabled && truthy('Pref SMS','prefSMS');
 
     const drawAll = () => {
       try {
-        // @ts-ignore
-        const JB = (typeof window !== 'undefined' ? (window as any).JsBarcode : null);
-        if (!JB) return;
         nodes.forEach((el) => {
           try {
             while (el.firstChild) el.removeChild(el.firstChild);
-            // @ts-ignore
-            JB(el, tagKey, { format: 'CODE128', displayValue: false, height: 22, margin: 0 });
+            JsBarcode(el, tagKey, { format: 'CODE128', displayValue: false, height: 22, margin: 0 });
           } catch {}
         });
       } catch {}
     };
 
-    const ensureLib = () => {
-      // @ts-ignore
-      if (typeof window !== 'undefined' && (window as any).JsBarcode) { drawAll(); return; }
-      if (typeof document !== 'undefined') {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js';
-        s.onload = drawAll;
-        document.head.appendChild(s);
-      }
-    };
-
-    ensureLib();
+    drawAll();
     const t1 = setTimeout(drawAll, 50);
     const t2 = setTimeout(drawAll, 200);
     const t3 = setTimeout(drawAll, 500);
