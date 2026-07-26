@@ -13,17 +13,11 @@ export function openBrowserPrintPreview(onAfterPrint?: CleanupFn) {
     if (done) return;
     done = true;
     window.removeEventListener('afterprint', finish);
-    window.removeEventListener('focus', onFocus);
     if (fallbackTimer) window.clearTimeout(fallbackTimer);
     onAfterPrint?.();
   };
 
-  const onFocus = () => {
-    window.setTimeout(finish, 250);
-  };
-
   window.addEventListener('afterprint', finish, { once: true });
-  window.addEventListener('focus', onFocus, { once: true });
 
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {

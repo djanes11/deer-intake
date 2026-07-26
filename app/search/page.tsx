@@ -75,6 +75,13 @@ function money(value: number) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
+function labelModeLabel(mode: ThermalLabelPrintMode) {
+  if (mode === 'deer-antler') return 'Deer + Antler Labels';
+  if (mode === 'antler') return 'Antler Label';
+  if (mode === 'package') return 'Package Label';
+  return 'Deer Label';
+}
+
 type PaymentMethod = 'cash' | 'card' | 'check' | 'other';
 type PickupTrack = 'meat' | 'cape' | 'webbs';
 
@@ -88,6 +95,8 @@ export default function SearchPage() {
   const [printing, setPrinting] = useState('');
   const [printJob, setPrintJob] = useState<Record<string, any> | null>(null);
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelPrintMode>('');
+  const [labelPreviewJob, setLabelPreviewJob] = useState<Record<string, any> | null>(null);
+  const [labelPreviewMode, setLabelPreviewMode] = useState<'' | ThermalLabelPrintMode>('');
   const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<Record<string, any> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -178,6 +187,8 @@ export default function SearchPage() {
     if (!rows.some((row) => row.tag === selectedTag)) {
       setSelectedTag('');
       setSelectedJob(null);
+      setLabelPreviewJob(null);
+      setLabelPreviewMode('');
       setDetailErr(null);
       setResendMsg(null);
       setPrintMsg(null);
@@ -203,6 +214,8 @@ export default function SearchPage() {
     setDetailErr(null);
     setResendMsg(null);
     setPrintMsg(null);
+    setLabelPreviewJob(null);
+    setLabelPreviewMode('');
     setPickupActionMsg(null);
     setManualSubject('');
     setManualBody('');
@@ -266,6 +279,8 @@ export default function SearchPage() {
       const res = await getJob(tag);
       const job = (res?.job || null) as Record<string, any> | null;
       if (!job) throw new Error('Could not load the label details.');
+      setLabelPreviewJob(job);
+      setLabelPreviewMode(type);
       setPrintJob(job);
       setPrintMode(type);
       openBrowserPrintPreview(() => {
@@ -865,6 +880,36 @@ export default function SearchPage() {
                 </div>
               </div>
 
+              {labelPreviewJob && labelPreviewMode ? (
+                <div className="labelPreviewCard">
+                  <div className="labelPreviewHead">
+                    <div>
+                      <div className="labelPreviewKicker">Label Preview</div>
+                      <div className="labelPreviewTitle">{labelModeLabel(labelPreviewMode)}</div>
+                    </div>
+                    <button
+                      className="btn secondary"
+                      type="button"
+                      onClick={() => {
+                        setPrintJob(labelPreviewJob);
+                        setPrintMode(labelPreviewMode);
+                        openBrowserPrintPreview(() => setPrintMode(''));
+                      }}
+                    >
+                      Print Again
+                    </button>
+                  </div>
+                  <div className="labelPreviewStage">
+                    <ThermalLabelSheet
+                      job={labelPreviewJob}
+                      type={labelPreviewMode}
+                      brandingName={brandingName}
+                      brandingLogoUrl={brandingLogoUrl}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
               {selectedJob ? (
                 <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#0f172a', display: 'grid', gap: 4 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#64748b' }}>Next Best Action</div>
@@ -1225,6 +1270,47 @@ export default function SearchPage() {
       <style jsx>{`
         .print-only {
           display: none;
+        }
+
+        .labelPreviewCard {
+          display: grid;
+          gap: 10px;
+          padding: 12px;
+          border: 1px solid #cbd5e1;
+          border-radius: 12px;
+          background: #f8fafc;
+          color: #0f172a;
+          overflow: hidden;
+        }
+
+        .labelPreviewHead {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .labelPreviewKicker {
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+
+        .labelPreviewTitle {
+          margin-top: 2px;
+          font-size: 15px;
+          font-weight: 900;
+          color: #0f172a;
+        }
+
+        .labelPreviewStage {
+          width: 100%;
+          max-width: 3.5in;
+          overflow-x: auto;
+          background: #ffffff;
         }
 
         .search-toolbar-summary {
