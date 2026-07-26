@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
-import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { identifierSettingsFromPublicCopy, normalizeTagInput, tagInputMode, validateTag } from '@/lib/identifiers';
@@ -128,6 +128,7 @@ export default function MissingTagsPage() {
   const [jobErr, setJobErr] = useState('');
   const [printMode, setPrintMode] = useState<'' | 'sheet' | ThermalLabelType>('');
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState('/wgbb-logo.png');
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
@@ -165,6 +166,7 @@ export default function MissingTagsPage() {
       .then((j) => {
         if (!j?.ok) return;
         setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
+        setBrandingLogoUrl(String(j?.settings?.branding?.logoUrl || '/wgbb-logo.png'));
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
         setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
@@ -369,9 +371,9 @@ export default function MissingTagsPage() {
                 <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'deer')} disabled={!!printing}>
                   Deer Label
                 </button>
-                {canPrintCapeLabel(selectedJob) ? (
-                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'cape')} disabled={!!printing}>
-                    Cape Label
+                {canPrintAntlerLabel(selectedJob) ? (
+                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'antler')} disabled={!!printing}>
+                    Antler Tag
                   </button>
                 ) : null}
                 <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'package')} disabled={!!printing}>
@@ -498,9 +500,9 @@ export default function MissingTagsPage() {
             cutOptions={cutOptions}
           />
         ) : null}
-        {printMode === 'deer' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="deer" brandingName={brandingName} /> : null}
-        {printMode === 'cape' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="cape" brandingName={brandingName} /> : null}
-        {printMode === 'package' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="package" brandingName={brandingName} /> : null}
+        {printMode === 'deer' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
+        {printMode === 'antler' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
+        {printMode === 'package' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 
       <style jsx>{`

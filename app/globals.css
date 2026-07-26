@@ -2342,6 +2342,33 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   opacity: 1 !important;
 }
 
+@page thermal-label {
+  size: 3.5in 1.125in;
+  margin: 0;
+}
+
+@media print {
+  .thermalLabelRoot {
+    page: thermal-label;
+    width: 3.5in !important;
+    height: 1.125in !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .thermalLabel {
+    width: 3.5in !important;
+    height: 1.125in !important;
+    max-height: 1.125in !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    break-inside: avoid-page !important;
+    page-break-inside: avoid !important;
+  }
+}
+
 /* === PRINTSHEET ONE-PAGE LOCK ===
    Final override for shop printing: one intake sheet per letter page, even for
    long notes, specialty, or Webbs-heavy orders. */

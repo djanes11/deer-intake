@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
-import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelType } from '@/app/components/ThermalLabelSheet';
 import type { Job } from '@/lib/api';
 import { getJob, saveJob, searchJobs, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -104,6 +104,7 @@ export default function SearchPage() {
   const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
   const [brandingName, setBrandingName] = useState('Wild Game Butcher Board');
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState('/wgbb-logo.png');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
   const [mobileMatchesOpen, setMobileMatchesOpen] = useState(true);
   const [quickPickupBy, setQuickPickupBy] = useState('');
@@ -123,6 +124,7 @@ export default function SearchPage() {
         setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
         setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
         setBrandingName(String(j?.settings?.branding?.name || 'Wild Game Butcher Board'));
+        setBrandingLogoUrl(String(j?.settings?.branding?.logoUrl || '/wgbb-logo.png'));
       })
       .catch(() => {});
   }, []);
@@ -841,9 +843,9 @@ export default function SearchPage() {
                     <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>
                       Deer Label
                     </button>
-                    {canPrintCapeLabel(selectedJob) ? (
-                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'cape')} disabled={!selectedTag || printing === selectedTag}>
-                        Cape Label
+                    {canPrintAntlerLabel(selectedJob) ? (
+                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>
+                        Antler Tag
                       </button>
                     ) : null}
                     <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
@@ -1210,9 +1212,9 @@ export default function SearchPage() {
             cutOptions={cutOptions}
           />
         ) : null}
-        {printMode === 'deer' && printJob ? <ThermalLabelSheet job={printJob} type="deer" brandingName={brandingName} /> : null}
-        {printMode === 'cape' && printJob ? <ThermalLabelSheet job={printJob} type="cape" brandingName={brandingName} /> : null}
-        {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} /> : null}
+        {printMode === 'deer' && printJob ? <ThermalLabelSheet job={printJob} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
+        {printMode === 'antler' && printJob ? <ThermalLabelSheet job={printJob} type="antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
+        {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 
       <style jsx>{`
