@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob, tokenHeader } from '@/lib/api';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -1432,10 +1433,7 @@ useEffect(() => {
                 type="button"
                 onClick={() => {
                   setPrintMode('sheet');
-                  setTimeout(() => {
-                    window.print();
-                    setTimeout(() => setPrintMode(''), 300);
-                  }, 150);
+                  openBrowserPrintPreview(() => setPrintMode(''));
                 }}
               >
                 Print Intake
@@ -2400,10 +2398,7 @@ useEffect(() => {
                     return;
                   }
                   setPrintMode('deer');
-                  setTimeout(() => {
-                    window.print();
-                    setTimeout(() => setPrintMode(''), 300);
-                  }, 150);
+                  openBrowserPrintPreview(() => setPrintMode(''));
                 }}
                 disabled={busy}
               >
@@ -2425,10 +2420,7 @@ useEffect(() => {
                       return;
                     }
                     setPrintMode('deer-antler');
-                    setTimeout(() => {
-                      window.print();
-                      setTimeout(() => setPrintMode(''), 300);
-                    }, 150);
+                    openBrowserPrintPreview(() => setPrintMode(''));
                   }}
                   disabled={busy}
                 >
@@ -2451,10 +2443,7 @@ useEffect(() => {
                       return;
                     }
                     setPrintMode('antler');
-                    setTimeout(() => {
-                      window.print();
-                      setTimeout(() => setPrintMode(''), 300);
-                    }, 150);
+                    openBrowserPrintPreview(() => setPrintMode(''));
                   }}
                   disabled={busy}
                 >
@@ -2471,10 +2460,7 @@ useEffect(() => {
                     if (!ok) return;
                   }
                   setPrintMode('package');
-                  setTimeout(() => {
-                    window.print();
-                    setTimeout(() => setPrintMode(''), 300);
-                  }, 150);
+                  openBrowserPrintPreview(() => setPrintMode(''));
                 }}
                 disabled={busy}
               >
@@ -2502,10 +2488,7 @@ useEffect(() => {
                     return;
                   }
                   setPrintMode('sheet');
-                  setTimeout(() => {
-                    window.print();
-                    setTimeout(() => setPrintMode(''), 300);
-                  }, 150);
+                  openBrowserPrintPreview(() => setPrintMode(''));
                 }}
                 disabled={busy}
               >
@@ -2559,10 +2542,7 @@ useEffect(() => {
                       return;
                     }
                     setPrintMode('sheet');
-                    setTimeout(() => {
-                      window.print();
-                      setTimeout(() => setPrintMode(''), 300);
-                    }, 150);
+                    openBrowserPrintPreview(() => setPrintMode(''));
                   }}
                   disabled={busy}
                 >
@@ -2582,10 +2562,7 @@ useEffect(() => {
                       return;
                     }
                     setPrintMode('deer');
-                    setTimeout(() => {
-                      window.print();
-                      setTimeout(() => setPrintMode(''), 300);
-                    }, 150);
+                    openBrowserPrintPreview(() => setPrintMode(''));
                   }}
                   disabled={busy}
                 >
@@ -2606,10 +2583,7 @@ useEffect(() => {
                         return;
                       }
                       setPrintMode('deer-antler');
-                      setTimeout(() => {
-                        window.print();
-                        setTimeout(() => setPrintMode(''), 300);
-                      }, 150);
+                      openBrowserPrintPreview(() => setPrintMode(''));
                     }}
                     disabled={busy}
                   >
@@ -2631,10 +2605,7 @@ useEffect(() => {
                         return;
                       }
                       setPrintMode('antler');
-                      setTimeout(() => {
-                        window.print();
-                        setTimeout(() => setPrintMode(''), 300);
-                      }, 150);
+                      openBrowserPrintPreview(() => setPrintMode(''));
                     }}
                     disabled={busy}
                   >
@@ -2650,10 +2621,7 @@ useEffect(() => {
                       if (!ok) return;
                     }
                     setPrintMode('package');
-                    setTimeout(() => {
-                      window.print();
-                      setTimeout(() => setPrintMode(''), 300);
-                    }, 150);
+                    openBrowserPrintPreview(() => setPrintMode(''));
                   }}
                   disabled={busy}
                 >

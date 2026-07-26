@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { identifierSettingsFromPublicCopy, normalizeTagInput, tagInputMode, validateTag } from '@/lib/identifiers';
@@ -228,11 +229,10 @@ export default function MissingTagsPage() {
       await markPrinted(normalized);
       setPrintMode('sheet');
 
-      setTimeout(() => {
-        window.print();
-        setTimeout(() => setPrintMode(''), 300);
+      openBrowserPrintPreview(() => {
+        setPrintMode('');
         setPrinting('');
-      }, 150);
+      });
     } catch (e: any) {
       setJobErr(String(e?.message || e));
       setPrinting('');
@@ -255,11 +255,10 @@ export default function MissingTagsPage() {
       if (!job) return;
 
       setPrintMode(type);
-      setTimeout(() => {
-        window.print();
-        setTimeout(() => setPrintMode(''), 300);
+      openBrowserPrintPreview(() => {
+        setPrintMode('');
         setPrinting('');
-      }, 150);
+      });
     } catch (e: any) {
       setJobErr(String(e?.message || e));
       setPrinting('');

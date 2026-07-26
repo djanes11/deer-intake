@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
 import { getJob, saveJob, searchJobs, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -242,11 +243,10 @@ export default function SearchPage() {
 
       setPrintJob(job);
       setPrintMode('sheet');
-      setTimeout(() => {
-        window.print();
-        setTimeout(() => setPrintMode(''), 300);
+      openBrowserPrintPreview(() => {
+        setPrintMode('');
         setPrinting('');
-      }, 150);
+      });
       if (selectedTag === tag) {
         await loadDetails(tag);
         setPrintMsg('Marked printed. If the printer did not respond, try Print Queue or print again from this page.');
@@ -268,11 +268,10 @@ export default function SearchPage() {
       if (!job) throw new Error('Could not load the label details.');
       setPrintJob(job);
       setPrintMode(type);
-      setTimeout(() => {
-        window.print();
-        setTimeout(() => setPrintMode(''), 300);
+      openBrowserPrintPreview(() => {
+        setPrintMode('');
         setPrinting('');
-      }, 150);
+      });
     } catch (e: any) {
       setErr(`Could not print that label. ${e?.message || 'Try again, or open the intake record and print from there.'}`);
       setPrinting('');
