@@ -84,6 +84,15 @@ function labelModeLabel(mode: ThermalLabelPrintMode) {
 
 type PaymentMethod = 'cash' | 'card' | 'check' | 'other';
 type PickupTrack = 'meat' | 'cape' | 'webbs';
+type SearchDetailTab = 'counter' | 'order' | 'contact' | 'messages' | 'history';
+
+const DETAIL_TABS: Array<{ key: SearchDetailTab; label: string }> = [
+  { key: 'counter', label: 'Counter' },
+  { key: 'order', label: 'Order' },
+  { key: 'contact', label: 'Contact' },
+  { key: 'messages', label: 'Messages' },
+  { key: 'history', label: 'History' },
+];
 
 export default function SearchPage() {
   const router = useRouter();
@@ -124,6 +133,7 @@ export default function SearchPage() {
   const [quickPaymentMethod, setQuickPaymentMethod] = useState<PaymentMethod>('cash');
   const [pickupActionBusy, setPickupActionBusy] = useState('');
   const [pickupActionMsg, setPickupActionMsg] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<SearchDetailTab>('counter');
   const debounced = useDebounced(q, 300);
 
   useEffect(() => {
@@ -221,6 +231,7 @@ export default function SearchPage() {
     setPickupActionMsg(null);
     setManualSubject('');
     setManualBody('');
+    setDetailTab('counter');
     try {
       const res = await getJob(tag);
       const job = (res?.job || null) as Record<string, any> | null;
@@ -496,6 +507,21 @@ export default function SearchPage() {
         { label: 'Last Printed', value: fmtDate(selectedJob.intakeSheetPrintedAt) },
         { label: 'Print Count', value: selectedJob.intakeSheetPrintCount ?? 0 },
         { label: 'Last Updated', value: fmtDate(selectedJob.updatedAt) },
+      ]
+    : [];
+  const balanceStatusText = selectedJob
+    ? paymentSummary.toLowerCase().includes('partial')
+      ? 'Partial payment'
+      : paymentSummary.toLowerCase().includes('unpaid')
+        ? 'Collect at pickup'
+        : 'Paid in full'
+    : '-';
+  const summaryFacts = selectedJob
+    ? [
+        { label: 'Status', value: statusSummary },
+        { label: 'Balance', value: pickupQuickView ? (pickupQuickView.due > 0 ? `${money(pickupQuickView.due)} due` : 'Paid') : '-' },
+        { label: 'Contact', value: preferredContact },
+        { label: 'Last Printed', value: fmtDate(selectedJob.intakeSheetPrintedAt) },
       ]
     : [];
   const nextAction = useMemo(() => {
@@ -842,64 +868,94 @@ export default function SearchPage() {
 
           <aside className="search-preview-col">
             <div className="app-surface-light search-preview-card" style={{ padding: 18, display: 'grid', gap: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'start' }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, textTransform: 'uppercase', letterSpacing: '.04em' }}>Preview</div>
-                  <div style={{ fontSize: 22, fontWeight: 900, marginTop: 4 }}>{selectedJob?.customer || selectedTag || 'Select a deer'}</div>
-                  <div className="muted" style={{ marginTop: 4 }}>
-                    {selectedTag ? `Tag ${selectedTag}` : 'Select a deer'}
-                    {selectedJob?.confirmation ? ` | Confirmation ${selectedJob.confirmation}` : ''}
+              <div className="selectedSummary">
+                <div className="selectedSummaryTop">
+                  <div>
+                    <div className="selectedSummaryKicker">Selected Deer</div>
+                    <div className="selectedSummaryTitle">{selectedJob?.customer || selectedTag || 'Select a deer'}</div>
+                    <div className="selectedSummaryMeta">
+                      {selectedTag ? `Tag ${selectedTag}` : 'Select a deer'}
+                      {selectedJob?.confirmation ? ` | Confirmation ${selectedJob.confirmation}` : ''}
+                    </div>
                   </div>
+                  {pickupQuickView ? (
+                    <div className={`selectedBalanceBadge ${pickupQuickView.due > 0 ? 'warn' : 'ok'}`}>
+                      {pickupQuickView.due > 0 ? `${money(pickupQuickView.due)} due` : 'Paid'}
+                    </div>
+                  ) : null}
                 </div>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.72, textTransform: 'uppercase', letterSpacing: '.04em' }}>Actions</div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button
-                      className="btn"
-                      type="button"
-                      onClick={() => {
-                        const rowToken = rows.find((row) => row.tag === selectedTag) as any;
-                        selectedTag && openTag(selectedTag, selectedJob?.publicToken || selectedJob?.public_token || rowToken?.publicToken);
-                      }}
-                      disabled={!selectedTag}
-                    >
-                      {canEdit ? 'Open Intake' : 'Open Details'}
-                    </button>
-                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
-                      {printing === selectedTag ? 'Preparing...' : 'Print Intake'}
-                    </button>
-                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>
-                      Deer Label
-                    </button>
-                    {canPrintAntlerLabel(selectedJob) ? (
-                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer-antler')} disabled={!selectedTag || printing === selectedTag}>
-                        Deer + Antler
-                      </button>
-                    ) : null}
-                    {canPrintAntlerLabel(selectedJob) ? (
-                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>
-                        Antler Tag
-                      </button>
-                    ) : null}
-                    <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
-                      Package Label
-                    </button>
-                    {canEdit && selectedJob?.intakeSheetPrintedAt ? (
-                      <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>
-                        Mark Unprinted
-                      </button>
-                    ) : null}
-                  </div>
-                  {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
-                </div>
-              </div>
 
-              {selectedJob ? (
-                <div style={{ padding: 12, borderRadius: 14, background: '#f8fafc', border: '1px solid #dbe4ee', color: '#0f172a', display: 'grid', gap: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#64748b' }}>Next Best Action</div>
-                  <div style={{ fontWeight: 900 }}>{nextAction}</div>
-                </div>
-              ) : null}
+                {selectedJob ? (
+                  <>
+                    <div className="selectedSummaryFacts">
+                      {summaryFacts.map((fact) => (
+                        <div className="selectedSummaryFact" key={fact.label}>
+                          <div className="selectedSummaryFactLabel">{fact.label}</div>
+                          <div className="selectedSummaryFactValue">{fact.value}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="nextActionCard">
+                      <div className="nextActionLabel">Next Best Action</div>
+                      <div className="nextActionText">{nextAction}</div>
+                    </div>
+
+                    <div className="selectedPrimaryActions">
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          const rowToken = rows.find((row) => row.tag === selectedTag) as any;
+                          selectedTag && openTag(selectedTag, selectedJob?.publicToken || selectedJob?.public_token || rowToken?.publicToken);
+                        }}
+                        disabled={!selectedTag}
+                      >
+                        {canEdit ? 'Open Intake' : 'Open Details'}
+                      </button>
+                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
+                        {printing === selectedTag ? 'Preparing...' : 'Print Intake'}
+                      </button>
+                      {canEdit ? (
+                        <button className="btn secondary" type="button" onClick={() => setDetailTab('counter')}>
+                          {pickupQuickView?.due ? 'Collect Payment' : 'Pickup'}
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <details className="printOptionsDisclosure">
+                      <summary>
+                        <span>Print Options</span>
+                        <span>{selectedJob.intakeSheetPrintCount ? `${selectedJob.intakeSheetPrintCount} printed` : 'Labels and reprint tools'}</span>
+                      </summary>
+                      <div className="printOptionsList">
+                        <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer')} disabled={!selectedTag || printing === selectedTag}>
+                          Deer Label
+                        </button>
+                        {canPrintAntlerLabel(selectedJob) ? (
+                          <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'deer-antler')} disabled={!selectedTag || printing === selectedTag}>
+                            Deer + Antler
+                          </button>
+                        ) : null}
+                        {canPrintAntlerLabel(selectedJob) ? (
+                          <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>
+                            Antler Tag
+                          </button>
+                        ) : null}
+                        <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
+                          Package Label
+                        </button>
+                        {canEdit && selectedJob?.intakeSheetPrintedAt ? (
+                          <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>
+                            Mark Unprinted
+                          </button>
+                        ) : null}
+                      </div>
+                    </details>
+                    {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
+                  </>
+                ) : null}
+              </div>
 
               {detailLoading ? <div className="muted">Loading details...</div> : null}
               {detailErr ? <div className="card" style={{ borderColor: '#ef4444' }}>Error: {detailErr}</div> : null}
@@ -912,151 +968,157 @@ export default function SearchPage() {
 
               {selectedJob ? (
                 <>
-                  {pickupQuickView ? (
-                    <DetailBox title="Counter Summary">
-                      <div className="pickupQuickGrid">
-                        <div className="pickupQuickCard">
-                          <div className="pickupQuickLabel">Total due</div>
-                          <div className="pickupQuickValue">{money(pickupQuickView.due)}</div>
-                          <div className="pickupQuickSub">
-                            {pickupQuickView.due > 0 ? 'Collect at pickup' : 'Nothing left to collect'}
-                          </div>
-                        </div>
-                        <div className="pickupQuickCard">
-                          <div className="pickupQuickLabel">Pickup stage</div>
-                          <div className="pickupQuickValue">{pickupQuickView.pickupState}</div>
-                          <div className="pickupQuickSub">
-                            {pickupQuickView.processingPickedUp ? 'Processing already picked up' : 'Still waiting on handoff'}
-                          </div>
-                        </div>
-                      </div>
+                  <div className="detailTabs" role="tablist" aria-label="Selected deer details">
+                    {DETAIL_TABS.map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={detailTab === tab.key}
+                        className={`detailTab ${detailTab === tab.key ? 'active' : ''}`}
+                        onClick={() => setDetailTab(tab.key)}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
 
-                      <div className="pickupQuickBreakdown">
-                        <div><strong>Status:</strong> {statusSummary}</div>
-                        <div><strong>Balance status:</strong> {paymentSummary.toLowerCase().includes('partial') ? 'Partial payment on file' : paymentSummary.toLowerCase().includes('unpaid') ? 'Collect at pickup' : 'Paid in full'}</div>
-                        <div><strong>Processing due:</strong> {money(pickupQuickView.procDue)}</div>
-                        {specialtyEnabled ? <div><strong>Specialty due:</strong> {money(pickupQuickView.specDue)}</div> : null}
-                        <div><strong>Processing paid:</strong> {money(Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0))}</div>
-                        {specialtyEnabled ? <div><strong>Specialty paid:</strong> {money(Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0))}</div> : null}
-                        <div><strong>Processing pickup:</strong> {pickupQuickView.processingPickedUp ? 'Picked up' : 'Not picked up'}</div>
-                        <div><strong>Cape pickup:</strong> {pickupQuickView.capePickedUp ? 'Picked up' : 'Not picked up'}</div>
-                        {webbsEnabled && selectedJob.webbsOrder ? <div><strong>Webbs pickup:</strong> {pickupQuickView.webbsPickedUp ? 'Picked up' : 'Not picked up'}</div> : null}
-                        <div><strong>Picked up by:</strong> {pickupQuickView.pickedUpBy || 'Not recorded'}</div>
-                      </div>
+                  {detailTab === 'counter' ? (
+                    <div className="detailTabPanel">
+                      {pickupQuickView ? (
+                        <DetailBox title="Counter">
+                          <div className="pickupQuickGrid">
+                            <div className="pickupQuickCard">
+                              <div className="pickupQuickLabel">Total due</div>
+                              <div className="pickupQuickValue">{money(pickupQuickView.due)}</div>
+                              <div className="pickupQuickSub">
+                                {pickupQuickView.due > 0 ? 'Collect at pickup' : 'Nothing left to collect'}
+                              </div>
+                            </div>
+                            <div className="pickupQuickCard">
+                              <div className="pickupQuickLabel">Pickup stage</div>
+                              <div className="pickupQuickValue">{pickupQuickView.pickupState}</div>
+                              <div className="pickupQuickSub">
+                                {pickupQuickView.processingPickedUp ? 'Processing already picked up' : 'Still waiting on handoff'}
+                              </div>
+                            </div>
+                          </div>
 
-                      {pickupQuickView.pickupNotes ? (
-                        <div className="pickupQuickNotes">
-                          <strong>Pickup notes:</strong> {pickupQuickView.pickupNotes}
-                        </div>
+                          <details className="compactDisclosure">
+                            <summary>
+                              <span>Payment and pickup details</span>
+                              <span>{balanceStatusText}</span>
+                            </summary>
+                            <div className="pickupQuickBreakdown">
+                              <div><strong>Status:</strong> {statusSummary}</div>
+                              <div><strong>Balance status:</strong> {balanceStatusText}</div>
+                              <div><strong>Processing due:</strong> {money(pickupQuickView.procDue)}</div>
+                              {specialtyEnabled ? <div><strong>Specialty due:</strong> {money(pickupQuickView.specDue)}</div> : null}
+                              <div><strong>Processing paid:</strong> {money(Number(selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing ?? 0))}</div>
+                              {specialtyEnabled ? <div><strong>Specialty paid:</strong> {money(Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0))}</div> : null}
+                              <div><strong>Processing pickup:</strong> {pickupQuickView.processingPickedUp ? 'Picked up' : 'Not picked up'}</div>
+                              <div><strong>Cape pickup:</strong> {pickupQuickView.capePickedUp ? 'Picked up' : 'Not picked up'}</div>
+                              {webbsEnabled && selectedJob.webbsOrder ? <div><strong>Webbs pickup:</strong> {pickupQuickView.webbsPickedUp ? 'Picked up' : 'Not picked up'}</div> : null}
+                              <div><strong>Picked up by:</strong> {pickupQuickView.pickedUpBy || 'Not recorded'}</div>
+                            </div>
+
+                            {pickupQuickView.pickupNotes ? (
+                              <div className="pickupQuickNotes">
+                                <strong>Pickup notes:</strong> {pickupQuickView.pickupNotes}
+                              </div>
+                            ) : null}
+                          </details>
+
+                          {canEdit ? (
+                            <div className="pickupQuickActions">
+                              <div className="pickupQuickActionGrid">
+                                <label className="pickupQuickField">
+                                  <span>Payment method</span>
+                                  <select value={quickPaymentMethod} onChange={(e) => setQuickPaymentMethod(e.target.value as PaymentMethod)}>
+                                    <option value="cash">Cash</option>
+                                    <option value="card">Card</option>
+                                    <option value="check">Check</option>
+                                    <option value="other">Other</option>
+                                  </select>
+                                </label>
+                                <label className="pickupQuickField">
+                                  <span>Picked up by</span>
+                                  <input value={quickPickupBy} onChange={(e) => setQuickPickupBy(e.target.value)} placeholder="Customer or helper name" />
+                                </label>
+                              </div>
+
+                              <label className="pickupQuickField">
+                                <span>Pickup notes</span>
+                                <textarea
+                                  rows={2}
+                                  value={quickPickupNotes}
+                                  onChange={(e) => setQuickPickupNotes(e.target.value)}
+                                  placeholder="Optional note for this handoff"
+                                />
+                              </label>
+
+                              <div className="pickupQuickButtonRow">
+                                <button
+                                  className="btn"
+                                  type="button"
+                                  onClick={() => void recordQuickPayment('processing')}
+                                  disabled={pickupActionBusy !== '' || pickupQuickView.procDue <= 0}
+                                >
+                                  {pickupActionBusy === 'processing' ? 'Saving...' : pickupQuickView.procDue > 0 ? `Mark Processing Paid (${money(pickupQuickView.procDue)})` : 'Processing Paid'}
+                                </button>
+                                {specialtyEnabled && (selectedJob.specialtyProducts || pickupQuickView.specDue > 0 || Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) > 0) ? (
+                                  <button
+                                    className="btn"
+                                    type="button"
+                                    onClick={() => void recordQuickPayment('specialty')}
+                                    disabled={pickupActionBusy !== '' || pickupQuickView.specDue <= 0}
+                                  >
+                                    {pickupActionBusy === 'specialty' ? 'Saving...' : pickupQuickView.specDue > 0 ? `Mark Specialty Paid (${money(pickupQuickView.specDue)})` : 'Specialty Paid'}
+                                  </button>
+                                ) : null}
+                              </div>
+
+                              <div className="pickupQuickButtonRow">
+                                <button
+                                  className="btn secondary"
+                                  type="button"
+                                  onClick={() => void markTrackPickedUp('meat')}
+                                  disabled={pickupActionBusy !== '' || pickupQuickView.processingPickedUp}
+                                >
+                                  {pickupActionBusy === 'pickup-meat' ? 'Saving...' : pickupQuickView.processingPickedUp ? 'Processing Picked Up' : 'Mark Processing Picked Up'}
+                                </button>
+                                {canPrintCapeLabel(selectedJob) ? (
+                                  <button
+                                    className="btn secondary"
+                                    type="button"
+                                    onClick={() => void markTrackPickedUp('cape')}
+                                    disabled={pickupActionBusy !== '' || pickupQuickView.capePickedUp}
+                                  >
+                                    {pickupActionBusy === 'pickup-cape' ? 'Saving...' : pickupQuickView.capePickedUp ? 'Cape Picked Up' : 'Mark Cape Picked Up'}
+                                  </button>
+                                ) : null}
+                                {webbsEnabled && selectedJob.webbsOrder ? (
+                                  <button
+                                    className="btn secondary"
+                                    type="button"
+                                    onClick={() => void markTrackPickedUp('webbs')}
+                                    disabled={pickupActionBusy !== '' || pickupQuickView.webbsPickedUp}
+                                  >
+                                    {pickupActionBusy === 'pickup-webbs' ? 'Saving...' : pickupQuickView.webbsPickedUp ? 'Webbs Picked Up' : 'Mark Webbs Picked Up'}
+                                  </button>
+                                ) : null}
+                              </div>
+
+                              {pickupActionMsg ? <div className="pickupQuickFeedback">{pickupActionMsg}</div> : null}
+                            </div>
+                          ) : null}
+                        </DetailBox>
                       ) : null}
-
-                      {canEdit ? (
-                        <div className="pickupQuickActions">
-                          <div className="pickupQuickActionGrid">
-                            <label className="pickupQuickField">
-                              <span>Payment method</span>
-                              <select value={quickPaymentMethod} onChange={(e) => setQuickPaymentMethod(e.target.value as PaymentMethod)}>
-                                <option value="cash">Cash</option>
-                                <option value="card">Card</option>
-                                <option value="check">Check</option>
-                                <option value="other">Other</option>
-                              </select>
-                            </label>
-                            <label className="pickupQuickField">
-                              <span>Picked up by</span>
-                              <input value={quickPickupBy} onChange={(e) => setQuickPickupBy(e.target.value)} placeholder="Customer or helper name" />
-                            </label>
-                          </div>
-
-                          <label className="pickupQuickField">
-                            <span>Pickup notes</span>
-                            <textarea
-                              rows={2}
-                              value={quickPickupNotes}
-                              onChange={(e) => setQuickPickupNotes(e.target.value)}
-                              placeholder="Optional note for this handoff"
-                            />
-                          </label>
-
-                          <div className="pickupQuickButtonRow">
-                            <button
-                              className="btn"
-                              type="button"
-                              onClick={() => void recordQuickPayment('processing')}
-                              disabled={pickupActionBusy !== '' || pickupQuickView.procDue <= 0}
-                            >
-                              {pickupActionBusy === 'processing' ? 'Saving...' : pickupQuickView.procDue > 0 ? `Mark Processing Paid (${money(pickupQuickView.procDue)})` : 'Processing Paid'}
-                            </button>
-                            {specialtyEnabled && (selectedJob.specialtyProducts || pickupQuickView.specDue > 0 || Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) > 0) ? (
-                              <button
-                                className="btn"
-                                type="button"
-                                onClick={() => void recordQuickPayment('specialty')}
-                                disabled={pickupActionBusy !== '' || pickupQuickView.specDue <= 0}
-                              >
-                                {pickupActionBusy === 'specialty' ? 'Saving...' : pickupQuickView.specDue > 0 ? `Mark Specialty Paid (${money(pickupQuickView.specDue)})` : 'Specialty Paid'}
-                              </button>
-                            ) : null}
-                          </div>
-
-                          <div className="pickupQuickButtonRow">
-                            <button
-                              className="btn secondary"
-                              type="button"
-                              onClick={() => void markTrackPickedUp('meat')}
-                              disabled={pickupActionBusy !== '' || pickupQuickView.processingPickedUp}
-                            >
-                              {pickupActionBusy === 'pickup-meat' ? 'Saving...' : pickupQuickView.processingPickedUp ? 'Processing Picked Up' : 'Mark Processing Picked Up'}
-                            </button>
-                            {canPrintCapeLabel(selectedJob) ? (
-                              <button
-                                className="btn secondary"
-                                type="button"
-                                onClick={() => void markTrackPickedUp('cape')}
-                                disabled={pickupActionBusy !== '' || pickupQuickView.capePickedUp}
-                              >
-                                {pickupActionBusy === 'pickup-cape' ? 'Saving...' : pickupQuickView.capePickedUp ? 'Cape Picked Up' : 'Mark Cape Picked Up'}
-                              </button>
-                            ) : null}
-                            {webbsEnabled && selectedJob.webbsOrder ? (
-                              <button
-                                className="btn secondary"
-                                type="button"
-                                onClick={() => void markTrackPickedUp('webbs')}
-                                disabled={pickupActionBusy !== '' || pickupQuickView.webbsPickedUp}
-                              >
-                                {pickupActionBusy === 'pickup-webbs' ? 'Saving...' : pickupQuickView.webbsPickedUp ? 'Webbs Picked Up' : 'Mark Webbs Picked Up'}
-                              </button>
-                            ) : null}
-                          </div>
-
-                          {pickupActionMsg ? <div className="pickupQuickFeedback">{pickupActionMsg}</div> : null}
-                        </div>
-                      ) : null}
-                    </DetailBox>
+                    </div>
                   ) : null}
 
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-                      {quickFacts.map((fact) => (
-                        <div
-                          key={fact.label}
-                          style={{
-                            border: '1px solid #d1d5db',
-                            borderRadius: 14,
-                            padding: 12,
-                            background: '#ffffff',
-                            color: '#111827',
-                            display: 'grid',
-                            gap: 6,
-                          }}
-                        >
-                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#6b7280' }}>{fact.label}</div>
-                          <div style={{ fontWeight: 900, lineHeight: 1.4 }}>{fact.value}</div>
-                        </div>
-                      ))}
-                    </div>
-
+                  {detailTab === 'order' ? (
+                    <div className="detailTabPanel">
                     <DetailBox title="Order Details">
                       {specialtyEnabled ? <div><strong>Specialty:</strong> {selectedSearchSpecialtyItems.length ? `${selectedSearchSpecialtyItems.length} products selected` : 'Not selected'}</div> : null}
                       <div><strong>Add-ons:</strong> {selectedSearchAddOns.length ? selectedSearchAddOns.map((item) => item.name).join(', ') : 'No add-ons selected'}</div>
@@ -1078,9 +1140,13 @@ export default function SearchPage() {
                           <div><strong>Webbs:</strong> {webbsStyleLabel(selectedJob.webbsOrderStyle)}</div>
                         </>
                       ) : null}
-                      <div><strong>Pending intake removed:</strong> {fmtDate(selectedJob.pendingDeletedAt)}</div>
+                      {selectedJob.pendingDeletedAt ? <div><strong>Pending intake removed:</strong> {fmtDate(selectedJob.pendingDeletedAt)}</div> : null}
                     </DetailBox>
+                    </div>
+                  ) : null}
 
+                  {detailTab === 'contact' ? (
+                    <div className="detailTabPanel">
                     <DetailBox title="Contact">
                       <div><strong>Preferred:</strong> {preferredContact}</div>
                       <div><strong>Phone:</strong> {selectedJob.phone || '-'}</div>
@@ -1088,7 +1154,11 @@ export default function SearchPage() {
                       <div><strong>Drop-off:</strong> {formatDisplayDate(selectedJob.dropoff || '')}</div>
                       <div><strong>Address:</strong> {[selectedJob.address, selectedJob.city, selectedJob.state, selectedJob.zip].filter(Boolean).join(', ') || '-'}</div>
                     </DetailBox>
+                    </div>
+                  ) : null}
 
+                  {detailTab === 'messages' ? (
+                    <div className="detailTabPanel">
                     <DetailBox title="Manual Message">
                       {!canManageNotifications ? (
                         <div className="muted" style={{ fontSize: 13 }}>
@@ -1153,80 +1223,90 @@ export default function SearchPage() {
                         </div>
                       )}
                     </DetailBox>
-
-                  </div>
-
-                  <details className="notificationHistoryDisclosure">
-                    <summary>
-                      <span>Notification History</span>
-                      <span className="notificationHistorySummary">Last: {fmtDate(latestNotificationAt)}</span>
-                    </summary>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                      <div style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, color: '#111827' }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#6b7280' }}>Last Notification</div>
-                        <div style={{ fontWeight: 900, marginTop: 6 }}>{fmtDate(latestNotificationAt)}</div>
-                      </div>
-                      <div style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, color: '#111827' }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: '#6b7280' }}>Last Drop-Off Message</div>
-                        <div style={{ fontWeight: 900, marginTop: 6 }}>{fmtDate(selectedJob.dropoffSmsSentAt || selectedJob.dropoffEmailSentAt)}</div>
-                      </div>
                     </div>
-                    {!canManageNotifications ? (
-                      <div className="muted" style={{ fontSize: 13 }}>
-                        Notification timestamps are visible here, but only Admin users can resend messages or reset sent flags.
+                  ) : null}
+
+                  {detailTab === 'history' ? (
+                    <div className="detailTabPanel">
+                      <div className="quickFactGrid">
+                        {quickFacts.map((fact) => (
+                          <div className="quickFact" key={fact.label}>
+                            <div className="quickFactLabel">{fact.label}</div>
+                            <div className="quickFactValue">{fact.value}</div>
+                          </div>
+                        ))}
                       </div>
-                    ) : null}
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      {notificationRows.map((row) => (
-                        <div key={row.label} style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, display: 'grid', gap: 8, color: '#111827' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ fontWeight: 900, color: '#111827' }}>{row.label}</div>
-                            {(row.email || row.sms) ? (
-                              <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', background: '#ecfdf5', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: 999 }}>
-                                Sent
-                              </div>
-                            ) : (
-                              <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', padding: '4px 8px', borderRadius: 999 }}>
-                                Not sent yet
-                              </div>
-                            )}
+
+                      <DetailBox title="Notification History">
+                        <div className="quickFactGrid">
+                          <div className="quickFact">
+                            <div className="quickFactLabel">Last Notification</div>
+                            <div className="quickFactValue">{fmtDate(latestNotificationAt)}</div>
                           </div>
-                          <div style={{ display: 'grid', gap: 6 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                              <span style={{ color: '#4b5563', fontWeight: 700 }}>Email</span>
-                              <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.email)}</span>
-                            </div>
-                            {smsEnabled ? (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                                <span style={{ color: '#4b5563', fontWeight: 700 }}>SMS</span>
-                                <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.sms)}</span>
-                              </div>
-                            ) : null}
+                          <div className="quickFact">
+                            <div className="quickFactLabel">Last Drop-Off Message</div>
+                            <div className="quickFactValue">{fmtDate(selectedJob.dropoffSmsSentAt || selectedJob.dropoffEmailSentAt)}</div>
                           </div>
-                          {canManageNotifications ? (
-                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                              <button
-                                type="button"
-                                className="btn"
-                                onClick={() => void resendNotification(eventKeyForLabel(row.label))}
-                                disabled={!selectedTag || !!resendBusy || !!resetBusy}
-                              >
-                                {resendBusy === eventKeyForLabel(row.label) ? 'Sending...' : 'Resend'}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn secondary"
-                                onClick={() => void resetNotification(eventKeyForLabel(row.label))}
-                                disabled={!selectedTag || !!resetBusy}
-                              >
-                                {resetBusy === eventKeyForLabel(row.label) ? 'Resetting...' : 'Reset Flags'}
-                              </button>
-                            </div>
-                          ) : null}
                         </div>
-                      ))}
+                        {!canManageNotifications ? (
+                          <div className="muted" style={{ fontSize: 13 }}>
+                            Notification timestamps are visible here, but only Admin users can resend messages or reset sent flags.
+                          </div>
+                        ) : null}
+                        <div style={{ display: 'grid', gap: 8 }}>
+                          {notificationRows.map((row) => (
+                            <div key={row.label} style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, display: 'grid', gap: 8, color: '#111827' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <div style={{ fontWeight: 900, color: '#111827' }}>{row.label}</div>
+                                {(row.email || row.sms) ? (
+                                  <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', background: '#ecfdf5', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: 999 }}>
+                                    Sent
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', padding: '4px 8px', borderRadius: 999 }}>
+                                    Not sent yet
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ display: 'grid', gap: 6 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                                  <span style={{ color: '#4b5563', fontWeight: 700 }}>Email</span>
+                                  <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.email)}</span>
+                                </div>
+                                {smsEnabled ? (
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                                    <span style={{ color: '#4b5563', fontWeight: 700 }}>SMS</span>
+                                    <span style={{ color: '#111827', textAlign: 'right' }}>{fmtDate(row.sms)}</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                              {canManageNotifications ? (
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() => void resendNotification(eventKeyForLabel(row.label))}
+                                    disabled={!selectedTag || !!resendBusy || !!resetBusy}
+                                  >
+                                    {resendBusy === eventKeyForLabel(row.label) ? 'Sending...' : 'Resend'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn secondary"
+                                    onClick={() => void resetNotification(eventKeyForLabel(row.label))}
+                                    disabled={!selectedTag || !!resetBusy}
+                                  >
+                                    {resetBusy === eventKeyForLabel(row.label) ? 'Resetting...' : 'Reset Flags'}
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </DetailBox>
                     </div>
-                  </details>
+                  ) : null}
+
                   {resendMsg ? <div className="muted" style={{ fontSize: 13 }}>{resendMsg}</div> : null}
                 </>
               ) : null}
@@ -1441,6 +1521,192 @@ export default function SearchPage() {
           top: 88px;
           max-height: calc(100vh - 110px);
           overflow: auto;
+        }
+
+        .selectedSummary {
+          display: grid;
+          gap: 12px;
+        }
+
+        .selectedSummaryTop {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: flex-start;
+        }
+
+        .selectedSummaryKicker,
+        .nextActionLabel,
+        .selectedSummaryFactLabel,
+        .quickFactLabel {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .05em;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+
+        .selectedSummaryTitle {
+          font-size: 23px;
+          font-weight: 950;
+          line-height: 1.12;
+          margin-top: 4px;
+          color: #0f172a;
+        }
+
+        .selectedSummaryMeta {
+          margin-top: 4px;
+          color: #475569;
+          font-size: 13px;
+          line-height: 1.4;
+        }
+
+        .selectedBalanceBadge {
+          flex: 0 0 auto;
+          padding: 8px 10px;
+          border-radius: 999px;
+          border: 1px solid #dbe4ee;
+          background: #f8fafc;
+          color: #334155;
+          font-weight: 900;
+          white-space: nowrap;
+        }
+
+        .selectedBalanceBadge.warn {
+          border-color: #fed7aa;
+          background: #fff7ed;
+          color: #9a3412;
+        }
+
+        .selectedBalanceBadge.ok {
+          border-color: #bbf7d0;
+          background: #f0fdf4;
+          color: #166534;
+        }
+
+        .selectedSummaryFacts,
+        .quickFactGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+          gap: 8px;
+        }
+
+        .selectedSummaryFact,
+        .quickFact {
+          border: 1px solid #dbe4ee;
+          border-radius: 12px;
+          padding: 10px 11px;
+          background: #ffffff;
+          color: #111827;
+          display: grid;
+          gap: 5px;
+          min-width: 0;
+        }
+
+        .selectedSummaryFactValue,
+        .quickFactValue {
+          font-weight: 900;
+          line-height: 1.32;
+          overflow-wrap: anywhere;
+        }
+
+        .nextActionCard {
+          padding: 12px;
+          border-radius: 12px;
+          background: #f8fafc;
+          border: 1px solid #dbe4ee;
+          color: #0f172a;
+          display: grid;
+          gap: 4px;
+        }
+
+        .nextActionText {
+          font-weight: 900;
+          line-height: 1.38;
+        }
+
+        .selectedPrimaryActions,
+        .printOptionsList {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .printOptionsDisclosure,
+        .compactDisclosure {
+          border: 1px solid #dbe4ee;
+          border-radius: 12px;
+          background: #ffffff;
+          color: #111827;
+        }
+
+        .printOptionsDisclosure summary,
+        .compactDisclosure summary {
+          cursor: pointer;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 12px;
+          font-weight: 900;
+          color: #0f172a;
+        }
+
+        .printOptionsDisclosure summary span:last-child,
+        .compactDisclosure summary span:last-child {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 800;
+          text-align: right;
+        }
+
+        .printOptionsDisclosure[open] summary,
+        .compactDisclosure[open] summary {
+          border-bottom: 1px solid #e5eaf1;
+        }
+
+        .printOptionsList {
+          padding: 10px 12px 12px;
+        }
+
+        .compactDisclosure .pickupQuickBreakdown,
+        .compactDisclosure .pickupQuickNotes {
+          margin: 10px 12px 12px;
+        }
+
+        .detailTabs {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+          padding: 4px;
+          border: 1px solid #dbe4ee;
+          border-radius: 14px;
+          background: #f8fafc;
+        }
+
+        .detailTab {
+          border: 0;
+          border-radius: 10px;
+          padding: 8px 10px;
+          background: transparent;
+          color: #475569;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .detailTab:hover {
+          background: #eaf2ed;
+          color: #0f172a;
+        }
+
+        .detailTab.active {
+          background: #2f7d42;
+          color: #ffffff;
+        }
+
+        .detailTabPanel {
+          display: grid;
+          gap: 12px;
         }
 
         .pickupQuickGrid {
