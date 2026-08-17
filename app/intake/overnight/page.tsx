@@ -2446,6 +2446,12 @@ function OvernightIntakePage() {
           background: linear-gradient(135deg, #122217 0%, #22412d 100%);
           color: #f8fafc;
         }
+        .hero h2,
+        .hero .hero-card,
+        .hero .hero-card-title,
+        .hero .hero-card li {
+          color: #f8fafc;
+        }
         .hero p {
           margin: 8px 0 0;
           color: rgba(248, 250, 252, 0.86);
@@ -2764,17 +2770,21 @@ function OvernightIntakePage() {
           .c3, .c4, .c6, .c8 { grid-column: span 1; }
           .rowInline { padding-top: 0; align-items: flex-start; }
           .summary .checks { gap: 8px; }
-          .wizardHead{ align-items:flex-start; }
+          .wizardHead{
+            display: grid;
+            grid-template-columns: 1fr;
+            align-items:flex-start;
+            gap: 8px;
+          }
+          .wizardLeft { width: 100%; min-width: 0; }
           .wizardRight { width: 100%; }
           .stepState { width: 100%; justify-content: center; }
           .stepChips {
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            padding-bottom: 2px;
-            scrollbar-width: none;
-          }
-          .stepChips::-webkit-scrollbar {
-            display: none;
+            flex-wrap: wrap;
+            overflow-x: visible;
+            padding-bottom: 0;
+            max-width: 100%;
+            min-width: 0;
           }
           .stepChip {
             white-space: nowrap;

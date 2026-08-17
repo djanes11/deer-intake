@@ -2718,6 +2718,12 @@ useEffect(() => {
                 </div>
               </div>
             </div>
+
+            <div className="modalActions">
+              <button type="button" className="btn secondaryBtn" onClick={() => setSpecialtyModalOpen(false)}>
+                Done
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -3134,13 +3140,16 @@ useEffect(() => {
           font-weight: 800;
           cursor: pointer;
         }
-        .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; }
-        .modalCard { width: min(1040px, 100%); max-height: 88vh; overflow: auto; background: #fff; border-radius: 18px; border: 1px solid #dce7df; box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24); padding: 18px; }
+        .modal { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 1000; overflow: hidden; }
+        .modalCard { width: min(1040px, 100%); max-height: 88vh; overflow: auto; background: #fff; border-radius: 18px; border: 1px solid #dce7df; box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24); padding: 18px; box-sizing: border-box; }
         .modalHead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 14px; }
+        .modalHead > div:first-child { min-width: 0; }
+        .modalHead h3 { overflow-wrap: anywhere; }
         .modalKicker { font-size: 12px; font-weight: 800; color: #4e6a58; text-transform: uppercase; letter-spacing: .06em; }
         .iconBtn { padding: 8px 12px; border-radius: 10px; border: 1px solid #bfd2c2; background: #f3f8f4; color: #173321; font-weight: 700; cursor: pointer; }
         .webbsModalGrid { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; margin-bottom: 12px; }
         .webbsModalInfo { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .webbsModalInfo .badge { display: inline-flex; align-items: center; min-height: 26px; font-weight: 800; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #bfd2c2; background: #f3f8f4; color: #173321; line-height: 1.2; }
         .webbsModalBody { display: grid; gap: 16px; }
         .webbsGroupTitle { font-weight: 800; color: #0f172a; margin-bottom: 8px; }
         .webbsWorksheet { border: 1px solid #d7dee7; border-radius: 14px; overflow: hidden; background: #fff; }
@@ -3170,9 +3179,41 @@ useEffect(() => {
           .summary .pillrow { flex-wrap: wrap; }
           .webbsModalGrid { grid-template-columns: 1fr; }
           .webbsWorksheetHead,
-          .webbsWorksheetRow { grid-template-columns: minmax(0, 1fr) 110px; }
-          .modal { padding: 10px; }
-          .modalCard { padding: 14px; max-height: 92vh; }
+          .webbsWorksheetRow { grid-template-columns: minmax(0, 1fr) 104px; }
+          .webbsWorksheetLabel { overflow-wrap: anywhere; }
+          .webbsWorksheetRow input { min-height: 42px; }
+          .modal { align-items: stretch; padding: 8px; }
+          .modalCard { width: 100%; padding: 14px; max-height: calc(100dvh - 16px); border-radius: 14px; }
+          .modalHead {
+            position: sticky;
+            top: -14px;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin: -14px -14px 14px;
+            padding: 14px 14px 10px;
+            background: #fff;
+            border-bottom: 1px solid #eef2f7;
+          }
+          .modalHead > button {
+            width: 100%;
+            min-height: 42px;
+            justify-content: center;
+          }
+          .modalActions {
+            position: sticky;
+            bottom: -14px;
+            z-index: 2;
+            margin: 16px -14px -14px;
+            padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+            background: rgba(255,255,255,.98);
+            border-top: 1px solid #eef2f7;
+          }
+          .modalActions .btn {
+            width: 100%;
+            min-height: 44px;
+          }
           .actions {
             display: grid;
             grid-template-columns: 1fr;
@@ -3204,6 +3245,17 @@ useEffect(() => {
             left: 0;
             right: auto;
             min-width: 100%;
+          }
+        }
+        @media (max-width: 480px) {
+          .webbsWorksheetHead { display: none; }
+          .webbsWorksheetRow {
+            grid-template-columns: 1fr;
+            gap: 6px;
+            align-items: start;
+          }
+          .webbsWorksheetRow > div:last-child {
+            width: min(150px, 100%);
           }
         }
       `}</style>
