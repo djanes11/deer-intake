@@ -132,6 +132,10 @@ export default async function NotificationActivityPage() {
 
   const smsCount = activities.filter((row) => row.channel === 'sms').length;
   const emailCount = activities.filter((row) => row.channel === 'email').length;
+  const failedCount = activities.filter((row) => {
+    const status = String(row.status || '').toLowerCase();
+    return !['sent', 'queued', 'delivered'].includes(status);
+  }).length;
 
   return (
     <main className="app-frame">
@@ -147,6 +151,7 @@ export default async function NotificationActivityPage() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ padding: '8px 14px', borderRadius: 999, background: '#e8f7ec', color: '#18603a', fontWeight: 900 }}>{smsCount} SMS</div>
           <div style={{ padding: '8px 14px', borderRadius: 999, background: '#eef2ff', color: '#3730a3', fontWeight: 900 }}>{emailCount} Email</div>
+          <div style={{ padding: '8px 14px', borderRadius: 999, background: failedCount ? '#fef2f2' : '#ecfdf3', color: failedCount ? '#991b1b' : '#166534', fontWeight: 900 }}>{failedCount} Failed</div>
           <div style={{ padding: '8px 14px', borderRadius: 999, background: '#f8fafc', color: '#334155', fontWeight: 900 }}>{activities.length} Total</div>
         </div>
         </div>

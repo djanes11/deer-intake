@@ -17,8 +17,14 @@ type OrderRow = {
   id: string;
   tag: string;
   customer_name: string | null;
+  phone: string | null;
+  email: string | null;
   dropoff_date: string | null;
   specialty_status: string | null;
+  specialty_finished_email_sent_at: string | null;
+  specialty_finished_sms_sent_at: string | null;
+  last_call_at: string | null;
+  updated_at: string | null;
   specialtyItems?: Array<{
     slug: string;
     name: string;
@@ -74,10 +80,10 @@ export default async function SpecialtyReport() {
   let query = supabase
     .from('jobs')
     .select(
-      'id,tag,customer_name,dropoff_date,specialty_status'
+      'id,tag,customer_name,phone,email,dropoff_date,specialty_status,specialty_finished_email_sent_at,specialty_finished_sms_sent_at,last_call_at,updated_at'
     )
     .eq('specialty_products', true)
-    .in('specialty_status', ['Dropped Off', 'In Progress']);
+    .or('specialty_status.is.null,specialty_status.neq.Picked Up');
 
   if (processor.id) {
     query = query.eq('processor_id', processor.id);
@@ -114,7 +120,7 @@ export default async function SpecialtyReport() {
   return (
     <div style={styles.page}>
       <h2 style={styles.title}>Open Specialty</h2>
-      <p style={styles.sub}>Only jobs with Specialty Status = Dropped Off / In Progress.</p>
+      <p style={styles.sub}>Specialty orders that still need production, contact, or pickup follow-up.</p>
 
       {error && <div style={styles.err}>Load failed: {String((error as any)?.message || error)}</div>}
 

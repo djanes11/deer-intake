@@ -2,14 +2,20 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { tokenHeader } from '@/lib/api';
+import { saveJob, tokenHeader } from '@/lib/api';
 
 type OrderRow = {
   id: string;
   tag: string;
   customer_name: string | null;
+  phone: string | null;
+  email: string | null;
   dropoff_date: string | null;
   specialty_status: string | null;
+  specialty_finished_email_sent_at?: string | null;
+  specialty_finished_sms_sent_at?: string | null;
+  last_call_at?: string | null;
+  updated_at?: string | null;
   specialtyItems?: Array<{
     slug: string;
     name: string;
@@ -21,6 +27,59 @@ type OrderRow = {
 function n(v: any) {
   const x = Number(v ?? 0);
   return Number.isFinite(x) ? x : 0;
+}
+
+function lower(v: any) {
+  return String(v || '').trim().toLowerCase();
+}
+
+function readyLike(v: any) {
+  return /finish|ready|complete|completed|done|called/.test(lower(v));
+}
+
+function called(v: any) {
+  return lower(v) === 'called';
+}
+
+function contacted(row: OrderRow) {
+  return called(row.specialty_status) || !!row.specialty_finished_email_sent_at || !!row.specialty_finished_sms_sent_at;
+}
+
+function firstDate(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const raw = String(value || '').trim();
+    if (!raw) continue;
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return raw;
+  }
+  return null;
+}
+
+function ageDays(value: string | null) {
+  if (!value) return null;
+  const start = new Date(value);
+  if (Number.isNaN(start.getTime())) return null;
+  const days = (Date.now() - start.getTime()) / (1000 * 60 * 60 * 24);
+  return days >= 0 ? days : null;
+}
+
+function ageText(value: string | null) {
+  const days = ageDays(value);
+  if (days == null) return 'Unknown';
+  if (days < 1) return `${Math.max(1, Math.round(days * 24))} hr`;
+  return `${days.toFixed(1)} d`;
+}
+
+function readyAt(row: OrderRow) {
+  return firstDate(row.specialty_finished_email_sent_at, row.specialty_finished_sms_sent_at, row.last_call_at, row.updated_at, row.dropoff_date);
+}
+
+function lifecycle(row: OrderRow) {
+  if (readyLike(row.specialty_status)) {
+    return contacted(row) ? 'Finished, waiting pickup' : 'Finished, needs contact';
+  }
+  if (lower(row.specialty_status).includes('progress')) return 'In production';
+  return 'Not started';
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -94,6 +153,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
   const [msg, setMsg] = useState<string>('');
   const [err, setErr] = useState<string>('');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
+  const [filter, setFilter] = useState<'all' | 'production' | 'needs-contact' | 'pickup'>('all');
 
   const aggregated = useMemo(() => {
     const bySlug = new Map<string, { name: string; shortName: string; total: number }>();
@@ -113,6 +173,25 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
         .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)),
     };
   }, [rows]);
+
+  const lifecycleSummary = useMemo(() => {
+    const production = rows.filter((row) => !readyLike(row.specialty_status)).length;
+    const needsContact = rows.filter((row) => readyLike(row.specialty_status) && !contacted(row)).length;
+    const pickup = rows.filter((row) => readyLike(row.specialty_status) && contacted(row)).length;
+    const oldestReady = rows
+      .filter((row) => readyLike(row.specialty_status))
+      .map((row) => ageDays(readyAt(row)))
+      .filter((value): value is number => typeof value === 'number')
+      .sort((a, b) => b - a)[0] ?? null;
+    return { production, needsContact, pickup, oldestReady };
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    if (filter === 'production') return rows.filter((row) => !readyLike(row.specialty_status));
+    if (filter === 'needs-contact') return rows.filter((row) => readyLike(row.specialty_status) && !contacted(row));
+    if (filter === 'pickup') return rows.filter((row) => readyLike(row.specialty_status) && contacted(row));
+    return rows;
+  }, [rows, filter]);
 
   React.useEffect(() => {
     fetch('/api/admin/staff-context', { cache: 'no-store' })
@@ -138,8 +217,24 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) throw new Error(`HTTP ${res.status}: ${j?.error || 'Update failed'}`);
-      setRows((prev) => prev.filter((r) => r.tag !== tag));
+      setRows((prev) => prev.map((r) => r.tag === tag ? { ...r, specialty_status: 'Finished', ...(j?.job || {}) } : r));
       setMsg(`Marked ${tag} specialty as Finished`);
+      setTimeout(() => setMsg(''), 1500);
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setBusyTag('');
+    }
+  };
+
+  const markPickedUp = async (tag: string) => {
+    setErr('');
+    setMsg('');
+    setBusyTag(tag);
+    try {
+      await saveJob({ tag, specialtyStatus: 'Picked Up' } as any);
+      setRows((prev) => prev.filter((r) => r.tag !== tag));
+      setMsg(`Marked ${tag} specialty as Picked Up`);
       setTimeout(() => setMsg(''), 1500);
     } catch (e: any) {
       setErr(String(e?.message || e));
@@ -164,8 +259,27 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
           <div style={styles.value}>{aggregated.totalPounds.toFixed(1)} lb</div>
         </div>
         <div style={styles.card}>
-          <div style={styles.label}>Open Jobs</div>
+          <div style={styles.label}>Active Jobs</div>
           <div style={styles.value}>{rows.length}</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>In Production</div>
+          <div style={styles.value}>{lifecycleSummary.production}</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Need Contact</div>
+          <div style={styles.value}>{lifecycleSummary.needsContact}</div>
+        </div>
+      </div>
+
+      <div className="specialty-kpi-grid" style={styles.kpiGrid}>
+        <div style={styles.card}>
+          <div style={styles.label}>Waiting Pickup</div>
+          <div style={styles.value}>{lifecycleSummary.pickup}</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Oldest Finished</div>
+          <div style={styles.value}>{lifecycleSummary.oldestReady == null ? '-' : `${lifecycleSummary.oldestReady.toFixed(1)} d`}</div>
         </div>
         <div style={styles.card}>
           <div style={styles.label}>Configured Items In Queue</div>
@@ -175,6 +289,25 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
           <div style={styles.label}>Largest Open Item</div>
           <div style={styles.value}>{aggregated.items[0] ? `${aggregated.items[0].total.toFixed(1)} lb` : '0.0 lb'}</div>
         </div>
+      </div>
+
+      <div style={{ ...styles.card, marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ ...styles.label, marginBottom: 0 }}>Show</span>
+        {[
+          { key: 'all', label: `All (${rows.length})` },
+          { key: 'production', label: `Production (${lifecycleSummary.production})` },
+          { key: 'needs-contact', label: `Needs Contact (${lifecycleSummary.needsContact})` },
+          { key: 'pickup', label: `Waiting Pickup (${lifecycleSummary.pickup})` },
+        ].map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setFilter(item.key as typeof filter)}
+            style={filter === item.key ? styles.btn : { ...styles.btnOff, background: '#fff', color: '#334155', cursor: 'pointer' }}
+          >
+            {item.label}
+          </button>
+        ))}
       </div>
 
       <div className="specialty-summary-grid" style={{ ...styles.kpiGrid, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
@@ -200,14 +333,14 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
       </div>
 
       <div className="specialty-mobile-list">
-        {rows.map((r) => (
+        {filteredRows.map((r) => (
           <div key={`mobile-${r.tag}`} className="specialty-mobile-card">
             <div className="specialty-mobile-top">
               <div>
                 <div className="specialty-mobile-tag">{r.tag}</div>
                 <div className="specialty-mobile-name">{r.customer_name || 'Unknown customer'}</div>
               </div>
-              <div className="specialty-mobile-status">{r.specialty_status || 'Unknown'}</div>
+              <div className="specialty-mobile-status">{lifecycle(r)}</div>
             </div>
             <div className="specialty-mobile-meta">
               <span>Drop-off {r.dropoff_date || '-'}</span>
@@ -230,13 +363,24 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
             <button
               type="button"
               onClick={() => markFinished(r.tag)}
-              disabled={!canUpdate || !!busyTag}
-              style={!canUpdate || busyTag ? styles.btnOff : styles.btn}
+              disabled={!canUpdate || !!busyTag || readyLike(r.specialty_status)}
+              style={!canUpdate || busyTag || readyLike(r.specialty_status) ? styles.btnOff : styles.btn}
               title={!canUpdate ? 'Only Staff or Admin can mark specialty orders finished.' : 'Sets Specialty Status to Finished'}
               className="specialty-mobile-btn"
             >
-              {busyTag === r.tag ? 'Updating...' : 'Mark Finished'}
+              {busyTag === r.tag ? 'Updating...' : readyLike(r.specialty_status) ? 'Finished' : 'Mark Finished'}
             </button>
+            {readyLike(r.specialty_status) ? (
+              <button
+                type="button"
+                onClick={() => markPickedUp(r.tag)}
+                disabled={!canUpdate || !!busyTag}
+                style={!canUpdate || busyTag ? styles.btnOff : styles.btn}
+                className="specialty-mobile-btn"
+              >
+                {busyTag === r.tag ? 'Updating...' : 'Mark Picked Up'}
+              </button>
+            ) : null}
           </div>
         ))}
       </div>
@@ -255,7 +399,7 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {filteredRows.map((r) => (
                 <tr key={r.tag}>
                   <td style={styles.td}>
                     <Link style={styles.link} href={`${canUpdate ? '/intake?tag=' : '/intake/'}${encodeURIComponent(r.tag)}`}>
@@ -264,7 +408,13 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                   </td>
                   <td style={styles.td}>{r.customer_name || ''}</td>
                   <td style={styles.td}>{r.dropoff_date || ''}</td>
-                  <td style={styles.td}>{r.specialty_status || ''}</td>
+                  <td style={styles.td}>
+                    <div>{r.specialty_status || ''}</div>
+                    <div style={{ color: readyLike(r.specialty_status) && !contacted(r) ? '#92400e' : '#64748b', fontSize: 12, marginTop: 4 }}>
+                      {lifecycle(r)}
+                      {readyLike(r.specialty_status) ? ` | ${ageText(readyAt(r))}` : ''}
+                    </div>
+                  </td>
                   <td style={styles.td}>
                     <div style={styles.orderCell}>
                       {(r.specialtyItems || []).map((item) => (
@@ -283,12 +433,23 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
                     <button
                       type="button"
                       onClick={() => markFinished(r.tag)}
-                      disabled={!canUpdate || !!busyTag}
-                      style={!canUpdate || busyTag ? styles.btnOff : styles.btn}
+                      disabled={!canUpdate || !!busyTag || readyLike(r.specialty_status)}
+                      style={!canUpdate || busyTag || readyLike(r.specialty_status) ? styles.btnOff : styles.btn}
                       title={!canUpdate ? 'Only Staff or Admin can mark specialty orders finished.' : 'Sets Specialty Status to Finished'}
                     >
-                      {busyTag === r.tag ? 'Updating...' : 'Mark Finished'}
+                      {busyTag === r.tag ? 'Updating...' : readyLike(r.specialty_status) ? 'Finished' : 'Mark Finished'}
                     </button>
+                    {readyLike(r.specialty_status) ? (
+                      <button
+                        type="button"
+                        onClick={() => markPickedUp(r.tag)}
+                        disabled={!canUpdate || !!busyTag}
+                        style={{ ...(!canUpdate || busyTag ? styles.btnOff : styles.btn), marginLeft: 8, background: !canUpdate || busyTag ? '#94a3b8' : '#166534' }}
+                        title={!canUpdate ? 'Only Staff or Admin can mark specialty picked up.' : 'Sets Specialty Status to Picked Up'}
+                      >
+                        {busyTag === r.tag ? 'Updating...' : 'Mark Picked Up'}
+                      </button>
+                    ) : null}
                   </td>
                 </tr>
               ))}

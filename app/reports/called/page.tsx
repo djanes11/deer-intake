@@ -380,6 +380,14 @@ export default function CalledPickupQueue() {
   const [processingPaymentMethod, setProcessingPaymentMethod] = useState<'cash' | 'card' | 'check' | 'other'>('cash');
   const [specialtyPaymentMethod, setSpecialtyPaymentMethod] = useState<'cash' | 'card' | 'check' | 'other'>('cash');
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const track = params.get('track');
+    if (track === 'meat' || track === 'cape' || track === 'webbs') {
+      setTrackFilter(track);
+    }
+  }, []);
+
   const summary = useMemo(() => {
     const openRows = rows.filter((row) => !row.pickedUp);
     const readyUnpaid = openRows.filter((row) => row.track === 'meat' && row.totalDue > 0);

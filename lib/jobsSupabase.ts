@@ -510,24 +510,71 @@ function shouldSendEmailNotification(row: any) {
   return preferredNotificationChannel(row) === 'email';
 }
 
+async function stampNotificationField(supabaseServer: any, row: any, field: string) {
+  const id = String(row?.id || '').trim();
+  if (!id) return;
+
+  const { error } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .update({ [field]: nowIso() })
+      .eq('id', id)
+      .is(field, null),
+    row?.processor_id ? String(row.processor_id) : null
+  );
+
+  if (error) throw error;
+}
+
+async function ensurePublicToken(supabaseServer: any, row: any) {
+  const existing = String(row?.public_token || '').trim();
+  if (existing) return existing;
+
+  const token = makePublicToken();
+  const { data: updated, error } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .update({ public_token: token })
+      .eq('id', row.id)
+      .is('public_token', null)
+      .select('public_token'),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
+
+  if (error) throw error;
+  if (updated?.public_token) return String(updated.public_token);
+
+  const { data: current, error: lookupError } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .select('public_token')
+      .eq('id', row.id),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
+
+  if (lookupError) throw lookupError;
+  return String(current?.public_token || token);
+}
+
 async function trySendDropoffEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
   const alreadyStamped = !!row.dropoff_email_sent_at;
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
-  const token = String(row.public_token || '').trim() || makePublicToken();
-  const { data: locked } = await supabaseServer
+  const token = await ensurePublicToken(supabaseServer, row);
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ dropoff_email_sent_at: nowIso(), public_token: token })
+    .select('id, processor_id, tag, email, customer_name, public_token')
     .eq('id', row.id)
-    .is('dropoff_email_sent_at', null)
-    .select('tag, email, customer_name, public_token')
-    .maybeSingle();
+    .is('dropoff_email_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
   const branding = await getNotificationBranding();
-  const link = intakeFormLink(String(locked.tag || ''), String(locked.public_token || ''));
+  const link = intakeFormLink(String(locked.tag || ''), String(locked.public_token || token));
   const tpl = buildIntakeEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
@@ -544,6 +591,8 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
     html: tpl.html,
     text: tpl.text,
   });
+
+  await stampNotificationField(supabaseServer, locked, 'dropoff_email_sent_at');
 }
 
 async function trySendDropoffSms(supabaseServer: any, row: any) {
@@ -555,13 +604,14 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
   const phone = normalizeUsPhone(String(row.phone || ''));
   if (!phone) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ dropoff_sms_sent_at: nowIso() })
+    .select('id, processor_id, tag, phone')
     .eq('id', row.id)
-    .is('dropoff_sms_sent_at', null)
-    .select('id, tag, phone')
-    .maybeSingle();
+    .is('dropoff_sms_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -594,6 +644,10 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
     });
   } catch (logError) {
     console.error('Drop-off SMS log failed (non-fatal)', logError);
+  }
+
+  if (result.ok) {
+    await stampNotificationField(supabaseServer, locked, 'dropoff_sms_sent_at');
   }
 }
 
@@ -629,13 +683,14 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
   const alreadyStamped = !!row.finished_email_sent_at;
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ finished_email_sent_at: nowIso() })
+    .select('id, processor_id, tag, email, customer_name, paid_processing, price_processing, process_type, beef_fat, webbs_order')
     .eq('id', row.id)
-    .is('finished_email_sent_at', null)
-    .select('tag, email, customer_name, paid_processing, price_processing, process_type, beef_fat, webbs_order')
-    .maybeSingle();
+    .is('finished_email_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -665,10 +720,12 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     text: tpl.text,
   });
 
+  await stampNotificationField(supabaseServer, locked, 'finished_email_sent_at');
+
   if (!Number(locked.price_processing ?? 0) && computed) {
     await withProcessorFilter(
       supabaseServer.from('jobs').update({ price_processing: computed }).eq('tag', String(locked.tag)),
-      row?.processor_id ? String(row.processor_id) : null
+      locked?.processor_id ? String(locked.processor_id) : null
     );
   }
 }
@@ -682,13 +739,14 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
   const phone = normalizeUsPhone(String(row.phone || ''));
   if (!phone) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ meat_finished_sms_sent_at: nowIso() })
+    .select('id, processor_id, tag, phone, paid_processing, price_processing, process_type, beef_fat, webbs_order')
     .eq('id', row.id)
-    .is('meat_finished_sms_sent_at', null)
-    .select('id, tag, phone, paid_processing, price_processing, process_type, beef_fat, webbs_order')
-    .maybeSingle();
+    .is('meat_finished_sms_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -713,12 +771,16 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
-    processorId: row?.processor_id ? String(row.processor_id) : null,
+    processorId: locked?.processor_id ? String(locked.processor_id) : null,
     phone,
     template: 'meat_finished',
     body,
     result,
   });
+
+  if (result.ok) {
+    await stampNotificationField(supabaseServer, locked, 'meat_finished_sms_sent_at');
+  }
 }
 
 async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
@@ -727,13 +789,14 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
   const alreadyStamped = !!row.cape_finished_email_sent_at;
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ cape_finished_email_sent_at: nowIso() })
+    .select('id, processor_id, tag, email, customer_name')
     .eq('id', row.id)
-    .is('cape_finished_email_sent_at', null)
-    .select('tag, email, customer_name')
-    .maybeSingle();
+    .is('cape_finished_email_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -753,6 +816,8 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
     html: tpl.html,
     text: tpl.text,
   });
+
+  await stampNotificationField(supabaseServer, locked, 'cape_finished_email_sent_at');
 }
 
 async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
@@ -765,13 +830,14 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
   const phone = normalizeUsPhone(String(row.phone || ''));
   if (!phone) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ cape_finished_sms_sent_at: nowIso() })
+    .select('id, processor_id, tag, phone')
     .eq('id', row.id)
-    .is('cape_finished_sms_sent_at', null)
-    .select('id, tag, phone')
-    .maybeSingle();
+    .is('cape_finished_sms_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -787,12 +853,16 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
-    processorId: row?.processor_id ? String(row.processor_id) : null,
+    processorId: locked?.processor_id ? String(locked.processor_id) : null,
     phone,
     template: 'cape_finished',
     body,
     result,
   });
+
+  if (result.ok) {
+    await stampNotificationField(supabaseServer, locked, 'cape_finished_sms_sent_at');
+  }
 }
 
 async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
@@ -801,12 +871,12 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
   const alreadyStamped = !!row.specialty_finished_email_sent_at;
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ specialty_finished_email_sent_at: nowIso() })
-    .eq('id', row.id)
-    .is('specialty_finished_email_sent_at', null)
     .select(`
+      id,
+      processor_id,
       tag,
       email,
       customer_name,
@@ -822,7 +892,10 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
       jalapeno_snack_sticks_cheese_lbs,
       specialty_price_override
     `)
-    .maybeSingle();
+    .eq('id', row.id)
+    .is('specialty_finished_email_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -848,10 +921,12 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
     text: tpl.text,
   });
 
+  await stampNotificationField(supabaseServer, locked, 'specialty_finished_email_sent_at');
+
   if (!Number(locked.price_specialty ?? 0) && price) {
     await withProcessorFilter(
       supabaseServer.from('jobs').update({ price_specialty: price }).eq('tag', String(locked.tag)),
-      row?.processor_id ? String(row.processor_id) : null
+      locked?.processor_id ? String(locked.processor_id) : null
     );
   }
 }
@@ -866,13 +941,12 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
   const phone = normalizeUsPhone(String(row.phone || ''));
   if (!phone) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ specialty_finished_sms_sent_at: nowIso() })
-    .eq('id', row.id)
-    .is('specialty_finished_sms_sent_at', null)
     .select(`
       id,
+      processor_id,
       tag,
       phone,
       paid_specialty,
@@ -887,7 +961,10 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
       jalapeno_snack_sticks_cheese_lbs,
       specialty_price_override
     `)
-    .maybeSingle();
+    .eq('id', row.id)
+    .is('specialty_finished_sms_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -907,12 +984,16 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
-    processorId: row?.processor_id ? String(row.processor_id) : null,
+    processorId: locked?.processor_id ? String(locked.processor_id) : null,
     phone,
     template: 'specialty_finished',
     body,
     result,
   });
+
+  if (result.ok) {
+    await stampNotificationField(supabaseServer, locked, 'specialty_finished_sms_sent_at');
+  }
 }
 
 async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
@@ -921,13 +1002,14 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
   const alreadyStamped = !!row.webbs_delivered_email_sent_at;
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ webbs_delivered_email_sent_at: nowIso() })
+    .select('id, processor_id, tag, email, customer_name')
     .eq('id', row.id)
-    .is('webbs_delivered_email_sent_at', null)
-    .select('tag, email, customer_name')
-    .maybeSingle();
+    .is('webbs_delivered_email_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -946,6 +1028,8 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
     html: tpl.html,
     text: tpl.text,
   });
+
+  await stampNotificationField(supabaseServer, locked, 'webbs_delivered_email_sent_at');
 }
 
 async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
@@ -958,13 +1042,14 @@ async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
   const phone = normalizeUsPhone(String(row.phone || ''));
   if (!phone) return;
 
-  const { data: locked } = await supabaseServer
+  const { data: locked } = await withProcessorFilter(
+    supabaseServer
     .from('jobs')
-    .update({ webbs_delivered_sms_sent_at: nowIso() })
+    .select('id, processor_id, tag, phone')
     .eq('id', row.id)
-    .is('webbs_delivered_sms_sent_at', null)
-    .select('id, tag, phone')
-    .maybeSingle();
+    .is('webbs_delivered_sms_sent_at', null),
+    row?.processor_id ? String(row.processor_id) : null
+  ).maybeSingle();
 
   if (!locked) return;
 
@@ -979,12 +1064,16 @@ async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
   const result = await sendSms({ to: String(locked.phone || ''), body });
   await logSmsResult(supabaseServer, {
     jobId: String(locked.id),
-    processorId: row?.processor_id ? String(row.processor_id) : null,
+    processorId: locked?.processor_id ? String(locked.processor_id) : null,
     phone,
     template: 'webbs_delivered',
     body,
     result,
   });
+
+  if (result.ok) {
+    await stampNotificationField(supabaseServer, locked, 'webbs_delivered_sms_sent_at');
+  }
 }
 
 async function trySendNotificationEmails(supabaseServer: any, row: any) {
@@ -1231,10 +1320,6 @@ export async function resendCustomerNotification(params: {
   }
 
   const result = await sendSms({ to: phone, body });
-  if (!result.ok) {
-    return { ok: false, error: result.error };
-  }
-
   await logSmsResult(supabaseServer, {
     jobId: String(row.id),
     processorId: row.processor_id ? String(row.processor_id) : null,
@@ -1243,6 +1328,10 @@ export async function resendCustomerNotification(params: {
     body,
     result,
   });
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
   await supabaseServer.from('jobs').update({ [smsStampField[event]]: now }).eq('id', row.id);
 
   return { ok: true, event, channel, destination: phone };
@@ -1370,10 +1459,6 @@ export async function sendManualCustomerMessage(params: {
   }
 
   const result = await sendSms({ to: phone, body });
-  if (!result.ok) {
-    return { ok: false as const, error: result.error };
-  }
-
   await logSmsResult(supabaseServer, {
     jobId: String(row.id),
     processorId: row.processor_id ? String(row.processor_id) : null,
@@ -1382,6 +1467,9 @@ export async function sendManualCustomerMessage(params: {
     body,
     result,
   });
+  if (!result.ok) {
+    return { ok: false as const, error: result.error };
+  }
 
   return {
     ok: true as const,
@@ -3102,9 +3190,46 @@ function diffDays(a: any, b: any) {
   return hours == null ? null : hours / 24;
 }
 
+function firstDateValue(...values: any[]) {
+  for (const value of values) {
+    const raw = String(value || '').trim();
+    if (!raw) continue;
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) return raw;
+  }
+  return null;
+}
+
+function trackContacted(row: any, track: 'meat' | 'cape' | 'specialty' | 'webbs') {
+  if (track === 'meat') {
+    return isCalled(row.status) || !!row.finished_email_sent_at || !!row.meat_finished_sms_sent_at;
+  }
+  if (track === 'cape') {
+    return isCalled(row.caping_status) || !!row.cape_finished_email_sent_at || !!row.cape_finished_sms_sent_at;
+  }
+  if (track === 'specialty') {
+    return isCalled(row.specialty_status) || !!row.specialty_finished_email_sent_at || !!row.specialty_finished_sms_sent_at;
+  }
+  return isCalled(row.webbs_status) || !!row.webbs_delivered_email_sent_at || !!row.webbs_delivered_sms_sent_at;
+}
+
+function trackNeedsContact(row: any, track: 'meat' | 'cape' | 'specialty' | 'webbs') {
+  if (track === 'meat') {
+    return meatReady(row.status) && !row.picked_up_processing && !trackContacted(row, track);
+  }
+  if (track === 'cape') {
+    return capeReady(row.caping_status) && !row.picked_up_cape && !trackContacted(row, track);
+  }
+  if (track === 'specialty') {
+    return !!row.specialty_products && specialtyReady(row.specialty_status) && !trackContacted(row, track);
+  }
+  return webbsReady(row.webbs_status) && !row.picked_up_webbs && !trackContacted(row, track);
+}
+
 export async function getDashboardSummary() {
   const supabaseServer = getSupabaseServer();
   const processor = await getDefaultProcessorContext();
+  const failureWindowIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
     pendingTagsRes,
@@ -3117,6 +3242,7 @@ export async function getDashboardSummary() {
     recentIntakesRes,
     unpaidProcessingRes,
     unpaidSpecialtyRes,
+    notificationFailuresRes,
   ] = await Promise.all([
     withProcessorFilter(
       supabaseServer
@@ -3163,13 +3289,13 @@ export async function getDashboardSummary() {
         .from('jobs')
         .select('id', { count: 'exact', head: true })
         .eq('specialty_products', true)
-        .neq('specialty_status', 'Picked Up'),
+        .or('specialty_status.is.null,specialty_status.neq.Picked Up'),
       processor.id
     ),
     withProcessorFilter(
       supabaseServer
         .from('jobs')
-        .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at,price_processing,price_specialty,paid_processing,paid_specialty,amount_paid_processing,amount_paid_specialty')
+        .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at,price_processing,price_specialty,paid_processing,paid_specialty,amount_paid_processing,amount_paid_specialty,finished_email_sent_at,meat_finished_sms_sent_at,cape_finished_email_sent_at,cape_finished_sms_sent_at,specialty_finished_email_sent_at,specialty_finished_sms_sent_at,webbs_delivered_email_sent_at,webbs_delivered_sms_sent_at,last_call_at,pref_email,pref_sms,pref_call,sms_consent,process_type,process_type_requires_cape,dropoff_date,created_at,updated_at')
         .limit(2000),
       processor.id
     ),
@@ -3194,7 +3320,15 @@ export async function getDashboardSummary() {
         .select('id', { count: 'exact', head: true })
         .eq('specialty_products', true)
         .eq('paid_specialty', false)
-        .neq('specialty_status', 'Picked Up'),
+        .or('specialty_status.is.null,specialty_status.neq.Picked Up'),
+      processor.id
+    ),
+    withProcessorFilter(
+      supabaseServer
+        .from('sms_logs')
+        .select('id', { count: 'exact', head: true })
+        .not('error_code', 'is', null)
+        .gte('created_at', failureWindowIso),
       processor.id
     ),
   ]);
@@ -3232,6 +3366,26 @@ export async function getDashboardSummary() {
     const specialtyInQueue = !!r.specialty_products && specialtyReady(r.specialty_status);
     return meatInQueue || capeInQueue || webbsInQueue || specialtyInQueue;
   }).length;
+
+  const meatNeedsContact = ownerRows.filter((r: any) => trackNeedsContact(r, 'meat')).length;
+  const capeNeedsContact = ownerRows.filter((r: any) => trackNeedsContact(r, 'cape')).length;
+  const specialtyNeedsContact = ownerRows.filter((r: any) => trackNeedsContact(r, 'specialty')).length;
+  const webbsNeedsContact = ownerRows.filter((r: any) => trackNeedsContact(r, 'webbs')).length;
+  const needsContact = meatNeedsContact + capeNeedsContact + specialtyNeedsContact + webbsNeedsContact;
+
+  const capeWatchRows = ownerRows.filter((r: any) =>
+    processTypeNeedsCapeWorkflow(r.process_type, undefined, r.process_type_requires_cape) &&
+    !r.picked_up_cape &&
+    (r.caping_status || r.process_type_requires_cape)
+  );
+  const capeReadyRows = capeWatchRows.filter((r: any) => capeReady(r.caping_status) || isCalled(r.caping_status));
+  const capeReadyAges = capeReadyRows
+    .map((r: any) => firstDateValue(r.cape_finished_email_sent_at, r.cape_finished_sms_sent_at, r.last_call_at, r.updated_at, r.dropoff_date, r.created_at))
+    .map((value: string | null) => diffDays(value, nowIso()))
+    .filter((value: number | null): value is number => typeof value === 'number');
+  const capeHeld3d = capeReadyAges.filter((value) => value >= 3).length;
+  const capeHeld7d = capeReadyAges.filter((value) => value >= 7).length;
+  const oldestCapeDays = capeReadyAges.length ? Math.max(...capeReadyAges) : null;
 
   const openProcessingAmount = ownerRows.reduce((sum: number, r: any) => {
     const price = Number(r.price_processing ?? 0) || 0;
@@ -3290,9 +3444,20 @@ export async function getDashboardSummary() {
     specialtyOpen: countOrThrow('specialtyOpen', specialtyOpenRes),
     calledQueue,
     readyForPickup,
+    needsContact,
+    meatNeedsContact,
+    capeNeedsContact,
+    specialtyNeedsContact,
+    webbsNeedsContact,
+    capeWatch: capeWatchRows.length,
+    capeReadyWatch: capeReadyRows.length,
+    capeHeld3d,
+    capeHeld7d,
+    oldestCapeDays,
     recentIntakes7d: countOrThrow('recentIntakes7d', recentIntakesRes),
     unpaidProcessing: countOrThrow('unpaidProcessing', unpaidProcessingRes),
     unpaidSpecialty: countOrThrow('unpaidSpecialty', unpaidSpecialtyRes),
+    notificationFailures7d: countOrThrow('notificationFailures7d', notificationFailuresRes),
     openProcessingAmount,
     openSpecialtyAmount,
     readyUnpaidCount: readyUnpaidRows.length,
@@ -3315,7 +3480,7 @@ export async function setJobTag(params: {
 }) {
   const supabaseServer = getSupabaseServer();
   const processor = params.processorContext ?? await getDefaultProcessorContext();
-  const { jobId, newTag, stampDropEmail, returnRow } = params;
+  const { jobId, newTag, returnRow } = params;
 
   const tag = String(newTag || '').trim();
   if (!jobId || !tag) {
@@ -3365,12 +3530,7 @@ export async function setJobTag(params: {
     updated_at: nowIso(),
   };
 
-  let stamped = false;
-  if (stampDropEmail) {
-    updates.dropoff_email_sent_at = nowIso();
-    updates.dropoff_sms_sent_at = nowIso();
-    stamped = true;
-  }
+  const stamped = false;
 
   const { data: updated, error: updErr } = await withProcessorFilter(
     supabaseServer

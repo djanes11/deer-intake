@@ -1330,7 +1330,7 @@ export default function SearchPage() {
                                   </div>
                                 ) : (
                                   <div style={{ fontSize: 12, fontWeight: 800, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', padding: '4px 8px', borderRadius: 999 }}>
-                                    Not sent yet
+                                    No confirmed send
                                   </div>
                                 )}
                               </div>

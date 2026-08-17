@@ -1052,8 +1052,12 @@ function StaffHome({
       ];
   const queueHighlights = [
     { label: 'Needs Tags', value: dashboard?.pendingTags ?? 0, hint: 'Public intake drop-offs waiting on staff tag assignment', href: '/overnight/review' },
-    { label: 'Ready to Call', value: dashboard?.calledQueue ?? 0, hint: 'Orders ready for customer contact or pickup follow-up', href: '/reports/calls' },
+    { label: 'Needs Contact', value: (dashboard as any)?.needsContact ?? 0, hint: 'Ready meat, capes, or specialty without a confirmed customer contact', href: '/reports/contact-watch' },
+    { label: 'Cape Watch', value: (dashboard as any)?.capeReadyWatch ?? 0, hint: 'Finished or called capes still waiting on pickup', href: '/reports/cape-watch' },
+    { label: 'Open Specialty', value: dashboard?.specialtyOpen ?? 0, hint: 'Specialty orders not fully picked up yet', href: '/reports/specialty' },
     { label: 'Print Queue', value: dashboard?.printQueue ?? 0, hint: 'Sheets marked for printing or reprinting', href: '/reports/print-queue' },
+    { label: 'Ready to Call', value: dashboard?.calledQueue ?? 0, hint: 'Phone-call customers ready for contact or pickup follow-up', href: '/reports/calls' },
+    { label: 'SMS Failures', value: (dashboard as any)?.notificationFailures7d ?? 0, hint: 'Text sends that failed in the last 7 days', href: '/reports/notifications' },
   ];
   const shell: React.CSSProperties = {
     maxWidth: 1100,
@@ -1376,7 +1380,7 @@ function StaffHome({
 
       <div style={splitGrid} className="staff-dashboard-split-grid">
         <section style={card}>
-          <div style={{ ...mini, color: '#8fb3a8' }}>Queue Snapshot</div>
+          <div style={{ ...mini, color: '#8fb3a8' }}>Season Command Center</div>
           <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
             {queueHighlights.map((item) => (
               <Link key={item.label} href={item.href} style={linkStyle}>
@@ -1461,9 +1465,10 @@ function StaffHome({
               { label: 'Avg Processing Time', value: fmtHours((dashboard as any)?.avgProcessingHours) },
               { label: 'Avg Ready Hold Time', value: fmtDays((dashboard as any)?.avgReadyAgeDays) },
               { label: 'Oldest Ready Deer', value: fmtDays((dashboard as any)?.oldestReadyDays) },
+              { label: 'Oldest Cape Watch', value: fmtDays((dashboard as any)?.oldestCapeDays) },
               { label: 'Ready 3+ Days', value: (dashboard as any)?.readyHeld3d ?? 0 },
               { label: 'Ready 7+ Days', value: (dashboard as any)?.readyHeld7d ?? 0 },
-              { label: 'Ready 14+ Days', value: (dashboard as any)?.readyHeld14d ?? 0 },
+              { label: 'Capes 7+ Days', value: (dashboard as any)?.capeHeld7d ?? 0 },
             ].map((item) => (
               <div
                 className="staff-dashboard-owner-card"
