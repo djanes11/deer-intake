@@ -2131,7 +2131,7 @@ export default function AdminSettingsPage() {
         <div style={sectionCard}>
           <div style={{ fontWeight: 900, fontSize: 20, color: '#0f172a' }}>Notification Templates</div>
           <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.55 }}>
-            Customize the customer-facing email and text copy for major updates. Available placeholders include {'{{name}}'}, {'{{tag}}'}, {'{{businessName}}'}, {'{{phoneSuffix}}'}, {'{{statusLine}}'}, {'{{pickupHours}}'}, {'{{processingDueLine}}'}, {'{{specialtyDueLine}}'}, and {'{{intakeLinkLine}}'}.
+            Customize the customer-facing email and text copy for major updates. Available placeholders include {'{{name}}'}, {'{{tag}}'}, {'{{businessName}}'}, {'{{phoneSuffix}}'}, {'{{statusLine}}'}, {'{{pickupHours}}'}, {'{{processingDueLine}}'}, {'{{specialtyDueLine}}'}, {'{{intakeLink}}'}, and {'{{intakeLinkLine}}'}.
           </div>
           {(Object.entries(normalizeNotificationTemplates(s.notificationTemplates, s.branding.name)) as [NotificationTemplateEventKey, NotificationTemplateSet[NotificationTemplateEventKey]][]).map(([eventKey, template]) => (
             <div key={eventKey} style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>

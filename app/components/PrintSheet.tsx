@@ -198,25 +198,8 @@ export default function PrintSheet({
     ]
   );
 
-  const specialtyItems = useMemo(() => specialtyBreakdown(job), [
-    job?.originalSummerSausageLbs,
-    job?.original_summer_sausage_lbs,
-    job?.summerSausageLbs,
-    job?.summer_sausage_lbs,
-    job?.summerSausageCheeseLbs,
-    job?.summer_sausage_cheese_lbs,
-    job?.jalapenoSummerSausageCheeseLbs,
-    job?.jalapeno_summer_sausage_cheese_lbs,
-    job?.slicedJerkyLbs,
-    job?.sliced_jerky_lbs,
-    job?.originalSnackSticksLbs,
-    job?.original_snack_sticks_lbs,
-    job?.originalSnackSticksCheeseLbs,
-    job?.original_snack_sticks_cheese_lbs,
-    job?.jalapenoSnackSticksCheeseLbs,
-    job?.jalapeno_snack_sticks_cheese_lbs,
-  ]);
-  const specialtyLbs = useMemo(() => specialtyTotalLbs(job), [specialtyItems]);
+  const specialtyItems = useMemo(() => specialtyBreakdown(job), [job]);
+  const specialtyLbs = useMemo(() => specialtyTotalLbs(job), [job]);
 
   const processingOverride = useMemo(
     () => numOrNull(jpick(job, ['processing_price_override', 'processingPriceOverride'])),
@@ -239,7 +222,7 @@ export default function PrintSheet({
   const processingPrice = processingOverride ?? processingStored ?? proc;
   const processingPaid = numOrNull(jpick(job, ['amountPaidProcessing', 'amount_paid_processing'])) ?? 0;
 
-  const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [specialtyItems]);
+  const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [job]);
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
   const specialtyPaid = numOrNull(jpick(job, ['amountPaidSpecialty', 'amount_paid_specialty'])) ?? 0;
   const processingDue = Math.max(0, processingPrice - processingPaid);
@@ -264,6 +247,7 @@ export default function PrintSheet({
   const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
   const hasSpecialty = specialtyEnabled && (
     truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') ||
+    specialtyItems.some((item) => item.pounds > 0) ||
     hasSpecialtySelection(job)
   );
   const hasWebbs = webbsEnabled && hasWebbsOrder(jpick(job, ['Webbs Order', 'webbsOrder', 'webbs_order']));
@@ -642,21 +626,6 @@ return () => {
           </div>
         </div>
       ) : null}
-
-      <div className="row grid12 meat-row">
-        <div className={`col-12 box ${(hasNotes || addOnItems.length || hasSpecialty || hasWebbs) ? 'attentionBox' : ''}`}>
-          <div className="label">Watch For</div>
-          <div className={`val ${(hasNotes || addOnItems.length || hasSpecialty || hasWebbs) ? 'attentionValue' : ''}`}>
-            {[
-              hasNotes ? `Notes: ${notesText}` : null,
-              addOnItems.length ? `Add-ons: ${addOnItems.map((item) => item.name).join(', ')}` : null,
-              hasSpecialty ? `Specialty total: ${specialtyLbs || 0} lb` : null,
-              hasWebbs ? `Webbs: ${webbsSummaryText}` : null,
-              (processingDue + specialtyDue) > 0 ? `Payment due: ${money(processingDue + specialtyDue)}` : 'Paid in full',
-            ].filter(Boolean).join(' | ')}
-          </div>
-        </div>
-      </div>
 
       {/* Row G */}
       {hasNotes ? (

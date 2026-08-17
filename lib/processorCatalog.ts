@@ -375,7 +375,7 @@ export function defaultNotificationTemplates(businessName = 'Game Butcher Board'
       emailSubject: 'We received your deer ({{tag}})',
       emailBody:
         'Hi {{name}}\n\nWe received your deer ({{tag}}).\n{{intakeLinkLine}}\nIf you need to make any updates or have questions, please contact {{businessName}}{{phoneSuffix}}.',
-      smsBody: '{{businessName}}: Deer tagged {{tag}}. {{statusLine}}',
+      smsBody: '{{businessName}}: Deer tagged {{tag}}. View intake: {{intakeLink}}',
     },
     meat_finished: {
       emailSubject: 'Finished & ready for pickup ({{tag}})',

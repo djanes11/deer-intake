@@ -27,6 +27,39 @@ const SITE_URL = (process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process
   .trim()
   .replace(/^['"]|['"]$/g, '')
   .replace(/\/$/, '');
+
+function normalizeBaseUrl(input: unknown) {
+  const raw = String(input || '')
+    .trim()
+    .replace(/^['"]|['"]$/g, '')
+    .replace(/\/$/, '');
+  if (!raw) return '';
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw.replace(/^\/+/, '')}`;
+}
+
+async function publicBaseUrlForRow(supabaseServer: any, row: any) {
+  const direct = normalizeBaseUrl(row?.public_hostname);
+  if (direct) return direct;
+
+  const processorId = String(row?.processor_id || '').trim();
+  if (processorId) {
+    try {
+      const { data, error } = await supabaseServer
+        .from('processors')
+        .select('public_hostname')
+        .eq('id', processorId)
+        .maybeSingle();
+      if (error) throw error;
+      const fromProcessor = normalizeBaseUrl((data as any)?.public_hostname);
+      if (fromProcessor) return fromProcessor;
+    } catch (error) {
+      console.warn('Processor public hostname lookup failed; falling back to SITE_URL.', error);
+    }
+  }
+
+  return normalizeBaseUrl(SITE_URL);
+}
+
 function withProcessorFilter<T>(query: T, processorId: string | null | undefined): T {
   if (!processorId) return query;
   return (query as any).eq('processor_id', processorId);
@@ -45,18 +78,25 @@ function escapeHtml(s: any) {
     .replaceAll("'", '&#39;');
 }
 
-function intakeFormLink(tag: string, publicToken: string) {
-  if (!SITE_URL) return '';
-  return `${SITE_URL}/intake/${encodeURIComponent(tag)}?t=${encodeURIComponent(publicToken)}`;
+function intakeFormLink(tag: string, publicToken: string, baseUrl = SITE_URL) {
+  const root = normalizeBaseUrl(baseUrl || SITE_URL);
+  if (!root) return '';
+  return `${root}/intake/${encodeURIComponent(tag)}?t=${encodeURIComponent(publicToken)}`;
 }
 
-function statusPageLink() {
-  if (!SITE_URL) return '';
-  return `${SITE_URL}/status`;
+function statusPageLink(baseUrl = SITE_URL) {
+  const root = normalizeBaseUrl(baseUrl || SITE_URL);
+  if (!root) return '';
+  return `${root}/status`;
 }
 
-async function getNotificationBranding() {
-  const settings = await getPublicSiteSettings();
+function processorContextFromRow(row: any): ProcessorContext | null {
+  const id = String(row?.processor_id || '').trim();
+  return id ? { id, slug: String(row?.processor_slug || '') } : null;
+}
+
+async function getNotificationBranding(row?: any) {
+  const settings = await getPublicSiteSettings(null, processorContextFromRow(row));
   return {
     businessName: String(settings.branding.name || 'Game Butcher Board'),
     phoneDisplay: String(settings.branding.phoneDisplay || ''),
@@ -79,8 +119,10 @@ function notificationVars(opts: {
   businessName: string;
   phoneDisplay?: string;
   pickupHours?: string;
+  statusUrl?: string;
 }) {
   const phoneDisplay = String(opts.phoneDisplay || '').trim();
+  const statusUrl = String(opts.statusUrl || statusPageLink()).trim();
   return {
     name: String(opts.name || 'there'),
     tag: String(opts.tag || ''),
@@ -89,8 +131,8 @@ function notificationVars(opts: {
     phoneSuffix: phoneDisplay ? ` at ${phoneDisplay}` : '',
     intakeLink: String(opts.link || ''),
     intakeLinkLine: opts.link ? `Click here to view your intake form: ${opts.link}` : '',
-    statusUrl: statusPageLink(),
-    statusLine: statusPageLink() ? `Status: ${statusPageLink()}` : '',
+    statusUrl,
+    statusLine: statusUrl ? `Status: ${statusUrl}` : '',
     pickupHours: String(opts.pickupHours || '').trim(),
     processingDueLine: opts.paidProcessing
       ? 'Regular processing: PAID'
@@ -114,6 +156,7 @@ function buildNotificationEmail(
     businessName: string;
     phoneDisplay?: string;
     pickupHours?: string;
+    statusUrl?: string;
     notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
   },
 ) {
@@ -160,6 +203,7 @@ function buildNotificationSms(
     businessName: string;
     phoneDisplay?: string;
     pickupHours?: string;
+    statusUrl?: string;
     notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
   },
 ) {
@@ -168,7 +212,7 @@ function buildNotificationSms(
   return renderNotificationTemplate(templates[eventKey].smsBody, vars).replace(/\s+/g, ' ').trim();
 }
 
-function buildIntakeEmail(opts: { name: string; tag: string; link: string; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildIntakeEmail(opts: { name: string; tag: string; link: string; businessName: string; phoneDisplay: string; pickupHours?: string; statusUrl?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('intake', opts);
 }
 
@@ -186,12 +230,12 @@ function makePendingTag(confirmation13: string) {
 }
 
 
-function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: boolean; processingPrice: number; businessName: string; phoneDisplay: string; pickupHours?: string; statusUrl?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('meat_finished', opts);
 }
 
-function buildIntakeSms(opts: { tag: string; statusUrl: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
-  return buildNotificationSms('intake', opts);
+function buildIntakeSms(opts: { tag: string; link?: string; statusUrl?: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+  return buildNotificationSms('intake', { ...opts, statusUrl: opts.statusUrl || opts.link });
 }
 
 function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string; businessName: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
@@ -210,7 +254,7 @@ function buildWebbsDeliveredSms(opts: { tag: string; statusUrl: string; business
   return buildNotificationSms('webbs_delivered', opts);
 }
 
-function buildCapeFinishedEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildCapeFinishedEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; pickupHours?: string; statusUrl?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('cape_finished', opts);
 }
 
@@ -222,12 +266,13 @@ function buildSpecialtyFinishedEmail(opts: {
   businessName: string;
   phoneDisplay: string;
   pickupHours?: string;
+  statusUrl?: string;
   notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates>;
 }) {
   return buildNotificationEmail('specialty_finished', opts);
 }
 
-function buildWebbsDeliveredEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
+function buildWebbsDeliveredEmail(opts: { name: string; tag: string; businessName: string; phoneDisplay: string; pickupHours?: string; statusUrl?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
   return buildNotificationEmail('webbs_delivered', opts);
 }
 
@@ -536,7 +581,7 @@ async function ensurePublicToken(supabaseServer: any, row: any) {
       .from('jobs')
       .update({ public_token: token })
       .eq('id', row.id)
-      .is('public_token', null)
+      .or('public_token.is.null,public_token.eq.')
       .select('public_token'),
     row?.processor_id ? String(row.processor_id) : null
   ).maybeSingle();
@@ -573,8 +618,9 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const branding = await getNotificationBranding();
-  const link = intakeFormLink(String(locked.tag || ''), String(locked.public_token || token));
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
+  const branding = await getNotificationBranding(locked);
+  const link = intakeFormLink(String(locked.tag || ''), String(locked.public_token || token), baseUrl);
   const tpl = buildIntakeEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
@@ -604,10 +650,11 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
   const phone = normalizeUsPhone(String(row.phone || ''));
   if (!phone) return;
 
+  const token = await ensurePublicToken(supabaseServer, row);
   const { data: locked } = await withProcessorFilter(
     supabaseServer
     .from('jobs')
-    .select('id, processor_id, tag, phone')
+    .select('id, processor_id, tag, phone, public_token')
     .eq('id', row.id)
     .is('dropoff_sms_sent_at', null),
     row?.processor_id ? String(row.processor_id) : null
@@ -615,10 +662,13 @@ async function trySendDropoffSms(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const branding = await getNotificationBranding();
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
+  const link = intakeFormLink(String(locked.tag || ''), String(locked.public_token || token), baseUrl);
+  const branding = await getNotificationBranding(locked);
   const body = buildIntakeSms({
     tag: String(locked.tag || ''),
-    statusUrl: statusPageLink(),
+    link,
+    statusUrl: link,
     businessName: branding.businessName,
     notificationTemplates: branding.notificationTemplates,
   });
@@ -678,6 +728,29 @@ async function logSmsResult(supabaseServer: any, opts: {
   }
 }
 
+async function loadSpecialtyItemsForRow(supabaseServer: any, row: any) {
+  const jobId = String(row?.id || '').trim();
+  if (!jobId) return [];
+  const specialtyItemsMap = await loadJobSpecialtyItemsMap(supabaseServer, [jobId]);
+  return specialtyItemsMap.get(jobId) || [];
+}
+
+async function rowWithSpecialtyItems(supabaseServer: any, row: any) {
+  const items = await loadSpecialtyItemsForRow(supabaseServer, row);
+  return items.length ? { ...row, specialtyItems: items } : row;
+}
+
+async function hasSpecialtyOrderForRow(supabaseServer: any, row: any) {
+  if (!!row?.specialty_products) return true;
+  if (specialtyTotalLbs(row as Record<string, any>) > 0) return true;
+  const items = await loadSpecialtyItemsForRow(supabaseServer, row);
+  return items.some((item) => Number(item.quantity ?? 0) > 0);
+}
+
+async function calcSpecialtyPriceForRow(supabaseServer: any, row: any, pricing?: Partial<SitePricing> | null) {
+  return calcSpecialtyPriceFromLbs(await rowWithSpecialtyItems(supabaseServer, row), pricing);
+}
+
 async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag || !statusIsFinishedLike(row.status)) return;
   const alreadyStamped = !!row.finished_email_sent_at;
@@ -701,7 +774,7 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     await getCurrentPricing(),
   );
   const price = Number(locked.price_processing ?? 0) || computed;
-  const branding = await getNotificationBranding();
+  const branding = await getNotificationBranding(locked);
   const tpl = buildFinishedEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
@@ -757,12 +830,13 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
     await getCurrentPricing(),
   );
   const price = Number(locked.price_processing ?? 0) || computed;
-  const branding = await getNotificationBranding();
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
+  const branding = await getNotificationBranding(locked);
   const body = buildMeatFinishedSms({
     tag: String(locked.tag || ''),
     paidProcessing: !!locked.paid_processing,
     processingPrice: price,
-    statusUrl: statusPageLink(),
+    statusUrl: statusPageLink(baseUrl),
     businessName: branding.businessName,
     notificationTemplates: branding.notificationTemplates,
     pickupHours: branding.pickupHours,
@@ -800,7 +874,7 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const branding = await getNotificationBranding();
+  const branding = await getNotificationBranding(locked);
   const tpl = buildCapeFinishedEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
@@ -841,10 +915,11 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const branding = await getNotificationBranding();
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
+  const branding = await getNotificationBranding(locked);
   const body = buildCapeFinishedSms({
     tag: String(locked.tag || ''),
-    statusUrl: statusPageLink(),
+    statusUrl: statusPageLink(baseUrl),
     businessName: branding.businessName,
     notificationTemplates: branding.notificationTemplates,
     pickupHours: branding.pickupHours,
@@ -867,7 +942,7 @@ async function trySendCapeFinishedSms(supabaseServer: any, row: any) {
 
 async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
-  if (!row.specialty_products || !specialtyReady(row.specialty_status)) return;
+  if (!(await hasSpecialtyOrderForRow(supabaseServer, row)) || !specialtyReady(row.specialty_status)) return;
   const alreadyStamped = !!row.specialty_finished_email_sent_at;
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
@@ -899,10 +974,10 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const computed = calcSpecialtyPriceFromLbs(locked, await getCurrentPricing());
+  const computed = await calcSpecialtyPriceForRow(supabaseServer, locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
   const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
-  const branding = await getNotificationBranding();
+  const branding = await getNotificationBranding(locked);
   const tpl = buildSpecialtyFinishedEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
@@ -933,7 +1008,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
 
 async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
   if (!row || !hasRealTag(row) || row.requires_tag) return;
-  if (!row.specialty_products || !specialtyReady(row.specialty_status)) return;
+  if (!(await hasSpecialtyOrderForRow(supabaseServer, row)) || !specialtyReady(row.specialty_status)) return;
   if (preferredNotificationChannel(row) !== 'sms') return;
   const alreadyStamped = !!row.specialty_finished_sms_sent_at;
   if (alreadyStamped) return;
@@ -968,15 +1043,16 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const computed = calcSpecialtyPriceFromLbs(locked, await getCurrentPricing());
+  const computed = await calcSpecialtyPriceForRow(supabaseServer, locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
   const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
-  const branding = await getNotificationBranding();
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
+  const branding = await getNotificationBranding(locked);
   const body = buildSpecialtyFinishedSms({
     tag: String(locked.tag || ''),
     paidSpecialty: !!locked.paid_specialty,
     specialtyPrice: price,
-    statusUrl: statusPageLink(),
+    statusUrl: statusPageLink(baseUrl),
     businessName: branding.businessName,
     notificationTemplates: branding.notificationTemplates,
   });
@@ -1013,7 +1089,7 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const branding = await getNotificationBranding();
+  const branding = await getNotificationBranding(locked);
   const tpl = buildWebbsDeliveredEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
@@ -1053,10 +1129,11 @@ async function trySendWebbsDeliveredSms(supabaseServer: any, row: any) {
 
   if (!locked) return;
 
-  const branding = await getNotificationBranding();
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
+  const branding = await getNotificationBranding(locked);
   const body = buildWebbsDeliveredSms({
     tag: String(locked.tag || ''),
-    statusUrl: statusPageLink(),
+    statusUrl: statusPageLink(baseUrl),
     businessName: branding.businessName,
     notificationTemplates: branding.notificationTemplates,
   });
@@ -1179,12 +1256,14 @@ export async function resendCustomerNotification(params: {
   if (event === 'cape_finished' && (!processTypeNeedsCapeWorkflow(row.process_type, undefined, row.process_type_requires_cape) || !capeReady(row.caping_status))) {
     return { ok: false, error: 'Cape is not marked finished or ready yet.' };
   }
-  if (event === 'specialty_finished' && (!row.specialty_products || !specialtyReady(row.specialty_status))) {
+  if (event === 'specialty_finished' && (!(await hasSpecialtyOrderForRow(supabaseServer, row)) || !specialtyReady(row.specialty_status))) {
     return { ok: false, error: 'Specialty products are not marked finished or ready yet.' };
   }
   if (event === 'webbs_delivered' && (!row.webbs_order || !webbsReady(row.webbs_status))) {
     return { ok: false, error: 'Webbs is not marked delivered or ready yet.' };
   }
+
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, row);
 
   if (channel === 'email') {
     const email = String(row.email || '').trim();
@@ -1193,20 +1272,20 @@ export async function resendCustomerNotification(params: {
     }
 
     if (event === 'dropoff_tagged') {
-      const token = String(row.public_token || '').trim() || makePublicToken();
-      const link = intakeFormLink(String(row.tag || ''), token);
-      const branding = await getNotificationBranding();
+      const token = await ensurePublicToken(supabaseServer, row);
+      const link = intakeFormLink(String(row.tag || ''), token, baseUrl);
+      const branding = await getNotificationBranding(row);
       const tpl = buildIntakeEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
         link,
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        statusUrl: statusPageLink(baseUrl),
         notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
       await supabaseServer.from('jobs').update({
-        public_token: token,
         [emailStampField[event]]: now,
       }).eq('id', row.id);
       return { ok: true, event, channel, destination: email };
@@ -1215,7 +1294,7 @@ export async function resendCustomerNotification(params: {
     if (event === 'meat_finished') {
       const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
       const price = Number(row.price_processing ?? 0) || computed;
-      const branding = await getNotificationBranding();
+      const branding = await getNotificationBranding(row);
       const tpl = buildFinishedEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
@@ -1223,28 +1302,30 @@ export async function resendCustomerNotification(params: {
         processingPrice: price,
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        statusUrl: statusPageLink(baseUrl),
         notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
 
     if (event === 'cape_finished') {
-      const branding = await getNotificationBranding();
+      const branding = await getNotificationBranding(row);
       const tpl = buildCapeFinishedEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        statusUrl: statusPageLink(baseUrl),
         notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
 
     if (event === 'specialty_finished') {
-      const computed = calcSpecialtyPriceFromLbs(row, await getCurrentPricing());
+      const computed = await calcSpecialtyPriceForRow(supabaseServer, row, await getCurrentPricing());
       const override = numOrNull(row.specialty_price_override);
       const price = override ?? (Number(row.price_specialty ?? 0) || computed);
-      const branding = await getNotificationBranding();
+      const branding = await getNotificationBranding(row);
       const tpl = buildSpecialtyFinishedEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
@@ -1252,18 +1333,20 @@ export async function resendCustomerNotification(params: {
         specialtyPrice: price,
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        statusUrl: statusPageLink(baseUrl),
         notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
     }
 
     if (event === 'webbs_delivered') {
-      const branding = await getNotificationBranding();
+      const branding = await getNotificationBranding(row);
       const tpl = buildWebbsDeliveredEmail({
         name: String(row.customer_name || ''),
         tag: String(row.tag || ''),
         businessName: branding.businessName,
         phoneDisplay: branding.phoneDisplay,
+        statusUrl: statusPageLink(baseUrl),
         notificationTemplates: branding.notificationTemplates,
       });
       await sendEmail({ to: email, subject: tpl.subject, html: tpl.html, text: tpl.text });
@@ -1280,43 +1363,45 @@ export async function resendCustomerNotification(params: {
 
   let body = '';
   if (event === 'dropoff_tagged') {
-    const branding = await getNotificationBranding();
-    body = buildIntakeSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
+    const token = await ensurePublicToken(supabaseServer, row);
+    const link = intakeFormLink(String(row.tag || ''), token, baseUrl);
+    const branding = await getNotificationBranding(row);
+    body = buildIntakeSms({ tag: String(row.tag || ''), link, statusUrl: link, businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
   }
   if (event === 'meat_finished') {
     const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
     const price = Number(row.price_processing ?? 0) || computed;
-    const branding = await getNotificationBranding();
+    const branding = await getNotificationBranding(row);
     body = buildMeatFinishedSms({
       tag: String(row.tag || ''),
       paidProcessing: !!row.paid_processing,
       processingPrice: price,
-      statusUrl: statusPageLink(),
+      statusUrl: statusPageLink(baseUrl),
       businessName: branding.businessName,
       notificationTemplates: branding.notificationTemplates,
     });
   }
   if (event === 'cape_finished') {
-    const branding = await getNotificationBranding();
-    body = buildCapeFinishedSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
+    const branding = await getNotificationBranding(row);
+    body = buildCapeFinishedSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(baseUrl), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
   }
   if (event === 'specialty_finished') {
-    const computed = calcSpecialtyPriceFromLbs(row, await getCurrentPricing());
+    const computed = await calcSpecialtyPriceForRow(supabaseServer, row, await getCurrentPricing());
     const override = numOrNull(row.specialty_price_override);
     const price = override ?? (Number(row.price_specialty ?? 0) || computed);
-    const branding = await getNotificationBranding();
+    const branding = await getNotificationBranding(row);
     body = buildSpecialtyFinishedSms({
       tag: String(row.tag || ''),
       paidSpecialty: !!row.paid_specialty,
       specialtyPrice: price,
-      statusUrl: statusPageLink(),
+      statusUrl: statusPageLink(baseUrl),
       businessName: branding.businessName,
       notificationTemplates: branding.notificationTemplates,
     });
   }
   if (event === 'webbs_delivered') {
-    const branding = await getNotificationBranding();
-    body = buildWebbsDeliveredSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
+    const branding = await getNotificationBranding(row);
+    body = buildWebbsDeliveredSms({ tag: String(row.tag || ''), statusUrl: statusPageLink(baseUrl), businessName: branding.businessName, notificationTemplates: branding.notificationTemplates });
   }
 
   const result = await sendSms({ to: phone, body });
@@ -1424,7 +1509,7 @@ export async function sendManualCustomerMessage(params: {
   if (error) throw error;
   if (!row) return { ok: false as const, error: 'Job not found' };
 
-  const branding = await getNotificationBranding();
+  const branding = await getNotificationBranding(row);
 
   if (channel === 'email') {
     const email = String(row.email || '').trim();

@@ -175,8 +175,9 @@ export default async function IntakeView({
       settings.addOnCatalog,
     );
 
-    const specialtyAuto = job?.specialtyProducts ? calcSpecialtyPrice(job, settings.pricing, settings.specialtyCatalog) : 0;
     const specialtyItems = specialtyBreakdown(job, settings.pricing, settings.specialtyCatalog).filter((item) => item.pounds > 0);
+    const hasSpecialty = !!job?.specialtyProducts || specialtyItems.length > 0;
+    const specialtyAuto = hasSpecialty ? calcSpecialtyPrice(job, settings.pricing, settings.specialtyCatalog) : 0;
     const webbsItems = webbsOrderSummary(job?.webbsItems);
     const webbsItemTotal = webbsOrderTotalLbs(job?.webbsItems);
     const webbsAllocations = webbsAllocationSummary(job?.webbsAllocations);
@@ -218,7 +219,7 @@ export default async function IntakeView({
       String(pick(job, ['Specialty Status', 'specialtyStatus']) ?? '').trim();
 
     const showSpecialtyStatus =
-      !!job?.specialtyProducts || specialtyStatus.length > 0;
+      hasSpecialty || specialtyStatus.length > 0;
 
     return (
       <main className="ro" style={{maxWidth:1040, margin:'18px auto', padding:'0 14px 40px'}}>
@@ -415,9 +416,9 @@ export default async function IntakeView({
             <h3>Specialty Products</h3>
             <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
               <div className="c12" style={{gridColumn:'span 12'}}>
-                <Check on={!!job?.specialtyProducts} text="Would like specialty products" />
+                <Check on={hasSpecialty} text="Would like specialty products" />
               </div>
-              {job?.specialtyProducts && (
+              {hasSpecialty && (
                 <>
                   {specialtyItems.map((item) => (
                     <div className="c4" style={{gridColumn:'span 4'}} key={item.key}>
