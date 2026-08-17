@@ -85,6 +85,7 @@ function labelModeLabel(mode: ThermalLabelPrintMode) {
 type PaymentMethod = 'cash' | 'card' | 'check' | 'other';
 type PickupTrack = 'meat' | 'cape' | 'webbs';
 type SearchDetailTab = 'counter' | 'order' | 'contact' | 'messages' | 'history';
+type PrimaryActionKind = 'open' | 'print' | 'counter';
 
 const DETAIL_TABS: Array<{ key: SearchDetailTab; label: string }> = [
   { key: 'counter', label: 'Counter' },
@@ -218,6 +219,12 @@ export default function SearchPage() {
     );
   };
 
+  const openSelectedRecord = () => {
+    if (!selectedTag) return;
+    const rowToken = rows.find((row) => row.tag === selectedTag) as any;
+    openTag(selectedTag, selectedJob?.publicToken || selectedJob?.public_token || rowToken?.publicToken);
+  };
+
   const loadDetails = async (tag: string) => {
     if (!tag) return;
     setSelectedTag(tag);
@@ -292,7 +299,7 @@ export default function SearchPage() {
       });
       if (selectedTag === tag) {
         await loadDetails(tag);
-        setPrintMsg('Marked printed. If the printer did not respond, try Print Queue or print again from this page.');
+        setPrintMsg('Intake marked printed. Use Print Options for labels or a reprint.');
       }
     } catch (e: any) {
       setErr(`Could not print this intake sheet. ${e?.message || 'Try again, or open the intake record and print from there.'}`);
@@ -426,6 +433,10 @@ export default function SearchPage() {
   const canManageNotifications = staffRole === 'admin';
   const canManualEmail = !!selectedJob?.email;
   const canManualSms = smsEnabled && !!selectedJob?.phone && !!selectedJob?.smsConsent;
+  const visibleDetailTabs = useMemo(
+    () => canManageNotifications ? DETAIL_TABS : DETAIL_TABS.filter((tab) => tab.key !== 'messages'),
+    [canManageNotifications]
+  );
   const statusSummary = selectedJob
     ? [selectedJob.status || 'No meat status', selectedJob.capingStatus ? `Cape: ${selectedJob.capingStatus}` : null]
         .filter(Boolean)
@@ -449,6 +460,12 @@ export default function SearchPage() {
     if (!selectedJob || !specialtyEnabled) return [];
     return specialtyBreakdown(selectedJob).filter((item) => item.pounds > 0);
   }, [selectedJob, specialtyEnabled]);
+
+  useEffect(() => {
+    if (!visibleDetailTabs.some((tab) => tab.key === detailTab)) {
+      setDetailTab('counter');
+    }
+  }, [detailTab, visibleDetailTabs]);
 
   useEffect(() => {
     if (!selectedJob) return;
@@ -533,6 +550,27 @@ export default function SearchPage() {
     if (status.includes('finished') || status.includes('ready')) return 'Contact the customer and move this deer into pickup follow-up.';
     return 'Open the intake record to update statuses, print paperwork, or review instructions.';
   }, [selectedJob, specialtyEnabled]);
+  const selectedPrimaryAction = useMemo((): { label: string; kind: PrimaryActionKind } => {
+    if (!selectedJob) return { label: canEdit ? 'Open Intake' : 'Open Details', kind: 'open' };
+    if (!canEdit) return { label: 'Open Details', kind: 'open' };
+
+    const tag = String(selectedJob.tag || '').trim().toUpperCase();
+    const missingTag = !tag || tag.startsWith('PENDING-');
+    const status = String(selectedJob.status || '').toLowerCase();
+    const hasPickupWork = !!pickupQuickView && (
+      !pickupQuickView.processingPickedUp ||
+      (canPrintCapeLabel(selectedJob) && !pickupQuickView.capePickedUp) ||
+      (webbsEnabled && selectedJob.webbsOrder && !pickupQuickView.webbsPickedUp)
+    );
+
+    if (missingTag) return { label: 'Assign Tag', kind: 'open' };
+    if (!selectedJob.intakeSheetPrintedAt) return { label: 'Print Intake', kind: 'print' };
+    if (pickupQuickView && pickupQuickView.due > 0) return { label: 'Collect Payment', kind: 'counter' };
+    if ((status.includes('called') || status.includes('finished') || status.includes('ready')) && hasPickupWork) {
+      return { label: 'Record Pickup', kind: 'counter' };
+    }
+    return { label: 'Update Intake', kind: 'open' };
+  }, [selectedJob, canEdit, pickupQuickView, webbsEnabled]);
   const resultSummary = loading
     ? 'Searching...'
     : !canShowResults
@@ -611,7 +649,7 @@ export default function SearchPage() {
       const json = await res.json().catch(() => ({}));
       if (!json?.ok) throw new Error(json?.error || `HTTP ${res.status}`);
       await loadDetails(selectedTag);
-      setPrintMsg('Marked unprinted. This deer will show up in the print queue again.');
+      setPrintMsg('Returned to the print queue.');
     } catch (e: any) {
       setPrintMsg(`Could not send this deer back to the print queue. ${e?.message || 'Try again, or print directly from this page.'}`);
     }
@@ -741,12 +779,19 @@ export default function SearchPage() {
               className="btn"
               type="button"
               onClick={() => {
-                const rowToken = rows.find((row) => row.tag === selectedTag) as any;
-                selectedTag && openTag(selectedTag, selectedJob?.publicToken || selectedJob?.public_token || rowToken?.publicToken);
+                if (selectedPrimaryAction.kind === 'print') {
+                  selectedTag && void printTag(selectedTag);
+                  return;
+                }
+                if (selectedPrimaryAction.kind === 'counter') {
+                  setDetailTab('counter');
+                  return;
+                }
+                openSelectedRecord();
               }}
-              disabled={!selectedTag}
+              disabled={!selectedTag || (selectedPrimaryAction.kind === 'print' && printing === selectedTag)}
             >
-              {canEdit ? 'Open Intake' : 'Open Details'}
+              {selectedPrimaryAction.kind === 'print' && printing === selectedTag ? 'Preparing...' : selectedPrimaryAction.label}
             </button>
             <button className="btn secondary mobile-only-inline" type="button" onClick={() => setMobileMatchesOpen((prev) => !prev)}>
               {mobileMatchesOpen ? 'Hide Matches' : 'Show Matches'}
@@ -756,8 +801,18 @@ export default function SearchPage() {
       ) : null}
 
       {!canShowResults && (
-        <div className="app-surface-light" style={{ padding: 16, color: '#334155' }}>
-          Start typing above to find a deer.
+        <div className="app-surface-light searchEmptyState">
+          <div className="searchEmptyKicker">Ready To Search</div>
+          <div className="searchEmptyTitle">Find a deer by whatever you have.</div>
+          <div className="searchEmptyText">
+            Type a tag, customer name, phone number, or confirmation number. Matching deer will appear here.
+          </div>
+          <div className="searchEmptyChips">
+            <span>Tag</span>
+            <span>Name</span>
+            <span>Phone</span>
+            <span>Confirmation</span>
+          </div>
         </div>
       )}
 
@@ -796,7 +851,12 @@ export default function SearchPage() {
                   <tbody>
                     {rows.length === 0 && (
                       <tr>
-                        <td colSpan={4} style={{ padding: 14 }}>No results. Try a tag number, confirmation number, phone number, or part of the customer name.</td>
+                        <td colSpan={4}>
+                          <div className="searchEmptyState compact">
+                            <div className="searchEmptyTitle">No matching deer found.</div>
+                            <div className="searchEmptyText">Check the spelling or try a phone number, confirmation number, or shorter part of the name.</div>
+                          </div>
+                        </td>
                       </tr>
                     )}
                     {rows.map((r) => (
@@ -826,7 +886,10 @@ export default function SearchPage() {
                 </table>
                 <div className={`search-results-mobile ${mobileMatchesOpen ? '' : 'collapsed'}`}>
                   {rows.length === 0 ? (
-                    <div style={{ padding: 14 }}>No results. Try a tag number, confirmation number, phone number, or part of the customer name.</div>
+                    <div className="searchEmptyState compact">
+                      <div className="searchEmptyTitle">No matching deer found.</div>
+                      <div className="searchEmptyText">Check the spelling or try a phone number, confirmation number, or shorter part of the name.</div>
+                    </div>
                   ) : (
                     rows.map((r) => (
                       <button
@@ -906,19 +969,33 @@ export default function SearchPage() {
                         className="btn"
                         type="button"
                         onClick={() => {
-                          const rowToken = rows.find((row) => row.tag === selectedTag) as any;
-                          selectedTag && openTag(selectedTag, selectedJob?.publicToken || selectedJob?.public_token || rowToken?.publicToken);
+                          if (selectedPrimaryAction.kind === 'print') {
+                            selectedTag && void printTag(selectedTag);
+                            return;
+                          }
+                          if (selectedPrimaryAction.kind === 'counter') {
+                            setDetailTab('counter');
+                            return;
+                          }
+                          openSelectedRecord();
                         }}
-                        disabled={!selectedTag}
+                        disabled={!selectedTag || (selectedPrimaryAction.kind === 'print' && printing === selectedTag)}
                       >
-                        {canEdit ? 'Open Intake' : 'Open Details'}
+                        {selectedPrimaryAction.kind === 'print' && printing === selectedTag ? 'Preparing...' : selectedPrimaryAction.label}
                       </button>
-                      <button className="btn secondary" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
-                        {printing === selectedTag ? 'Preparing...' : 'Print Intake'}
-                      </button>
-                      {canEdit ? (
+                      {selectedPrimaryAction.kind !== 'open' ? (
+                        <button className="btn secondary" type="button" onClick={openSelectedRecord} disabled={!selectedTag}>
+                          {canEdit ? 'Open Intake' : 'Open Details'}
+                        </button>
+                      ) : null}
+                      {selectedPrimaryAction.kind !== 'print' ? (
+                        <button className="btn secondary" type="button" onClick={() => selectedTag && void printTag(selectedTag)} disabled={!selectedTag || printing === selectedTag}>
+                          {printing === selectedTag ? 'Preparing...' : 'Print Intake'}
+                        </button>
+                      ) : null}
+                      {canEdit && selectedPrimaryAction.kind !== 'counter' ? (
                         <button className="btn secondary" type="button" onClick={() => setDetailTab('counter')}>
-                          {pickupQuickView?.due ? 'Collect Payment' : 'Pickup'}
+                          Counter
                         </button>
                       ) : null}
                     </div>
@@ -952,7 +1029,7 @@ export default function SearchPage() {
                         ) : null}
                       </div>
                     </details>
-                    {printMsg ? <div className="muted" style={{ fontSize: 13 }}>{printMsg}</div> : null}
+                    {printMsg ? <div className={`statusFeedback ${printMsg.startsWith('Could not') ? 'err' : 'ok'}`}>{printMsg}</div> : null}
                   </>
                 ) : null}
               </div>
@@ -969,7 +1046,7 @@ export default function SearchPage() {
               {selectedJob ? (
                 <>
                   <div className="detailTabs" role="tablist" aria-label="Selected deer details">
-                    {DETAIL_TABS.map((tab) => (
+                    {visibleDetailTabs.map((tab) => (
                       <button
                         key={tab.key}
                         type="button"
@@ -1109,7 +1186,7 @@ export default function SearchPage() {
                                 ) : null}
                               </div>
 
-                              {pickupActionMsg ? <div className="pickupQuickFeedback">{pickupActionMsg}</div> : null}
+                              {pickupActionMsg ? <div className={`pickupQuickFeedback ${pickupActionMsg.startsWith('Could not') ? 'err' : 'ok'}`}>{pickupActionMsg}</div> : null}
                             </div>
                           ) : null}
                         </DetailBox>
@@ -1157,14 +1234,9 @@ export default function SearchPage() {
                     </div>
                   ) : null}
 
-                  {detailTab === 'messages' ? (
+                  {detailTab === 'messages' && canManageNotifications ? (
                     <div className="detailTabPanel">
-                    <DetailBox title="Manual Message">
-                      {!canManageNotifications ? (
-                        <div className="muted" style={{ fontSize: 13 }}>
-                          Only Admin users can send manual customer messages.
-                        </div>
-                      ) : (
+                      <DetailBox title="Manual Message">
                         <div style={{ display: 'grid', gap: 10 }}>
                           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 180px) 1fr', gap: 10, alignItems: 'center' }}>
                             <strong>Send by</strong>
@@ -1221,8 +1293,7 @@ export default function SearchPage() {
                             </button>
                           </div>
                         </div>
-                      )}
-                    </DetailBox>
+                      </DetailBox>
                     </div>
                   ) : null}
 
@@ -1248,11 +1319,6 @@ export default function SearchPage() {
                             <div className="quickFactValue">{fmtDate(selectedJob.dropoffSmsSentAt || selectedJob.dropoffEmailSentAt)}</div>
                           </div>
                         </div>
-                        {!canManageNotifications ? (
-                          <div className="muted" style={{ fontSize: 13 }}>
-                            Notification timestamps are visible here, but only Admin users can resend messages or reset sent flags.
-                          </div>
-                        ) : null}
                         <div style={{ display: 'grid', gap: 8 }}>
                           {notificationRows.map((row) => (
                             <div key={row.label} style={{ border: '1px solid #d1d5db', borderRadius: 12, background: '#ffffff', padding: 12, display: 'grid', gap: 8, color: '#111827' }}>
@@ -1307,7 +1373,7 @@ export default function SearchPage() {
                     </div>
                   ) : null}
 
-                  {resendMsg ? <div className="muted" style={{ fontSize: 13 }}>{resendMsg}</div> : null}
+                  {resendMsg ? <div className={`statusFeedback ${resendMsg.startsWith('Could not') ? 'err' : 'ok'}`}>{resendMsg}</div> : null}
                 </>
               ) : null}
             </div>
@@ -1364,6 +1430,53 @@ export default function SearchPage() {
           font-size: 13px;
           color: rgba(255,255,255,.72);
           font-weight: 700;
+        }
+
+        .searchEmptyState {
+          padding: 18px;
+          color: #334155;
+          display: grid;
+          gap: 8px;
+        }
+
+        .searchEmptyState.compact {
+          padding: 16px;
+        }
+
+        .searchEmptyKicker {
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: .07em;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+
+        .searchEmptyTitle {
+          font-size: 18px;
+          font-weight: 950;
+          color: #0f172a;
+          line-height: 1.25;
+        }
+
+        .searchEmptyText {
+          color: #475569;
+          line-height: 1.5;
+        }
+
+        .searchEmptyChips {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          padding-top: 2px;
+        }
+
+        .searchEmptyChips span {
+          padding: 5px 9px;
+          border-radius: 999px;
+          background: #eef2ff;
+          color: #334155;
+          font-size: 12px;
+          font-weight: 900;
         }
 
         .search-layout {
@@ -1806,10 +1919,29 @@ export default function SearchPage() {
         .pickupQuickFeedback {
           padding: 10px 12px;
           border-radius: 12px;
-          border: 1px solid #bfdbfe;
-          background: #eff6ff;
-          color: #1d4ed8;
           font-weight: 700;
+        }
+
+        .pickupQuickFeedback.ok,
+        .statusFeedback.ok {
+          border: 1px solid #bbf7d0;
+          background: #f0fdf4;
+          color: #166534;
+        }
+
+        .pickupQuickFeedback.err,
+        .statusFeedback.err {
+          border: 1px solid #fecaca;
+          background: #fef2f2;
+          color: #991b1b;
+        }
+
+        .statusFeedback {
+          padding: 10px 12px;
+          border-radius: 12px;
+          font-size: 13px;
+          font-weight: 800;
+          line-height: 1.4;
         }
 
         .notificationHistoryDisclosure {
