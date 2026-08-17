@@ -1431,7 +1431,18 @@ useEffect(() => {
               <button
                 className="btn secondaryBtn"
                 type="button"
-                onClick={() => {
+                onClick={async () => {
+                  const tagToPrint = normalizeTagInput(String(job.tag || lastSavedTag || ''), identifierSettings);
+                  if (!tagToPrint) {
+                    setMsg(`${identifierSettings.tagLabel} is required before printing`);
+                    return;
+                  }
+                  try {
+                    await markPrinted(tagToPrint);
+                  } catch (e: any) {
+                    setMsg(e?.message || 'Could not mark intake sheet as printed');
+                    return;
+                  }
                   setPrintMode('sheet');
                   openBrowserPrintPreview(() => setPrintMode(''));
                 }}
@@ -2459,6 +2470,11 @@ useEffect(() => {
                     const ok = await onSave();
                     if (!ok) return;
                   }
+                  const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                  if (!tagToPrint) {
+                    setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                    return;
+                  }
                   setPrintMode('package');
                   openBrowserPrintPreview(() => setPrintMode(''));
                 }}
@@ -2619,6 +2635,11 @@ useEffect(() => {
                     if (dirty) {
                       const ok = await onSave();
                       if (!ok) return;
+                    }
+                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                    if (!tagToPrint) {
+                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                      return;
                     }
                     setPrintMode('package');
                     openBrowserPrintPreview(() => setPrintMode(''));

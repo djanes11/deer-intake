@@ -22,6 +22,17 @@ export function openBrowserPrintPreview(onAfterPrint?: CleanupFn) {
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
       window.setTimeout(() => {
+        const labelElement = document.querySelector('.print-only .thermalLabelPrintJob') as HTMLElement | null;
+        if (labelElement && !document.querySelector('.print-only .printsheet')) {
+          window.removeEventListener('afterprint', finish);
+          if (fallbackTimer) window.clearTimeout(fallbackTimer);
+          openElementPrintPreview(labelElement, {
+            onAfterPrint: finish,
+            onError: () => finish(),
+          });
+          return;
+        }
+
         try {
           window.print();
           fallbackTimer = window.setTimeout(finish, 120000);

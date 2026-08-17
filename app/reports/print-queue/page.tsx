@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
+import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,10 +131,9 @@ export default function PrintQueuePage() {
       await markPrinted(normalized);
       setRows((prev) => prev.filter((row) => String(row.tag || '') !== normalized));
 
-      setTimeout(() => {
-        window.print();
+      openBrowserPrintPreview(() => {
         setPrinting('');
-      }, 150);
+      });
     } catch (e: any) {
       setErr(String(e?.message || e));
       setPrinting('');
