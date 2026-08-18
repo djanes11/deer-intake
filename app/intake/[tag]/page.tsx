@@ -34,7 +34,9 @@ function hmac16(tag: string) {
   return crypto.createHmac('sha256', SIGNING_SECRET).update(tag).digest('hex').slice(0, 16);
 }
 function verifyToken(tag: string, token: string | undefined, jobPublicToken: string | undefined) {
-  const t = String(token || '').trim();
+  const t = String(token || '')
+    .trim()
+    .replace(/[)"'\]>.,;:!?]+$/g, '');
   const pub = String(jobPublicToken || '').trim();
 
   // Prefer new public token

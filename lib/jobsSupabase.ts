@@ -80,8 +80,10 @@ function escapeHtml(s: any) {
 
 function intakeFormLink(tag: string, publicToken: string, baseUrl = SITE_URL) {
   const root = normalizeBaseUrl(baseUrl || SITE_URL);
-  if (!root) return '';
-  return `${root}/intake/${encodeURIComponent(tag)}?t=${encodeURIComponent(publicToken)}`;
+  const safeTag = String(tag || '').trim();
+  const safeToken = String(publicToken || '').trim();
+  if (!root || !safeTag || !safeToken) return '';
+  return `${root}/intake/${encodeURIComponent(safeTag)}?t=${encodeURIComponent(safeToken)}`;
 }
 
 function statusPageLink(baseUrl = SITE_URL) {
@@ -235,7 +237,10 @@ function buildFinishedEmail(opts: { name: string; tag: string; paidProcessing: b
 }
 
 function buildIntakeSms(opts: { tag: string; link?: string; statusUrl?: string; businessName: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
-  return buildNotificationSms('intake', { ...opts, statusUrl: opts.statusUrl || opts.link });
+  const link = String(opts.link || opts.statusUrl || '').trim();
+  const body = buildNotificationSms('intake', { ...opts, link, statusUrl: opts.statusUrl || link });
+  if (!link || body.includes(link)) return body;
+  return `${body} View intake: ${link}`;
 }
 
 function buildMeatFinishedSms(opts: { tag: string; paidProcessing: boolean; processingPrice: number; statusUrl: string; businessName: string; pickupHours?: string; notificationTemplates?: ReturnType<typeof normalizeNotificationTemplates> }) {
