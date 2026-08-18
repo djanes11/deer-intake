@@ -3,8 +3,8 @@ import { Suspense } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useScanner } from '@/lib/useScanner';
-import { progress, saveJob, getJob } from '@/lib/api';
-import { specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { progress, getJob } from '@/lib/api';
+import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice, specialtyTotalLbs } from '@/lib/specialty';
 
 // Ensure this page never gets statically prerendered (depends on URL params & client hooks)
 export const dynamic = 'force-dynamic';
@@ -20,31 +20,57 @@ type Job = {
   backstrapPrep?: string; backstrapThickness?: string;
   specialtyProducts?: boolean; originalSummerSausageLbs?: string|number; summerSausageCheeseLbs?: string|number; jalapenoSummerSausageCheeseLbs?: string|number; originalSnackSticksLbs?: string|number; originalSnackSticksCheeseLbs?: string|number; jalapenoSnackSticksCheeseLbs?: string|number;
   webbsOrder?: boolean; webbsFormNumber?: string; webbsPounds?: string;
-  notes?: string; price?: number|string; customer?: string;
+  notes?: string; price?: number|string; priceProcessing?: number|string; priceSpecialty?: number|string; priceTotal?: number|string; amountPaidProcessing?: number|string; amountPaidSpecialty?: number|string; customer?: string;
+  specialtyItems?: Array<Record<string, any>>;
 };
 
-const moneyNumber = (v:any)=> {
-  if (typeof v === 'string') { const n = Number(v.replace(/[^0-9.\-]/g,'')); return Number.isFinite(n)?n:NaN; }
-  const n = Number(v); return Number.isFinite(n)?n:NaN;
-};
-const normProc = (s?:string) => {
-  const v = String(s||'').toLowerCase();
-  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
-  if (v.includes('skull')) return 'Skull-Cap';
-  if (v.includes('euro')) return 'European';
-  if (v.includes('standard')) return 'Standard Processing';
-  return '';
-};
-const suggestedPrice = (proc?:string, beef?:boolean, webbs?:boolean) => {
-  const p = normProc(proc);
-  const base = p==='Caped' ? 150 : (['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 : 0);
-  return base ? base + (beef?5:0) + (webbs?20:0) : 0;
+const moneyNumber = (v: any) => {
+  const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^0-9.\-]/g, ''));
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
 };
 
-const specialtyPrice = (job: Job) => {
-  return calcSpecialtyPrice(job as any);
-};
-const calcTotal = (job: Job) => suggestedPrice(job.processType, !!job.beefFat, !!job.webbsOrder) + specialtyPrice(job);
+function truthy(v: any) {
+  if (typeof v === 'boolean') return v;
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['1', 'true', 'yes', 'y', 'paid', 'x', 'on'].includes(s);
+}
+
+function firstMoney(...values: any[]) {
+  for (const value of values) {
+    const parsed = moneyNumber(value);
+    if (parsed !== undefined) return parsed;
+  }
+  return undefined;
+}
+
+function priceSummary(job: Job) {
+  const processing = firstMoney(job.priceProcessing, (job as any).price_processing, (job as any).processingPrice) ?? 0;
+  const computedSpecialty = calcSpecialtyPrice(job as any);
+  const specialty = firstMoney(job.priceSpecialty, (job as any).price_specialty, (job as any).specialtyPrice) ?? computedSpecialty;
+  const total = firstMoney(job.price, job.priceTotal, (job as any).price_total) ?? (processing + specialty);
+  return { processing, specialty, total: Math.max(total, processing + specialty) };
+}
+
+function paymentSummary(job: Job, prices: ReturnType<typeof priceSummary>) {
+  const paidOverall = truthy(job.paid ?? job.Paid);
+  const paidProcessing = paidOverall || truthy(job.paidProcessing);
+  const paidSpecialty = paidOverall || truthy(job.paidSpecialty);
+  const amountPaidProcessing = Math.min(firstMoney(job.amountPaidProcessing, (job as any).amount_paid_processing) ?? 0, prices.processing);
+  const amountPaidSpecialty = Math.min(firstMoney(job.amountPaidSpecialty, (job as any).amount_paid_specialty) ?? 0, prices.specialty);
+  const processingDue = paidProcessing ? 0 : Math.max(0, prices.processing - amountPaidProcessing);
+  const specialtyDue = paidSpecialty ? 0 : Math.max(0, prices.specialty - amountPaidSpecialty);
+  return {
+    paidOverall: paidOverall || (prices.total > 0 && processingDue + specialtyDue <= 0),
+    amountPaid: amountPaidProcessing + amountPaidSpecialty,
+    processingDue,
+    specialtyDue,
+    totalDue: processingDue + specialtyDue,
+  };
+}
+
+function money(v: number) {
+  return `$${Number(v || 0).toFixed(2)}`;
+}
 
 // Outer page component wrapped in Suspense so useSearchParams is legal
 export default function Page() {
@@ -60,25 +86,33 @@ function ButcherIntakeInner() {
   const router = useRouter();
   const tag = sp.get('tag') || '';
   const [job, setJob] = useState<Job>({ tag, status: 'Processing' });
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const price = useMemo(() => calcTotal(job), [job]);
+  const prices = useMemo(() => priceSummary(job), [job]);
+  const payment = useMemo(() => paymentSummary(job, prices), [job, prices]);
+  const price = prices.total;
   const watchFor = useMemo(() => {
     const items: string[] = [];
     if (String(job.notes || '').trim()) items.push(`Notes: ${String(job.notes || '').trim()}`);
     if (job.beefFat) items.push('Add-on: Beef Fat');
     if (job.webbsOrder) items.push(`Webbs: ${job.webbsPounds ? `${job.webbsPounds} lb entered` : 'Order on file'}`);
-    const specTotal = Number(job.originalSummerSausageLbs || 0)
-      + Number(job.summerSausageCheeseLbs || 0)
-      + Number(job.jalapenoSummerSausageCheeseLbs || 0)
-      + Number(job.originalSnackSticksLbs || 0)
-      + Number(job.originalSnackSticksCheeseLbs || 0)
-      + Number(job.jalapenoSnackSticksCheeseLbs || 0);
-    if (specTotal > 0) items.push(`Specialty total: ${specTotal} lb`);
-    const totalDue = Math.max(0, price - (job.Paid ? price : 0));
-    items.push(totalDue > 0 ? `Payment due: $${totalDue.toFixed(2)}` : 'Paid in full');
+    const specialtyLines = specialtyBreakdown(job as any)
+      .filter((item) => Number(item.pounds || 0) > 0)
+      .map((item) => `${item.shortLabel || item.label}: ${Number(item.pounds || 0)} lb`);
+    const specTotal = specialtyTotalLbs(job as any);
+    if (specialtyLines.length) items.push(`Specialty: ${specialtyLines.join(', ')}`);
+    else if (job.specialtyProducts || specTotal > 0) items.push(`Specialty total: ${specTotal} lb`);
+    if (payment.amountPaid > 0 && payment.totalDue > 0) items.push(`Paid so far: ${money(payment.amountPaid)}`);
+    if (payment.totalDue > 0) {
+      const parts = [
+        payment.processingDue > 0 ? `processing ${money(payment.processingDue)}` : '',
+        payment.specialtyDue > 0 ? `specialty ${money(payment.specialtyDue)}` : '',
+      ].filter(Boolean);
+      items.push(`Balance due: ${money(payment.totalDue)}${parts.length ? ` (${parts.join(' + ')})` : ''}`);
+    } else {
+      items.push('Paid in full');
+    }
     return items;
-  }, [job, price]);
+  }, [job, payment]);
 
   // Load job
   useEffect(() => {
@@ -115,38 +149,6 @@ function ButcherIntakeInner() {
       setTimeout(()=> setMsg(''), 1200);
     }
   });
-
-  // Small setters
-  const setVal = (k: keyof Job, v:any) => setJob(p=>({ ...p, [k]: v }));
-  const toggle = (path: string) => {
-    setJob(p => {
-      const next = { ...p } as Job;
-      if (path.startsWith('hind.') || path.startsWith('front.')) {
-        const [block, key] = path.split('.') as ['hind'|'front', keyof NonNullable<CutsBlock>];
-        next[block] = { ...(p[block]||{}), [key]: !p[block]?.[key] };
-      } else if (path in p) {
-        // @ts-ignore
-        next[path] = !p[path];
-        if (path === 'Paid') {
-          next.paid = !!next.Paid;
-          next.paidProcessing = !!next.Paid;
-          next.paidSpecialty = next.specialtyProducts ? !!next.Paid : false;
-        }
-      }
-      return next;
-    });
-  };
-
-  const doSave = async () => {
-    try{
-      setBusy(true); setMsg('');
-      const res = await saveJob(job);
-      if (!res?.ok) throw new Error(res?.error || 'Save failed');
-      setMsg('Saved. Scan the same tag again when the work is done, or return to Search for the next deer.');
-      setTimeout(()=> setMsg(''), 1000);
-    }catch(e:any){ setMsg(`Could not save these butcher changes. ${e?.message || 'Try again, or open the intake form if this keeps happening.'}`); }
-    finally{ setBusy(false); }
-  };
 
   // Auto-fit to viewport (no scroll)
   const rootRef = useRef<HTMLDivElement|null>(null);
@@ -210,9 +212,9 @@ function ButcherIntakeInner() {
           </div>
           <div className="statusbox">
             <div className="row"><span className="label">Status</span><span className="badge">{job.status || '-'}</span></div>
-            <div className="row"><span className="label">Paid</span><button className={'pill ' + (job.Paid?'on':'')} onClick={()=>toggle('Paid')}>{job.Paid ? 'PAID' : 'UNPAID'}</button></div>
+            <div className="row"><span className="label">Payment</span><span className={'pill ' + (payment.totalDue <= 0 ? 'on' : '')}>{payment.totalDue <= 0 ? 'PAID' : `${money(payment.totalDue)} DUE`}</span></div>
             <div className="row"><span className="label">Process</span><span className="val">{job.processType || '-'}</span></div>
-            <div className="row price"><span className="label">Price</span><span className="money">${ (suggestedPrice(job.processType, !!job.beefFat, !!job.webbsOrder) + specialtyPrice(job)).toFixed(2) }</span></div>
+            <div className="row price"><span className="label">Total</span><span className="money">{money(price)}</span></div>
           </div>
           <div className="who">
             <div className="name">{job.customer || '-'}</div>

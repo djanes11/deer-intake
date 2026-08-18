@@ -5,9 +5,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { createClient } from '@supabase/supabase-js';
-import { getDefaultProcessorContext } from '@/lib/processorContext';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { formatDisplayDateTime } from '@/lib/dateFormat';
+import { ReportAccessDenied, requireReportAccess } from '../reportAccess';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -89,6 +89,11 @@ function channelTone(channel: 'email' | 'sms') {
 }
 
 export default async function NotificationActivityPage() {
+  const access = await requireReportAccess('view');
+  if (!access.ok) {
+    return <ReportAccessDenied title="Notification Activity" error={access.error} />;
+  }
+
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return (
       <div style={{ maxWidth: 1240, margin: '24px auto', padding: 16 }}>
@@ -101,8 +106,8 @@ export default async function NotificationActivityPage() {
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
-  const processor = await getDefaultProcessorContext();
-  const settings = await getPublicSiteSettings().catch(() => null);
+  const processor = access.processor;
+  const settings = await getPublicSiteSettings(undefined, processor).catch(() => null);
   const webbsEnabled = settings?.features?.webbsEnabled !== false;
 
   let jobsQuery = supabase

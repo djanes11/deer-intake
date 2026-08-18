@@ -108,6 +108,26 @@ function readSpecialtyPriceFromRow(j: any): number {
   return 0;
 }
 
+function readAmountPaidFromRow(j: any, kind: 'processing' | 'specialty'): number {
+  const vals = kind === 'processing'
+    ? [
+        j.amountPaidProcessing,
+        j.amount_paid_processing,
+        j['Amount Paid Processing'],
+      ]
+    : [
+        j.amountPaidSpecialty,
+        j.amount_paid_specialty,
+        j['Amount Paid Specialty'],
+      ];
+  for (const v of vals) {
+    if (v == null) continue;
+    const n = typeof v === 'number' ? v : Number(String(v).replace(/[^0-9.\-]/g, ''));
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+
 function money(value: number | null | undefined) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
@@ -118,8 +138,22 @@ function paymentSummary(j: Row) {
   const paidSpecialty = !!(a.paidSpecialty ?? a['Paid Specialty']);
   const processing = readProcessingPriceFromRow(a) ?? 0;
   const specialty = readSpecialtyPriceFromRow(a);
-  const totalDue = (paidProcessing ? 0 : processing) + (paidSpecialty ? 0 : specialty);
-  return { paidProcessing, paidSpecialty, processing, specialty, totalDue };
+  const amountPaidProcessing = Math.min(readAmountPaidFromRow(a, 'processing'), processing);
+  const amountPaidSpecialty = Math.min(readAmountPaidFromRow(a, 'specialty'), specialty);
+  const processingDue = paidProcessing ? 0 : Math.max(0, processing - amountPaidProcessing);
+  const specialtyDue = paidSpecialty ? 0 : Math.max(0, specialty - amountPaidSpecialty);
+  const totalDue = processingDue + specialtyDue;
+  return {
+    paidProcessing: paidProcessing || (processing > 0 && processingDue === 0),
+    paidSpecialty: paidSpecialty || (specialty > 0 && specialtyDue === 0),
+    processing,
+    specialty,
+    amountPaidProcessing,
+    amountPaidSpecialty,
+    processingDue,
+    specialtyDue,
+    totalDue,
+  };
 }
 
 export default function CallReportPage() {
@@ -444,7 +478,7 @@ export default function CallReportPage() {
               <div className="fact-value">{selected.__track === 'meat' ? money(paymentSummary(selected).totalDue) : 'Included'}</div>
               <div className="fact-sub">
                 {selected.__track === 'meat'
-                  ? `Processing ${money(paymentSummary(selected).paidProcessing ? 0 : paymentSummary(selected).processing)} | Specialty ${money(paymentSummary(selected).paidSpecialty ? 0 : paymentSummary(selected).specialty)}`
+                  ? `Processing ${money(paymentSummary(selected).processingDue)} | Specialty ${money(paymentSummary(selected).specialtyDue)}`
                   : 'This track does not create a separate balance.'}
               </div>
             </div>
@@ -574,7 +608,7 @@ export default function CallReportPage() {
                       {r.__track === 'meat' ? (
                         <div>
                           <div className="balance-main">{money(paymentSummary(r).totalDue)}</div>
-                          <div className="balance-sub">Proc {money(paymentSummary(r).paidProcessing ? 0 : paymentSummary(r).processing)}</div>
+                          <div className="balance-sub">Proc {money(paymentSummary(r).processingDue)}</div>
                         </div>
                       ) : (
                         <span className="muted">Included</span>

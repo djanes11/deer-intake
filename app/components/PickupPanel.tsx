@@ -11,8 +11,6 @@ type Props = {
   phoneE164: string;         // "+15026433916"
   displayPhone?: string;     // "(502) 643-3916"
   hours?: { days: string; open: string; close: string }[];
-  tag?: string;
-  showPay?: boolean;
 };
 
 export default function PickupPanel({
@@ -23,8 +21,6 @@ export default function PickupPanel({
   phoneE164,
   displayPhone,
   hours = [],
-  tag,
-  showPay,
 }: Props) {
   const gmaps =
     lat != null && lng != null
@@ -87,11 +83,6 @@ export default function PickupPanel({
           <a href={`tel:${phoneE164}`} style={btnGhost}>
             Call {displayPhone || phoneE164}
           </a>
-          {showPay && tag && (
-            <a href={`/api/pay/create?tag=${encodeURIComponent(tag)}`} style={btnPrimary}>
-              Pay now with Square
-            </a>
-          )}
         </div>
 
         <div style={{ fontSize: 12, color: 'rgba(230,235,232,.75)' }}>
@@ -114,10 +105,3 @@ const btn: React.CSSProperties = {
 };
 
 const btnGhost = btn;
-
-const btnPrimary: React.CSSProperties = {
-  ...btn,
-  background: '#89c096',
-  border: '1px solid transparent',
-  color: '#0b0f0d',
-};

@@ -27,6 +27,8 @@ type LookupResult = {
   priceProcessing?: number | string;
   priceSpecialty?: number | string;
   priceTotal?: number | string;
+  amountPaidProcessing?: number | string;
+  amountPaidSpecialty?: number | string;
   paidProcessing?: boolean | string;
   paidSpecialty?: boolean | string;
   paid?: boolean | string;
@@ -116,7 +118,13 @@ function toBool(v: unknown) {
   if (v === true) return true;
   if (v === false) return false;
   const s = String(v ?? '').trim().toLowerCase();
+  if (!s) return undefined;
   return ['1', 'true', 'yes', 'y', 'paid', 'x', 'on'].includes(s);
+}
+
+function positiveMoney(v: unknown) {
+  const n = toNum(v);
+  return typeof n === 'number' && n > 0 ? n : 0;
 }
 
 function money(n?: number) {
@@ -299,10 +307,13 @@ export default function StatusPage() {
 
   const priceProcessing = toNum(res?.priceProcessing);
   const rawPriceSpecialty = toNum(res?.priceSpecialty);
+  const amountPaidProcessing = positiveMoney(res?.amountPaidProcessing);
+  const amountPaidSpecialty = positiveMoney(res?.amountPaidSpecialty);
   const specialtyApplies =
     branding.specialtyEnabled &&
     (
       (typeof rawPriceSpecialty === 'number' && rawPriceSpecialty > 0) ||
+      amountPaidSpecialty > 0 ||
       !!res?.tracks?.specialtyStatus ||
       (res?.paidSpecialty !== undefined && res?.paidSpecialty !== null && String(res.paidSpecialty) !== '')
     );
@@ -321,36 +332,57 @@ export default function StatusPage() {
   const rawPaidOverall = toBool(res?.paid);
   const rawPaidProc = toBool(res?.paidProcessing);
   const rawPaidSpec = toBool(res?.paidSpecialty);
+  const processingPaidByAmount =
+    typeof priceProcessing === 'number' &&
+    priceProcessing > 0 &&
+    amountPaidProcessing >= priceProcessing;
+  const specialtyPaidByAmount =
+    typeof priceSpecialty === 'number' &&
+    priceSpecialty > 0 &&
+    amountPaidSpecialty >= priceSpecialty;
   const paidProc =
     rawPaidProc !== undefined
-      ? rawPaidProc
+      ? rawPaidProc || processingPaidByAmount
       : rawPaidOverall !== undefined && (!priceProcessing || priceProcessing <= 0)
         ? rawPaidOverall
-        : undefined;
+        : processingPaidByAmount || undefined;
   const paidSpec =
     rawPaidSpec !== undefined
-      ? rawPaidSpec
+      ? rawPaidSpec || specialtyPaidByAmount
       : rawPaidOverall !== undefined && (!priceSpecialty || priceSpecialty <= 0)
         ? rawPaidOverall
-        : undefined;
+        : specialtyPaidByAmount || undefined;
+  const paidOverallFromAmounts =
+    (typeof priceProcessing !== 'number' || priceProcessing <= 0 || processingPaidByAmount) &&
+    (!specialtyApplies || typeof priceSpecialty !== 'number' || priceSpecialty <= 0 || specialtyPaidByAmount) &&
+    ((typeof priceProcessing === 'number' && priceProcessing > 0) ||
+      (specialtyApplies && typeof priceSpecialty === 'number' && priceSpecialty > 0));
   const paidOverall =
     [paidProc, paidSpec].some((v) => v !== undefined)
       ? [paidProc, paidSpec].every((v, i) =>
           i === 1 && (!priceSpecialty || priceSpecialty <= 0) ? true : v !== false
-        ) && [paidProc, paidSpec].some((v) => v === true)
-      : rawPaidOverall;
+        ) && ([paidProc, paidSpec].some((v) => v === true) || paidOverallFromAmounts)
+      : rawPaidOverall || paidOverallFromAmounts;
   const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some(
     (v) => v !== undefined && v !== null && String(v) !== ''
-  );
+  ) || amountPaidProcessing > 0 || amountPaidSpecialty > 0;
   const hasAnyPricing =
     typeof priceProcessing === 'number' ||
     typeof priceSpecialty === 'number' ||
     typeof priceTotal === 'number';
 
   const owedProcessing =
-    paidProc === true ? 0 : typeof priceProcessing === 'number' ? priceProcessing : undefined;
+    paidProc === true
+      ? 0
+      : typeof priceProcessing === 'number'
+        ? Math.max(0, priceProcessing - amountPaidProcessing)
+        : undefined;
   const owedSpecialty =
-    paidSpec === true ? 0 : typeof priceSpecialty === 'number' ? priceSpecialty : undefined;
+    paidSpec === true
+      ? 0
+      : typeof priceSpecialty === 'number'
+        ? Math.max(0, priceSpecialty - amountPaidSpecialty)
+        : undefined;
   const owedTotal =
     paidOverall === true
       ? 0
@@ -737,9 +769,9 @@ export default function StatusPage() {
             <section style={sectionCard} aria-label="Payment details">
               <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Payment Breakdown</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-                <PaymentCard label="Processing" amount={priceProcessing} paid={paidOverall || paidProc} owed={owedProcessing} />
-                {specialtyApplies ? <PaymentCard label="Specialty" amount={priceSpecialty} paid={paidOverall || paidSpec} owed={owedSpecialty} /> : null}
-                <PaymentCard label="Total" amount={priceTotal} paid={paidOverall} owed={owedTotal} />
+                <PaymentCard label="Processing" amount={priceProcessing} paidAmount={amountPaidProcessing} paid={paidOverall || paidProc} owed={owedProcessing} />
+                {specialtyApplies ? <PaymentCard label="Specialty" amount={priceSpecialty} paidAmount={amountPaidSpecialty} paid={paidOverall || paidSpec} owed={owedSpecialty} /> : null}
+                <PaymentCard label="Total" amount={priceTotal} paidAmount={amountPaidProcessing + amountPaidSpecialty} paid={paidOverall} owed={owedTotal} />
               </div>
             </section>
           )}
@@ -818,7 +850,7 @@ function TrackCard({ item }: { item: TrackSummary }) {
   );
 }
 
-function PaymentCard({ label, amount, paid, owed }: PaymentCardProps) {
+function PaymentCard({ label, amount, paidAmount, paid, owed }: PaymentCardProps & { paidAmount?: number }) {
   return (
     <div
       style={{
@@ -835,6 +867,7 @@ function PaymentCard({ label, amount, paid, owed }: PaymentCardProps) {
       <div style={{ fontSize: 22, fontWeight: 900 }}>{money(amount)}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <Badge ok={!!paid} label={paid ? 'Paid' : 'Unpaid'} />
+        {paidAmount ? <Badge ok label={`Paid ${money(paidAmount)}`} /> : null}
         {typeof owed === 'number' ? <Badge ok={owed === 0} label={owed === 0 ? 'Balance cleared' : `Owes ${money(owed)}`} /> : null}
       </div>
     </div>

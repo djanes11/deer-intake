@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
           status: 400,
         });
       }
-      const result = await logCall({ tag, scope, reason, notes, outcome });
+      const result = await logCall({ tag, scope, reason, notes, outcome, processorContext });
       if ((result as any)?.ok !== false) {
         await writeAuditEntry({
           req,
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const result = await markCalled({ tag: finalTag, scope, notes });
+      const result = await markCalled({ tag: finalTag, scope, notes, processorContext });
       if ((result as any)?.ok !== false) {
         await writeAuditEntry({
           req,

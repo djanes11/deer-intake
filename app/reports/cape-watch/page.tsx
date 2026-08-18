@@ -6,8 +6,8 @@ export const revalidate = 0;
 
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import { getStaffProcessorContext } from '@/lib/staffContext';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
+import { ReportAccessDenied, requireReportAccess } from '../reportAccess';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -100,7 +100,12 @@ function stage(row: Row) {
 }
 
 export default async function CapeWatchPage() {
-  const processor = await getStaffProcessorContext();
+  const access = await requireReportAccess('view');
+  if (!access.ok) {
+    return <ReportAccessDenied title="Cape Watch" error={access.error} />;
+  }
+
+  const processor = access.processor;
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return (

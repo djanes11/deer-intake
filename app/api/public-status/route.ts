@@ -34,6 +34,8 @@ const PUBLIC_STATUS_SELECT = `
   price_processing,
   price_specialty,
   price_total,
+  amount_paid_processing,
+  amount_paid_specialty,
   specialty_price_override,
   specialty_products,
   original_summer_sausage_lbs,
@@ -99,6 +101,8 @@ function shapeJob(row: any) {
   const paidOverall = toBool(row.paid);
   const paidProcessing = toBool(row.paid_processing);
   const paidSpecialty = toBool(row.paid_specialty);
+  const amountPaidProcessing = toNum(row.amount_paid_processing);
+  const amountPaidSpecialty = toNum(row.amount_paid_specialty);
 
   const base: any = {
     ok: true,
@@ -117,6 +121,8 @@ function shapeJob(row: any) {
     ...(paidProcessing !== undefined ? { paidProcessing } : {}),
     ...(paidSpecialty !== undefined ? { paidSpecialty } : {}),
     ...(paidOverall !== undefined ? { paid: paidOverall } : {}),
+    ...(amountPaidProcessing !== undefined ? { amountPaidProcessing } : {}),
+    ...(amountPaidSpecialty !== undefined ? { amountPaidSpecialty } : {}),
   };
 
   return base;

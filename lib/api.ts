@@ -172,7 +172,7 @@ export async function searchJobs(
   return getJSON<any>(`${API_BASE}?${params.toString()}`);
 }
 
-/** Mark Called with scope: 'auto' | 'meat' | 'cape' | 'webbs' | 'all' */
+/** Mark Called with scope: 'auto' | 'meat' | 'cape' | 'specialty' | 'webbs' | 'all' */
 export async function markCalled(arg1: any, arg2?: any) {
   // Supports: markCalled({ tag, scope, notes })
   // or legacy: markCalled(tag, scope?)

@@ -6,9 +6,10 @@ export const revalidate = 0;
 
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
-import { getStaffProcessorContext } from '@/lib/staffContext';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
+import ContactWatchActions from './contact-actions';
+import { ReportAccessDenied, requireReportAccess } from '../reportAccess';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -204,9 +205,15 @@ function buildWatchRows(rows: Row[], failures: Map<string, string>, webbsEnabled
 }
 
 export default async function ContactWatchPage() {
-  const processor = await getStaffProcessorContext();
+  const access = await requireReportAccess('view');
+  if (!access.ok) {
+    return <ReportAccessDenied title="Needs Contact" error={access.error} />;
+  }
+
+  const processor = access.processor;
   const settings = await getPublicSiteSettings(undefined, processor).catch(() => null);
   const webbsEnabled = settings?.features?.webbsEnabled !== false;
+  const canUpdate = access.platformAdmin || processor.role === 'admin' || processor.role === 'staff';
 
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return (
@@ -274,6 +281,12 @@ export default async function ContactWatchPage() {
         <div className="err">Load failed: {String(error.message || error)}</div>
       ) : null}
 
+      {!canUpdate ? (
+        <div className="card readonly-banner">
+          Read-only access: you can review contact gaps and open intake details, but only Staff or Admin can log attempts or mark customers contacted.
+        </div>
+      ) : null}
+
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
         {[
           { label: 'Need Contact', value: watchRows.length },
@@ -334,6 +347,12 @@ export default async function ContactWatchPage() {
                         {row.contactMethod === 'Call' ? (
                           <Link className="btn secondary small" href="/reports/calls" style={{ textDecoration: 'none' }}>Call Queue</Link>
                         ) : null}
+                        <ContactWatchActions
+                          tag={row.tag}
+                          track={row.track}
+                          contactMethod={row.contactMethod}
+                          canUpdate={canUpdate}
+                        />
                       </div>
                     </td>
                   </tr>
@@ -363,6 +382,12 @@ export default async function ContactWatchPage() {
           font-size: 30px;
           font-weight: 950;
           margin-top: 6px;
+        }
+        .readonly-banner {
+          background: #eef2ff;
+          border-color: #c7d2fe;
+          color: #3730a3;
+          font-weight: 700;
         }
         .pill {
           display: inline-flex;
