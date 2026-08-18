@@ -36,6 +36,7 @@ export default function StateFormReportPage() {
   const canSetPage = (staffRole === 'admin' || staffRole === 'staff') && !!payload?.canSetPageNumber;
   const formLabel = String(payload?.formLabel || 'State Form');
   const reportPeriodLabel = String(payload?.reportPeriodLabel || '');
+  const stateFormIssues = Array.isArray(payload?.stateFormIssues) ? payload.stateFormIssues : [];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +141,65 @@ export default function StateFormReportPage() {
         <div className="card readonly-banner">
           Read-only access: you can review and download the state form, but changing the page number requires Staff or Admin access.
         </div>
+      ) : null}
+
+      {payload && stateFormIssues.length > 0 ? (
+        <section
+          style={{
+            border: '1px solid rgba(245, 158, 11, 0.34)',
+            borderRadius: 12,
+            padding: 16,
+            background: 'rgba(69, 26, 3, 0.28)',
+            color: '#fde68a',
+            display: 'grid',
+            gap: 10,
+          }}
+        >
+          <div style={{ fontWeight: 700 }}>
+            {stateFormIssues.length} entr{stateFormIssues.length === 1 ? 'y needs' : 'ies need'} state-form details
+          </div>
+          <div style={{ color: 'rgba(254, 243, 199, 0.82)', fontSize: 14, lineHeight: 1.45 }}>
+            These jobs are still included in the PDF, but the blank fields should be corrected before the final state copy is filed.
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {stateFormIssues.slice(0, 8).map((issue: any) => (
+              <div
+                key={issue.jobId || `${issue.tag}-${issue.customer}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(110px, 160px) 1fr',
+                  gap: 10,
+                  paddingTop: 8,
+                  borderTop: '1px solid rgba(245, 158, 11, 0.18)',
+                  fontSize: 14,
+                }}
+              >
+                <div style={{ color: '#fef3c7', fontWeight: 650 }}>{issue.tag || 'No tag'}</div>
+                <div style={{ color: 'rgba(254, 243, 199, 0.86)' }}>
+                  {issue.customer || 'No customer'}: {(issue.missingFields || []).join(', ')}
+                </div>
+              </div>
+            ))}
+          </div>
+          {stateFormIssues.length > 8 ? (
+            <div style={{ color: 'rgba(254, 243, 199, 0.72)', fontSize: 13 }}>
+              {stateFormIssues.length - 8} more entr{stateFormIssues.length - 8 === 1 ? 'y' : 'ies'} need review.
+            </div>
+          ) : null}
+        </section>
+      ) : payload && !loading ? (
+        <section
+          style={{
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            borderRadius: 12,
+            padding: 14,
+            background: 'rgba(6, 78, 59, 0.22)',
+            color: '#bbf7d0',
+            fontSize: 14,
+          }}
+        >
+          All current state-form entries have the required details.
+        </section>
       ) : null}
 
       <section

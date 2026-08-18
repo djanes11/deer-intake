@@ -28,6 +28,14 @@ export type StateformPayload = {
   processorZip?: string;
   processorPhone?: string;
   entries: StateformEntry[];
+  stateFormIssues?: Array<{
+    jobId: string;
+    tag: string;
+    customer: string;
+    dropoff: string;
+    missingFields: string[];
+  }>;
+  stateFormNeedsReviewCount?: number;
 };
 
 /**

@@ -36,6 +36,14 @@ export type StateFormPreparedPayload = {
   processorZip: string;
   processorPhone: string;
   pageYear: string;
+  stateFormIssues?: Array<{
+    jobId: string;
+    tag: string;
+    customer: string;
+    dropoff: string;
+    missingFields: string[];
+  }>;
+  stateFormNeedsReviewCount?: number;
 };
 
 export type StateFormDefinition = {

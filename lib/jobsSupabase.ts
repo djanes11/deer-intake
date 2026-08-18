@@ -3354,6 +3354,7 @@ export async function getDashboardSummary() {
   const supabaseServer = getSupabaseServer();
   const processor = await getDefaultProcessorContext();
   const failureWindowIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const seasonStartIso = currentSeasonStartIso();
 
   const [
     pendingTagsRes,
@@ -3389,8 +3390,8 @@ export async function getDashboardSummary() {
       supabaseServer
         .from('jobs')
         .select('id', { count: 'exact', head: true })
-        .not('confirmation', 'is', null)
-        .gte('dropoff_date', currentSeasonStartIso()),
+        .is('pending_deleted_at', null)
+        .or(`dropoff_date.gte.${seasonStartIso},and(dropoff_date.is.null,created_at.gte.${seasonStartIso}T00:00:00.000Z)`),
       processor.id
     ),
     withProcessorFilter(

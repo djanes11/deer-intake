@@ -23,6 +23,53 @@ type SettingsRow = {
   state_form_type?: StateFormType | null;
 };
 
+function startOfDayIso(dateOnly: string) {
+  return `${dateOnly}T00:00:00.000Z`;
+}
+
+function hasText(value: any) {
+  return String(value ?? '').trim().length > 0;
+}
+
+function missingStateFormFields(row: any, stateFormType: StateFormType) {
+  const missing: string[] = [];
+  const requireText = (value: any, label: string) => {
+    if (!hasText(value)) missing.push(label);
+  };
+
+  requireText(row.dropoff_date, 'Drop-off date');
+  requireText(row.customer_name, 'Customer name');
+  requireText(row.confirmation, 'Confirmation #');
+
+  if (stateFormType === 'indiana') {
+    requireText(row.address, 'Address');
+    requireText(row.phone, 'Phone');
+    requireText(row.deer_sex, 'Deer sex');
+    requireText(row.county_killed, 'County killed');
+    requireText(row.how_killed, 'How killed');
+    requireText(row.process_type, 'Process type');
+  } else if (stateFormType === 'michigan') {
+    requireText(row.address, 'Address');
+    requireText(row.county_killed, 'County of origin');
+    requireText(row.hunting_license_number, 'Hunting license #');
+  }
+
+  return missing;
+}
+
+function stateFormPeriodFilter(query: any, stateFormType: StateFormType) {
+  if (stateFormType === 'michigan') {
+    const start = currentMonthStart();
+    const end = nextMonthStart();
+    return query.or(
+      `and(dropoff_date.gte.${start},dropoff_date.lt.${end}),and(dropoff_date.is.null,created_at.gte.${startOfDayIso(start)},created_at.lt.${startOfDayIso(end)})`
+    );
+  }
+
+  const start = currentSeasonStart();
+  return query.or(`dropoff_date.gte.${start},and(dropoff_date.is.null,created_at.gte.${startOfDayIso(start)})`);
+}
+
 function getSupabase() {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
@@ -116,19 +163,14 @@ async function fetchStateformRows(stateFormType: StateFormType, processorInput?:
 
   let query = supabase
     .from('jobs')
-    .select('id,dropoff_date,picked_up_processing,picked_up_processing_at,updated_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at,hunting_license_number')
-    .not('confirmation', 'is', null)
+    .select('id,tag,requires_tag,dropoff_date,picked_up_processing,picked_up_processing_at,updated_at,customer_name,address,city,state,zip,phone,deer_sex,county_killed,how_killed,process_type,confirmation,created_at,hunting_license_number')
+    .is('pending_deleted_at', null)
     .order('dropoff_date', { ascending: true })
     .order('created_at', { ascending: true })
     .limit(5000);
 
   query = processor.id ? query.eq('processor_id', processor.id) : query;
-
-  if (stateFormType === 'michigan') {
-    query = query.gte('dropoff_date', currentMonthStart()).lt('dropoff_date', nextMonthStart());
-  } else {
-    query = query.gte('dropoff_date', currentSeasonStart());
-  }
+  query = stateFormPeriodFilter(query, stateFormType);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -145,9 +187,25 @@ export async function fetchStateformPayloadFromSupabase(processorInput?: Process
     ? Number(settings.stateform_page_number || 1)
     : 1;
 
-  return definition.preparePayload({
+  const payload = definition.preparePayload({
     rows,
     pageNumberStart: startPage,
     context: await buildContext(processor),
   });
+
+  const stateFormIssues = rows
+    .map((row: any) => ({
+      jobId: String(row.id || ''),
+      tag: String(row.tag || (row.requires_tag ? 'Pending tag' : '')),
+      customer: String(row.customer_name || ''),
+      dropoff: String(row.dropoff_date || row.created_at || ''),
+      missingFields: missingStateFormFields(row, stateFormType),
+    }))
+    .filter((issue) => issue.missingFields.length > 0);
+
+  return {
+    ...payload,
+    stateFormIssues,
+    stateFormNeedsReviewCount: stateFormIssues.length,
+  };
 }
