@@ -63,7 +63,7 @@ export default async function SpecialtyReport() {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return (
       <div style={styles.page}>
-        <h2 style={styles.title}>Open Specialty</h2>
+        <h2 style={styles.title}>Specialty</h2>
         <div style={styles.warn}>
           Missing environment variables.
           <div style={styles.warnSub}>
@@ -119,8 +119,8 @@ export default async function SpecialtyReport() {
 
   return (
     <div style={styles.page}>
-      <h2 style={styles.title}>Open Specialty</h2>
-      <p style={styles.sub}>Specialty orders that still need production, contact, or pickup follow-up.</p>
+      <h2 style={styles.title}>Specialty</h2>
+      <p style={styles.sub}>Outstanding production and finished pickup follow-up.</p>
 
       {error && <div style={styles.err}>Load failed: {String((error as any)?.message || error)}</div>}
 
