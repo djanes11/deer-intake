@@ -5,6 +5,8 @@ import PrintSheet from '@/app/components/PrintSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
+import { DEFAULT_SITE_PRICING, normalizePricing } from '@/lib/pricing';
+import { defaultSpecialtyCatalog, normalizeSpecialtyCatalog, type SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +65,8 @@ export default function PrintQueuePage() {
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
+  const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
+  const [specialtyCatalog, setSpecialtyCatalog] = useState<SpecialtyCatalogItem[]>(defaultSpecialtyCatalog(DEFAULT_SITE_PRICING));
   const [cutOptions, setCutOptions] = useState(normalizeCutOptionSettings({}));
 
   const refresh = async () => {
@@ -93,7 +97,11 @@ export default function PrintQueuePage() {
         if (!j?.ok) return;
         setWebbsEnabled(j?.settings?.features?.webbsEnabled !== false);
         setSmsEnabled(j?.settings?.features?.smsEnabled !== false);
-        setSpecialtyEnabled(j?.settings?.features?.specialtyEnabled !== false);
+        const nextPricing = normalizePricing(j?.settings?.pricing ?? j?.settings);
+        const nextSpecialtyEnabled = j?.settings?.features?.specialtyEnabled !== false;
+        setPricing(nextPricing);
+        setSpecialtyEnabled(nextSpecialtyEnabled);
+        setSpecialtyCatalog(nextSpecialtyEnabled ? normalizeSpecialtyCatalog(j?.settings?.specialtyCatalog, nextPricing) : []);
         setCutOptions(normalizeCutOptionSettings(j?.settings?.cutOptions));
       })
       .catch(() => {});
@@ -271,6 +279,8 @@ export default function PrintQueuePage() {
             smsEnabled={smsEnabled}
             specialtyEnabled={specialtyEnabled}
             cutOptions={cutOptions}
+            pricing={pricing}
+            specialtyCatalog={specialtyCatalog}
           />
         ) : null}
       </div>

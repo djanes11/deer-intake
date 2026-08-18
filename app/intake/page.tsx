@@ -2655,6 +2655,8 @@ useEffect(() => {
             smsEnabled={smsEnabled}
             specialtyEnabled={specialtyEnabled}
             cutOptions={cutOptions}
+            pricing={pricing}
+            specialtyCatalog={specialtyCatalog}
           />
         ) : null}
         {printMode === 'deer' ? <ThermalLabelSheet job={job} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}

@@ -2007,6 +2007,8 @@ function OvernightIntakePage() {
                 smsEnabled={smsEnabled}
                 specialtyEnabled={specialtyEnabled}
                 cutOptions={cutOptions}
+                pricing={pricing}
+                specialtyCatalog={specialtyCatalog}
               />
             </div>
           </section>
@@ -2048,6 +2050,8 @@ function OvernightIntakePage() {
           smsEnabled={smsEnabled}
           specialtyEnabled={specialtyEnabled}
           cutOptions={cutOptions}
+          pricing={pricing}
+          specialtyCatalog={specialtyCatalog}
         />
       </div>
 

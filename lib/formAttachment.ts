@@ -1,5 +1,6 @@
 // lib/formAttachment.ts
 import 'server-only';
+import { specialtyBreakdown, specialtyTotalLbs } from '@/lib/specialty';
 
 type AnyRec = Record<string, any>;
 
@@ -10,6 +11,15 @@ const esc = (s: any) =>
     .replace(/>/g, '&gt;');
 
 export function renderFormHTML(job: AnyRec & { tag?: string }) {
+  const specialtyItems = specialtyBreakdown(job).filter((item) => item.pounds > 0);
+  const specialtyLbs = specialtyTotalLbs(job);
+  const specialtyText = specialtyItems.length
+    ? specialtyItems.map((item) => `${item.shortLabel || item.label}: ${item.pounds} lb`).join('\n')
+    : specialtyLbs > 0
+      ? `Specialty Order: ${specialtyLbs} lb`
+      : job.specialtyProducts || job.specialty_products
+        ? 'Specialty products selected'
+        : 'No';
   const rows: [string, any][] = [
     ['Tag', job.tag],
     ['Customer', job.customer ?? job['Customer Name']],
@@ -21,6 +31,7 @@ export function renderFormHTML(job: AnyRec & { tag?: string }) {
     ['Process Type', job.processType],
     ['Beef Fat', job.beefFat ? 'Yes' : 'No'],
     ['Webbs Order', job.webbsOrder ? 'Yes' : 'No'],
+    ['Specialty Products', specialtyText],
   ];
 
   return `<!DOCTYPE html>
@@ -33,7 +44,7 @@ export function renderFormHTML(job: AnyRec & { tag?: string }) {
   h1 { margin: 0 0 8px; font-size: 20px; }
   .sub { color:#555; margin: 0 0 16px; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid #d1d5db; padding: 6px 8px; font-size: 12px; text-align: left; }
+  th, td { border: 1px solid #d1d5db; padding: 6px 8px; font-size: 12px; text-align: left; white-space: pre-wrap; }
   th { width: 180px; background: #f8fafc; }
 </style>
 </head>

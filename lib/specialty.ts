@@ -1,12 +1,11 @@
-import { DEFAULT_SITE_PRICING, SitePricing, normalizePricing } from '@/lib/pricing';
+import { DEFAULT_SITE_PRICING, normalizePricing } from '@/lib/pricing';
+import type { SitePricing } from '@/lib/pricing';
 import {
   defaultSpecialtyCatalog,
-  JobSpecialtyItem,
   normalizeJobSpecialtyItems,
   normalizeSpecialtyCatalog,
-  SpecialtyCatalogItem,
-  SpecialtyLegacyFieldKey,
 } from '@/lib/specialtyCatalog';
+import type { JobSpecialtyItem, SpecialtyCatalogItem, SpecialtyLegacyFieldKey } from '@/lib/specialtyCatalog';
 
 export type SpecialtyFieldKey = SpecialtyLegacyFieldKey;
 export type SpecialtyItemDef = SpecialtyCatalogItem & {
@@ -45,6 +44,22 @@ function legacyValue(job: Record<string, any> | null | undefined, key: Specialty
   }
 }
 
+function directSpecialtyItems(job: Record<string, any> | null | undefined): JobSpecialtyItem[] {
+  for (const candidate of [job?.specialtyItems, job?.specialty_items, job?.job_specialty_items]) {
+    const normalized = normalizeJobSpecialtyItems(candidate);
+    if (normalized.length) return normalized;
+  }
+  return [];
+}
+
+function fallbackSpecialtyPounds(job: Record<string, any> | null | undefined): number {
+  return toNumber(job?.specialtyPounds ?? job?.specialty_pounds ?? job?.['Specialty Pounds']);
+}
+
+function fallbackSpecialtyTotal(job: Record<string, any> | null | undefined): number {
+  return toNumber(job?.priceSpecialty ?? job?.price_specialty ?? job?.['Specialty Price']);
+}
+
 function categoryForItem(item: SpecialtyCatalogItem): 'summer' | 'snack' | 'custom' {
   const text = `${item.slug} ${item.name}`.toLowerCase();
   if (text.includes('summer')) return 'summer';
@@ -75,11 +90,11 @@ export function specialtySelections(
   pricingInput?: Partial<SitePricing> | null,
   catalogInput?: SpecialtyCatalogItem[] | null,
 ): JobSpecialtyItem[] {
-  const direct = normalizeJobSpecialtyItems(job?.specialtyItems ?? job?.specialty_items);
+  const direct = directSpecialtyItems(job);
   if (direct.length) return direct;
 
   const catalog = specialtyCatalog(catalogInput, pricingInput);
-  return catalog
+  const legacySelections = catalog
     .map((item) => {
       const quantity = item.legacyFieldKey ? legacyValue(job, item.legacyFieldKey) : 0;
       return {
@@ -97,6 +112,26 @@ export function specialtySelections(
       } satisfies JobSpecialtyItem;
     })
     .filter((item) => item.quantity > 0);
+  if (legacySelections.length) return legacySelections;
+
+  const fallbackPounds = fallbackSpecialtyPounds(job);
+  if (fallbackPounds > 0) {
+    return [{
+      catalogId: null,
+      slug: 'specialty-order',
+      name: 'Specialty Order',
+      shortName: 'Specialty',
+      unit: 'lb',
+      priceType: 'per_lb',
+      quantity: fallbackPounds,
+      pricePerUnit: 0,
+      total: fallbackSpecialtyTotal(job),
+      sortOrder: 9990,
+      legacyFieldKey: null,
+    }];
+  }
+
+  return [];
 }
 
 export function specialtyValue(
@@ -129,32 +164,35 @@ export function specialtyBreakdown(
   catalogInput?: SpecialtyCatalogItem[] | null,
 ) {
   const selected = specialtySelections(job, pricingInput, catalogInput);
+  const selectedToBreakdown = (item: JobSpecialtyItem) => ({
+    key: item.slug,
+    slug: item.slug,
+    name: item.name,
+    label: item.name,
+    shortName: item.shortName,
+    shortLabel: item.shortName,
+    unit: item.unit,
+    priceType: item.priceType,
+    price: item.pricePerUnit,
+    active: true,
+    sortOrder: item.sortOrder,
+    legacyFieldKey: item.legacyFieldKey ?? null,
+    category: 'custom' as const,
+    pounds: item.quantity,
+    quantity: item.quantity,
+    pricePerLb: item.pricePerUnit,
+    pricePerUnit: item.pricePerUnit,
+    total: item.total,
+  });
+
   if (selected.length && (!catalogInput || !catalogInput.length)) {
-    return selected.map((item) => ({
-      key: item.slug,
-      slug: item.slug,
-      name: item.name,
-      label: item.name,
-      shortName: item.shortName,
-      shortLabel: item.shortName,
-      unit: item.unit,
-      priceType: item.priceType,
-      price: item.pricePerUnit,
-      active: true,
-      sortOrder: item.sortOrder,
-      legacyFieldKey: item.legacyFieldKey ?? null,
-      category: 'custom' as const,
-      pounds: item.quantity,
-      quantity: item.quantity,
-      pricePerLb: item.pricePerUnit,
-      pricePerUnit: item.pricePerUnit,
-      total: item.total,
-    }));
+    return selected.map(selectedToBreakdown);
   }
   const catalog = specialtyCatalog(catalogInput, pricingInput);
   const bySlug = new Map(selected.map((item) => [item.slug, item]));
+  const catalogSlugs = new Set(catalog.map((item) => item.slug));
 
-  return catalog.map((item) => {
+  const catalogRows = catalog.map((item) => {
     const selectedItem = bySlug.get(item.slug);
     const pounds = selectedItem?.quantity ?? 0;
     const pricePerLb = selectedItem?.pricePerUnit ?? specialtyItemPrice(item, pricingInput);
@@ -167,6 +205,12 @@ export function specialtyBreakdown(
       total: selectedItem?.total ?? pounds * pricePerLb,
     };
   });
+
+  const savedRows = selected
+    .filter((item) => !catalogSlugs.has(item.slug))
+    .map(selectedToBreakdown);
+
+  return [...catalogRows, ...savedRows].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
 export function specialtyTotalLbs(

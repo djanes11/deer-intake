@@ -7,6 +7,8 @@ import {
   specialtyPrice as calcSpecialtyPrice,
   specialtyTotalLbs,
 } from '@/lib/specialty';
+import type { SitePricing } from '@/lib/pricing';
+import type { SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { normalizeCutOptionSettings, type CutOptionSettings } from '@/lib/cutOptions';
 import {
   hasWebbsOrder,
@@ -31,6 +33,8 @@ export interface PrintSheetProps {
   smsEnabled?: boolean;
   specialtyEnabled?: boolean;
   cutOptions?: Partial<CutOptionSettings> | null;
+  pricing?: Partial<SitePricing> | null;
+  specialtyCatalog?: SpecialtyCatalogItem[] | null;
 }
 
 const CHK = '\u2611';
@@ -151,6 +155,8 @@ export default function PrintSheet({
   smsEnabled = true,
   specialtyEnabled = true,
   cutOptions,
+  pricing,
+  specialtyCatalog,
 }: PrintSheetProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const truthy = truthyFactory(job);
@@ -198,8 +204,18 @@ export default function PrintSheet({
     ]
   );
 
-  const specialtyItems = useMemo(() => specialtyBreakdown(job), [job]);
-  const specialtyLbs = useMemo(() => specialtyTotalLbs(job), [job]);
+  const specialtyItems = useMemo(
+    () => specialtyBreakdown(job, pricing, specialtyCatalog),
+    [job, pricing, specialtyCatalog]
+  );
+  const specialtyDisplayItems = useMemo(
+    () => specialtyItems.filter((item) => item.pounds > 0),
+    [specialtyItems]
+  );
+  const specialtyLbs = useMemo(
+    () => specialtyTotalLbs(job, pricing, specialtyCatalog),
+    [job, pricing, specialtyCatalog]
+  );
 
   const processingOverride = useMemo(
     () => numOrNull(jpick(job, ['processing_price_override', 'processingPriceOverride'])),
@@ -222,7 +238,7 @@ export default function PrintSheet({
   const processingPrice = processingOverride ?? processingStored ?? proc;
   const processingPaid = numOrNull(jpick(job, ['amountPaidProcessing', 'amount_paid_processing'])) ?? 0;
 
-  const specialtyAuto = useMemo(() => calcSpecialtyPrice(job), [job]);
+  const specialtyAuto = useMemo(() => calcSpecialtyPrice(job, pricing, specialtyCatalog), [job, pricing, specialtyCatalog]);
   const specialtyPrice = specialtyOverride ?? specialtyAuto;
   const specialtyPaid = numOrNull(jpick(job, ['amountPaidSpecialty', 'amount_paid_specialty'])) ?? 0;
   const processingDue = Math.max(0, processingPrice - processingPaid);
@@ -247,8 +263,9 @@ export default function PrintSheet({
   const hasDenseWebbsList = (webbsOrderStyle === 'whole_deer_percent' ? webbsAllocationLines.length : webbsItemLines.length) > 10;
   const hasSpecialty = specialtyEnabled && (
     truthy('Specialty Products','specialtyProducts','Would like specialty products','specialty_products') ||
-    specialtyItems.some((item) => item.pounds > 0) ||
-    hasSpecialtySelection(job)
+    specialtyDisplayItems.length > 0 ||
+    specialtyLbs > 0 ||
+    hasSpecialtySelection(job, pricing, specialtyCatalog)
   );
   const hasWebbs = webbsEnabled && hasWebbsOrder(jpick(job, ['Webbs Order', 'webbsOrder', 'webbs_order']));
   const webbsSummaryText = useMemo(
@@ -611,14 +628,16 @@ return () => {
             <div className="val attentionValue">
               <div className="specRow">
                 <div className="specLine">
-                  {specialtyItems
-                    .filter((item) => item.pounds > 0)
-                    .map((item, idx) => (
+                  {specialtyDisplayItems.length ? (
+                    specialtyDisplayItems.map((item, idx) => (
                       <span key={item.key}>
                         {idx > 0 ? ' | ' : ''}
                         <b>{item.shortLabel}:</b> {item.pounds || ''}
                       </span>
-                    ))}
+                    ))
+                  ) : (
+                    <span>Specialty products selected</span>
+                  )}
                 </div>
                 <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
               </div>
