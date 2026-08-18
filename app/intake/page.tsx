@@ -899,6 +899,8 @@ useEffect(() => {
   const amountPaidSpecialty = Math.min(toMoneyOrNull((job as any).amountPaidSpecialty) ?? 0, specialtyPriceUsed);
   const processingRemaining = Math.max(0, processingPriceUsed - amountPaidProcessing);
   const specialtyRemaining = Math.max(0, specialtyPriceUsed - amountPaidSpecialty);
+  const specialtyActive = asBool(job.specialtyProducts);
+  const totalPaymentRemaining = processingRemaining + (specialtyActive ? specialtyRemaining : 0);
 
   const totalPrice = processingPriceUsed + specialtyPriceUsed;
   const activeSpecialtyCatalog = useMemo(
@@ -1564,43 +1566,82 @@ useEffect(() => {
               </div>
             )}
 
-            <div className="col">
-              <label>Paid</label>
-              <div className="pillrow">
-                <label className={`pill ${processingRemaining <= 0 ? 'on' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={processingRemaining <= 0}
-                    onChange={(e) => {
-                      const v = e.target.checked;
-                      setJob((prev) => {
-                        const next = { ...prev, paidProcessing: v, amountPaidProcessing: v ? processingPriceUsed : 0 };
-                        const fp = fullPaid(next);
-                        return { ...next, Paid: fp, paid: fp };
-                      });
-                    }}
-                  />
-                </label>
-                <span className="badge">{processingRemaining <= 0 ? 'Paid in Full' : processingRemaining < processingPriceUsed ? 'Partial Payment' : 'Collect at Pickup'}</span>
-                <input
-                  inputMode="decimal"
-                  value={String((job as any).amountPaidProcessing ?? '')}
-                  onChange={(e) => {
-                    const value = toMoneyOrNull(e.target.value) ?? 0;
-                    setJob((prev) => {
-                      const next = { ...prev, amountPaidProcessing: value, paidProcessing: value >= processingPriceUsed && processingPriceUsed > 0 };
-                      const fp = fullPaid(next);
-                      return { ...next, Paid: fp, paid: fp };
-                    });
-                  }}
-                  placeholder="Processing paid"
-                  style={{ maxWidth: 150 }}
-                />
-                <span className="badge">{`Due ${processingRemaining.toFixed(2)}`}</span>
+            <div className="col paymentCol">
+              <label>Payment</label>
+              <div className="paymentPanel">
+                <div className="paymentRow">
+                  <div className="paymentMain">
+                    <div className="paymentTitle">Processing</div>
+                    <div className="paymentSub">Charge ${processingPriceUsed.toFixed(2)}</div>
+                  </div>
+                  <div className="paymentBalance">
+                    <span className={`paymentStatus ${processingRemaining <= 0 ? 'ok' : processingRemaining < processingPriceUsed ? 'partial' : 'due'}`}>
+                      {processingRemaining <= 0 ? 'Paid' : processingRemaining < processingPriceUsed ? 'Partial' : 'Unpaid'}
+                    </span>
+                    <span className="paymentDue">Due ${processingRemaining.toFixed(2)}</span>
+                  </div>
+                  <label className="paymentField">
+                    <span>Amount paid</span>
+                    <input
+                      inputMode="decimal"
+                      value={String((job as any).amountPaidProcessing ?? '')}
+                      onChange={(e) => {
+                        const value = toMoneyOrNull(e.target.value) ?? 0;
+                        setJob((prev) => {
+                          const next = { ...prev, amountPaidProcessing: value, paidProcessing: value >= processingPriceUsed && processingPriceUsed > 0 };
+                          const fp = fullPaid(next);
+                          return { ...next, Paid: fp, paid: fp };
+                        });
+                      }}
+                      placeholder="0.00"
+                    />
+                  </label>
+                  <label className={`paymentCheck ${processingRemaining <= 0 ? 'on' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={processingRemaining <= 0}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        setJob((prev) => {
+                          const next = { ...prev, paidProcessing: v, amountPaidProcessing: v ? processingPriceUsed : 0 };
+                          const fp = fullPaid(next);
+                          return { ...next, Paid: fp, paid: fp };
+                        });
+                      }}
+                    />
+                    <span>Processing paid</span>
+                  </label>
+                </div>
 
-                {asBool(job.specialtyProducts) && (
-                  <>
-                    <label className={`pill ${specialtyRemaining <= 0 ? 'on' : ''}`}>
+                {specialtyActive && (
+                  <div className="paymentRow">
+                    <div className="paymentMain">
+                      <div className="paymentTitle">Specialty</div>
+                      <div className="paymentSub">Charge ${specialtyPriceUsed.toFixed(2)}</div>
+                    </div>
+                    <div className="paymentBalance">
+                      <span className={`paymentStatus ${specialtyRemaining <= 0 ? 'ok' : specialtyRemaining < specialtyPriceUsed ? 'partial' : 'due'}`}>
+                        {specialtyRemaining <= 0 ? 'Paid' : specialtyRemaining < specialtyPriceUsed ? 'Partial' : 'Unpaid'}
+                      </span>
+                      <span className="paymentDue">Due ${specialtyRemaining.toFixed(2)}</span>
+                    </div>
+                    <label className="paymentField">
+                      <span>Amount paid</span>
+                      <input
+                        inputMode="decimal"
+                        value={String((job as any).amountPaidSpecialty ?? '')}
+                        onChange={(e) => {
+                          const value = toMoneyOrNull(e.target.value) ?? 0;
+                          setJob((prev) => {
+                            const next = { ...prev, amountPaidSpecialty: value, paidSpecialty: value >= specialtyPriceUsed && specialtyPriceUsed > 0 };
+                            const fp = fullPaid(next);
+                            return { ...next, Paid: fp, paid: fp };
+                          });
+                        }}
+                        placeholder="0.00"
+                      />
+                    </label>
+                    <label className={`paymentCheck ${specialtyRemaining <= 0 ? 'on' : ''}`}>
                       <input
                         type="checkbox"
                         checked={specialtyRemaining <= 0}
@@ -1613,32 +1654,25 @@ useEffect(() => {
                           });
                         }}
                       />
+                      <span>Specialty paid</span>
                     </label>
-                    <span className="badge">{specialtyRemaining <= 0 ? 'Paid in Full' : specialtyRemaining < specialtyPriceUsed ? 'Partial Payment' : 'Collect at Pickup'}</span>
-                    <input
-                      inputMode="decimal"
-                      value={String((job as any).amountPaidSpecialty ?? '')}
-                      onChange={(e) => {
-                        const value = toMoneyOrNull(e.target.value) ?? 0;
-                        setJob((prev) => {
-                          const next = { ...prev, amountPaidSpecialty: value, paidSpecialty: value >= specialtyPriceUsed && specialtyPriceUsed > 0 };
-                          const fp = fullPaid(next);
-                          return { ...next, Paid: fp, paid: fp };
-                        });
-                      }}
-                      placeholder="Specialty paid"
-                      style={{ maxWidth: 150 }}
-                    />
-                    <span className="badge">{`Due ${specialtyRemaining.toFixed(2)}`}</span>
-                  </>
+                  </div>
                 )}
 
-                <label className={`pill ${fullPaid(job) ? 'on' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={fullPaid(job)}
-                    onChange={(e) => {
-                      const v = e.target.checked;
+                <div className={`paymentTotalRow ${totalPaymentRemaining <= 0 ? 'on' : ''}`}>
+                  <div>
+                    <div className="paymentTitle">Total</div>
+                    <div className="paymentSub">
+                      {totalPaymentRemaining <= 0
+                        ? 'No balance due.'
+                        : `Still due $${totalPaymentRemaining.toFixed(2)}.`}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="paymentAllBtn"
+                    onClick={() => {
+                      const v = !fullPaid(job);
                       setJob((prev) => {
                         const next: Job = {
                           ...prev,
@@ -1651,9 +1685,10 @@ useEffect(() => {
                         return { ...next, Paid: fp, paid: fp };
                       });
                     }}
-                  />
-                </label>
-                <span className="badge">{fullPaid(job) ? 'Paid in Full' : processingRemaining < processingPriceUsed || specialtyRemaining < specialtyPriceUsed ? 'Partial Payment' : 'Collect at Pickup'}</span>
+                  >
+                    {fullPaid(job) ? 'Mark All Unpaid' : 'Mark All Paid'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2914,11 +2949,125 @@ useEffect(() => {
         .summary .price .money { font-weight: 800; text-align: right; background: #fff; border: 1px solid #d8e3f5; border-radius: 8px; padding: 6px 8px; }
         .summary .total .money.total { font-weight: 900; }
 
-        .summary .pillrow { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; }
-        .summary .pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 10px; border: 2px solid #eab308; background: #fff7db; border-radius: 999px; white-space: nowrap; cursor: pointer; user-select: none; }
-        .summary .pill.on { border-color: #10b981; background: #ecfdf5; }
-        .summary .pill > input[type="checkbox"] { width: 18px; height: 18px; margin: 0; appearance: auto; }
         .summary .badge { display: inline-block; font-weight: 800; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; line-height: 1.1; }
+        .summary .paymentCol { grid-column: 1 / -1; }
+        .paymentPanel { display: grid; gap: 8px; }
+        .paymentRow,
+        .paymentTotalRow {
+          display: grid;
+          gap: 10px;
+          align-items: center;
+          box-sizing: border-box;
+          padding: 10px;
+          border: 1px solid #d8e3f5;
+          border-radius: 10px;
+          background: #fff;
+        }
+        .paymentRow {
+          grid-template-columns: minmax(160px, 1.2fr) minmax(130px, .8fr) minmax(130px, .8fr) minmax(160px, .9fr);
+        }
+        .paymentTotalRow {
+          grid-template-columns: minmax(0, 1fr) auto;
+          border-style: dashed;
+          background: #f8fafc;
+        }
+        .paymentTotalRow.on {
+          border-style: solid;
+          border-color: #86efac;
+          background: #ecfdf5;
+        }
+        .paymentTitle { font-size: 14px; font-weight: 900; color: #0f172a; }
+        .paymentSub { margin-top: 2px; font-size: 12px; line-height: 1.3; color: #475569; }
+        .paymentMain,
+        .paymentBalance,
+        .paymentField,
+        .paymentCheck {
+          min-width: 0;
+        }
+        .paymentBalance { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .paymentStatus {
+          display: inline-flex;
+          align-items: center;
+          min-height: 24px;
+          padding: 3px 9px;
+          border-radius: 999px;
+          border: 1px solid #fed7aa;
+          background: #fff7ed;
+          color: #9a3412;
+          font-size: 12px;
+          font-weight: 900;
+          line-height: 1.1;
+        }
+        .paymentStatus.partial {
+          border-color: #facc15;
+          background: #fff7db;
+          color: #854d0e;
+        }
+        .paymentStatus.ok {
+          border-color: #86efac;
+          background: #ecfdf5;
+          color: #166534;
+        }
+        .paymentDue { font-size: 13px; font-weight: 900; color: #0f172a; white-space: nowrap; }
+        .paymentField {
+          display: grid;
+          gap: 4px;
+          margin: 0;
+        }
+        .paymentField span {
+          font-size: 11px;
+          font-weight: 800;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: .04em;
+        }
+        .paymentField input { min-height: 38px; }
+        .paymentCheck {
+          min-height: 40px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: 0;
+          box-sizing: border-box;
+          padding: 8px 10px;
+          border: 1px solid #fed7aa;
+          border-radius: 10px;
+          background: #fff7ed;
+          color: #9a3412;
+          font-weight: 900;
+          cursor: pointer;
+          user-select: none;
+        }
+        .paymentCheck.on {
+          border-color: #86efac;
+          background: #ecfdf5;
+          color: #166534;
+        }
+        .paymentCheck input {
+          width: 18px;
+          height: 18px;
+          margin: 0;
+          flex: 0 0 auto;
+          appearance: auto;
+        }
+        .paymentAllBtn {
+          min-height: 42px;
+          box-sizing: border-box;
+          padding: 9px 14px;
+          border: 1px solid #235532;
+          border-radius: 10px;
+          background: #2f6f3f;
+          color: #fff;
+          font-weight: 900;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .paymentTotalRow.on .paymentAllBtn {
+          border-color: #bfd2c2;
+          background: #f7fbf8;
+          color: #173321;
+        }
 
         .count { display: inline-flex; align-items: center; gap: 6px; }
         .countInp { width: 70px; text-align: center; }
@@ -3121,7 +3270,13 @@ useEffect(() => {
 
         .print-only { display: none; }
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
-        @media (max-width: 900px) { .summary .row.small { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px) {
+          .summary .row.small { grid-template-columns: 1fr 1fr; }
+          .paymentRow { grid-template-columns: minmax(0, 1fr) minmax(130px, 1fr); }
+          .paymentCheck { justify-content: flex-start; }
+          .paymentTotalRow { grid-template-columns: 1fr; }
+          .paymentAllBtn { width: 100%; }
+        }
         @media (max-width: 720px) {
           .summaryMini {
             padding: 8px;
@@ -3134,7 +3289,13 @@ useEffect(() => {
           .summary .row { grid-template-columns: 1fr; }
           .summary .row.small { grid-template-columns: 1fr; }
           .rowInline { padding-top: 0; }
-          .summary .pillrow { flex-wrap: wrap; }
+          .paymentRow { grid-template-columns: 1fr; }
+          .paymentBalance { justify-content: space-between; }
+          .paymentField input { min-height: 42px; }
+          .paymentCheck {
+            width: 100%;
+            justify-content: flex-start;
+          }
           .webbsModalGrid { grid-template-columns: 1fr; }
           .webbsWorksheetHead,
           .webbsWorksheetRow { grid-template-columns: minmax(0, 1fr) 104px; }
