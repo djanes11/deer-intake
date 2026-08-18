@@ -211,6 +211,16 @@ export interface JobSearchRow {
   webbsAttempts: number;
 
   dropoff: string | null;
+  pickedUpProcessing?: boolean | null;
+  pickedUpProcessingAt?: string | null;
+  pickedUpCape?: boolean | null;
+  pickedUpCapeAt?: string | null;
+  pickedUpWebbs?: boolean | null;
+  pickedUpWebbsAt?: string | null;
+  prefEmail?: boolean | null;
+  prefSMS?: boolean | null;
+  prefCall?: boolean | null;
+  smsConsent?: boolean | null;
   intakeSheetPrintedAt?: string | null;
   intakeSheetPrintCount?: number;
   updatedAt?: string | null;

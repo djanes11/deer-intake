@@ -1772,6 +1772,10 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     capeAttempts: Number(row.cape_attempts ?? 0),
     webbsAttempts: Number(row.webbs_attempts ?? 0),
     dropoff: row.dropoff_date,
+    prefEmail: !!row.pref_email,
+    prefSMS: !!row.pref_sms,
+    prefCall: !!row.pref_call,
+    smsConsent: !!row.sms_consent,
     ...(row.public_token ? ({ publicToken: row.public_token } as any) : {}),
 
     // If your JobSearchRow type includes these, great; if not, TS will still allow extra props at runtime
@@ -2056,6 +2060,11 @@ async function searchReport(opts: { processorContext?: ProcessorContext | null }
         'webbs_status.ilike.%complete%',
         'webbs_status.ilike.%completed%',
         'webbs_status.ilike.%done%',
+        'specialty_status.ilike.%finish%',
+        'specialty_status.ilike.%ready%',
+        'specialty_status.ilike.%complete%',
+        'specialty_status.ilike.%completed%',
+        'specialty_status.ilike.%done%',
       ].join(',')
     ),
     processor.id
@@ -2069,10 +2078,11 @@ async function searchReport(opts: { processorContext?: ProcessorContext | null }
   }
 
   const filtered = (data || []).filter((r: any) => {
-    const meat = meatReady(r.status);
-    const cape = capeReady(r.caping_status);
-    const webbs = webbsReady(r.webbs_status);
-    return meat || cape || webbs;
+    const meat = meatReady(r.status) && !r.picked_up_processing;
+    const cape = capeReady(r.caping_status) && !r.picked_up_cape;
+    const webbs = webbsReady(r.webbs_status) && !r.picked_up_webbs;
+    const specialty = !!r.specialty_products && specialtyReady(r.specialty_status);
+    return meat || cape || webbs || specialty;
   });
 
   return { ok: true, rows: filtered.map(mapDbRowToSearchRow) };
@@ -2845,7 +2855,7 @@ export async function markCalled(params: {
   const processor = params.processorContext ?? await getDefaultProcessorContext();
 
   try {
-    if (rawScope === 'specialty') throw { code: '42883' };
+    if (rawScope === 'specialty' || rawScope === 'all') throw { code: '42883' };
     const payload = {
       p_tag: tag,
       p_scope: rawScope ?? 'auto',

@@ -8,7 +8,7 @@ import { formatDisplayDateTime } from '@/lib/dateFormat';
 
 export const dynamic = 'force-dynamic';
 
-type Track = 'meat' | 'cape' | 'webbs';
+type Track = 'meat' | 'cape' | 'specialty' | 'webbs';
 type Row = Partial<Job> & { tag: string };
 type FlatRow = Row & {
   __track: Track;
@@ -21,21 +21,26 @@ type FlatRow = Row & {
 function trackLabel(t: Track) {
   if (t === 'meat') return 'Meat Ready';
   if (t === 'cape') return 'Cape Ready';
+  if (t === 'specialty') return 'Specialty Ready';
   return 'Webbs Ready';
 }
 
 function readyTracks(j: Partial<Job>): Track[] {
   const st = String((j as any).status || '').toLowerCase();
   const cp = String((j as any).capingStatus || '').toLowerCase();
+  const sp = String((j as any).specialtyStatus || '').toLowerCase();
   const wb = String((j as any).webbsStatus || '').toLowerCase();
+  const a = j as any;
 
-  const meatReady = /finish|ready|complete|completed|done/.test(st) && st !== 'called';
-  const capeReady = /ready|complete|completed|done|caped/.test(cp) && cp !== 'called';
-  const webbsReady = /ready|complete|completed|done|delivered/.test(wb) && wb !== 'called';
+  const meatReady = /finish|ready|complete|completed|done/.test(st) && st !== 'called' && !a.pickedUpProcessing;
+  const capeReady = /ready|complete|completed|done|caped/.test(cp) && cp !== 'called' && !a.pickedUpCape;
+  const specialtyReady = !!a.specialtyProducts && /finish|ready|complete|completed|done/.test(sp) && sp !== 'called';
+  const webbsReady = /ready|complete|completed|done|delivered/.test(wb) && wb !== 'called' && !a.pickedUpWebbs;
 
   const out: Track[] = [];
   if (meatReady) out.push('meat');
   if (capeReady) out.push('cape');
+  if (specialtyReady) out.push('specialty');
   if (webbsReady) out.push('webbs');
   return out;
 }
@@ -44,14 +49,16 @@ function attemptsFor(r: FlatRow) {
   const a = r as any;
   if (r.__track === 'meat') return Number(a.callAttemptsMeat ?? a.meatAttempts ?? a.callAttempts ?? 0);
   if (r.__track === 'cape') return Number(a.callAttemptsCape ?? a.capeAttempts ?? a.callAttempts ?? 0);
+  if (r.__track === 'specialty') return Number(a.callAttemptsSpecialty ?? a.specialtyAttempts ?? a.callAttempts ?? 0);
   return Number(a.callAttemptsWebbs ?? a.webbsAttempts ?? a.callAttempts ?? 0);
 }
 
 function prefersCall(j: Partial<Job>) {
   const a = j as any;
   const wantsCall = !!(a.prefCall ?? a['Preferred Phone Call'] ?? a['Pref Call']);
-  const phone = String(a.phone ?? a.Phone ?? '').replace(/\D/g, '');
-  return wantsCall && phone.length === 10;
+  const digits = String(a.phone ?? a.Phone ?? '').replace(/\D/g, '');
+  const hasUsPhone = digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+  return wantsCall && hasUsPhone;
 }
 
 // show only processing price for meat track
@@ -156,6 +163,26 @@ function paymentSummary(j: Row) {
   };
 }
 
+function balanceForTrack(j: FlatRow) {
+  const pay = paymentSummary(j);
+  if (j.__track === 'meat') return pay.totalDue;
+  if (j.__track === 'specialty') return pay.specialtyDue;
+  return 0;
+}
+
+function balanceLabelForTrack(j: FlatRow) {
+  if (j.__track === 'meat') return money(paymentSummary(j).totalDue);
+  if (j.__track === 'specialty') return money(paymentSummary(j).specialtyDue);
+  return 'Included';
+}
+
+function balanceSubForTrack(j: FlatRow) {
+  const pay = paymentSummary(j);
+  if (j.__track === 'meat') return `Processing ${money(pay.processingDue)} | Specialty ${money(pay.specialtyDue)}`;
+  if (j.__track === 'specialty') return `Specialty ${money(pay.specialtyDue)} remaining`;
+  return 'This track does not create a separate balance.';
+}
+
 export default function CallReportPage() {
   const [rows, setRows] = useState<FlatRow[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -173,12 +200,12 @@ export default function CallReportPage() {
   );
 
   const summary = useMemo(() => {
-    const meatRows = rows.filter((row) => row.__track === 'meat');
-    const unpaidMeatRows = meatRows.filter((row) => paymentSummary(row).totalDue > 0);
+    const payableRows = rows.filter((row) => row.__track === 'meat' || row.__track === 'specialty');
+    const unpaidRows = payableRows.filter((row) => balanceForTrack(row) > 0);
     return {
       readyToCall: rows.length,
-      unpaidReady: unpaidMeatRows.length,
-      unpaidTotal: unpaidMeatRows.reduce((sum, row) => sum + paymentSummary(row).totalDue, 0),
+      unpaidReady: unpaidRows.length,
+      unpaidTotal: unpaidRows.reduce((sum, row) => sum + balanceForTrack(row), 0),
       noAttemptsYet: rows.filter((row) => attemptsFor(row) === 0).length,
     };
   }, [rows]);
@@ -326,9 +353,11 @@ export default function CallReportPage() {
     setRows(prev =>
       prev.map(r => {
         if (r.tag !== tag) return r;
-        if (scope === 'meat') return { ...r, callAttemptsMeat: Number(r.callAttemptsMeat || 0) + 1 };
-        if (scope === 'cape') return { ...r, callAttemptsCape: Number(r.callAttemptsCape || 0) + 1 };
-        return { ...r, callAttemptsWebbs: Number(r.callAttemptsWebbs || 0) + 1 };
+        const nextCallAttempts = Number((r as any).callAttempts || 0) + 1;
+        if (scope === 'meat') return { ...r, callAttempts: nextCallAttempts, callAttemptsMeat: Number(r.callAttemptsMeat || 0) + 1 };
+        if (scope === 'cape') return { ...r, callAttempts: nextCallAttempts, callAttemptsCape: Number(r.callAttemptsCape || 0) + 1 };
+        if (scope === 'specialty') return { ...r, callAttempts: nextCallAttempts };
+        return { ...r, callAttempts: nextCallAttempts, callAttemptsWebbs: Number(r.callAttemptsWebbs || 0) + 1 };
       })
     );
 
@@ -462,7 +491,7 @@ export default function CallReportPage() {
                 <span>{(selected as any).lastCallAt ? `Last contact ${formatDisplayDateTime((selected as any).lastCallAt)}` : 'No contact logged yet'}</span>
               </div>
             </div>
-            <span className={'badge ' + (selected.__track === 'meat' ? 'green' : selected.__track === 'cape' ? 'blue' : 'purple')}>
+            <span className={'badge ' + (selected.__track === 'meat' ? 'green' : selected.__track === 'cape' ? 'blue' : selected.__track === 'specialty' ? 'gold' : 'purple')}>
               {trackLabel(selected.__track)}
             </span>
           </div>
@@ -475,19 +504,15 @@ export default function CallReportPage() {
             </div>
             <div className="fact">
               <div className="fact-label">Balance</div>
-              <div className="fact-value">{selected.__track === 'meat' ? money(paymentSummary(selected).totalDue) : 'Included'}</div>
-              <div className="fact-sub">
-                {selected.__track === 'meat'
-                  ? `Processing ${money(paymentSummary(selected).processingDue)} | Specialty ${money(paymentSummary(selected).specialtyDue)}`
-                  : 'This track does not create a separate balance.'}
-              </div>
+              <div className="fact-value">{balanceLabelForTrack(selected)}</div>
+              <div className="fact-sub">{balanceSubForTrack(selected)}</div>
             </div>
             <div className="fact">
               <div className="fact-label">Payment Status</div>
-              <div className="fact-value">{selected.__track === 'meat' ? (paymentSummary(selected).totalDue > 0 ? 'Needs collection' : 'Paid') : 'Not required'}</div>
+              <div className="fact-value">{selected.__track === 'meat' || selected.__track === 'specialty' ? (balanceForTrack(selected) > 0 ? 'Needs collection' : 'Paid') : 'Not required'}</div>
               <div className="fact-sub">
-                {selected.__track === 'meat'
-                  ? (paymentSummary(selected).totalDue > 0 ? 'Helpful to mention during the call.' : 'No payment follow-up needed before pickup.')
+                {selected.__track === 'meat' || selected.__track === 'specialty'
+                  ? (balanceForTrack(selected) > 0 ? 'Helpful to mention during the call.' : 'No payment follow-up needed before pickup.')
                   : 'Use the call to confirm pickup timing and handoff details.'}
               </div>
             </div>
@@ -505,14 +530,13 @@ export default function CallReportPage() {
           <div className="mobile-empty">
             <div className="mobile-empty-title">Nothing to call right now.</div>
             <div className="mobile-empty-copy">
-              Orders will show up here once processing, cape, or Webbs work is ready and the customer prefers a phone call.
+              Orders will show up here once processing, cape, specialty, or Webbs work is ready and the customer prefers a phone call.
             </div>
           </div>
         ) : (
           rows.map((r) => {
             const key = r.tag + '|' + r.__track;
             const isSel = selectedKey === key;
-            const pay = paymentSummary(r);
             const isMeat = r.__track === 'meat';
             return (
               <button
@@ -528,16 +552,14 @@ export default function CallReportPage() {
                       Tag {r.tag} {((r as any).confirmation ? `| ${(r as any).confirmation}` : '')}
                     </div>
                   </div>
-                  <span className={'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : 'purple')}>
+                  <span className={'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : r.__track === 'specialty' ? 'gold' : 'purple')}>
                     {trackLabel(r.__track)}
                   </span>
                 </div>
                 <div className="mobile-call-meta">
                   <span>{(r as any).phone || 'No phone'}</span>
                   <span>Attempts {attemptsFor(r)}</span>
-                  <span>
-                    {isMeat ? (pay.totalDue > 0 ? `${money(pay.totalDue)} due` : 'Paid') : 'Included'}
-                  </span>
+                  <span>{balanceForTrack(r) > 0 ? `${money(balanceForTrack(r))} due` : isMeat || r.__track === 'specialty' ? 'Paid' : 'Included'}</span>
                 </div>
                 <div className="mobile-call-next">
                   {attemptsFor(r) === 0
@@ -599,23 +621,23 @@ export default function CallReportPage() {
                       </div>
                     </td>
                     <td>
-                      <span className={'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : 'purple')}>
+                      <span className={'badge ' + (r.__track === 'meat' ? 'green' : r.__track === 'cape' ? 'blue' : r.__track === 'specialty' ? 'gold' : 'purple')}>
                         {trackLabel(r.__track)}
                       </span>
                     </td>
                     <td>{attemptsFor(r)}</td>
                     <td>
-                      {r.__track === 'meat' ? (
+                      {r.__track === 'meat' || r.__track === 'specialty' ? (
                         <div>
-                          <div className="balance-main">{money(paymentSummary(r).totalDue)}</div>
-                          <div className="balance-sub">Proc {money(paymentSummary(r).processingDue)}</div>
+                          <div className="balance-main">{money(balanceForTrack(r))}</div>
+                          <div className="balance-sub">{r.__track === 'meat' ? `Proc ${money(paymentSummary(r).processingDue)}` : 'Specialty'}</div>
                         </div>
                       ) : (
                         <span className="muted">Included</span>
                       )}
                     </td>
                     <td>{(r as any).lastCallAt ? formatDisplayDateTime((r as any).lastCallAt) : '—'}</td>
-                    <td>{r.__track === 'meat' ? (paymentSummary(r).totalDue > 0 ? 'No' : 'Yes') : '—'}</td>
+                    <td>{r.__track === 'meat' || r.__track === 'specialty' ? (balanceForTrack(r) > 0 ? 'No' : 'Yes') : '—'}</td>
                     <td>{renderNotesCell(r)}</td>
                   </tr>
                 );
@@ -776,6 +798,7 @@ export default function CallReportPage() {
         .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; font-weight: 800; font-size: 12px; background:#1f2937; }
         .green { background: #235532; }
         .blue { background: #406c4d; }
+        .gold { background: #7c5c1e; }
         .purple { background: #5f7f57; }
         .table tr:hover td { background: var(--bg-elev-2, rgba(255,255,255,0.03)); }
         .toolbar { position: sticky; bottom: 0; z-index: 15; margin-top: 12px; background: var(--bg, #0b0f12); border-top: 1px solid var(--border, #1f2937); box-shadow: 0 -8px 30px rgba(0,0,0,.25); }
