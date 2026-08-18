@@ -78,7 +78,6 @@ function money(value: number) {
 function labelModeLabel(mode: ThermalLabelPrintMode) {
   if (mode === 'deer-antler') return 'Deer + Antler Labels';
   if (mode === 'antler') return 'Antler Label';
-  if (mode === 'package') return 'Package Label';
   return 'Deer Label';
 }
 
@@ -1019,9 +1018,6 @@ export default function SearchPage() {
                             Antler Tag
                           </button>
                         ) : null}
-                        <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'package')} disabled={!selectedTag || printing === selectedTag}>
-                          Package Label
-                        </button>
                         {canEdit && selectedJob?.intakeSheetPrintedAt ? (
                           <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>
                             Mark Unprinted
@@ -1394,7 +1390,6 @@ export default function SearchPage() {
         {printMode === 'deer' && printJob ? <ThermalLabelSheet job={printJob} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'antler' && printJob ? <ThermalLabelSheet job={printJob} type="antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'deer-antler' && printJob ? <ThermalLabelSheet job={printJob} type="deer-antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
-        {printMode === 'package' && printJob ? <ThermalLabelSheet job={printJob} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 
       {labelPreviewJob && labelPreviewMode ? (

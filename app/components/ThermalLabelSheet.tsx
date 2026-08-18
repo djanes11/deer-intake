@@ -5,7 +5,7 @@ import JsBarcode from 'jsbarcode';
 
 type AnyRec = Record<string, any>;
 
-export type ThermalLabelType = 'deer' | 'antler' | 'cape' | 'package';
+export type ThermalLabelType = 'deer' | 'antler' | 'cape';
 export type ThermalLabelPrintMode = ThermalLabelType | 'deer-antler';
 type RenderLabelType = Exclude<ThermalLabelType, 'cape'>;
 
@@ -107,13 +107,10 @@ export default function ThermalLabelSheet({
   }, [shouldShowBarcode, tag]);
 
   const renderLabel = (labelType: RenderLabelType, index: number) => {
-    const title =
-      labelType === 'antler' ? 'Antler Tag' : labelType === 'package' ? 'Package Label' : 'Deer Tag';
+    const title = labelType === 'antler' ? 'Antler Tag' : 'Deer Tag';
     const footer =
       labelType === 'antler'
         ? 'Attach to antlers'
-        : labelType === 'package'
-        ? 'Finished package'
         : 'Main deer tag';
     const customerSizeClass =
       customer.length > 40

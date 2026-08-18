@@ -2466,27 +2466,6 @@ useEffect(() => {
                 className="btn secondaryBtn"
                 type="button"
                 onClick={async () => {
-                  if (dirty) {
-                    const ok = await onSave();
-                    if (!ok) return;
-                  }
-                  const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                  if (!tagToPrint) {
-                    setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                    return;
-                  }
-                  setPrintMode('package');
-                  openBrowserPrintPreview(() => setPrintMode(''));
-                }}
-                disabled={busy}
-              >
-                Package Label
-              </button>
-
-              <button
-                className="btn secondaryBtn"
-                type="button"
-                onClick={async () => {
                   // Auto-save before printing to prevent lost intakes
                   if (dirty) {
                     const ok = await onSave();
@@ -2628,26 +2607,6 @@ useEffect(() => {
                     Print Antler Tag
                   </button>
                 ) : null}
-                <button
-                  className="actionMenuBtn"
-                  type="button"
-                  onClick={async () => {
-                    if (dirty) {
-                      const ok = await onSave();
-                      if (!ok) return;
-                    }
-                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                    if (!tagToPrint) {
-                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                      return;
-                    }
-                    setPrintMode('package');
-                    openBrowserPrintPreview(() => setPrintMode(''));
-                  }}
-                  disabled={busy}
-                >
-                  Print Package Label
-                </button>
               </div>
             </details>
           </div>
@@ -2666,7 +2625,6 @@ useEffect(() => {
         {printMode === 'deer' ? <ThermalLabelSheet job={job} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'antler' ? <ThermalLabelSheet job={job} type="antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'deer-antler' ? <ThermalLabelSheet job={job} type="deer-antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
-        {printMode === 'package' ? <ThermalLabelSheet job={job} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 
       {specialtyModalOpen && job.specialtyProducts ? (

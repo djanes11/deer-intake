@@ -380,9 +380,6 @@ export default function MissingTagsPage() {
                     Antler Tag
                   </button>
                 ) : null}
-                <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'package')} disabled={!!printing}>
-                  Package Label
-                </button>
               </div>
             </div>
             <div style={{ fontSize: 13, opacity: 0.72 }}>
@@ -507,7 +504,6 @@ export default function MissingTagsPage() {
         {printMode === 'deer' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="deer" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'antler' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
         {printMode === 'deer-antler' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="deer-antler" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
-        {printMode === 'package' && selectedJob ? <ThermalLabelSheet job={selectedJob} type="package" brandingName={brandingName} brandingLogoUrl={brandingLogoUrl} /> : null}
       </div>
 
       <style jsx>{`
