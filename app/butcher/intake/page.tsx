@@ -87,12 +87,13 @@ function ButcherIntakeInner() {
   const tag = sp.get('tag') || '';
   const [job, setJob] = useState<Job>({ tag, status: 'Processing' });
   const [msg, setMsg] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const prices = useMemo(() => priceSummary(job), [job]);
   const payment = useMemo(() => paymentSummary(job, prices), [job, prices]);
   const price = prices.total;
+  const notesText = String(job.notes || '').trim();
   const watchFor = useMemo(() => {
     const items: string[] = [];
-    if (String(job.notes || '').trim()) items.push(`Notes: ${String(job.notes || '').trim()}`);
     if (job.beefFat) items.push('Add-on: Beef Fat');
     if (job.webbsOrder) items.push(`Webbs: ${job.webbsPounds ? `${job.webbsPounds} lb entered` : 'Order on file'}`);
     const specialtyLines = specialtyBreakdown(job as any)
@@ -132,6 +133,26 @@ function ButcherIntakeInner() {
     })();
   }, [tag]);
 
+  useEffect(() => {
+    const syncFullscreen = () => setIsFullscreen(!!document.fullscreenElement);
+    syncFullscreen();
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      setMsg('Use the browser full-screen control or F11 if the browser blocks this button.');
+      setTimeout(() => setMsg(''), 2400);
+    }
+  };
+
   // Listen for second scan to finish
   useScanner(async (scanned) => {
     if (scanned !== tag) return;
@@ -164,7 +185,7 @@ function ButcherIntakeInner() {
     fit();
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
-  }, []);
+  }, [job, watchFor.length]);
 
   // Barcode render (compact)
   useEffect(() => {
@@ -200,10 +221,26 @@ function ButcherIntakeInner() {
   }, [job?.tag]);
 
   return (
-    <main className="page-wrap butcher-mode">
+    <main className="page-wrap butcher-mode" style={{ minHeight: '100vh', padding: 12, background: '#061015' }}>
       <div className="butcher-root" ref={rootRef}>
-        <div style={{ marginBottom: 12, color: '#f3f4f6', fontWeight: 800, lineHeight: 1.45 }}>
-          Next: review the deer, watch the highlighted callouts, then scan the same tag again when the work is done.
+        <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', color: '#f3f4f6', fontWeight: 800, lineHeight: 1.45 }}>
+          <div>Next: review the deer, watch the highlighted callouts, then scan the same tag again when the work is done.</div>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            style={{
+              flex: '0 0 auto',
+              border: '1px solid rgba(255,255,255,.22)',
+              background: 'rgba(255,255,255,.08)',
+              color: '#f8fafc',
+              borderRadius: 10,
+              padding: '9px 12px',
+              fontWeight: 900,
+              cursor: 'pointer',
+            }}
+          >
+            {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
+          </button>
         </div>
         <div className="toprow">
           <div className="tagbox">
@@ -213,12 +250,28 @@ function ButcherIntakeInner() {
           <div className="statusbox">
             <div className="row"><span className="label">Status</span><span className="badge">{job.status || '-'}</span></div>
             <div className="row"><span className="label">Payment</span><span className={'pill ' + (payment.totalDue <= 0 ? 'on' : '')}>{payment.totalDue <= 0 ? 'PAID' : `${money(payment.totalDue)} DUE`}</span></div>
-            <div className="row"><span className="label">Process</span><span className="val">{job.processType || '-'}</span></div>
             <div className="row price"><span className="label">Total</span><span className="money">{money(price)}</span></div>
           </div>
           <div className="who">
             <div className="name">{job.customer || '-'}</div>
-            <div className="notes" title={job.notes||''}>{(job.notes||'').slice(0,140)}</div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            padding: 14,
+            borderRadius: 16,
+            border: notesText ? '1px solid rgba(245, 215, 72, .46)' : '1px solid rgba(148,163,184,.28)',
+            background: notesText ? 'rgba(113,63,18,.32)' : 'rgba(15,23,42,.34)',
+            color: notesText ? '#fff7cc' : '#cbd5e1',
+            display: 'grid',
+            gap: 8,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>Notes</div>
+          <div style={{ fontSize: notesText.length > 120 ? 24 : 30, fontWeight: 900, lineHeight: 1.18, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+            {notesText || 'No notes on this deer.'}
           </div>
         </div>
 
@@ -234,6 +287,135 @@ function ButcherIntakeInner() {
         {/* ...rest of your UI/cards/actions remain unchanged... */}
 
       </div>
+      <style jsx>{`
+        .butcher-root {
+          width: min(1360px, calc(100vw - 24px));
+          min-height: calc(100vh - 24px);
+          margin: 0 auto;
+          padding: 18px;
+          box-sizing: border-box;
+          border: 1px solid rgba(148, 163, 184, .22);
+          border-radius: 18px;
+          background: linear-gradient(180deg, #0b1117, #061015);
+          box-shadow: 0 24px 80px rgba(0,0,0,.38);
+          color: #f8fafc;
+          overflow: hidden;
+        }
+
+        .toprow {
+          display: grid;
+          grid-template-columns: minmax(300px, .9fr) minmax(260px, .7fr) minmax(320px, 1.1fr);
+          gap: 14px;
+          align-items: stretch;
+        }
+
+        .tagbox,
+        .statusbox,
+        .who {
+          border: 1px solid rgba(148, 163, 184, .25);
+          border-radius: 16px;
+          background: rgba(15, 23, 42, .72);
+          padding: 14px;
+          min-width: 0;
+        }
+
+        .tagbox {
+          display: grid;
+          gap: 10px;
+          align-content: center;
+        }
+
+        .tag {
+          font-size: clamp(46px, 6vw, 82px);
+          line-height: .95;
+          font-weight: 950;
+          letter-spacing: 0;
+          overflow-wrap: anywhere;
+        }
+
+        #barcodeWrap {
+          min-height: 46px;
+          border-radius: 10px;
+          background: #ffffff;
+          padding: 6px 8px;
+          overflow: hidden;
+        }
+
+        #tagBarcode {
+          display: block;
+          width: 100%;
+          height: 42px;
+        }
+
+        .statusbox {
+          display: grid;
+          gap: 10px;
+        }
+
+        .row {
+          display: grid;
+          grid-template-columns: 92px minmax(0, 1fr);
+          gap: 10px;
+          align-items: center;
+          border-bottom: 1px solid rgba(148, 163, 184, .16);
+          padding-bottom: 10px;
+        }
+
+        .row:last-child {
+          border-bottom: 0;
+          padding-bottom: 0;
+        }
+
+        .label {
+          color: #a8b6c1;
+          font-size: 14px;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+
+        .badge,
+        .pill,
+        .money {
+          font-size: clamp(24px, 3vw, 42px);
+          line-height: 1;
+          font-weight: 950;
+          overflow-wrap: anywhere;
+        }
+
+        .pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: #7c2d12;
+          color: #ffedd5;
+          padding: 8px 10px;
+          text-align: center;
+        }
+
+        .pill.on {
+          background: #14532d;
+          color: #dcfce7;
+        }
+
+        .who {
+          display: grid;
+          align-content: center;
+        }
+
+        .name {
+          font-size: clamp(42px, 5.5vw, 76px);
+          line-height: .98;
+          font-weight: 950;
+          overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 980px) {
+          .toprow {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   );
 }

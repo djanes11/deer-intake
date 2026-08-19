@@ -36,6 +36,24 @@ export default function ButcherOverlay({
   onManualSubmit: () => void;
 }) {
   const row = job || {};
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+  React.useEffect(() => {
+    const syncFullscreen = () => setIsFullscreen(!!document.fullscreenElement);
+    syncFullscreen();
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    return () => document.removeEventListener('fullscreenchange', syncFullscreen);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {}
+  };
 
   const key = (s: string) => s.toLowerCase().replace(/\s+/g, '');
   function get(...names: string[]) {
@@ -60,7 +78,6 @@ export default function ButcherOverlay({
   const customer = String(
     get('Customer', 'Customer Name', 'CustomerName', 'customerName', 'name', 'customer') ?? ''
   ).trim();
-  const processType = String(get('Process Type', 'processType') ?? '').trim();
   const notes = String(get('Notes', 'notes') ?? '').trim();
   const steaksPerPack = String(get('Steaks per Package', 'Steaks Per Package', 'steaksPerPackage') ?? '').trim();
   const steakThicknessRaw = String(get('Steak Thickness', 'Steak Size', 'steak', 'steakSize', 'steak_size') ?? '').trim();
@@ -259,11 +276,10 @@ export default function ButcherOverlay({
           }}
         >
           <div style={{ display: 'grid', gap: 18 }}>
-            {(processType || detailCards.length) ? (
+            {detailCards.length ? (
               <div style={{ ...CARD, display: 'grid', gap: 14 }}>
                 <div style={{ fontSize: 18, color: '#9fb0bb', fontWeight: 700 }}>Primary Cut Instructions</div>
-                <div style={{ display: 'grid', gap: 14, gridTemplateColumns: `repeat(${Math.max(1, Math.min(detailCards.length + (processType ? 1 : 0), 5))}, minmax(0,1fr))` }}>
-                  {processType ? <SummaryCard label="Process Type" value={processType} /> : null}
+                <div style={{ display: 'grid', gap: 14, gridTemplateColumns: `repeat(${Math.max(1, Math.min(detailCards.length, 5))}, minmax(0,1fr))` }}>
                   {detailCards.map((card) => (
                     <SummaryCard key={card.label} label={card.label} value={card.value} />
                   ))}
@@ -443,6 +459,22 @@ export default function ButcherOverlay({
               }}
             >
               {manualBusy ? 'Submitting...' : 'Submit Tag'}
+            </button>
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              style={{
+                padding: '14px 22px',
+                borderRadius: 12,
+                border: '1px solid #475569',
+                background: 'rgba(248,250,252,.08)',
+                color: '#f8fafc',
+                fontSize: 22,
+                fontWeight: 900,
+                cursor: 'pointer',
+              }}
+            >
+              {isFullscreen ? 'Exit Full Screen' : 'Full Screen'}
             </button>
           </div>
         </div>

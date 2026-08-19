@@ -86,6 +86,43 @@ function intakeFormLink(tag: string, publicToken: string, baseUrl = SITE_URL) {
   return `${root}/intake/${encodeURIComponent(safeTag)}?t=${encodeURIComponent(safeToken)}`;
 }
 
+function splitTrailingUrlPunctuation(raw: string) {
+  const match = String(raw || '').match(/^(.+?)([)"'\]>.,;:!?]*)$/);
+  return {
+    core: match?.[1] || String(raw || ''),
+    trailing: match?.[2] || '',
+  };
+}
+
+function ensureManualSmsIntakeLink(body: string, link: string) {
+  const original = String(body || '').trim();
+  const safeLink = String(link || '').trim();
+  if (!original || !safeLink) return original;
+
+  let sawIntakeLink = false;
+  const repaired = original.replace(/https?:\/\/[^\s<>"']*\/intake\/[^\s<>"']+/gi, (raw) => {
+    const { core, trailing } = splitTrailingUrlPunctuation(raw);
+    try {
+      const url = new URL(core);
+      if (/\/intake\/[^/]+/i.test(url.pathname)) {
+        sawIntakeLink = true;
+        return `${safeLink}${trailing}`;
+      }
+    } catch {
+      // Leave non-URL text untouched.
+    }
+    return raw;
+  });
+
+  if (sawIntakeLink || repaired.includes(safeLink)) return repaired;
+
+  const asksForFormLink = /\b(intake|form|sheet|read[-\s]?only|view[-\s]?only)\b/i.test(repaired)
+    || /\b(?:view|open|click)\s+(?:your\s+)?(?:intake|form|sheet|link)\b/i.test(repaired)
+    || /\blink\b/i.test(repaired);
+  if (!asksForFormLink) return repaired;
+  return `${repaired} View intake: ${safeLink}`;
+}
+
 function statusPageLink(baseUrl = SITE_URL) {
   const root = normalizeBaseUrl(baseUrl || SITE_URL);
   if (!root) return '';
@@ -1547,13 +1584,17 @@ export async function sendManualCustomerMessage(params: {
     return { ok: false as const, error: 'This customer does not have a valid phone number for text updates.' };
   }
 
-  const result = await sendSms({ to: phone, body });
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, row);
+  const token = await ensurePublicToken(supabaseServer, row);
+  const publicLink = intakeFormLink(String(row.tag || tag), token, baseUrl);
+  const smsBody = ensureManualSmsIntakeLink(body, publicLink);
+  const result = await sendSms({ to: phone, body: smsBody });
   await logSmsResult(supabaseServer, {
     jobId: String(row.id),
     processorId: row.processor_id ? String(row.processor_id) : null,
     phone,
     template: 'manual_message',
-    body,
+    body: smsBody,
     result,
   });
   if (!result.ok) {
