@@ -199,8 +199,8 @@ function ButcherIntakeInner() {
         if (!JsBarcode) return;
         document.querySelectorAll<SVGSVGElement>('svg#tagBarcode').forEach(svg => {
           JsBarcode(svg, code, {
-            format:'CODE128', lineColor:'#111', width:1.25, height:18, displayValue:true,
-            font:'monospace', fontSize:10, textMargin:2, margin:0
+            format:'CODE128', lineColor:'#111', width:2.2, height:70, displayValue:true,
+            font:'monospace', fontSize:24, textMargin:4, margin:0
           });
         });
       } catch (e) {
@@ -221,9 +221,9 @@ function ButcherIntakeInner() {
   }, [job?.tag]);
 
   return (
-    <main className="page-wrap butcher-mode" style={{ minHeight: '100vh', padding: 12, background: '#061015' }}>
+    <main className="page-wrap butcher-mode" style={{ minHeight: '100vh', padding: 'clamp(8px, 1vh, 18px)', background: '#061015' }}>
       <div className="butcher-root" ref={rootRef}>
-        <div style={{ marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', color: '#f3f4f6', fontWeight: 800, lineHeight: 1.45 }}>
+        <div style={{ marginBottom: 'clamp(10px, 1.1vh, 22px)', display: 'flex', gap: 18, alignItems: 'center', justifyContent: 'space-between', color: '#f3f4f6', fontWeight: 900, lineHeight: 1.18, fontSize: 'clamp(24px, 1.65vw, 46px)' }}>
           <div>Next: review the deer, watch the highlighted callouts, then scan the same tag again when the work is done.</div>
           <button
             type="button"
@@ -234,7 +234,8 @@ function ButcherIntakeInner() {
               background: 'rgba(255,255,255,.08)',
               color: '#f8fafc',
               borderRadius: 10,
-              padding: '9px 12px',
+              padding: 'clamp(10px, .9vw, 22px) clamp(14px, 1.2vw, 32px)',
+              fontSize: 'clamp(20px, 1.35vw, 36px)',
               fontWeight: 900,
               cursor: 'pointer',
             }}
@@ -269,17 +270,17 @@ function ButcherIntakeInner() {
             gap: 8,
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>Notes</div>
-          <div style={{ fontSize: notesText.length > 120 ? 24 : 30, fontWeight: 900, lineHeight: 1.18, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+          <div style={{ fontSize: 'clamp(24px, 1.45vw, 40px)', fontWeight: 900, letterSpacing: 0, textTransform: 'uppercase' }}>Notes</div>
+          <div style={{ fontSize: notesText.length > 120 ? 'clamp(42px, 3.2vw, 86px)' : 'clamp(54px, 4.2vw, 112px)', fontWeight: 950, lineHeight: 1.06, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
             {notesText || 'No notes on this deer.'}
           </div>
         </div>
 
-        <div style={{ marginTop: 12, padding: 14, borderRadius: 16, border: '1px solid rgba(250,204,21,.34)', background: 'rgba(120,53,15,.18)', color: '#fef3c7', display: 'grid', gap: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>Watch For</div>
-          <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ marginTop: 12, padding: 'clamp(18px, 1.6vw, 42px)', borderRadius: 16, border: '1px solid rgba(250,204,21,.34)', background: 'rgba(120,53,15,.18)', color: '#fef3c7', display: 'grid', gap: 'clamp(10px, .9vw, 24px)' }}>
+          <div style={{ fontSize: 'clamp(26px, 1.6vw, 44px)', fontWeight: 900, letterSpacing: 0, textTransform: 'uppercase' }}>Watch For</div>
+          <div style={{ display: 'grid', gap: 'clamp(8px, .7vw, 18px)' }}>
             {watchFor.map((item) => (
-              <div key={item} style={{ fontWeight: 800, lineHeight: 1.4 }}>{item}</div>
+              <div key={item} style={{ fontSize: 'clamp(38px, 3vw, 84px)', fontWeight: 950, lineHeight: 1.08 }}>{item}</div>
             ))}
           </div>
         </div>
@@ -289,10 +290,10 @@ function ButcherIntakeInner() {
       </div>
       <style jsx>{`
         .butcher-root {
-          width: min(1360px, calc(100vw - 24px));
-          min-height: calc(100vh - 24px);
+          width: calc(100vw - clamp(16px, 2vh, 36px));
+          min-height: calc(100vh - clamp(16px, 2vh, 36px));
           margin: 0 auto;
-          padding: 18px;
+          padding: clamp(18px, 2vw, 46px);
           box-sizing: border-box;
           border: 1px solid rgba(148, 163, 184, .22);
           border-radius: 18px;
@@ -304,8 +305,8 @@ function ButcherIntakeInner() {
 
         .toprow {
           display: grid;
-          grid-template-columns: minmax(300px, .9fr) minmax(260px, .7fr) minmax(320px, 1.1fr);
-          gap: 14px;
+          grid-template-columns: minmax(420px, .95fr) minmax(360px, .75fr) minmax(520px, 1.3fr);
+          gap: clamp(14px, 1.4vw, 34px);
           align-items: stretch;
         }
 
@@ -315,7 +316,7 @@ function ButcherIntakeInner() {
           border: 1px solid rgba(148, 163, 184, .25);
           border-radius: 16px;
           background: rgba(15, 23, 42, .72);
-          padding: 14px;
+          padding: clamp(18px, 1.7vw, 42px);
           min-width: 0;
         }
 
@@ -326,39 +327,39 @@ function ButcherIntakeInner() {
         }
 
         .tag {
-          font-size: clamp(46px, 6vw, 82px);
-          line-height: .95;
+          font-size: clamp(96px, 9vw, 230px);
+          line-height: .86;
           font-weight: 950;
           letter-spacing: 0;
           overflow-wrap: anywhere;
         }
 
         #barcodeWrap {
-          min-height: 46px;
+          min-height: clamp(60px, 5vh, 110px);
           border-radius: 10px;
           background: #ffffff;
-          padding: 6px 8px;
+          padding: clamp(8px, .7vw, 18px) clamp(10px, 1vw, 24px);
           overflow: hidden;
         }
 
         #tagBarcode {
           display: block;
           width: 100%;
-          height: 42px;
+          height: clamp(52px, 4.6vh, 96px);
         }
 
         .statusbox {
           display: grid;
-          gap: 10px;
+          gap: clamp(12px, 1vw, 26px);
         }
 
         .row {
           display: grid;
-          grid-template-columns: 92px minmax(0, 1fr);
-          gap: 10px;
+          grid-template-columns: clamp(110px, 7vw, 190px) minmax(0, 1fr);
+          gap: clamp(10px, 1vw, 26px);
           align-items: center;
           border-bottom: 1px solid rgba(148, 163, 184, .16);
-          padding-bottom: 10px;
+          padding-bottom: clamp(12px, 1vw, 24px);
         }
 
         .row:last-child {
@@ -368,7 +369,7 @@ function ButcherIntakeInner() {
 
         .label {
           color: #a8b6c1;
-          font-size: 14px;
+          font-size: clamp(20px, 1.25vw, 36px);
           font-weight: 900;
           text-transform: uppercase;
         }
@@ -376,7 +377,7 @@ function ButcherIntakeInner() {
         .badge,
         .pill,
         .money {
-          font-size: clamp(24px, 3vw, 42px);
+          font-size: clamp(48px, 4.1vw, 108px);
           line-height: 1;
           font-weight: 950;
           overflow-wrap: anywhere;
@@ -389,7 +390,7 @@ function ButcherIntakeInner() {
           border-radius: 12px;
           background: #7c2d12;
           color: #ffedd5;
-          padding: 8px 10px;
+          padding: clamp(10px, .8vw, 22px) clamp(12px, 1vw, 26px);
           text-align: center;
         }
 
@@ -404,13 +405,13 @@ function ButcherIntakeInner() {
         }
 
         .name {
-          font-size: clamp(42px, 5.5vw, 76px);
-          line-height: .98;
+          font-size: clamp(88px, 7.6vw, 190px);
+          line-height: .9;
           font-weight: 950;
           overflow-wrap: anywhere;
         }
 
-        @media (max-width: 980px) {
+        @media (max-width: 1180px) {
           .toprow {
             grid-template-columns: 1fr;
           }
