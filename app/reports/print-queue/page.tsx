@@ -60,7 +60,6 @@ export default function PrintQueuePage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [printing, setPrinting] = useState('');
-  const [selectedTag, setSelectedTag] = useState('');
   const [selectedJob, setSelectedJob] = useState<AnyRec | null>(null);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
@@ -75,10 +74,6 @@ export default function PrintQueuePage() {
     try {
       const data = await fetchQueue();
       setRows(data);
-      if (selectedTag && !data.some((row) => String(row.tag || '') === selectedTag)) {
-        setSelectedTag('');
-        setSelectedJob(null);
-      }
     } catch (e: any) {
       setErr(String(e?.message || e));
     } finally {
@@ -114,7 +109,6 @@ export default function PrintQueuePage() {
       const resp = await fetchJobFromApi(normalized);
       const job = (resp?.job || null) as AnyRec | null;
       if (!job) throw new Error('Could not load intake sheet.');
-      setSelectedTag(normalized);
       setSelectedJob(job);
       return job;
     } catch (e: any) {
@@ -159,7 +153,7 @@ export default function PrintQueuePage() {
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <div style={{ opacity: 0.75 }}>{rows.length} waiting</div>
         <button onClick={refresh} disabled={loading} className="btn">
-          Refresh
+          {loading ? 'Refreshing...' : 'Refresh List'}
         </button>
       </div>
     </div>
@@ -169,33 +163,6 @@ export default function PrintQueuePage() {
     <div className="form-card print-queue">
       <div style={{ padding: 16, display: 'grid', gap: 12 }}>
         {header}
-
-        {selectedTag ? (
-          <div className="selected-print-card" style={{ display: 'grid', gap: 10, padding: 14, border: '1px solid #d7eadb', borderRadius: 12, background: '#f4fbf4' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>Selected For Print</div>
-                <div style={{ marginTop: 4, fontSize: 15 }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{selectedTag}</span>
-                  {selectedJob?.customer || selectedJob?.customer_name ? (
-                    <span style={{ opacity: 0.75 }}> for {selectedJob.customer || selectedJob.customer_name}</span>
-                  ) : null}
-                </div>
-                <div style={{ marginTop: 8, fontSize: 13, color: '#3f5f43', lineHeight: 1.4 }}>
-                  Next: refresh the sheet if needed, then print it once. Printing from this page removes it from the queue.
-                </div>
-              </div>
-              <div className="selected-print-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button className="btn" onClick={() => loadJob(selectedTag)} disabled={!!printing}>
-                  Refresh Sheet
-                </button>
-                <button className="btn" onClick={() => printTag(selectedTag)} disabled={!!printing}>
-                  {printing === selectedTag ? 'Preparing Print...' : 'Print & Mark Printed'}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
 
         {err ? (
           <div style={{ background: '#fff3cd', border: '1px solid #ffeeba', padding: 10, borderRadius: 8 }}>
@@ -254,12 +221,7 @@ export default function PrintQueuePage() {
                     </div>
                   </div>
 
-                  <div className="queue-next">Next: load the sheet to review it, then print once and remove it from the queue.</div>
-
                   <div className="queue-actions">
-                    <button className="btn" onClick={() => loadJob(tag)} disabled={isPrinting}>
-                      Load Sheet
-                    </button>
                     <button className="btn" onClick={() => printTag(tag)} disabled={isPrinting}>
                       {isPrinting ? 'Preparing Print...' : 'Print & Mark Printed'}
                     </button>
@@ -286,29 +248,16 @@ export default function PrintQueuePage() {
       </div>
 
       <style jsx>{`
-        .selected-print-card {
-          box-shadow: 0 8px 18px rgba(47, 111, 63, 0.08);
-        }
-        .queue-next {
-          font-size: 13px;
-          font-weight: 700;
-          color: #516a56;
-          line-height: 1.4;
-        }
         .queue-actions {
           display: grid;
           gap: 10px;
-          grid-template-columns: 180px 220px;
+          grid-template-columns: minmax(220px, 280px);
           align-items: center;
         }
         .print-only {
           display: none;
         }
         @media (max-width: 720px) {
-          .selected-print-actions {
-            width: 100%;
-          }
-          .selected-print-actions :global(button),
           .queue-actions {
             grid-template-columns: 1fr;
           }
