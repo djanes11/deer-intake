@@ -78,8 +78,8 @@ export default function ThermalLabelSheet({
             JsBarcode(el, tag, {
               format: 'CODE128',
               lineColor: '#111',
-              width: 1.7,
-              height: 78,
+              width: 2.3,
+              height: 96,
               displayValue: false,
               font: 'monospace',
               margin: 0,
@@ -198,8 +198,8 @@ export default function ThermalLabelSheet({
           box-sizing: border-box;
           padding: 0.075in 0.085in;
           display: grid;
-          grid-template-rows: 0.31in minmax(0, 0.72in) minmax(0, 0.82in) 0.14in;
-          gap: 0.04in;
+          grid-template-rows: 0.31in minmax(0, 0.67in) minmax(0, 0.92in) 0.13in;
+          gap: 0.035in;
           font-family: Arial, Helvetica, sans-serif;
           overflow: hidden;
         }
@@ -362,14 +362,14 @@ export default function ThermalLabelSheet({
           align-items: center;
           overflow: hidden;
           border: 2px solid #111;
-          padding: 0.04in 0.06in;
+          padding: 0.035in 0.04in;
           background: #fff;
         }
 
         .thermalLabel__barcodeWrap :global(svg) {
           width: 100%;
           max-width: 3.72in;
-          height: 0.7in;
+          height: 0.86in;
           display: block;
         }
 

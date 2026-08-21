@@ -174,7 +174,7 @@ function escapeHtml(value: string) {
 
 const thermalLabelPrintCss = `
 @page {
-  size: 3.5in 1.125in;
+  size: 4in 2.3125in;
   margin: 0;
 }
 
@@ -191,8 +191,8 @@ body {
 }
 
 body {
-  width: 3.5in;
-  min-height: 1.125in;
+  width: 4in;
+  min-height: 2.3125in;
 }
 
 .thermalLabelPrintJob {
@@ -207,8 +207,8 @@ body {
 
 .thermalLabelRoot {
   display: block !important;
-  width: 3.5in !important;
-  height: 1.125in !important;
+  width: 4in !important;
+  height: 2.3125in !important;
   min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -224,16 +224,16 @@ body {
 }
 
 .thermalLabel {
-  width: 3.5in !important;
-  height: 1.125in !important;
-  max-height: 1.125in !important;
+  width: 4in !important;
+  height: 2.3125in !important;
+  max-height: 2.3125in !important;
   border: 1px solid #111111;
   background: #ffffff;
   color: #111111;
-  padding: 0.035in 0.045in;
+  padding: 0.075in 0.085in;
   display: grid;
-  grid-template-rows: 0.2in minmax(0, 1fr) 0.1in;
-  gap: 0.014in;
+  grid-template-rows: 0.31in minmax(0, 0.67in) minmax(0, 0.92in) 0.13in;
+  gap: 0.035in;
   font-family: Arial, Helvetica, sans-serif;
   overflow: hidden !important;
   break-inside: avoid-page;
@@ -249,119 +249,118 @@ body {
   min-width: 0;
   justify-content: space-between;
   align-items: center;
-  gap: 0.05in;
-  border-bottom: 1px solid #111111;
-  padding-bottom: 0.012in;
+  gap: 0.08in;
+  border-bottom: 2px solid #111111;
+  padding-bottom: 0.026in;
 }
 
 .thermalLabel__brandWrap {
   display: flex;
   align-items: center;
-  gap: 0.035in;
+  gap: 0.06in;
   min-width: 0;
 }
 
 .thermalLabel__logo {
-  width: 0.18in;
-  height: 0.18in;
+  width: 0.26in;
+  height: 0.26in;
   display: block;
   object-fit: contain;
   flex: 0 0 auto;
 }
 
 .thermalLabel__logoFallback {
-  width: 0.18in;
-  height: 0.18in;
+  width: 0.26in;
+  height: 0.26in;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   border: 1px solid #111111;
-  font-size: 6px;
+  font-size: 8px;
   font-weight: 900;
   line-height: 1;
 }
 
 .thermalLabel__brand {
   min-width: 0;
-  max-width: 1.62in;
+  max-width: 2.45in;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 6.8px;
+  font-size: 9.8px;
   font-weight: 800;
-  letter-spacing: 0.025em;
+  letter-spacing: 0;
   text-transform: uppercase;
   line-height: 1;
 }
 
 .thermalLabel__type {
   flex: 0 0 auto;
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1;
 }
 
 .thermalLabel__body {
-  display: grid;
-  grid-template-columns: minmax(0, 2.12in) minmax(0, 1.18in);
-  gap: 0.045in;
-  align-items: stretch;
+  display: block;
   min-height: 0;
 }
 
 .thermalLabel__details {
   display: grid;
-  grid-template-rows: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr));
-  gap: 0.012in;
+  grid-template-columns: 1.25fr 0.95fr;
+  gap: 0.035in 0.12in;
   min-width: 0;
   min-height: 0;
 }
 
 .thermalLabel__field {
   display: grid;
-  grid-template-columns: 0.42in minmax(0, 1fr);
+  grid-template-columns: 0.52in minmax(0, 1fr);
   align-items: baseline;
-  gap: 0.03in;
+  gap: 0.045in;
   min-width: 0;
   min-height: 0;
 }
 
 .thermalLabel__field--customer {
+  grid-column: 1 / -1;
   align-items: start;
+  grid-template-columns: 0.74in minmax(0, 1fr);
 }
 
 .thermalLabel__label {
-  font-size: 6.2px;
+  font-size: 8.6px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   line-height: 1;
   white-space: nowrap;
 }
 
 .thermalLabel__fieldValue {
   min-width: 0;
-  font-size: 8.3px;
+  font-size: 14.6px;
   font-weight: 800;
   line-height: 1.04;
   overflow-wrap: anywhere;
 }
 
 .thermalLabel__field--customer .thermalLabel__fieldValue {
-  font-size: 8.8px;
+  font-size: 19px;
   font-weight: 900;
   line-height: 1;
 }
 
 .thermalLabel__field--customer.thermalLabel__fieldValue--small .thermalLabel__fieldValue {
-  font-size: 7.4px;
+  font-size: 16px;
   line-height: 1;
 }
 
 .thermalLabel__field--customer.thermalLabel__fieldValue--tiny .thermalLabel__fieldValue {
-  font-size: 6.4px;
+  font-size: 13.4px;
   line-height: 1;
 }
 
@@ -372,17 +371,19 @@ body {
 }
 
 .thermalLabel__secondary {
-  font-size: 8px;
+  display: grid;
+  align-content: center;
+  font-size: 17px;
   font-weight: 800;
-  line-height: 1.05;
+  line-height: 1.1;
 }
 
 .thermalLabel__footer {
-  border-top: 1px solid #111111;
-  padding-top: 0.012in;
-  font-size: 6.2px;
+  border-top: 2px solid #111111;
+  padding-top: 0.028in;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   text-transform: uppercase;
   line-height: 1;
   white-space: nowrap;
@@ -396,12 +397,15 @@ body {
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  border: 2px solid #111111;
+  padding: 0.035in 0.04in;
+  background: #ffffff;
 }
 
 .thermalLabel__barcodeWrap svg {
   width: 100%;
-  max-width: 1.18in;
-  height: 0.42in;
+  max-width: 3.72in;
+  height: 0.86in;
   display: block;
 }
 `;
