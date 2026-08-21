@@ -23,6 +23,18 @@ export default function ScanPage() {
   const [overlayJob, setOverlayJob] = useState<AnyRec | null>(null);
   const scanStateLabel = !scanEnabled ? 'Manual workflow' : lastTag ? `Last tag ${lastTag}` : 'Ready for next scan';
 
+  const requestScanFullscreen = React.useCallback(() => {
+    try {
+      if (document.fullscreenElement) return;
+      void document.documentElement.requestFullscreen?.();
+      // @ts-ignore
+      if (navigator.wakeLock?.request) {
+        // @ts-ignore
+        void navigator.wakeLock.request('screen').catch(() => {});
+      }
+    } catch {}
+  }, []);
+
   React.useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -315,6 +327,7 @@ export default function ScanPage() {
     }
     const tag = String(code || '').trim();
     if (!tag) return;
+    requestScanFullscreen();
     setLastTag(tag);
 
     let next = '';
