@@ -99,6 +99,109 @@ function stage(row: Row) {
   return status ? 'Cape work open' : 'Needs cape status';
 }
 
+function workAgeAt(row: Row) {
+  return firstDate(row.dropoff_date, row.created_at);
+}
+
+function ageColor(value: string | null) {
+  const days = ageDays(value) || 0;
+  if (days >= 7) return '#b91c1c';
+  if (days >= 3) return '#9a3412';
+  return '#0f172a';
+}
+
+function sortOldestFirst<T extends Row>(input: T[], dateForRow: (row: T) => string | null) {
+  return [...input].sort((a, b) => (ageDays(dateForRow(b)) || 0) - (ageDays(dateForRow(a)) || 0));
+}
+
+function CapeSection({
+  title,
+  description,
+  rows,
+  tone,
+  ageLabel,
+  dateLabel,
+  dateForRow,
+  nextStep,
+  showContactAction = false,
+  showPickupAction = false,
+}: {
+  title: string;
+  description: string;
+  rows: Row[];
+  tone: 'work' | 'contact' | 'pickup';
+  ageLabel: string;
+  dateLabel: string;
+  dateForRow: (row: Row) => string | null;
+  nextStep: string;
+  showContactAction?: boolean;
+  showPickupAction?: boolean;
+}) {
+  return (
+    <section className={`cape-section cape-section-${tone}`}>
+      <div className="cape-section-head">
+        <div>
+          <h2>{title}</h2>
+          <p>{description}</p>
+        </div>
+        <div className="cape-section-count">{rows.length}</div>
+      </div>
+
+      {!rows.length ? (
+        <div className="cape-section-empty">Nothing in this bucket right now.</div>
+      ) : (
+        <div className="cape-table-wrap">
+          <table className="cape-table">
+            <thead>
+              <tr>
+                <th>{ageLabel}</th>
+                <th>Customer</th>
+                <th>Contact</th>
+                <th>Cape Status</th>
+                <th>{dateLabel}</th>
+                <th>Next Step</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => {
+                const ageAt = dateForRow(row);
+                const searchValue = row.tag || row.confirmation || '';
+                return (
+                  <tr key={row.id} className={idx % 2 ? 'alt' : ''}>
+                    <td className="age-cell" style={{ color: ageColor(ageAt) }}>{ageText(ageAt)}</td>
+                    <td>
+                      <div className="customer-name">{row.customer_name || 'Unknown customer'}</div>
+                      <div className="row-meta">
+                        Tag {row.tag || '-'} | Confirmation {row.confirmation || '-'} | Drop-off {formatDisplayDate(row.dropoff_date)}
+                      </div>
+                    </td>
+                    <td>{contactPref(row)}</td>
+                    <td><span className={`stage ${tone === 'contact' ? 'warn' : tone === 'pickup' ? 'ready' : ''}`}>{stage(row)}</span></td>
+                    <td>{formatDisplayDateTime(ageAt)}</td>
+                    <td className="next-step">{nextStep}</td>
+                    <td>
+                      <div className="row-actions">
+                        <Link className="btn small" href={`/search?q=${encodeURIComponent(searchValue)}`} style={{ textDecoration: 'none' }}>Search</Link>
+                        {showContactAction ? (
+                          <Link className="btn secondary small" href="/reports/contact-watch" style={{ textDecoration: 'none' }}>Contact</Link>
+                        ) : null}
+                        {showPickupAction ? (
+                          <Link className="btn secondary small" href="/reports/called?track=cape" style={{ textDecoration: 'none' }}>Pickup</Link>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default async function CapeWatchPage() {
   const access = await requireReportAccess('view');
   if (!access.ok) {
@@ -139,10 +242,21 @@ export default async function CapeWatchPage() {
     });
 
   const readyRows = rows.filter((row) => capeReady(row.caping_status) || isCalled(row.caping_status));
-  const needsContact = readyRows.filter((row) => !contacted(row)).length;
+  const workRows = sortOldestFirst(
+    rows.filter((row) => !capeReady(row.caping_status) && !isCalled(row.caping_status)),
+    workAgeAt,
+  );
+  const contactRows = sortOldestFirst(
+    readyRows.filter((row) => !contacted(row)),
+    readyAt,
+  );
+  const pickupRows = sortOldestFirst(
+    readyRows.filter((row) => contacted(row)),
+    readyAt,
+  );
+  const needsContact = contactRows.length;
   const held3 = readyRows.filter((row) => (ageDays(readyAt(row)) || 0) >= 3).length;
   const held7 = readyRows.filter((row) => (ageDays(readyAt(row)) || 0) >= 7).length;
-  const openCaping = rows.filter((row) => !capeReady(row.caping_status) && !isCalled(row.caping_status)).length;
 
   return (
     <main className="app-frame">
@@ -164,8 +278,9 @@ export default async function CapeWatchPage() {
       <section className="watch-kpis">
         {[
           { label: 'Cape Orders Open', value: rows.length },
-          { label: 'Need Cape Work', value: openCaping },
-          { label: 'Need Contact', value: needsContact },
+          { label: 'Need Cape Work', value: workRows.length },
+          { label: 'Contact Customer', value: needsContact },
+          { label: 'Waiting Pickup', value: pickupRows.length },
           { label: 'Finished 3+ Days', value: held3 },
           { label: 'Finished 7+ Days', value: held7 },
         ].map((item) => (
@@ -182,56 +297,39 @@ export default async function CapeWatchPage() {
           <div className="empty-copy">Cape orders will show here until their cape pickup is recorded.</div>
         </div>
       ) : (
-        <div className="app-surface-light" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980 }}>
-              <thead>
-                <tr style={{ background: '#f3f6f9', color: '#0f172a', textAlign: 'left' }}>
-                  <th style={{ padding: 12 }}>Age</th>
-                  <th style={{ padding: 12 }}>Stage</th>
-                  <th style={{ padding: 12 }}>Customer</th>
-                  <th style={{ padding: 12 }}>Contact</th>
-                  <th style={{ padding: 12 }}>Cape Status</th>
-                  <th style={{ padding: 12 }}>Ready Basis</th>
-                  <th style={{ padding: 12 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => {
-                  const isReady = capeReady(row.caping_status) || isCalled(row.caping_status);
-                  const age = isReady ? readyAt(row) : firstDate(row.dropoff_date, row.created_at);
-                  const days = ageDays(age) || 0;
-                  return (
-                    <tr key={row.id} style={{ borderTop: '1px solid #e5e7eb', background: idx % 2 ? '#fbfdff' : '#fff' }}>
-                      <td style={{ padding: 12, fontWeight: 950, color: isReady && days >= 7 ? '#b91c1c' : isReady && days >= 3 ? '#9a3412' : '#0f172a' }}>
-                        {ageText(age)}
-                      </td>
-                      <td style={{ padding: 12 }}>
-                        <span className={`stage ${isReady && !contacted(row) ? 'warn' : isReady ? 'ready' : ''}`}>{stage(row)}</span>
-                      </td>
-                      <td style={{ padding: 12 }}>
-                        <div style={{ fontWeight: 900 }}>{row.customer_name || 'Unknown customer'}</div>
-                        <div style={{ color: '#64748b', fontSize: 13 }}>
-                          Tag {row.tag || '-'} | Confirmation {row.confirmation || '-'} | Drop-off {formatDisplayDate(row.dropoff_date)}
-                        </div>
-                      </td>
-                      <td style={{ padding: 12 }}>{contactPref(row)}</td>
-                      <td style={{ padding: 12 }}>{row.caping_status || '-'}</td>
-                      <td style={{ padding: 12 }}>{isReady ? formatDisplayDateTime(age) : 'Not finished yet'}</td>
-                      <td style={{ padding: 12 }}>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <Link className="btn small" href={`/search?q=${encodeURIComponent(row.tag || row.confirmation || '')}`} style={{ textDecoration: 'none' }}>Search</Link>
-                          {isReady ? (
-                            <Link className="btn secondary small" href="/reports/called?track=cape" style={{ textDecoration: 'none' }}>Pickup</Link>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="cape-sections">
+          <CapeSection
+            title="Needs Cape Work"
+            description="Cape orders that are not marked finished yet."
+            rows={workRows}
+            tone="work"
+            ageLabel="Since Drop-Off"
+            dateLabel="Drop-Off"
+            dateForRow={workAgeAt}
+            nextStep="Finish cape work"
+          />
+          <CapeSection
+            title="Contact Customer"
+            description="Finished capes without a confirmed customer contact."
+            rows={contactRows}
+            tone="contact"
+            ageLabel="Since Finished"
+            dateLabel="Finished"
+            dateForRow={readyAt}
+            nextStep="Contact customer"
+            showContactAction
+          />
+          <CapeSection
+            title="Waiting For Pickup"
+            description="Customer has been contacted, but the cape is still here."
+            rows={pickupRows}
+            tone="pickup"
+            ageLabel="Since Contact"
+            dateLabel="Contacted"
+            dateForRow={readyAt}
+            nextStep="Record cape pickup"
+            showPickupAction
+          />
         </div>
       )}
 
@@ -260,6 +358,111 @@ export default async function CapeWatchPage() {
           font-weight: 950;
           margin-top: 6px;
         }
+        .cape-sections {
+          display: grid;
+          gap: 18px;
+        }
+        .cape-section {
+          border: 1px solid #d7dee7;
+          border-radius: 12px;
+          overflow: hidden;
+          background: #fff;
+        }
+        .cape-section-head {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: center;
+          padding: 16px;
+          border-top: 5px solid #64748b;
+          background: #f8fafc;
+        }
+        .cape-section-work .cape-section-head {
+          border-top-color: #475569;
+        }
+        .cape-section-contact .cape-section-head {
+          border-top-color: #d97706;
+          background: #fffbeb;
+        }
+        .cape-section-pickup .cape-section-head {
+          border-top-color: #15803d;
+          background: #f0fdf4;
+        }
+        .cape-section h2 {
+          margin: 0;
+          font-size: 20px;
+          line-height: 1.2;
+          color: #0f172a;
+        }
+        .cape-section p {
+          margin: 5px 0 0;
+          color: #475569;
+          line-height: 1.4;
+        }
+        .cape-section-count {
+          min-width: 52px;
+          min-height: 52px;
+          border-radius: 999px;
+          display: inline-grid;
+          place-items: center;
+          background: #0f172a;
+          color: #fff;
+          font-size: 22px;
+          font-weight: 950;
+        }
+        .cape-section-empty {
+          padding: 18px;
+          color: #64748b;
+          font-weight: 800;
+        }
+        .cape-table-wrap {
+          overflow-x: auto;
+        }
+        .cape-table {
+          width: 100%;
+          min-width: 1040px;
+          border-collapse: collapse;
+        }
+        .cape-table th {
+          padding: 11px 12px;
+          text-align: left;
+          color: #334155;
+          background: #f8fafc;
+          border-top: 1px solid #e5e7eb;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .cape-table td {
+          padding: 12px;
+          border-top: 1px solid #e5e7eb;
+          color: #0f172a;
+          vertical-align: top;
+        }
+        .cape-table tr.alt {
+          background: #fbfdff;
+        }
+        .age-cell {
+          font-weight: 950;
+          white-space: nowrap;
+        }
+        .customer-name {
+          font-weight: 900;
+        }
+        .row-meta {
+          margin-top: 3px;
+          color: #64748b;
+          font-size: 13px;
+        }
+        .next-step {
+          font-weight: 900;
+          color: #334155;
+        }
+        .row-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
         .stage {
           display: inline-flex;
           align-items: center;
@@ -278,6 +481,16 @@ export default async function CapeWatchPage() {
         .stage.warn {
           background: #fffbeb;
           color: #92400e;
+        }
+        @media (max-width: 720px) {
+          .cape-section-head {
+            align-items: flex-start;
+          }
+          .cape-section-count {
+            min-width: 44px;
+            min-height: 44px;
+            font-size: 20px;
+          }
         }
       `}</style>
     </main>
