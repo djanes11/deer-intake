@@ -130,14 +130,25 @@ function eventForTrack(track: Track) {
   return 'webbs_delivered';
 }
 
+function hasUsablePhone(value: string) {
+  const digits = String(value || '').replace(/\D/g, '');
+  return digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+}
+
+function hasUsableEmail(value: string) {
+  return /\S+@\S+\.\S+/.test(String(value || '').trim());
+}
+
 function contactPreference(row: Row) {
   const phone = String(row.phone || '').trim();
   const email = String(row.email || '').trim();
-  if (row.pref_sms && row.sms_consent && phone) return { method: 'Text', destination: phone };
-  if (row.pref_email && email) return { method: 'Email', destination: email };
-  if (row.pref_call && phone) return { method: 'Call', destination: phone };
-  if (phone) return { method: 'Call', destination: phone };
-  if (email) return { method: 'Email', destination: email };
+  const phoneOk = hasUsablePhone(phone);
+  const emailOk = hasUsableEmail(email);
+  if (row.pref_sms && row.sms_consent && phoneOk) return { method: 'Text', destination: phone };
+  if (row.pref_email && emailOk) return { method: 'Email', destination: email };
+  if (row.pref_call && phoneOk) return { method: 'Call', destination: phone };
+  if (phoneOk) return { method: 'Call', destination: phone };
+  if (emailOk) return { method: 'Email', destination: email };
   return { method: 'Missing', destination: 'No usable contact' };
 }
 

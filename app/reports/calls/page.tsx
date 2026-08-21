@@ -33,7 +33,7 @@ function readyTracks(j: Partial<Job>): Track[] {
   const a = j as any;
 
   const meatReady = /finish|ready|complete|completed|done/.test(st) && st !== 'called' && !a.pickedUpProcessing;
-  const capeReady = /ready|complete|completed|done|caped/.test(cp) && cp !== 'called' && !a.pickedUpCape;
+  const capeReady = /cape|caped|finish|finished|ready|complete|completed|done/.test(cp) && cp !== 'called' && !a.pickedUpCape;
   const specialtyReady = !!a.specialtyProducts && /finish|ready|complete|completed|done/.test(sp) && sp !== 'called';
   const webbsReady = /ready|complete|completed|done|delivered/.test(wb) && wb !== 'called' && !a.pickedUpWebbs;
 
@@ -53,12 +53,36 @@ function attemptsFor(r: FlatRow) {
   return Number(a.callAttemptsWebbs ?? a.webbsAttempts ?? a.callAttempts ?? 0);
 }
 
-function prefersCall(j: Partial<Job>) {
+function hasUsablePhone(j: Partial<Job>) {
   const a = j as any;
-  const wantsCall = !!(a.prefCall ?? a['Preferred Phone Call'] ?? a['Pref Call']);
   const digits = String(a.phone ?? a.Phone ?? '').replace(/\D/g, '');
-  const hasUsPhone = digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
-  return wantsCall && hasUsPhone;
+  return digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
+}
+
+function hasUsableEmail(j: Partial<Job>) {
+  const a = j as any;
+  return /\S+@\S+\.\S+/.test(String(a.email ?? a.Email ?? '').trim());
+}
+
+function prefFlag(j: Partial<Job>, ...keys: string[]) {
+  const a = j as any;
+  return keys.some((key) => !!a[key]);
+}
+
+function effectiveContactMethod(j: Partial<Job>) {
+  const phoneOk = hasUsablePhone(j);
+  const emailOk = hasUsableEmail(j);
+  const wantsSms = prefFlag(j, 'prefSMS', 'prefSms', 'pref_sms', 'Pref SMS') && !!((j as any).smsConsent ?? (j as any).sms_consent) && phoneOk;
+  if (wantsSms) return 'Text';
+  if (prefFlag(j, 'prefEmail', 'pref_email', 'Pref Email') && emailOk) return 'Email';
+  if (prefFlag(j, 'prefCall', 'pref_call', 'Preferred Phone Call', 'Pref Call') && phoneOk) return 'Call';
+  if (phoneOk) return 'Call';
+  if (emailOk) return 'Email';
+  return 'Missing';
+}
+
+function belongsInCallReport(j: Partial<Job>) {
+  return effectiveContactMethod(j) === 'Call';
 }
 
 // show only processing price for meat track
@@ -222,7 +246,7 @@ export default function CallReportPage() {
       const raw: Row[] = (res.rows || []).map((r: any) => {
         const p = readProcessingPriceFromRow(r);
         return { ...r, priceProcessing: p ?? r.priceProcessing };
-      }).filter(prefersCall);
+      }).filter(belongsInCallReport);
 
       const flat: FlatRow[] = [];
       for (const j of raw) {
@@ -289,7 +313,7 @@ export default function CallReportPage() {
         const p = readProcessingPriceFromRow(job);
         const jobWithPrice = { ...job, priceProcessing: p ?? (job as any).priceProcessing } as any;
 
-        if (!prefersCall(jobWithPrice)) {
+        if (!belongsInCallReport(jobWithPrice)) {
           setRows(prev => prev.filter(x => x.tag !== tag));
           if (selected && selected.tag === tag) setSelectedKey(null);
           return;
@@ -530,7 +554,7 @@ export default function CallReportPage() {
           <div className="mobile-empty">
             <div className="mobile-empty-title">Nothing to call right now.</div>
             <div className="mobile-empty-copy">
-              Orders will show up here once processing, cape, specialty, or Webbs work is ready and the customer prefers a phone call.
+              Orders will show up here once processing, cape, specialty, or Webbs work is ready and the best contact method is a phone call.
             </div>
           </div>
         ) : (

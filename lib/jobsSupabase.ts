@@ -1792,6 +1792,7 @@ function mapDbRowToSearchRow(row: any): JobSearchRow {
     confirmation: row.confirmation,
     customer: row.customer_name,
     phone: row.phone,
+    ...(row.email != null ? ({ email: row.email } as any) : {}),
     huntingLicenseNumber: row.hunting_license_number ?? null,
     status: row.status,
     capingStatus: row.caping_status,
@@ -1903,6 +1904,7 @@ const SEARCH_SELECT = `
   confirmation,
   customer_name,
   phone,
+  email,
   status,
   caping_status,
   webbs_status,
@@ -1950,6 +1952,10 @@ const SEARCH_SELECT = `
   updated_at,
   pending_deleted_at,
   pending_delete_reason,
+  pref_email,
+  pref_sms,
+  pref_call,
+  sms_consent,
   public_token
 `;
 
