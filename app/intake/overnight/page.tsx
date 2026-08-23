@@ -48,6 +48,8 @@ import {
 export const dynamic = 'force-dynamic';
 
 const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
+const WEBBS_PRICE_NOTE =
+  'Totals may include the processor Webbs handling fee, but Webbs product prices are not included. Those product charges will be provided when the Webbs order is delivered.';
 
 /* ---------------- Types ---------------- */
 
@@ -280,6 +282,9 @@ function OvernightIntakePage() {
   const [msg, setMsg] = useState<string>('');
   const [locked, setLocked] = useState<boolean>(false);
   const [showThanks, setShowThanks] = useState<boolean>(false);
+  const [savedConfirmation, setSavedConfirmation] = useState('');
+  const [savedPublicToken, setSavedPublicToken] = useState('');
+  const [copyMsg, setCopyMsg] = useState('');
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [closureMessage, setClosureMessage] = useState('');
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
@@ -303,7 +308,7 @@ function OvernightIntakePage() {
       'Check status online anytime and pick up promptly once you are notified.',
     ],
     pricingNote:
-      'Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.',
+      'Final totals can vary with cut selections, specialty items, and processor-specific options. Totals may include the processor Webbs handling fee, but Webbs product prices are not included and will be provided when the Webbs order is delivered.',
     beforeDropoffChecklist: [
       'Have your state harvest/check-in confirmation number ready',
       'Leave your name, phone number, and confirmation details with the deer',
@@ -437,9 +442,9 @@ function OvernightIntakePage() {
           beefFat: job.beefFat,
           webbsOrder: job.webbsOrder,
         },
-        activeAddOnCatalog,
+        pricedAddOnCatalog,
       ),
-    [job.addOnItems, job.beefFat, job.webbsOrder, activeAddOnCatalog]
+    [job.addOnItems, job.beefFat, job.webbsOrder, pricedAddOnCatalog]
   );
   const processingPrice = useMemo(
     () =>
@@ -646,7 +651,10 @@ function OvernightIntakePage() {
     setContactMethod(job.email ? 'email' : 'call');
   }, [smsEnabled, job.prefSMS, job.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const confirmationLast5 = (job.confirmation || '').replace(/\D/g, '').slice(-5);
+  const displayConfirmation = savedConfirmation || job.confirmation || '';
+  const confirmationLast5 = displayConfirmation.replace(/\D/g, '').slice(-5);
+  const readOnlyIntakeLink = savedPublicToken ? `/intake/view/${encodeURIComponent(savedPublicToken)}` : '';
+  const statusLink = displayConfirmation ? `/status?confirmation=${encodeURIComponent(displayConfirmation)}` : '/status';
 
   const focusFirstError = (nextErrors: Record<string, string>) => {
     const firstKey = Object.keys(nextErrors)[0];
@@ -866,6 +874,13 @@ function OvernightIntakePage() {
         setMsg(res?.error || 'Save failed');
         return;
       }
+      const nextConfirmation = String(res?.confirmation || res?.job?.confirmation || job.confirmation || '').trim();
+      const nextPublicToken = String(res?.publicToken || res?.job?.publicToken || '').trim();
+      if (nextConfirmation) {
+        setSavedConfirmation(nextConfirmation);
+        setJob((p) => ({ ...p, confirmation: nextConfirmation }));
+      }
+      if (nextPublicToken) setSavedPublicToken(nextPublicToken);
       setLocked(true);
       setShowThanks(true);
       setMsg('Saved');
@@ -1093,6 +1108,7 @@ function OvernightIntakePage() {
                 <span>Processing ${processingPrice.toFixed(2)}</span>
                 {specialtyEnabled ? <span>Specialty ${specialtyPrice.toFixed(2)}</span> : null}
               </div>
+              {job.webbsOrder ? <div className="webbsPriceNotice compactNotice">{WEBBS_PRICE_NOTE}</div> : null}
             </div>
           ) : (
             <>
@@ -1126,6 +1142,7 @@ function OvernightIntakePage() {
                   <div className="money total">{totalPrice.toFixed(2)}</div>
                 </div>
               </div>
+              {job.webbsOrder ? <div className="webbsPriceNotice">{WEBBS_PRICE_NOTE}</div> : null}
             </>
           )}
         </div>
@@ -1798,7 +1815,9 @@ function OvernightIntakePage() {
                         disabled={locked}
                       />
                       <span><strong>Webbs Order</strong></span>
-                      <span className="muted"> (+$20 fee)</span>
+                      {Number(pricing.webbs_add_on || 0) > 0 ? (
+                        <span className="muted"> (+${Number(pricing.webbs_add_on || 0).toFixed(2)} handling fee)</span>
+                      ) : null}
                     </label>
                   </div>
 
@@ -1810,6 +1829,7 @@ function OvernightIntakePage() {
                             <div>
                               <div className="webbsSummaryTitle">Webbs Order</div>
                               <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
+                              <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PRICE_NOTE}</div>
                               <div style={{ marginTop: 8 }}>
                                 <a
                                   href={WEBBS_PRICE_SHEET_URL}
@@ -2119,6 +2139,7 @@ function OvernightIntakePage() {
                     ? 'Enter percentages that add up to 100% for the whole deer.'
                     : 'Enter the products and pounds you want sent to Webbs.'}
                 </div>
+                <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PRICE_NOTE}</div>
                 <div style={{ marginTop: 8 }}>
                   <a
                     href={WEBBS_PRICE_SHEET_URL}
@@ -2205,7 +2226,7 @@ function OvernightIntakePage() {
             <h3>Your public intake was received</h3>
             <div className="thanksConf">
               <div className="thanksConfLabel">Your confirmation number</div>
-              <div className="thanksConfValue">{job.confirmation || 'Saved'}</div>
+              <div className="thanksConfValue">{displayConfirmation || 'Saved'}</div>
             </div>
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
               {publicCopy.thankYouMessage} Your intake is saved. Staff still reviews every deer before assigning the final tag.
@@ -2225,6 +2246,7 @@ function OvernightIntakePage() {
                 </div>
               ) : null}
               {publicCopy.callBeforePickup ? <div>Please call the shop before pickup so staff can have your order ready.</div> : null}
+              {job.webbsOrder ? <div>{WEBBS_PRICE_NOTE}</div> : null}
               {publicCopy.storageFeePolicy ? <div>{publicCopy.storageFeePolicy}</div> : null}
             </div>
             <div className="thanksList">
@@ -2236,9 +2258,34 @@ function OvernightIntakePage() {
               If anything looks wrong later, contact the shop and have this confirmation number ready.
             </p>
             <div className="thanksActions">
+              {displayConfirmation ? (
+                <button
+                  className="btn secondary"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard?.writeText(displayConfirmation);
+                      setCopyMsg('Copied');
+                      setTimeout(() => setCopyMsg(''), 1800);
+                    } catch {
+                      setCopyMsg('Copy failed');
+                      setTimeout(() => setCopyMsg(''), 1800);
+                    }
+                  }}
+                >
+                  Copy Confirmation
+                </button>
+              ) : null}
+              {readOnlyIntakeLink ? (
+                <button
+                  className="btn secondary"
+                  onClick={() => window.location.assign(readOnlyIntakeLink)}
+                >
+                  View Intake Form
+                </button>
+              ) : null}
               <button
                 className="btn secondary"
-                onClick={() => window.location.assign('/status')}
+                onClick={() => window.location.assign(statusLink)}
               >
                 Check Status
               </button>
@@ -2252,6 +2299,7 @@ function OvernightIntakePage() {
                 Done
               </button>
             </div>
+            {copyMsg ? <div className="thanksCopyStatus">{copyMsg}</div> : null}
           </div>
         </div>
       )}
@@ -2330,6 +2378,25 @@ function OvernightIntakePage() {
           line-height: 1.5;
         }
         .thanksActions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
+        .thanksCopyStatus {
+          margin-top: 8px;
+          color: #406c4d;
+          font-size: 12px;
+          font-weight: 900;
+        }
+        .webbsPriceNotice {
+          border: 1px solid #fde68a;
+          background: #fffbeb;
+          color: #92400e;
+          border-radius: 12px;
+          padding: 10px 12px;
+          font-size: 13px;
+          line-height: 1.45;
+          font-weight: 800;
+        }
+        .webbsPriceNotice.compactNotice {
+          margin-top: 8px;
+        }
         .intakeNotice {
           display: flex;
           gap: 10px;

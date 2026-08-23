@@ -990,6 +990,23 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
           <div style={{ marginTop: 12, color: colors.sub, fontSize: 13, lineHeight: 1.5 }}>
             {publicCopy?.pricingNote || 'Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.'}
           </div>
+          {features?.webbsEnabled !== false ? (
+            <div
+              style={{
+                marginTop: 12,
+                border: `1px solid ${colors.panelBorder}`,
+                borderRadius: 12,
+                background: 'rgba(200,138,61,.12)',
+                color: colors.text,
+                padding: '10px 12px',
+                fontSize: 13,
+                lineHeight: 1.5,
+                fontWeight: 800,
+              }}
+            >
+              Totals may include the processor Webbs handling fee, but Webbs product prices are not included. Those product charges will be provided when the Webbs order is delivered.
+            </div>
+          ) : null}
         </div>
       </section>
 

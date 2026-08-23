@@ -28,6 +28,7 @@ const PUBLIC_STATUS_SELECT = `
   tag,
   confirmation,
   customer_name,
+  phone,
   status,
   caping_status,
   webbs_status,
@@ -59,6 +60,10 @@ function lname(s?: string) {
   const t = String(s || '').trim();
   const parts = t.split(/\s+/);
   return parts.length ? parts[parts.length - 1].toLowerCase() : '';
+}
+
+function phoneDigits(s?: string) {
+  return String(s || '').replace(/\D+/g, '');
 }
 
 function toNum(v: unknown): number | undefined {
@@ -130,16 +135,18 @@ async function shapeJob(row: any, supabase: ReturnType<typeof getSupabaseServer>
   return base;
 }
 
-async function handle(confirmation: string, tag: string, lastName: string, hostname?: string | null) {
+async function handle(confirmation: string, tag: string, lastName: string, phone: string, hostname?: string | null) {
   const settings = await getPublicSiteSettings(hostname);
   const identifierSettings = identifierSettingsFromPublicCopy(settings.publicCopy);
   const wantConf = normalizeConfirmationInput(confirmation, identifierSettings).trim();
   const wantTag = String(tag || '').trim();
   const wantLN = lname(lastName);
+  const wantPhone = phoneDigits(phone);
+  const safeLN = wantLN.replace(/[%_]/g, '');
   const confCandidates = confirmationSearchCandidates(wantConf, identifierSettings);
 
-  if (!wantConf && !(wantTag && wantLN)) {
-    return { ok: false, error: 'Provide Confirmation # or Tag + Last Name.' };
+  if (!wantConf && !(wantTag && wantLN) && !(wantPhone.length === 10 && wantLN)) {
+    return { ok: false, error: 'Provide Confirmation #, Tag + Last Name, or Phone + Last Name.' };
   }
 
   const supabase = getSupabaseServer();
@@ -180,6 +187,24 @@ async function handle(confirmation: string, tag: string, lastName: string, hostn
     if (hit) return shapeJob(hit, supabase);
   }
 
+  // 3) Phone + last name. This is for customers who chose phone calls and may not have
+  // the long confirmation number or final tag handy.
+  if (wantPhone.length === 10 && safeLN) {
+    let query = supabase
+      .from('jobs')
+      .select(PUBLIC_STATUS_SELECT)
+      .ilike('customer_name', `%${safeLN}%`);
+
+    if (processor.id) query = query.eq('processor_id', processor.id);
+
+    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(50);
+
+    if (error) return { ok: false, error: 'Server error' };
+
+    const hit = (data || []).find((r: any) => phoneDigits(r.phone) === wantPhone && lname(r.customer_name) === wantLN);
+    if (hit) return shapeJob(hit, supabase);
+  }
+
   return { ok: false, notFound: true, error: 'No match.' };
 }
 
@@ -189,9 +214,9 @@ export async function POST(req: NextRequest) {
     if (!rl.allowed) {
       return NextResponse.json({ ok: false, error: 'Rate limited' }, { status: 429 });
     }
-    const { confirmation = '', tag = '', lastName = '' } = await req.json();
+    const { confirmation = '', tag = '', lastName = '', phone = '' } = await req.json();
     const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
-    const resp = await handle(confirmation, tag, lastName, hostname);
+    const resp = await handle(confirmation, tag, lastName, phone, hostname);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
@@ -208,8 +233,9 @@ export async function GET(req: NextRequest) {
     const confirmation = searchParams.get('confirmation') || '';
     const tag = searchParams.get('tag') || '';
     const lastName = searchParams.get('lastName') || '';
+    const phone = searchParams.get('phone') || '';
     const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
-    const resp = await handle(confirmation, tag, lastName, hostname);
+    const resp = await handle(confirmation, tag, lastName, phone, hostname);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });

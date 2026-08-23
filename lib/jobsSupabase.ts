@@ -200,6 +200,47 @@ function notificationVars(opts: NotificationTemplateOpts) {
   };
 }
 
+function requiredNotificationLinkLine(
+  eventKey: keyof ReturnType<typeof normalizeNotificationTemplates>,
+  vars: ReturnType<typeof notificationVars>,
+  mode: 'email' | 'sms',
+) {
+  const link = eventKey === 'intake' ? vars.intakeLink : vars.statusUrl;
+  if (!link) return '';
+  if (eventKey === 'intake') {
+    return mode === 'sms' ? `View intake: ${link}` : `View your intake form: ${link}`;
+  }
+  return mode === 'sms' ? `Status: ${link}` : `Check status and pickup details: ${link}`;
+}
+
+function ensureNotificationLink(
+  eventKey: keyof ReturnType<typeof normalizeNotificationTemplates>,
+  rendered: string,
+  vars: ReturnType<typeof notificationVars>,
+  mode: 'email' | 'sms',
+) {
+  const body = String(rendered || '').trim();
+  const link = eventKey === 'intake' ? vars.intakeLink : vars.statusUrl;
+  if (!link || body.includes(link)) return body;
+  const line = requiredNotificationLinkLine(eventKey, vars, mode);
+  if (!line) return body;
+  return body ? `${body}\n\n${line}` : line;
+}
+
+function ensureWebbsChargeNote(
+  eventKey: keyof ReturnType<typeof normalizeNotificationTemplates>,
+  rendered: string,
+  mode: 'email' | 'sms',
+) {
+  const body = String(rendered || '').trim();
+  if (eventKey !== 'webbs_delivered') return body;
+  if (/\b(charge|charges|price|prices|pricing)\b/i.test(body)) return body;
+  const line = mode === 'sms'
+    ? 'Webbs charges will be provided with delivery.'
+    : 'Webbs product charges are separate from any processing or specialty totals and will be provided with this delivery.';
+  return body ? `${body}\n\n${line}` : line;
+}
+
 function buildNotificationEmail(
   eventKey: keyof ReturnType<typeof normalizeNotificationTemplates>,
   opts: NotificationTemplateOpts,
@@ -207,14 +248,20 @@ function buildNotificationEmail(
   const vars = notificationVars(opts);
   const templates = opts.notificationTemplates || normalizeNotificationTemplates({}, vars.businessName);
   const template = templates[eventKey];
+  const text = ensureNotificationLink(
+    eventKey,
+    ensureWebbsChargeNote(eventKey, renderNotificationTemplate(template.emailBody, vars), 'email'),
+    vars,
+    'email',
+  );
   return {
     subject: renderNotificationTemplate(template.emailSubject, vars),
-    html: renderNotificationTemplate(template.emailBody, vars)
+    html: text
       .split(/\n{2,}/)
       .filter(Boolean)
       .map((line) => `<p>${escapeHtml(line).replace(/\n/g, '<br/>')}</p>`)
       .join(''),
-    text: renderNotificationTemplate(template.emailBody, vars),
+    text,
   };
 }
 
@@ -240,7 +287,14 @@ function buildNotificationSms(
 ) {
   const vars = notificationVars(opts);
   const templates = opts.notificationTemplates || normalizeNotificationTemplates({}, vars.businessName);
-  return renderNotificationTemplate(templates[eventKey].smsBody, vars).replace(/\s+/g, ' ').trim();
+  return ensureNotificationLink(
+    eventKey,
+    ensureWebbsChargeNote(eventKey, renderNotificationTemplate(templates[eventKey].smsBody, vars), 'sms'),
+    vars,
+    'sms',
+  )
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function buildIntakeEmail(opts: NotificationTemplateOpts & { name: string; tag: string; link: string; phoneDisplay: string }) {
@@ -657,6 +711,7 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
     link,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    statusUrl: statusPageLink(baseUrl),
     pickupHours: branding.pickupHours,
     notificationTemplates: branding.notificationTemplates,
   });
@@ -804,6 +859,7 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     await getCurrentPricing(),
   );
   const price = Number(locked.price_processing ?? 0) || computed;
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const branding = await getNotificationBranding(locked);
   const tpl = buildFinishedEmail({
     name: String(locked.customer_name || ''),
@@ -813,6 +869,7 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     amountPaidProcessing: Number(locked.amount_paid_processing ?? 0) || 0,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    statusUrl: statusPageLink(baseUrl),
     pickupHours: branding.pickupHours,
     notificationTemplates: branding.notificationTemplates,
   });
@@ -907,11 +964,13 @@ async function trySendCapeFinishedEmail(supabaseServer: any, row: any) {
   if (!locked) return;
 
   const branding = await getNotificationBranding(locked);
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const tpl = buildCapeFinishedEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    statusUrl: statusPageLink(baseUrl),
     notificationTemplates: branding.notificationTemplates,
     pickupHours: branding.pickupHours,
   });
@@ -1010,6 +1069,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
   const computed = await calcSpecialtyPriceForRow(supabaseServer, locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
   const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const branding = await getNotificationBranding(locked);
   const tpl = buildSpecialtyFinishedEmail({
     name: String(locked.customer_name || ''),
@@ -1019,6 +1079,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
     amountPaidSpecialty: Number(locked.amount_paid_specialty ?? 0) || 0,
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    statusUrl: statusPageLink(baseUrl),
     notificationTemplates: branding.notificationTemplates,
     pickupHours: branding.pickupHours,
   });
@@ -1126,11 +1187,13 @@ async function trySendWebbsDeliveredEmail(supabaseServer: any, row: any) {
   if (!locked) return;
 
   const branding = await getNotificationBranding(locked);
+  const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const tpl = buildWebbsDeliveredEmail({
     name: String(locked.customer_name || ''),
     tag: String(locked.tag || ''),
     businessName: branding.businessName,
     phoneDisplay: branding.phoneDisplay,
+    statusUrl: statusPageLink(baseUrl),
     notificationTemplates: branding.notificationTemplates,
   });
 

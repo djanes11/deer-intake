@@ -380,26 +380,26 @@ export function defaultNotificationTemplates(businessName = 'Game Butcher Board'
     meat_finished: {
       emailSubject: 'Finished & ready for pickup ({{tag}})',
       emailBody:
-        'Hi {{name}}\n\nYour regular processing is finished and ready for pickup.\n{{processingDueLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.\nPlease bring a cooler or box to transport your meat.\nReminder: This update is for your regular processing only. We will reach out separately about any additional order items.',
+        'Hi {{name}}\n\nYour regular processing is finished and ready for pickup.\n{{processingDueLine}}\n{{statusLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.\nPlease bring a cooler or box to transport your meat.\nReminder: This update is for your regular processing only. We will reach out separately about any additional order items.',
       smsBody: '{{businessName}}: Meat ready for pickup. {{tag}}. {{statusLine}}',
     },
     cape_finished: {
       emailSubject: 'Cape finished & ready for pickup ({{tag}})',
       emailBody:
-        'Hi {{name}}\n\nYour cape is finished and ready for pickup.\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
+        'Hi {{name}}\n\nYour cape is finished and ready for pickup.\n{{statusLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
       smsBody: '{{businessName}}: Cape ready for pickup. {{tag}}. {{statusLine}}',
     },
     specialty_finished: {
       emailSubject: 'Specialty products finished ({{tag}})',
       emailBody:
-        'Hi {{name}}\n\nYour specialty products are finished and ready for pickup.\n{{specialtyDueLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
+        'Hi {{name}}\n\nYour specialty products are finished and ready for pickup.\n{{specialtyDueLine}}\n{{statusLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
       smsBody: '{{businessName}}: Specialty ready for pickup. {{tag}}. {{statusLine}}',
     },
     webbs_delivered: {
       emailSubject: 'Webbs order delivered ({{tag}})',
       emailBody:
-        'Hi {{name}}\n\nYour Webbs order has been delivered and is ready for pickup.\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
-      smsBody: '{{businessName}}: Webbs delivered. {{tag}}. {{statusLine}}',
+        'Hi {{name}}\n\nYour Webbs order has been delivered and is ready for pickup. Webbs product charges are separate from any processing or specialty totals and will be provided with this delivery.\n{{statusLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
+      smsBody: '{{businessName}}: Webbs delivered. Charges provided with delivery. {{tag}}. {{statusLine}}',
     },
   };
 }

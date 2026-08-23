@@ -198,7 +198,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
         'Check status online anytime and pick up promptly once you are notified.',
       ],
       pricingNote:
-        'Final totals can vary with cut selections, specialty items, and processor-specific options. Customers can review their selections before submitting.',
+        'Final totals can vary with cut selections, specialty items, and processor-specific options. Totals may include the processor Webbs handling fee, but Webbs product prices are not included and will be provided when the Webbs order is delivered.',
       beforeDropoffChecklist: [
         'Have your state harvest/check-in confirmation number ready',
         'Leave your name, phone number, and confirmation details with the deer',

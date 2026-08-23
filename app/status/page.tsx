@@ -53,6 +53,11 @@ type PaymentCardProps = {
   owed?: number;
 };
 
+type ReadyPaymentLine = {
+  label: string;
+  due: number;
+};
+
 type PublicBrandingState = {
   name: string;
   address: string;
@@ -81,11 +86,11 @@ type PublicCopyState = {
 
 const DEFAULT_STATUS_COPY: PublicCopyState = {
   statusIntro:
-    'Use your confirmation number, or use your deer tag and last name after staff have assigned the real tag. This page updates as your order moves through the shop.',
+    'Use your confirmation number, or use your phone number and last name if you do not have it handy. This page updates as your order moves through the shop.',
   statusBestWay:
-    'Confirmation number works best before staff assign the permanent tag. After the tag is assigned, you can also search with the tag number and customer last name.',
+    'Confirmation number works best before staff assign the permanent tag. If you do not have it handy, use the phone number from intake and the customer last name.',
   statusLookupHelp:
-    'Most customers should start with the confirmation number. Only use tag number + last name after staff have assigned the permanent tag.',
+    'Most customers should start with the confirmation number. Phone number + last name is the best backup if you chose phone calls or do not have the tag yet.',
   confirmationSearchHelp:
     'Best for most customers. Use the number from your intake or state harvest/check-in.',
   confirmationLabel: 'Confirmation #',
@@ -102,6 +107,8 @@ const DEFAULT_STATUS_COPY: PublicCopyState = {
 const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done', 'called'];
 const HOLD_WORDS = ['hold', 'waiting', 'pending', 'not started', 'dropped off', 'drop off', 'received'];
 const PROGRESS_WORDS = ['process', 'cut', 'grind', 'smoke', 'cure', 'working', 'started', 'in progress', 'calling'];
+const WEBBS_PRICE_NOTE =
+  'Totals may include the processor Webbs handling fee, but Webbs product prices are not included. Those product charges will be provided when the Webbs order is delivered.';
 
 const tones: Record<StatusTone, { border: string; background: string; text: string }> = {
   ready: { border: '#2a5f47', background: '#193b2e', text: '#a7e3ba' },
@@ -149,7 +156,11 @@ function formatDateTime(value?: string) {
 }
 
 function normalizeName(n?: string) {
-  return (n || '').trim().replace(/[^a-zA-Z'-]/g, '');
+  return (n || '').trim().replace(/[^a-zA-Z'\-\s]/g, ' ').replace(/\s+/g, ' ');
+}
+
+function normalizePhone(n?: string) {
+  return String(n || '').replace(/\D+/g, '').slice(0, 10);
 }
 
 function statusTone(status?: string): StatusTone {
@@ -319,10 +330,12 @@ export default function StatusPage() {
   const [confirmation, setConfirmation] = useState('');
   const [tag, setTag] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   const [res, setRes] = useState<LookupResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [urlLookupStarted, setUrlLookupStarted] = useState(false);
   const [publicHours, setPublicHours] = useState<ReadonlyArray<{ label: string; value: string }>>(
     SITE.hours as ReadonlyArray<{ label: string; value: string }>
   );
@@ -413,6 +426,7 @@ export default function StatusPage() {
   const rawPriceSpecialty = toNum(res?.priceSpecialty);
   const amountPaidProcessing = positiveMoney(res?.amountPaidProcessing);
   const amountPaidSpecialty = positiveMoney(res?.amountPaidSpecialty);
+  const hasWebbsOrder = branding.webbsEnabled && !!res?.tracks?.webbsStatus;
   const specialtyApplies =
     branding.specialtyEnabled &&
     (
@@ -476,13 +490,13 @@ export default function StatusPage() {
     typeof priceTotal === 'number';
 
   const owedProcessing =
-    paidProc === true
+    paidOverall === true || paidProc === true
       ? 0
       : typeof priceProcessing === 'number'
         ? Math.max(0, priceProcessing - amountPaidProcessing)
         : undefined;
   const owedSpecialty =
-    paidSpec === true
+    paidOverall === true || paidSpec === true
       ? 0
       : typeof priceSpecialty === 'number'
         ? Math.max(0, priceSpecialty - amountPaidSpecialty)
@@ -501,9 +515,27 @@ export default function StatusPage() {
     [res, branding.webbsEnabled, branding.specialtyEnabled]
   );
   const currentStage = summaries[0];
+  const readySummaries = useMemo(
+    () => summaries.filter((item) => item.tone === 'ready' && !text(item.value).includes('picked up')),
+    [summaries]
+  );
+  const processingReady = readySummaries.some((item) => item.key === 'meat');
+  const specialtyReady = readySummaries.some((item) => item.key === 'specialty');
+  const readyLabels = readySummaries.map((item) => item.label);
+  const readyPaymentLines = useMemo(() => {
+    const lines: ReadyPaymentLine[] = [];
+    if (processingReady && typeof owedProcessing === 'number') {
+      lines.push({ label: 'Processing', due: owedProcessing });
+    }
+    if (specialtyReady && typeof owedSpecialty === 'number') {
+      lines.push({ label: 'Specialty', due: owedSpecialty });
+    }
+    return lines;
+  }, [processingReady, specialtyReady, owedProcessing, owedSpecialty]);
   const plainSummary = useMemo(() => customerSummary(summaries), [summaries]);
   const todayHours = useMemo(() => todaysHours(publicHours), [publicHours]);
   const mapsUrl = branding.mapsUrl;
+  const showNotFoundHelp = !!err && !res && /no deer matched|no match/i.test(err);
 
   const field: React.CSSProperties = {
     background: '#0f1416',
@@ -545,7 +577,7 @@ export default function StatusPage() {
     padding: 12,
   };
 
-  async function postStatus(payload: { confirmation?: string; tag?: string; lastName?: string }) {
+  async function postStatus(payload: { confirmation?: string; tag?: string; lastName?: string; phone?: string }) {
     const r = await fetch('/api/public-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -554,25 +586,20 @@ export default function StatusPage() {
     return (await r.json()) as LookupResult;
   }
 
-  const doLookupChain = useCallback(async (payload: { confirmation?: string; tag?: string; lastName?: string }) => {
+  const doLookupChain = useCallback(async (payload: { confirmation?: string; tag?: string; lastName?: string; phone?: string }) => {
     setLoading(true);
     setErr(null);
     try {
-      const attempts: Array<{ confirmation?: string; tag?: string; lastName?: string }> = [];
+      const attempts: Array<{ confirmation?: string; tag?: string; lastName?: string; phone?: string }> = [];
+      const hasConfirmation = !!payload.confirmation;
+      const hasTagAndName = !!payload.tag && !!payload.lastName;
+      const hasPhoneAndName = !!payload.phone && payload.phone.length === 10 && !!payload.lastName;
 
-      if (payload.confirmation) {
-        attempts.push({ confirmation: payload.confirmation });
-      } else if (payload.tag && payload.lastName) {
-        attempts.push({ tag: payload.tag, lastName: payload.lastName });
-        attempts.push({ tag: payload.tag });
-        attempts.push({ lastName: payload.lastName });
-      } else if (payload.tag) {
-        attempts.push({ tag: payload.tag });
-      } else if (payload.lastName) {
-        attempts.push({ lastName: payload.lastName });
+      if (hasConfirmation || hasTagAndName || hasPhoneAndName) {
+        attempts.push(payload);
       } else {
         setRes(null);
-        setErr('Enter your confirmation number or your tag and last name.');
+        setErr('Enter your confirmation number, tag and last name, or phone number and last name.');
         return;
       }
 
@@ -591,7 +618,7 @@ export default function StatusPage() {
       }
 
       setRes(null);
-      setErr(lastErr || 'No deer matched that search. Try your confirmation number first.');
+      setErr(lastErr || 'No deer matched that search. Try your confirmation number first, or use phone number and last name if you do not have it.');
     } catch (e: any) {
       setRes(null);
       setErr(e?.message || 'Lookup failed.');
@@ -601,9 +628,33 @@ export default function StatusPage() {
   }, []);
 
   const doLookup = useCallback(
-    async (payload: { confirmation?: string; tag?: string; lastName?: string }) => doLookupChain(payload),
+    async (payload: { confirmation?: string; tag?: string; lastName?: string; phone?: string }) => doLookupChain(payload),
     [doLookupChain]
   );
+
+  useEffect(() => {
+    if (urlLookupStarted || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const rawConfirmation = params.get('confirmation') || params.get('conf') || '';
+    const rawTag = params.get('tag') || '';
+    const rawLastName = params.get('lastName') || params.get('last') || '';
+    const rawPhone = params.get('phone') || '';
+    const nextConfirmation = normalizeConfirmationInput(rawConfirmation, identifierSettings);
+    const nextTag = normalizeTagInput(rawTag, identifierSettings);
+    const nextLastName = normalizeName(rawLastName);
+    const nextPhone = normalizePhone(rawPhone);
+    if (!nextConfirmation && !(nextTag && nextLastName) && !(nextPhone && nextLastName)) {
+      setUrlLookupStarted(true);
+      return;
+    }
+
+    setUrlLookupStarted(true);
+    if (nextConfirmation) setConfirmation(nextConfirmation);
+    if (nextTag) setTag(nextTag);
+    if (nextLastName) setLastName(nextLastName);
+    if (nextPhone) setPhone(nextPhone);
+    void doLookupChain({ confirmation: nextConfirmation, tag: nextTag, lastName: nextLastName, phone: nextPhone });
+  }, [urlLookupStarted, identifierSettings, doLookupChain]);
 
   function clearPolling() {
     if (timeoutRef.current) {
@@ -619,10 +670,11 @@ export default function StatusPage() {
       confirmation: normalizeConfirmationInput(confirmation, identifierSettings),
       tag: normalizeTagInput(tag, identifierSettings),
       lastName: normalizeName(lastName),
+      phone: normalizePhone(phone),
     };
 
-    if (!payload.confirmation && !(payload.tag && payload.lastName)) {
-      setErr(`Enter your ${identifierSettings.confirmationLabel.toLowerCase()}, or enter your ${identifierSettings.tagLabel.toLowerCase()} and last name.`);
+    if (!payload.confirmation && !(payload.tag && payload.lastName) && !(payload.phone && payload.lastName)) {
+      setErr(`Enter your ${identifierSettings.confirmationLabel.toLowerCase()}, your ${identifierSettings.tagLabel.toLowerCase()} and last name, or your phone number and last name.`);
       return;
     }
 
@@ -730,7 +782,7 @@ export default function StatusPage() {
               <div style={{ fontWeight: 900 }}>{`Search by ${identifierSettings.confirmationLabel.toLowerCase()} first.`}</div>
               <div style={{ color: '#475569', lineHeight: 1.5 }}>
                 {publicCopy.statusBestWay}
-                {' '}If the final tag is not assigned yet, keep using your confirmation number.
+                {' '}The final deer tag may not be assigned yet, so phone number and last name can be easier than tag lookup.
               </div>
             </div>
             <div
@@ -756,6 +808,32 @@ export default function StatusPage() {
               </div>
 
               <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
+                <div style={{ fontWeight: 900, marginBottom: 6 }}>Search by Phone and Last Name</div>
+                <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
+                  Good backup if you chose phone calls or do not have your confirmation number handy.
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(normalizePhone(e.target.value))}
+                    placeholder="10-digit phone"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    aria-label="Phone number for status lookup"
+                    style={field}
+                  />
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Customer last name"
+                    aria-label="Customer last name for phone lookup"
+                    style={field}
+                  />
+                </div>
+              </div>
+
+              <div style={{ ...sectionCard, background: '#f8fafc', borderColor: '#dbe4ee', color: '#0f172a' }}>
                 <div style={{ fontWeight: 900, marginBottom: 6 }}>{`Search by ${identifierSettings.tagLabel} and Last Name`}</div>
                 <div style={{ fontSize: 13, color: '#475569', marginBottom: 10 }}>
                   {publicCopy.tagSearchHelp}
@@ -766,7 +844,7 @@ export default function StatusPage() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Customer last name"
-                    aria-label="Customer last name"
+                    aria-label="Customer last name for tag lookup"
                     style={field}
                   />
                 </div>
@@ -789,6 +867,14 @@ export default function StatusPage() {
         <div role="alert" aria-live="polite" style={errBox}>
           {err}
         </div>
+      ) : null}
+      {showNotFoundHelp ? (
+        <NotFoundHelp
+          confirmationLabel={identifierSettings.confirmationLabel}
+          tagLabel={identifierSettings.tagLabel}
+          phoneHref={branding.phoneHref}
+          phoneDisplay={branding.phoneDisplay}
+        />
       ) : null}
 
       {res ? (
@@ -862,20 +948,48 @@ export default function StatusPage() {
               note={currentStage?.message || 'We will keep this page updated as your deer moves through the shop.'}
             />
             <SummaryCard
-              title="Balance due right now"
+              title="Processing balance"
+              value={money(owedProcessing)}
+              note={
+                paidOverall || paidProc
+                  ? 'Processing is marked paid.'
+                  : typeof owedProcessing === 'number'
+                    ? processingReady
+                      ? 'This is the processing balance to plan for at pickup.'
+                      : 'This balance is shown for processing, even if processing is not ready yet.'
+                    : 'Processing pricing has not been posted yet.'
+              }
+            />
+            {specialtyApplies ? (
+              <SummaryCard
+                title="Specialty balance"
+                value={money(owedSpecialty)}
+                note={
+                  paidOverall || paidSpec
+                    ? 'Specialty is marked paid.'
+                    : typeof owedSpecialty === 'number'
+                      ? specialtyReady
+                        ? 'This is the specialty balance to plan for at pickup.'
+                        : 'This balance is shown for specialty items, even if they are not ready yet.'
+                      : 'Specialty pricing has not been posted yet.'
+                }
+              />
+            ) : null}
+            <SummaryCard
+              title="Total balance shown"
               value={money(owedTotal)}
               note={
                 paidOverall
-                  ? 'This order is marked paid.'
+                  ? 'No additional balance is showing.'
                   : typeof owedTotal === 'number'
-                    ? specialtyApplies
-                      ? 'This is the current balance showing in our system for processing and specialty items.'
-                      : 'This is the current balance showing in our system for processing.'
+                    ? hasWebbsOrder
+                      ? `This is the total currently showing for processing and specialty items. ${WEBBS_PRICE_NOTE}`
+                      : 'This is the total currently showing in our system. Different items may finish at different times.'
                     : 'Pricing has not been posted yet.'
               }
             />
             <SummaryCard
-              title="Payment"
+              title="Payment status"
               value={paidOverall ? 'Paid' : hasAnyPaid ? 'Partially paid or unpaid' : 'Not posted yet'}
               note={
                 paidOverall
@@ -899,6 +1013,11 @@ export default function StatusPage() {
           {(hasAnyPricing || hasAnyPaid) && (
             <section style={sectionCard} aria-label="Payment details">
               <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Payment Breakdown</div>
+              {hasWebbsOrder ? (
+                <div style={{ marginBottom: 10, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 12, padding: 12, lineHeight: 1.45, fontWeight: 800 }}>
+                  {WEBBS_PRICE_NOTE}
+                </div>
+              ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
                 <PaymentCard label="Processing" amount={priceProcessing} paidAmount={amountPaidProcessing} paid={paidOverall || paidProc} owed={owedProcessing} />
                 {specialtyApplies ? <PaymentCard label="Specialty" amount={priceSpecialty} paidAmount={amountPaidSpecialty} paid={paidOverall || paidSpec} owed={owedSpecialty} /> : null}
@@ -917,7 +1036,8 @@ export default function StatusPage() {
             email={branding.email}
             hours={publicHours}
             todayHours={todayHours}
-            owedTotal={owedTotal}
+            readyLabels={readyLabels}
+            readyPaymentLines={readyPaymentLines}
             callBeforePickup={publicCopy.callBeforePickup}
             statusUpdatedAt={res.updatedAt}
             lastUpdatedAt={lastUpdatedAt}
@@ -1029,6 +1149,50 @@ function Badge({ ok, label }: { ok?: boolean; label: string }) {
   );
 }
 
+function NotFoundHelp({
+  confirmationLabel,
+  tagLabel,
+  phoneHref,
+  phoneDisplay,
+}: {
+  confirmationLabel: string;
+  tagLabel: string;
+  phoneHref: string;
+  phoneDisplay: string;
+}) {
+  return (
+    <section
+      aria-label="Lookup Help"
+      style={{
+        marginTop: 12,
+        border: '1px solid #dbe4ee',
+        background: '#ffffff',
+        borderRadius: 14,
+        padding: 14,
+        color: '#0f172a',
+        display: 'grid',
+        gap: 10,
+      }}
+    >
+      <div style={{ fontWeight: 950, fontSize: 18 }}>Need help finding it?</div>
+      <ul style={{ margin: 0, paddingLeft: 18, color: '#475569', lineHeight: 1.55 }}>
+        <li>Try the {confirmationLabel.toLowerCase()} first. This works even before staff assign the final deer tag.</li>
+        <li>If you do not have the confirmation number, use the phone number from intake and the customer last name.</li>
+        <li>If you are using {tagLabel.toLowerCase()}, make sure staff already assigned that tag and enter the customer last name.</li>
+        <li>Check for a typo in the confirmation number, phone number, tag, or last name.</li>
+      </ul>
+      <div>
+        <a
+          href={phoneHref}
+          style={{ background: '#2f6f3f', color: '#ffffff', borderRadius: 12, padding: '10px 13px', fontWeight: 900, textDecoration: 'none', display: 'inline-block' }}
+        >
+          Call Shop{phoneDisplay ? `: ${phoneDisplay}` : ''}
+        </a>
+      </div>
+    </section>
+  );
+}
+
 function PickupPanel({
   processorName,
   ready,
@@ -1039,7 +1203,8 @@ function PickupPanel({
   email,
   hours,
   todayHours,
-  owedTotal,
+  readyLabels,
+  readyPaymentLines,
   callBeforePickup,
   statusUpdatedAt,
   lastUpdatedAt,
@@ -1053,17 +1218,26 @@ function PickupPanel({
   email: string;
   hours: ReadonlyArray<{ label: string; value: string }>;
   todayHours: string;
-  owedTotal?: number;
+  readyLabels: string[];
+  readyPaymentLines: ReadyPaymentLine[];
   callBeforePickup: boolean;
   statusUpdatedAt?: string;
   lastUpdatedAt: number | null;
 }) {
+  const paymentDueForReady = readyPaymentLines.reduce((sum, line) => sum + line.due, 0);
+  const readyLabelText = joinLabels(readyLabels);
+  const pickupPaymentLine = readyPaymentLines.length
+    ? paymentDueForReady > 0
+      ? `Plan for ready-item balances: ${readyPaymentLines.map((line) => `${line.label} ${money(line.due)}`).join(', ')}.`
+      : 'No balance is currently showing for the ready item(s).'
+    : 'Any balance for pickup will be confirmed by the shop.';
   const checklist = ready
     ? [
-        'Bring a cooler or box for your meat.',
-        typeof owedTotal === 'number' && owedTotal > 0
-          ? `Plan to pay ${money(owedTotal)} at pickup.`
-          : 'No balance is currently showing for pickup.',
+        readyLabelText ? `${readyLabelText} ${readyLabels.length === 1 ? 'is' : 'are'} ready for pickup.` : 'At least one item is ready for pickup.',
+        readyLabels.some((label) => ['Processing', 'Specialty', 'Webbs'].includes(label))
+          ? 'Bring a cooler or box if you are picking up meat or specialty products.'
+          : 'Bring any pickup materials staff asked you to bring.',
+        pickupPaymentLine,
         todayHours ? `Today: ${todayHours}.` : 'Check the pickup hours before heading in.',
         callBeforePickup ? 'Call the shop before you come in.' : '',
       ].filter(Boolean)
