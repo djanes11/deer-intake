@@ -178,6 +178,16 @@ const thermalLabelPrintCss = `
   margin: 0;
 }
 
+@page thermal-label {
+  size: 4in 2.3125in;
+  margin: 0;
+}
+
+@page thermal-label-antler {
+  size: 2.3125in 4in;
+  margin: 0;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -218,6 +228,12 @@ body {
   page-break-after: always;
 }
 
+.thermalLabelRoot--antler {
+  width: 2.3125in !important;
+  height: 4in !important;
+  page: thermal-label-antler;
+}
+
 .thermalLabelRoot:last-of-type {
   break-after: auto;
   page-break-after: auto;
@@ -242,6 +258,11 @@ body {
 
 .thermalLabel--antler {
   border-width: 1.5px;
+  width: 2.3125in !important;
+  height: 4in !important;
+  padding: 0.08in;
+  grid-template-rows: 0.42in minmax(0, 2.49in) 0.18in minmax(0, 0.73in);
+  gap: 0.055in;
 }
 
 .thermalLabel__top {
@@ -407,5 +428,77 @@ body {
   max-width: 3.72in;
   height: 0.86in;
   display: block;
+}
+
+.thermalLabel--antler .thermalLabel__top {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: start;
+  gap: 0.035in;
+  padding-bottom: 0.035in;
+}
+
+.thermalLabel--antler .thermalLabel__brandWrap {
+  gap: 0.055in;
+}
+
+.thermalLabel--antler .thermalLabel__brand {
+  max-width: 1.8in;
+  font-size: 8.8px;
+}
+
+.thermalLabel--antler .thermalLabel__type {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.thermalLabel--antler .thermalLabel__details {
+  grid-template-columns: 1fr;
+  gap: 0.075in;
+}
+
+.thermalLabel--antler .thermalLabel__field,
+.thermalLabel--antler .thermalLabel__field--customer {
+  grid-column: auto;
+  grid-template-columns: 0.68in minmax(0, 1fr);
+  gap: 0.06in;
+}
+
+.thermalLabel--antler .thermalLabel__label {
+  font-size: 9.2px;
+}
+
+.thermalLabel--antler .thermalLabel__fieldValue {
+  font-size: 17px;
+  line-height: 1.05;
+}
+
+.thermalLabel--antler .thermalLabel__field--customer .thermalLabel__fieldValue {
+  font-size: 18px;
+  line-height: 1.02;
+}
+
+.thermalLabel--antler .thermalLabel__field--customer.thermalLabel__fieldValue--small .thermalLabel__fieldValue {
+  font-size: 15.4px;
+}
+
+.thermalLabel--antler .thermalLabel__field--customer.thermalLabel__fieldValue--tiny .thermalLabel__fieldValue {
+  font-size: 13px;
+}
+
+.thermalLabel--antler .thermalLabel__footer {
+  grid-row: 3;
+  padding-top: 0.035in;
+  font-size: 9.5px;
+}
+
+.thermalLabel--antler .thermalLabel__barcodeWrap {
+  grid-row: 4;
+  padding: 0.035in;
+}
+
+.thermalLabel--antler .thermalLabel__barcodeWrap svg {
+  max-width: 2.05in;
+  height: 0.64in;
 }
 `;
