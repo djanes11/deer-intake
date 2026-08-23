@@ -256,6 +256,7 @@ export default function ThermalLabelSheet({
           border-width: 1.5px;
           width: 2.3125in;
           height: 4in;
+          max-height: 4in;
           padding: 0.08in;
           grid-template-rows: minmax(0, 1fr) 0.18in 0.72in;
           gap: 0.045in;
@@ -614,6 +615,7 @@ export default function ThermalLabelSheet({
           .thermalLabel--antler {
             width: 2.3125in !important;
             height: 4in !important;
+            max-height: 4in !important;
             border-width: 1px;
           }
         }

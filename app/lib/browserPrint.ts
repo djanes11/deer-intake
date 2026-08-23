@@ -260,6 +260,7 @@ body {
   border-width: 1.5px;
   width: 2.3125in !important;
   height: 4in !important;
+  max-height: 4in !important;
   padding: 0.08in;
   grid-template-rows: minmax(0, 1fr) 0.18in 0.72in;
   gap: 0.045in;
