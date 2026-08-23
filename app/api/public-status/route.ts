@@ -51,12 +51,9 @@ const PUBLIC_STATUS_SELECT = `
   paid_processing,
   paid_specialty,
   public_token,
-  dropoff_date
+  dropoff_date,
+  updated_at
 `;
-
-function toDigits(s: unknown) {
-  return String(s ?? '').replace(/\D+/g, '');
-}
 
 function lname(s?: string) {
   const t = String(s || '').trim();
@@ -127,6 +124,7 @@ async function shapeJob(row: any, supabase: ReturnType<typeof getSupabaseServer>
     ...(amountPaidProcessing !== undefined ? { amountPaidProcessing } : {}),
     ...(amountPaidSpecialty !== undefined ? { amountPaidSpecialty } : {}),
     ...(publicToken ? { intakeLink: `/intake/view/${encodeURIComponent(publicToken)}` } : {}),
+    ...(row.updated_at ? { updatedAt: String(row.updated_at) } : {}),
   };
 
   return base;

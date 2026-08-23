@@ -33,6 +33,7 @@ type LookupResult = {
   paidSpecialty?: boolean | string;
   paid?: boolean | string;
   intakeLink?: string;
+  updatedAt?: string;
 };
 
 type StatusTone = 'ready' | 'progress' | 'hold' | 'unknown';
@@ -57,6 +58,7 @@ type PublicBrandingState = {
   address: string;
   phoneDisplay: string;
   phoneHref: string;
+  email: string;
   mapsUrl: string;
   webbsEnabled: boolean;
   specialtyEnabled: boolean;
@@ -74,6 +76,7 @@ type PublicCopyState = {
   confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
   tagFormat: 'digits_only' | 'letters_numbers';
   tagSearchHelp: string;
+  callBeforePickup: boolean;
 };
 
 const DEFAULT_STATUS_COPY: PublicCopyState = {
@@ -93,9 +96,10 @@ const DEFAULT_STATUS_COPY: PublicCopyState = {
   tagFormat: 'digits_only',
   tagSearchHelp:
     'Only use this after staff have assigned the real deer tag.',
+  callBeforePickup: false,
 };
 
-const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done'];
+const READY_WORDS = ['ready', 'finished', 'complete', 'completed', 'done', 'called'];
 const HOLD_WORDS = ['hold', 'waiting', 'pending', 'not started', 'dropped off', 'drop off', 'received'];
 const PROGRESS_WORDS = ['process', 'cut', 'grind', 'smoke', 'cure', 'working', 'started', 'in progress', 'calling'];
 
@@ -132,6 +136,18 @@ function money(n?: number) {
   return typeof n === 'number' ? `$${n.toFixed(2)}` : '-';
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function normalizeName(n?: string) {
   return (n || '').trim().replace(/[^a-zA-Z'-]/g, '');
 }
@@ -165,6 +181,90 @@ function customerFacingStatus(status?: string) {
   if (PROGRESS_WORDS.some((w) => value.includes(w))) return 'Still being worked on';
   if (HOLD_WORDS.some((w) => value.includes(w))) return 'We have it';
   return 'Status updated';
+}
+
+function joinLabels(labels: string[]) {
+  if (labels.length <= 1) return labels[0] || '';
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+}
+
+function customerSummary(summaries: TrackSummary[]) {
+  const active = summaries.filter((item) => !text(item.value).includes('picked up'));
+  const pickedUp = summaries.filter((item) => text(item.value).includes('picked up')).map((item) => item.label);
+  const ready = active.filter((item) => item.tone === 'ready').map((item) => item.label);
+  const progress = active.filter((item) => item.tone === 'progress').map((item) => item.label);
+
+  if (ready.length && progress.length) {
+    return {
+      tone: 'ready' as StatusTone,
+      title: `${joinLabels(ready)} ${ready.length === 1 ? 'is' : 'are'} ready.`,
+      body: `${joinLabels(progress)} ${progress.length === 1 ? 'is' : 'are'} still being worked on. You can pick up ready items when the shop is open.`,
+    };
+  }
+  if (ready.length) {
+    return {
+      tone: 'ready' as StatusTone,
+      title: `${joinLabels(ready)} ${ready.length === 1 ? 'is' : 'are'} ready for pickup.`,
+      body: 'Check the pickup details below before heading to the shop.',
+    };
+  }
+  if (progress.length) {
+    return {
+      tone: 'progress' as StatusTone,
+      title: 'Your order is still being worked on.',
+      body: 'No action is needed right now. The shop will contact you when something is ready for pickup.',
+    };
+  }
+  if (pickedUp.length && pickedUp.length === summaries.length) {
+    return {
+      tone: 'ready' as StatusTone,
+      title: 'This order has been picked up.',
+      body: 'If you think something is missing, contact the shop.',
+    };
+  }
+  return {
+    tone: 'hold' as StatusTone,
+    title: 'We have your deer.',
+    body: 'No action is needed right now. This page will update as your order moves through the shop.',
+  };
+}
+
+function todaysHours(hours: ReadonlyArray<{ label: string; value: string }>) {
+  const day = new Date().getDay();
+  const weekdayNames = [
+    ['sun', 'sunday'],
+    ['mon', 'monday'],
+    ['tue', 'tues', 'tuesday'],
+    ['wed', 'wednesday'],
+    ['thu', 'thur', 'thurs', 'thursday'],
+    ['fri', 'friday'],
+    ['sat', 'saturday'],
+  ];
+  const todayWords = weekdayNames[day];
+  const isWeekday = day >= 1 && day <= 5;
+  const dayAliases = weekdayNames.flatMap((aliases, index) =>
+    aliases.map((word) => ({ word, index }))
+  ).sort((a, b) => b.word.length - a.word.length);
+  const hasWord = (label: string, word: string) => new RegExp(`\\b${word}\\b`).test(label);
+  const dayIndexIn = (value: string) => dayAliases.find(({ word }) => hasWord(value, word))?.index;
+  const dayInRange = (start: number, end: number) =>
+    start <= end ? day >= start && day <= end : day >= start || day <= end;
+  const match = hours.find((row) => {
+    const label = String(row.label || '').toLowerCase().replace(/[–—]/g, '-');
+    if (!label) return false;
+    if (/\b(daily|every day|all week)\b/.test(label)) return true;
+    if (/\bweekdays?\b/.test(label)) return isWeekday;
+    if (/\bweekends?\b/.test(label)) return day === 0 || day === 6;
+    const range = label.match(/([a-z]+)\s*(?:-|to|through|thru)\s*([a-z]+)/);
+    if (range) {
+      const start = dayIndexIn(range[1]);
+      const end = dayIndexIn(range[2]);
+      if (start !== undefined && end !== undefined && dayInRange(start, end)) return true;
+    }
+    return todayWords.some((word) => hasWord(label, word));
+  });
+  return match ? `${match.label}: ${match.value}` : '';
 }
 
 function trackSummaries(
@@ -231,6 +331,7 @@ export default function StatusPage() {
     address: SITE.address,
     phoneDisplay: SITE.phone,
     phoneHref,
+    email: '',
     mapsUrl: SITE.mapsUrl,
     webbsEnabled: true,
     specialtyEnabled: true,
@@ -280,6 +381,7 @@ export default function StatusPage() {
             address: String(j.settings.branding.address || SITE.address),
             phoneDisplay: String(j.settings.branding.phoneDisplay || SITE.phone),
             phoneHref: nextPhoneHref,
+            email: String(j.settings.branding.email || ''),
             mapsUrl: String(j.settings.branding.mapsUrl || SITE.mapsUrl),
             webbsEnabled: j.settings.features?.webbsEnabled !== false,
             specialtyEnabled: j.settings.features?.specialtyEnabled !== false,
@@ -300,6 +402,7 @@ export default function StatusPage() {
             tagPlaceholder: identifiers.tagPlaceholder,
             tagFormat: identifiers.tagFormat,
             tagSearchHelp: String(j.settings.publicCopy.tagSearchHelp || DEFAULT_STATUS_COPY.tagSearchHelp),
+            callBeforePickup: !!j.settings.publicCopy.callBeforePickup,
           });
         }
       })
@@ -398,6 +501,8 @@ export default function StatusPage() {
     [res, branding.webbsEnabled, branding.specialtyEnabled]
   );
   const currentStage = summaries[0];
+  const plainSummary = useMemo(() => customerSummary(summaries), [summaries]);
+  const todayHours = useMemo(() => todaysHours(publicHours), [publicHours]);
   const mapsUrl = branding.mapsUrl;
 
   const field: React.CSSProperties = {
@@ -406,12 +511,6 @@ export default function StatusPage() {
     border: '1px solid #1f2937',
     borderRadius: 12,
     padding: '13px 14px',
-  };
-  const card: React.CSSProperties = {
-    border: '1px solid #1f2937',
-    borderRadius: 18,
-    background: '#0b0f12',
-    color: '#e6e7eb',
   };
   const sectionCard: React.CSSProperties = {
     border: '1px solid #1f2937',
@@ -436,12 +535,6 @@ export default function StatusPage() {
     padding: '12px 16px',
     fontWeight: 700,
     cursor: 'pointer',
-  };
-  const valueBox: React.CSSProperties = {
-    background: '#0f1416',
-    border: '1px solid #1f2937',
-    borderRadius: 12,
-    padding: '10px 12px',
   };
   const errBox: React.CSSProperties = {
     marginTop: 12,
@@ -703,8 +796,8 @@ export default function StatusPage() {
           <div
             style={{
               ...sectionCard,
-              borderColor: tones[currentStage?.tone || 'unknown'].border,
-              background: currentStage?.tone === 'ready' ? '#ecfdf3' : '#f8fafc',
+              borderColor: tones[plainSummary.tone].border,
+              background: plainSummary.tone === 'ready' ? '#ecfdf3' : '#f8fafc',
               color: '#0f172a',
             }}
           >
@@ -739,9 +832,22 @@ export default function StatusPage() {
                 ) : null}
               </div>
             </div>
-            {currentStage ? (
-              <p style={{ margin: '12px 0 0', opacity: 0.9 }}>{currentStage.message}</p>
-            ) : null}
+            <div style={{ marginTop: 14, display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: '#64748b' }}>
+                What this means
+              </div>
+              <div style={{ fontSize: 23, fontWeight: 950, lineHeight: 1.18 }}>
+                {plainSummary.title}
+              </div>
+              <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
+                {plainSummary.body}
+              </p>
+              {res.updatedAt ? (
+                <div style={{ color: '#64748b', fontSize: 13, fontWeight: 800 }}>
+                  Status last updated: {formatDateTime(res.updatedAt)}
+                </div>
+              ) : null}
+            </div>
             {res.intakeLink ? (
               <p style={{ margin: '8px 0 0', color: '#475569', lineHeight: 1.45 }}>
                 Need to review your cuts, contact information, or specialty selections? Open the read-only intake form.
@@ -808,7 +914,12 @@ export default function StatusPage() {
             mapsUrl={mapsUrl}
             phoneHref={branding.phoneHref}
             phoneDisplay={branding.phoneDisplay}
+            email={branding.email}
             hours={publicHours}
+            todayHours={todayHours}
+            owedTotal={owedTotal}
+            callBeforePickup={publicCopy.callBeforePickup}
+            statusUpdatedAt={res.updatedAt}
             lastUpdatedAt={lastUpdatedAt}
           />
         </section>
@@ -925,7 +1036,12 @@ function PickupPanel({
   mapsUrl,
   phoneHref,
   phoneDisplay,
+  email,
   hours,
+  todayHours,
+  owedTotal,
+  callBeforePickup,
+  statusUpdatedAt,
   lastUpdatedAt,
 }: {
   processorName: string;
@@ -934,9 +1050,29 @@ function PickupPanel({
   mapsUrl: string;
   phoneHref: string;
   phoneDisplay: string;
+  email: string;
   hours: ReadonlyArray<{ label: string; value: string }>;
+  todayHours: string;
+  owedTotal?: number;
+  callBeforePickup: boolean;
+  statusUpdatedAt?: string;
   lastUpdatedAt: number | null;
 }) {
+  const checklist = ready
+    ? [
+        'Bring a cooler or box for your meat.',
+        typeof owedTotal === 'number' && owedTotal > 0
+          ? `Plan to pay ${money(owedTotal)} at pickup.`
+          : 'No balance is currently showing for pickup.',
+        todayHours ? `Today: ${todayHours}.` : 'Check the pickup hours before heading in.',
+        callBeforePickup ? 'Call the shop before you come in.' : '',
+      ].filter(Boolean)
+    : [
+        'No action is needed right now.',
+        'The shop will contact you when something is ready.',
+        todayHours ? `Today: ${todayHours}.` : '',
+      ].filter(Boolean);
+
   return (
     <section
       aria-label="Pickup Information"
@@ -961,10 +1097,42 @@ function PickupPanel({
       </div>
 
       {lastUpdatedAt ? (
-        <div style={{ fontSize: 12, opacity: 0.78 }}>Last updated: {new Date(lastUpdatedAt).toLocaleTimeString()}</div>
+        <div style={{ fontSize: 12, opacity: 0.78 }}>
+          {statusUpdatedAt ? `Status last updated: ${formatDateTime(statusUpdatedAt)}` : `Checked at: ${new Date(lastUpdatedAt).toLocaleTimeString()}`}
+        </div>
       ) : null}
 
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <a href={phoneHref} style={{ background: '#2f6f3f', color: '#ffffff', borderRadius: 12, padding: '10px 13px', fontWeight: 900, textDecoration: 'none' }}>
+          Call Shop
+        </a>
+        <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ background: '#ffffff', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 12, padding: '10px 13px', fontWeight: 900, textDecoration: 'none' }}>
+          Get Directions
+        </a>
+        {email ? (
+          <a href={`mailto:${email}`} style={{ background: '#ffffff', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 12, padding: '10px 13px', fontWeight: 900, textDecoration: 'none' }}>
+            Email Shop
+          </a>
+        ) : null}
+      </div>
+
+      <div style={{ border: '1px solid #dbe4ee', borderRadius: 14, background: '#ffffff', padding: 14, display: 'grid', gap: 8 }}>
+        <div style={{ fontWeight: 950 }}>Pickup checklist</div>
+        <ul style={{ margin: 0, paddingLeft: 18, color: '#475569', lineHeight: 1.55 }}>
+          {checklist.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        {todayHours ? (
+          <div>
+            <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 5 }}>Today</div>
+            <div style={{ fontWeight: 900 }}>{todayHours}</div>
+          </div>
+        ) : null}
+
         <div>
           <div style={{ fontSize: 12, opacity: 0.76, marginBottom: 5 }}>Location</div>
           <div>
