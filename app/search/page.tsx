@@ -56,25 +56,44 @@ function rowBadges(row: Record<string, any>) {
   if (!row.tag || String(row.tag).toUpperCase().startsWith('PENDING-')) badges.push('Needs tag');
   const status = String(row.status || '').toLowerCase();
   if (status.includes('finished') || status.includes('ready') || status.includes('called')) badges.push('Ready');
-  const due =
-    Math.max(0, Number(row.priceProcessing ?? row.price_processing ?? 0) - Number(row.amountPaidProcessing ?? row.amount_paid_processing ?? 0)) +
-    Math.max(0, Number(row.priceSpecialty ?? row.price_specialty ?? 0) - Number(row.amountPaidSpecialty ?? row.amount_paid_specialty ?? 0));
+  const due = processingDue(row) + specialtyDue(row);
   if (due > 0) badges.push('Unpaid');
   return badges;
 }
 
+function truthyFlag(value: any) {
+  if (value === true) return true;
+  if (value === false || value == null) return false;
+  return ['1', 'true', 'yes', 'y', 'paid', 'x', 'on'].includes(String(value).trim().toLowerCase());
+}
+
 function processingDue(row: Record<string, any> | null | undefined) {
   if (!row) return 0;
+  if (truthyFlag(row.paid ?? row.Paid) || truthyFlag(row.paidProcessing ?? row.paid_processing)) return 0;
   return Math.max(0, Number(row.priceProcessing ?? row.price_processing ?? 0) - Number(row.amountPaidProcessing ?? row.amount_paid_processing ?? 0));
 }
 
 function specialtyDue(row: Record<string, any> | null | undefined) {
   if (!row) return 0;
+  if (truthyFlag(row.paid ?? row.Paid) || truthyFlag(row.paidSpecialty ?? row.paid_specialty)) return 0;
   return Math.max(0, Number(row.priceSpecialty ?? row.price_specialty ?? 0) - Number(row.amountPaidSpecialty ?? row.amount_paid_specialty ?? 0));
 }
 
 function money(value: number) {
   return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function statusReadyLike(value: any) {
+  const status = String(value || '').trim().toLowerCase();
+  return ['called', 'finished', 'ready', 'complete', 'completed', 'done', 'delivered'].some((word) => status.includes(word));
+}
+
+function statusPickedUp(value: any) {
+  return String(value || '').trim().toLowerCase().includes('picked up');
+}
+
+function displayStatus(value: any) {
+  return String(value || '').trim() || 'Not started';
 }
 
 function labelModeLabel(mode: ThermalLabelPrintMode) {
@@ -84,9 +103,17 @@ function labelModeLabel(mode: ThermalLabelPrintMode) {
 }
 
 type PaymentMethod = 'cash' | 'card' | 'check' | 'other';
-type PickupTrack = 'meat' | 'cape' | 'webbs';
+type PickupTrack = 'meat' | 'cape' | 'specialty' | 'webbs';
 type SearchDetailTab = 'counter' | 'order' | 'contact' | 'messages' | 'history';
 type PrimaryActionKind = 'open' | 'print' | 'counter';
+type PickupChecklistTone = 'ok' | 'warn' | 'wait';
+type PickupChecklistItem = {
+  key: string;
+  label: string;
+  value: string;
+  detail: string;
+  tone: PickupChecklistTone;
+};
 
 const DETAIL_TABS: Array<{ key: SearchDetailTab; label: string }> = [
   { key: 'counter', label: 'Counter' },
@@ -369,14 +396,32 @@ export default function SearchPage() {
     const procDue = processingDue(selectedJob);
     const specDue = specialtyEnabled ? specialtyDue(selectedJob) : 0;
     const due = procDue + specDue;
-    const pickupState = String(selectedJob.status || '').toLowerCase().includes('called')
-      ? 'Ready for pickup'
-      : String(selectedJob.status || '').toLowerCase().includes('finished') || String(selectedJob.status || '').toLowerCase().includes('ready')
-        ? 'Ready to contact'
-        : 'Still in process';
+    const processingStatus = displayStatus(selectedJob.status);
+    const capeStatus = displayStatus(selectedJob.capingStatus ?? selectedJob.caping_status);
+    const specialtyStatus = displayStatus(selectedJob.specialtyStatus ?? selectedJob.specialty_status);
+    const webbsStatus = displayStatus(selectedJob.webbsStatus ?? selectedJob.webbs_status);
     const processingPickedUp = !!(selectedJob.pickedUpProcessing ?? selectedJob.picked_up_processing);
     const capePickedUp = !!(selectedJob.pickedUpCape ?? selectedJob.picked_up_cape);
     const webbsPickedUp = !!(selectedJob.pickedUpWebbs ?? selectedJob.picked_up_webbs);
+    const specialtyPickedUp = statusPickedUp(specialtyStatus);
+    const processingReady = statusReadyLike(processingStatus);
+    const capeReady = statusReadyLike(capeStatus);
+    const specialtyReady = statusReadyLike(specialtyStatus);
+    const webbsReady = statusReadyLike(webbsStatus);
+    const hasCape = canPrintCapeLabel(selectedJob);
+    const hasSpecialty =
+      specialtyEnabled &&
+      (!!selectedJob.specialtyProducts ||
+        Number(selectedJob.priceSpecialty ?? selectedJob.price_specialty ?? 0) > 0 ||
+        String(selectedJob.specialtyStatus ?? selectedJob.specialty_status ?? '').trim().length > 0);
+    const hasWebbs = webbsEnabled && !!selectedJob.webbsOrder;
+    const pickupState = processingPickedUp
+      ? 'Processing picked up'
+      : String(selectedJob.status || '').toLowerCase().includes('called')
+        ? 'Ready for pickup'
+        : processingReady
+          ? 'Ready to contact'
+          : 'Still in process';
     const pickedUpBy = String(selectedJob.pickedUpBy ?? selectedJob.picked_up_by ?? '').trim();
     const pickupNotes = String(selectedJob.pickupNotes ?? selectedJob.pickup_notes ?? '').trim();
     return {
@@ -384,13 +429,124 @@ export default function SearchPage() {
       procDue,
       specDue,
       pickupState,
+      processingStatus,
+      capeStatus,
+      specialtyStatus,
+      webbsStatus,
+      processingReady,
+      capeReady,
+      specialtyReady,
+      webbsReady,
       processingPickedUp,
       capePickedUp,
+      specialtyPickedUp,
       webbsPickedUp,
+      hasCape,
+      hasSpecialty,
+      hasWebbs,
       pickedUpBy,
       pickupNotes,
     };
-  }, [selectedJob, specialtyEnabled]);
+  }, [selectedJob, specialtyEnabled, webbsEnabled]);
+
+  const pickupChecklist = useMemo<PickupChecklistItem[]>(() => {
+    if (!selectedJob || !pickupQuickView) return [];
+    const handoffItem = (
+      key: string,
+      label: string,
+      pickedUp: boolean,
+      ready: boolean,
+      status: string,
+      readyDetail: string,
+      waitDetail: string
+    ): PickupChecklistItem => {
+      if (pickedUp) {
+        return { key, label, value: 'Done', detail: 'Already marked picked up.', tone: 'ok' };
+      }
+      if (ready) {
+        return { key, label, value: 'Ready', detail: readyDetail, tone: 'warn' };
+      }
+      return { key, label, value: 'Not ready', detail: `${waitDetail} Current status: ${displayStatus(status)}.`, tone: 'wait' };
+    };
+
+    const items: PickupChecklistItem[] = [
+      {
+        key: 'processing-payment',
+        label: 'Processing payment',
+        value: pickupQuickView.procDue > 0 ? `${money(pickupQuickView.procDue)} due` : 'Paid',
+        detail: pickupQuickView.procDue > 0 ? 'Collect this before the processing order leaves.' : 'Processing balance is clear.',
+        tone: pickupQuickView.procDue > 0 ? 'warn' : 'ok',
+      },
+      handoffItem(
+        'processing-handoff',
+        'Processing handoff',
+        pickupQuickView.processingPickedUp,
+        pickupQuickView.processingReady,
+        pickupQuickView.processingStatus,
+        'Meat can leave once payment is handled.',
+        'Do not mark processing picked up until the meat is actually ready.'
+      ),
+    ];
+
+    if (pickupQuickView.hasSpecialty) {
+      items.push({
+        key: 'specialty-payment',
+        label: 'Specialty payment',
+        value: pickupQuickView.specDue > 0 ? `${money(pickupQuickView.specDue)} due` : 'Paid',
+        detail: pickupQuickView.specDue > 0 ? 'Collect this before specialty products leave.' : 'Specialty balance is clear.',
+        tone: pickupQuickView.specDue > 0 ? 'warn' : 'ok',
+      });
+      items.push(
+        handoffItem(
+          'specialty-handoff',
+          'Specialty handoff',
+          pickupQuickView.specialtyPickedUp,
+          pickupQuickView.specialtyReady,
+          pickupQuickView.specialtyStatus,
+          'Specialty products are ready to leave.',
+          'Specialty products are still being worked or waiting to be marked finished.'
+        )
+      );
+    }
+
+    if (pickupQuickView.hasCape) {
+      items.push(
+        handoffItem(
+          'cape-handoff',
+          'Cape handoff',
+          pickupQuickView.capePickedUp,
+          pickupQuickView.capeReady,
+          pickupQuickView.capeStatus,
+          'Cape can leave with the customer.',
+          'Cape is not marked ready yet.'
+        )
+      );
+    }
+
+    if (pickupQuickView.hasWebbs) {
+      items.push(
+        handoffItem(
+          'webbs-handoff',
+          'Webbs handoff',
+          pickupQuickView.webbsPickedUp,
+          pickupQuickView.webbsReady,
+          pickupQuickView.webbsStatus,
+          'Webbs order is ready to leave.',
+          'Webbs order is not marked delivered yet.'
+        )
+      );
+    }
+
+    return items;
+  }, [selectedJob, pickupQuickView]);
+
+  const pickupWarnCount = pickupChecklist.filter((item) => item.tone === 'warn').length;
+  const pickupWaitCount = pickupChecklist.filter((item) => item.tone === 'wait').length;
+  const pickupChecklistSummary = pickupWarnCount > 0
+    ? `Finish ${pickupWarnCount} counter ${pickupWarnCount === 1 ? 'item' : 'items'} before the customer leaves.`
+    : pickupWaitCount > 0
+      ? 'Nothing urgent to collect right now, but some pieces are not ready yet.'
+      : 'Everything on the counter checklist is complete.';
 
   useEffect(() => {
     if (!selectedJob) {
@@ -567,6 +723,7 @@ export default function SearchPage() {
     const hasPickupWork = !!pickupQuickView && (
       !pickupQuickView.processingPickedUp ||
       (canPrintCapeLabel(selectedJob) && !pickupQuickView.capePickedUp) ||
+      (pickupQuickView.hasSpecialty && pickupQuickView.specialtyReady && !pickupQuickView.specialtyPickedUp) ||
       (webbsEnabled && selectedJob.webbsOrder && !pickupQuickView.webbsPickedUp)
     );
 
@@ -682,11 +839,13 @@ export default function SearchPage() {
           ? ({
               tag: selectedTag,
               amountPaidProcessing: currentPaid + due,
+              paidProcessing: true,
               paymentMethodProcessing: quickPaymentMethod,
             } as any)
           : ({
               tag: selectedTag,
               amountPaidSpecialty: currentPaid + due,
+              paidSpecialty: true,
               paymentMethodSpecialty: quickPaymentMethod,
             } as any)
       );
@@ -713,6 +872,8 @@ export default function SearchPage() {
         await saveJob({ tag: selectedTag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now, ...shared } as any);
       } else if (track === 'cape') {
         await saveJob({ tag: selectedTag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now, ...shared } as any);
+      } else if (track === 'specialty') {
+        await saveJob({ tag: selectedTag, specialtyStatus: 'Picked Up', ...shared } as any);
       } else {
         await saveJob({ tag: selectedTag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now, ...shared } as any);
       }
@@ -1085,6 +1246,28 @@ export default function SearchPage() {
                             </div>
                           </div>
 
+                          <div className={`pickupChecklistSummary ${pickupWarnCount > 0 ? 'warn' : pickupWaitCount > 0 ? 'wait' : 'ok'}`}>
+                            <div>
+                              <div className="pickupChecklistSummaryLabel">Before customer leaves</div>
+                              <div className="pickupChecklistSummaryText">{pickupChecklistSummary}</div>
+                            </div>
+                            <div className="pickupChecklistSummaryCount">
+                              {pickupWarnCount > 0 ? `${pickupWarnCount} left` : 'Clear'}
+                            </div>
+                          </div>
+
+                          <div className="pickupChecklist" aria-label="Pickup counter checklist">
+                            {pickupChecklist.map((item) => (
+                              <div className={`pickupChecklistItem ${item.tone}`} key={item.key}>
+                                <div className="pickupChecklistMain">
+                                  <div className="pickupChecklistTitle">{item.label}</div>
+                                  <div className="pickupChecklistDetail">{item.detail}</div>
+                                </div>
+                                <div className="pickupChecklistState">{item.value}</div>
+                              </div>
+                            ))}
+                          </div>
+
                           <details className="compactDisclosure">
                             <summary>
                               <span>Payment and pickup details</span>
@@ -1099,6 +1282,7 @@ export default function SearchPage() {
                               {specialtyEnabled ? <div><strong>Specialty paid:</strong> {money(Number(selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty ?? 0))}</div> : null}
                               <div><strong>Processing pickup:</strong> {pickupQuickView.processingPickedUp ? 'Picked up' : 'Not picked up'}</div>
                               <div><strong>Cape pickup:</strong> {pickupQuickView.capePickedUp ? 'Picked up' : 'Not picked up'}</div>
+                              {pickupQuickView.hasSpecialty ? <div><strong>Specialty pickup:</strong> {pickupQuickView.specialtyPickedUp ? 'Picked up' : 'Not picked up'}</div> : null}
                               {webbsEnabled && selectedJob.webbsOrder ? <div><strong>Webbs pickup:</strong> {pickupQuickView.webbsPickedUp ? 'Picked up' : 'Not picked up'}</div> : null}
                               <div><strong>Picked up by:</strong> {pickupQuickView.pickedUpBy || 'Not recorded'}</div>
                             </div>
@@ -1176,6 +1360,16 @@ export default function SearchPage() {
                                     disabled={pickupActionBusy !== '' || pickupQuickView.capePickedUp}
                                   >
                                     {pickupActionBusy === 'pickup-cape' ? 'Saving...' : pickupQuickView.capePickedUp ? 'Cape Picked Up' : 'Mark Cape Picked Up'}
+                                  </button>
+                                ) : null}
+                                {pickupQuickView.hasSpecialty ? (
+                                  <button
+                                    className="btn secondary"
+                                    type="button"
+                                    onClick={() => void markTrackPickedUp('specialty')}
+                                    disabled={pickupActionBusy !== '' || pickupQuickView.specialtyPickedUp}
+                                  >
+                                    {pickupActionBusy === 'pickup-specialty' ? 'Saving...' : pickupQuickView.specialtyPickedUp ? 'Specialty Picked Up' : 'Mark Specialty Picked Up'}
                                   </button>
                                 ) : null}
                                 {webbsEnabled && selectedJob.webbsOrder ? (
@@ -1862,6 +2056,128 @@ export default function SearchPage() {
           line-height: 1.45;
         }
 
+        .pickupChecklistSummary {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: center;
+          border: 1px solid #dbe4ee;
+          border-radius: 14px;
+          padding: 12px;
+          background: #f8fafc;
+        }
+
+        .pickupChecklistSummary.warn {
+          border-color: #fed7aa;
+          background: #fff7ed;
+        }
+
+        .pickupChecklistSummary.wait {
+          border-color: #dbe4ee;
+          background: #f8fafc;
+        }
+
+        .pickupChecklistSummary.ok {
+          border-color: #bbf7d0;
+          background: #f0fdf4;
+        }
+
+        .pickupChecklistSummaryLabel {
+          font-size: 11px;
+          font-weight: 900;
+          letter-spacing: .06em;
+          text-transform: uppercase;
+          color: #64748b;
+        }
+
+        .pickupChecklistSummaryText {
+          margin-top: 4px;
+          color: #0f172a;
+          font-weight: 900;
+          line-height: 1.35;
+        }
+
+        .pickupChecklistSummaryCount {
+          flex: 0 0 auto;
+          border-radius: 999px;
+          padding: 7px 10px;
+          background: #ffffff;
+          border: 1px solid rgba(15,23,42,.12);
+          color: #0f172a;
+          font-size: 12px;
+          font-weight: 950;
+          white-space: nowrap;
+        }
+
+        .pickupChecklist {
+          display: grid;
+          gap: 8px;
+        }
+
+        .pickupChecklistItem {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 12px;
+          align-items: center;
+          border: 1px solid #dbe4ee;
+          border-left-width: 5px;
+          border-radius: 12px;
+          padding: 10px 11px;
+          background: #ffffff;
+        }
+
+        .pickupChecklistItem.ok {
+          border-left-color: #22c55e;
+        }
+
+        .pickupChecklistItem.warn {
+          border-left-color: #f59e0b;
+          background: #fffaf0;
+        }
+
+        .pickupChecklistItem.wait {
+          border-left-color: #94a3b8;
+          background: #f8fafc;
+        }
+
+        .pickupChecklistMain {
+          min-width: 0;
+          display: grid;
+          gap: 3px;
+        }
+
+        .pickupChecklistTitle {
+          color: #0f172a;
+          font-weight: 950;
+          line-height: 1.25;
+        }
+
+        .pickupChecklistDetail {
+          color: #475569;
+          font-size: 13px;
+          line-height: 1.35;
+        }
+
+        .pickupChecklistState {
+          border-radius: 999px;
+          padding: 6px 9px;
+          background: #f1f5f9;
+          color: #0f172a;
+          font-size: 12px;
+          font-weight: 950;
+          white-space: nowrap;
+        }
+
+        .pickupChecklistItem.warn .pickupChecklistState {
+          background: #ffedd5;
+          color: #9a3412;
+        }
+
+        .pickupChecklistItem.ok .pickupChecklistState {
+          background: #dcfce7;
+          color: #166534;
+        }
+
         .pickupQuickBreakdown {
           display: grid;
           gap: 6px;
@@ -2081,6 +2397,16 @@ export default function SearchPage() {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
+          }
+
+          .pickupChecklistItem {
+            grid-template-columns: 1fr;
+            align-items: start;
+          }
+
+          .pickupChecklistSummary {
+            flex-direction: column;
+            align-items: stretch;
           }
 
           .search-results-mobile.collapsed {
