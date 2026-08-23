@@ -3391,6 +3391,161 @@ export async function listJobsNeedingPrint(opts: { processorContext?: ProcessorC
   return { ok: true, rows: (data || []).map(mapDbRowToSearchRow) };
 }
 
+export type WebbsProcessingPaymentNeededRow = {
+  id: string;
+  tag: string;
+  confirmation: string;
+  customer: string;
+  phone: string;
+  dropoff: string | null;
+  status: string;
+  webbsStatus: string;
+  requiresTag: boolean;
+  priceProcessing: number;
+  amountPaidProcessing: number;
+  processingDue: number;
+  paidProcessing: boolean;
+  paymentMethodProcessing: 'cash' | 'card' | 'check' | 'other' | null;
+  paidProcessingAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  needsPriceReview: boolean;
+  sourceLabel: string;
+};
+
+function mapWebbsPaymentRow(row: any): WebbsProcessingPaymentNeededRow {
+  const priceProcessing = Number(row?.price_processing ?? 0) || 0;
+  const amountPaidProcessing = Number(row?.amount_paid_processing ?? 0) || 0;
+  const paidProcessing = !!row?.paid_processing || (priceProcessing > 0 && amountPaidProcessing >= priceProcessing);
+  const processingDue = paidProcessing ? 0 : Math.max(0, priceProcessing - amountPaidProcessing);
+  const requiresTag = !!row?.requires_tag || String(row?.tag || '').toUpperCase().startsWith('PENDING-');
+  return {
+    id: String(row?.id || ''),
+    tag: String(row?.tag || ''),
+    confirmation: String(row?.confirmation || ''),
+    customer: String(row?.customer_name || ''),
+    phone: String(row?.phone || ''),
+    dropoff: row?.dropoff_date ?? null,
+    status: String(row?.status || ''),
+    webbsStatus: String(row?.webbs_status || ''),
+    requiresTag,
+    priceProcessing,
+    amountPaidProcessing,
+    processingDue,
+    paidProcessing,
+    paymentMethodProcessing: paymentMethodOrNull(row?.payment_method_processing),
+    paidProcessingAt: row?.paid_processing_at ?? null,
+    createdAt: row?.created_at ?? null,
+    updatedAt: row?.updated_at ?? null,
+    needsPriceReview: !paidProcessing && priceProcessing <= 0,
+    sourceLabel: requiresTag ? 'Public intake / needs tag' : 'Tagged intake',
+  };
+}
+
+export async function listWebbsProcessingPaymentNeeded(
+  opts: { processorContext?: ProcessorContext | null } = {}
+): Promise<{ ok: boolean; rows: WebbsProcessingPaymentNeededRow[] }> {
+  const supabaseServer = getSupabaseServer();
+  const processor = opts.processorContext ?? await getDefaultProcessorContext();
+
+  const { data, error } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .select('id,tag,confirmation,customer_name,phone,dropoff_date,status,webbs_status,webbs_order,requires_tag,price_processing,amount_paid_processing,paid_processing,payment_method_processing,paid_processing_at,pending_deleted_at,created_at,updated_at')
+      .eq('webbs_order', true)
+      .is('pending_deleted_at', null),
+    processor.id
+  )
+    .order('dropoff_date', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error('listWebbsProcessingPaymentNeeded error', error);
+    throw error;
+  }
+
+  const rows = (data || [])
+    .map(mapWebbsPaymentRow)
+    .filter((row) => !row.paidProcessing || row.processingDue > 0 || row.needsPriceReview);
+
+  return { ok: true, rows };
+}
+
+export async function markWebbsProcessingPaid(params: {
+  tag: string;
+  method?: 'cash' | 'card' | 'check' | 'other' | string | null;
+  processorContext?: ProcessorContext | null;
+}) {
+  const supabaseServer = getSupabaseServer();
+  const processor = params.processorContext ?? await getDefaultProcessorContext();
+  const tag = String(params.tag || '').trim();
+  if (!tag) return { ok: false, error: 'Missing tag' };
+
+  const method = paymentMethodOrNull(params.method) || 'other';
+
+  const { data: row, error: lookupError } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .select('id,tag,webbs_order,price_processing,price_specialty,amount_paid_specialty,paid_specialty')
+      .eq('tag', tag),
+    processor.id
+  ).maybeSingle();
+
+  if (lookupError) {
+    console.error('markWebbsProcessingPaid lookup error', lookupError);
+    throw lookupError;
+  }
+
+  if (!row || !(row as any).webbs_order) {
+    return { ok: false, error: 'Webbs job not found' };
+  }
+
+  const paidAt = nowIso();
+  const priceProcessing = Number((row as any).price_processing ?? 0) || 0;
+  if (priceProcessing <= 0) {
+    return { ok: false, error: 'Set the processing price before marking this Webbs order paid.' };
+  }
+
+  const priceSpecialty = Number((row as any).price_specialty ?? 0) || 0;
+  const amountPaidSpecialty = Number((row as any).amount_paid_specialty ?? 0) || 0;
+  const paidSpecialty = !!(row as any).paid_specialty || priceSpecialty <= 0 || amountPaidSpecialty >= priceSpecialty;
+
+  const { data: updated, error } = await withProcessorFilter(
+    supabaseServer
+      .from('jobs')
+      .update({
+        amount_paid_processing: priceProcessing,
+        paid_processing: true,
+        payment_method_processing: method,
+        paid_processing_at: paidAt,
+        paid: paidSpecialty,
+        updated_at: paidAt,
+      })
+      .eq('tag', tag),
+    processor.id
+  )
+    .select('id,tag,price_processing,amount_paid_processing,paid_processing,payment_method_processing,paid_processing_at')
+    .maybeSingle();
+
+  if (error) {
+    console.error('markWebbsProcessingPaid error', error);
+    throw error;
+  }
+
+  if (!updated) return { ok: false, error: 'Webbs job not found' };
+
+  return {
+    ok: true,
+    tag: String((updated as any).tag || tag),
+    priceProcessing: Number((updated as any).price_processing ?? 0) || 0,
+    amountPaidProcessing: Number((updated as any).amount_paid_processing ?? 0) || 0,
+    paidProcessing: !!(updated as any).paid_processing,
+    paymentMethodProcessing: paymentMethodOrNull((updated as any).payment_method_processing),
+    paidProcessingAt: (updated as any).paid_processing_at ?? paidAt,
+  };
+}
+
 export async function lookupCustomerByName(name: string, opts: { processorContext?: ProcessorContext | null } = {}) {
   const supabaseServer = getSupabaseServer();
   const processor = opts.processorContext ?? await getDefaultProcessorContext();

@@ -50,6 +50,8 @@ export const dynamic = 'force-dynamic';
 const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
 const WEBBS_PRICE_NOTE =
   'Totals may include the processor Webbs handling fee, but Webbs product prices are not included. Those product charges will be provided when the Webbs order is delivered.';
+const WEBBS_PROCESSING_PAYMENT_NOTE =
+  'Webbs orders require regular processing payment at drop-off. If staff is not present, the shop must follow up before the Webbs order can move forward.';
 
 /* ---------------- Types ---------------- */
 
@@ -1829,6 +1831,7 @@ function OvernightIntakePage() {
                             <div>
                               <div className="webbsSummaryTitle">Webbs Order</div>
                               <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
+                              <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PROCESSING_PAYMENT_NOTE}</div>
                               <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PRICE_NOTE}</div>
                               <div style={{ marginTop: 8 }}>
                                 <a
@@ -1994,6 +1997,9 @@ function OvernightIntakePage() {
                   ) : null}
                   {webbsEnabled ? (
                     <div className="reviewLine">Webbs: {job.webbsOrder ? webbsSummaryText : 'No Webbs order'}</div>
+                  ) : null}
+                  {job.webbsOrder ? (
+                    <div className="reviewLine"><strong>{WEBBS_PROCESSING_PAYMENT_NOTE}</strong></div>
                   ) : null}
                   {job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 ? (
                     <div className="reviewList">
@@ -2246,6 +2252,7 @@ function OvernightIntakePage() {
                 </div>
               ) : null}
               {publicCopy.callBeforePickup ? <div>Please call the shop before pickup so staff can have your order ready.</div> : null}
+              {job.webbsOrder ? <div>{WEBBS_PROCESSING_PAYMENT_NOTE}</div> : null}
               {job.webbsOrder ? <div>{WEBBS_PRICE_NOTE}</div> : null}
               {publicCopy.storageFeePolicy ? <div>{publicCopy.storageFeePolicy}</div> : null}
             </div>

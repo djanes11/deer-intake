@@ -111,6 +111,8 @@ const HOLD_WORDS = ['hold', 'waiting', 'pending', 'not started', 'dropped off', 
 const PROGRESS_WORDS = ['process', 'cut', 'grind', 'smoke', 'cure', 'working', 'started', 'in progress', 'calling'];
 const WEBBS_PRICE_NOTE =
   'Totals may include the processor Webbs handling fee, but Webbs product prices are not included. Those product charges will be provided when the Webbs order is delivered.';
+const WEBBS_PROCESSING_PAYMENT_NOTE =
+  'Webbs orders require regular processing payment at drop-off. Webbs product charges are separate and are not included in this online status total.';
 
 const tones: Record<StatusTone, { border: string; background: string; text: string }> = {
   ready: { border: '#2a5f47', background: '#193b2e', text: '#a7e3ba' },
@@ -534,6 +536,12 @@ export default function StatusPage() {
         : typeof priceTotal === 'number'
           ? priceTotal
           : undefined;
+  const webbsProcessingPaymentDue =
+    hasWebbsOrder &&
+    paidOverall !== true &&
+    paidProc !== true &&
+    typeof owedProcessing === 'number' &&
+    owedProcessing > 0;
 
   const summaries = useMemo(
     () => trackSummaries(res, { webbsEnabled: branding.webbsEnabled, specialtyEnabled: branding.specialtyEnabled }),
@@ -1036,6 +1044,12 @@ export default function StatusPage() {
             ) : null}
           </div>
 
+          {webbsProcessingPaymentDue ? (
+            <div style={{ border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 14, padding: 14, lineHeight: 1.45, fontWeight: 850 }}>
+              {WEBBS_PROCESSING_PAYMENT_NOTE} Processing still shows {money(owedProcessing)} due. If staff has not collected it yet, contact the shop before leaving your deer.
+            </div>
+          ) : null}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <SummaryCard
               title="Current status"
@@ -1110,7 +1124,7 @@ export default function StatusPage() {
               <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Payment Breakdown</div>
               {hasWebbsOrder ? (
                 <div style={{ marginBottom: 10, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 12, padding: 12, lineHeight: 1.45, fontWeight: 800 }}>
-                  {WEBBS_PRICE_NOTE}
+                  {WEBBS_PROCESSING_PAYMENT_NOTE} {WEBBS_PRICE_NOTE}
                 </div>
               ) : null}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>

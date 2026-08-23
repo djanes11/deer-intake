@@ -53,6 +53,8 @@ import {
 
 const API_MARK_PRINTED = '/api/v2/reports/mark-printed';
 const API_CUSTOMER_LOOKUP = '/api/v2/customers/lookup';
+const WEBBS_PROCESSING_PAYMENT_NOTE =
+  'Webbs order: collect regular processing payment at drop-off. Webbs product charges stay separate.';
 
 export const dynamic = 'force-dynamic';
 
@@ -1569,6 +1571,11 @@ useEffect(() => {
             <div className="col paymentCol">
               <label>Payment</label>
               <div className="paymentPanel">
+                {job.webbsOrder && processingRemaining > 0 ? (
+                  <div style={{ border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 12, padding: 12, fontWeight: 850, lineHeight: 1.35 }}>
+                    {WEBBS_PROCESSING_PAYMENT_NOTE} Processing still shows ${processingRemaining.toFixed(2)} due.
+                  </div>
+                ) : null}
                 <div className="paymentRow">
                   <div className="paymentMain">
                     <div className="paymentTitle">Processing</div>
@@ -2285,6 +2292,9 @@ useEffect(() => {
                     <div>
                       <div className="webbsSummaryTitle">Webbs Order Summary</div>
                       <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
+                      <div style={{ marginTop: 8, border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 12, padding: 10, fontWeight: 800, lineHeight: 1.35 }}>
+                        {WEBBS_PROCESSING_PAYMENT_NOTE}
+                      </div>
                     </div>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                       <span className="badge">

@@ -228,6 +228,9 @@ export default function Nav() {
                       <Link href="/reports/cape-watch" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Cape Watch
                       </Link>
+                      <Link href="/reports/webbs-payments" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                        Webbs Payments
+                      </Link>
                       <Link href="/reports/specialty" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Specialty
                       </Link>
