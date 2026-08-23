@@ -80,10 +80,9 @@ function escapeHtml(s: any) {
 
 function intakeFormLink(tag: string, publicToken: string, baseUrl = SITE_URL) {
   const root = normalizeBaseUrl(baseUrl || SITE_URL);
-  const safeTag = String(tag || '').trim();
   const safeToken = String(publicToken || '').trim();
-  if (!root || !safeTag || !safeToken) return '';
-  return `${root}/intake/${encodeURIComponent(safeTag)}?t=${encodeURIComponent(safeToken)}`;
+  if (!root || !safeToken) return '';
+  return `${root}/intake/view/${encodeURIComponent(safeToken)}`;
 }
 
 function splitTrailingUrlPunctuation(raw: string) {
@@ -1881,6 +1880,40 @@ export async function getJobByTag(tag: string, opts: { processorContext?: Proces
 
   if (error) {
     console.error('getJobByTag error', error);
+    throw error;
+  }
+
+  if (!data) {
+    return { ok: true, exists: false as const, job: null as Job | null };
+  }
+
+  const specialtyItemsMap = await loadJobSpecialtyItemsMap(supabaseServer, [String(data.id)]);
+  return {
+    ok: true,
+    exists: true as const,
+    job: mapDbRowToJob(data, specialtyItemsMap.get(String(data.id)) || []),
+  };
+}
+
+export async function getJobByPublicToken(publicToken: string) {
+  const supabaseServer = getSupabaseServer();
+  const token = String(publicToken || '')
+    .trim()
+    .replace(/[)"'\]>.,;:!?]+$/g, '');
+
+  if (!token) {
+    return { ok: true, exists: false as const, job: null as Job | null };
+  }
+
+  const { data, error } = await supabaseServer
+    .from('jobs')
+    .select(JOB_DETAIL_SELECT)
+    .eq('public_token', token)
+    .is('pending_deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    console.error('getJobByPublicToken error', error);
     throw error;
   }
 

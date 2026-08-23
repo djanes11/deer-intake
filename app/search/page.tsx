@@ -249,7 +249,9 @@ export default function SearchPage() {
     router.push(
       staffRole === 'admin' || staffRole === 'staff'
         ? `/intake?tag=${encodeURIComponent(tag)}`
-        : `/intake/${encodeURIComponent(tag)}${token ? `?t=${encodeURIComponent(token)}` : ''}`
+        : token
+          ? `/intake/view/${encodeURIComponent(token)}`
+          : `/intake/${encodeURIComponent(tag)}`
     );
   };
 
