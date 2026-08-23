@@ -4,7 +4,12 @@ import { sharedRateLimit } from '@/lib/ratelimit';
 import { saveJob } from '@/lib/jobsSupabase';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getSupabaseServer } from '@/lib/supabaseClient';
-import { confirmationSearchCandidates, identifierSettingsFromPublicCopy, normalizeConfirmationInput } from '@/lib/identifiers';
+import { confirmationSearchCandidates, identifierSettingsFromPublicCopy, normalizeConfirmationInput, validateConfirmation } from '@/lib/identifiers';
+import {
+  classifyPublicIntakeSaveError,
+  makePublicIntakeToken,
+  PUBLIC_DROP_RATE_LIMIT,
+} from '@/lib/publicIntakeSafety';
 import {
   normalizeWebbsAllocations,
   normalizeWebbsOrderItems,
@@ -12,7 +17,6 @@ import {
   webbsAllocationTotalPercent,
 } from '@/lib/webbs';
 import { getProcessorContextForHostname } from '@/lib/processorContext';
-import crypto from 'crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,22 +28,6 @@ function getIp(req: NextRequest): string {
     req.headers.get('x-real-ip') ||
     '0.0.0.0'
   );
-}
-
-function genPublicToken() {
-  // 24-ish chars url-safe
-  return crypto.randomBytes(18).toString('base64url');
-}
-
-function genConfirmation() {
-  const now = new Date();
-  const yy = String(now.getFullYear()).slice(-2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const rand = Math.floor(Math.random() * 10_000_000)
-    .toString()
-    .padStart(7, '0');
-  return `${yy}${mm}${dd}${rand}`;
 }
 
 function digitsOnly(v: unknown) {
@@ -90,13 +78,27 @@ function publicValidationError(rawJob: Record<string, any>): string | null {
   return null;
 }
 
-async function confirmationExists(confirmation: string, hostname?: string | null) {
+function json(payload: Record<string, any>, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+async function confirmationExists(
+  confirmation: string,
+  hostname: string | null | undefined,
+  settings: ReturnType<typeof identifierSettingsFromPublicCopy>
+) {
   const supabase = getSupabaseServer();
   const processor = await getProcessorContextForHostname(hostname);
+  const candidates = confirmationSearchCandidates(confirmation, settings);
+  if (!candidates.length) return false;
+
   let query = supabase
     .from('jobs')
     .select('id')
-    .eq('confirmation', confirmation);
+    .in('confirmation', candidates);
 
   if (processor.id) query = query.eq('processor_id', processor.id);
 
@@ -106,46 +108,23 @@ async function confirmationExists(confirmation: string, hostname?: string | null
   return !!data;
 }
 
-async function reserveConfirmation(preferred: string, hostname: string | null | undefined, settings: ReturnType<typeof identifierSettingsFromPublicCopy>) {
-  const initial = normalizeConfirmationInput(preferred, settings).trim();
-  const validationCandidates = confirmationSearchCandidates(initial, settings);
-  if (initial && validationCandidates.length && !(await confirmationExists(initial, hostname))) {
-    return initial;
-  }
-
-  for (let i = 0; i < 10; i += 1) {
-    const candidate = genConfirmation();
-    if (!(await confirmationExists(candidate, hostname))) {
-      return candidate;
-    }
-  }
-
-  throw new Error('Could not generate a unique confirmation number.');
-}
-
-function isUniqueViolation(error: any, column: string) {
-  const message = String(error?.message || error || '');
-  const details = String(error?.details || '');
-  return error?.code === '23505' && `${message} ${details}`.toLowerCase().includes(column.toLowerCase());
-}
-
 export async function POST(req: NextRequest) {
   const ip = getIp(req);
-  const rl = await sharedRateLimit(ip, 'public-drop', 15, 60_000);
+  const rl = await sharedRateLimit(ip, 'public-drop', PUBLIC_DROP_RATE_LIMIT.limit, PUBLIC_DROP_RATE_LIMIT.windowMs);
   if (!rl.allowed) {
-    return new Response(JSON.stringify({ ok: false, error: 'Rate limited' }), { status: 429 });
+    return json({ ok: false, error: 'Too many intake submissions from this connection. Please wait a minute and try again.' }, 429);
   }
 
   const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
   const settings = await getPublicSiteSettings(hostname);
   const processor = await getProcessorContextForHostname(hostname);
   if (!settings.public_intake_enabled) {
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         ok: false,
         error: settings.banner_message || 'Public intake is currently unavailable.',
-      }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } }
+      },
+      503
     );
   }
 
@@ -158,25 +137,37 @@ export async function POST(req: NextRequest) {
   const notes = String(rawJob.notes || '').trim();
 
   if (!customer || (!phone && !email)) {
-    return new Response(
-      JSON.stringify({ ok: false, error: 'Name and a contact (phone or email) are required.' }),
-      { status: 400 }
-    );
+    return json({ ok: false, error: 'Name and a contact (phone or email) are required.' }, 400);
   }
 
   const validationError = publicValidationError(rawJob);
   if (validationError) {
-    return new Response(JSON.stringify({ ok: false, error: validationError }), { status: 400 });
+    return json({ ok: false, error: validationError }, 400);
   }
 
   const identifierSettings = identifierSettingsFromPublicCopy(settings.publicCopy);
-  let confirmation = await reserveConfirmation(String(rawJob.confirmation || '').trim(), hostname, identifierSettings);
-  const publicToken = genPublicToken();
+  const confirmation = normalizeConfirmationInput(String(rawJob.confirmation || ''), identifierSettings).trim();
+  const confirmationError = validateConfirmation(confirmation, identifierSettings);
+  if (confirmationError) {
+    return json({ ok: false, error: confirmationError }, 400);
+  }
+
+  if (await confirmationExists(confirmation, hostname, identifierSettings)) {
+    return json(
+      {
+        ok: false,
+        error: `That ${identifierSettings.confirmationLabel.toLowerCase()} has already been submitted. If you need to fix the form, contact the shop instead of submitting it again.`,
+      },
+      409
+    );
+  }
+
+  let publicToken = makePublicIntakeToken();
 
   try {
     let result: Awaited<ReturnType<typeof saveJob>> | null = null;
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
         result = await saveJob(
           {
@@ -197,8 +188,21 @@ export async function POST(req: NextRequest) {
         );
         break;
       } catch (error: any) {
-        if (isUniqueViolation(error, 'confirmation')) {
-          confirmation = await reserveConfirmation('', hostname, identifierSettings);
+        const saveError = classifyPublicIntakeSaveError(error);
+        if (saveError === 'duplicate_confirmation') {
+          return json(
+            {
+              ok: false,
+              error: `That ${identifierSettings.confirmationLabel.toLowerCase()} was submitted by another request. If you need to fix the form, contact the shop instead of submitting it again.`,
+            },
+            409
+          );
+        }
+        if (saveError === 'retry_public_token') {
+          publicToken = makePublicIntakeToken();
+          continue;
+        }
+        if (saveError === 'retry_pending_tag') {
           continue;
         }
         throw error;
@@ -209,20 +213,17 @@ export async function POST(req: NextRequest) {
       throw new Error('Submit failed');
     }
 
-    return new Response(
-      JSON.stringify({
+    return json(
+      {
         ok: true,
         confirmation: result.job?.confirmation || confirmation,
         publicToken: result.job?.publicToken || publicToken,
         job: result.job || null,
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      },
+      200
     );
   } catch (error: any) {
     console.error('public-drop save error', error);
-    return new Response(
-      JSON.stringify({ ok: false, error: String(error?.message || error || 'Submit failed') }),
-      { status: 500 }
-    );
+    return json({ ok: false, error: String(error?.message || error || 'Submit failed') }, 500);
   }
 }

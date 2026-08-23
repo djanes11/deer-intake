@@ -20,6 +20,7 @@ import { normalizeWebbsAllocations, normalizeWebbsOrderItems, normalizeWebbsOrde
 import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
 import { getPublicSiteSettings, normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
+import { makePendingPublicTag } from '@/lib/publicIntakeSafety';
 
 /* ---------------- helpers ---------------- */
 
@@ -308,10 +309,7 @@ function hasRealTag(row: any) {
 }
 
 function makePendingTag(confirmation13: string) {
-  const last5 = String(confirmation13 ?? '').replace(/\D/g, '').slice(-5) || '00000';
-  const ts = Date.now().toString(36).toUpperCase();
-  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `PENDING-${last5}-${ts}-${rand}`;
+  return makePendingPublicTag(confirmation13);
 }
 
 
