@@ -32,6 +32,7 @@ type LookupResult = {
   paidProcessing?: boolean | string;
   paidSpecialty?: boolean | string;
   paid?: boolean | string;
+  intakeLink?: string;
 };
 
 type StatusTone = 'ready' | 'progress' | 'hold' | 'unknown';
@@ -715,12 +716,36 @@ export default function StatusPage() {
                   Confirmation {res.confirmation || '-'} {res.tag ? `| Tag ${res.tag}` : ''}
                 </div>
               </div>
-              {currentStage ? (
-              <StatusPill tone={currentStage.tone} label={customerFacingStatus(currentStage.value) || 'Status pending'} />
-              ) : null}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
+                {res.intakeLink ? (
+                  <Link
+                    href={res.intakeLink}
+                    style={{
+                      background: '#ffffff',
+                      color: '#166534',
+                      border: '1px solid #bbf7d0',
+                      borderRadius: 999,
+                      padding: '8px 14px',
+                      fontWeight: 900,
+                      textDecoration: 'none',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    View intake form
+                  </Link>
+                ) : null}
+                {currentStage ? (
+                  <StatusPill tone={currentStage.tone} label={customerFacingStatus(currentStage.value) || 'Status pending'} />
+                ) : null}
+              </div>
             </div>
             {currentStage ? (
               <p style={{ margin: '12px 0 0', opacity: 0.9 }}>{currentStage.message}</p>
+            ) : null}
+            {res.intakeLink ? (
+              <p style={{ margin: '8px 0 0', color: '#475569', lineHeight: 1.45 }}>
+                Need to review your cuts, contact information, or specialty selections? Open the read-only intake form.
+              </p>
             ) : null}
           </div>
 

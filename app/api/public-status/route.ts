@@ -7,6 +7,7 @@ import { getProcessorContextForHostname } from '@/lib/processorContext';
 import { sharedRateLimit } from '@/lib/ratelimit';
 import { confirmationSearchCandidates, identifierSettingsFromPublicCopy, normalizeConfirmationInput } from '@/lib/identifiers';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
+import { ensurePublicToken } from '@/lib/jobsSupabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,6 +50,7 @@ const PUBLIC_STATUS_SELECT = `
   paid,
   paid_processing,
   paid_specialty,
+  public_token,
   dropoff_date
 `;
 
@@ -78,7 +80,7 @@ function toBool(v: unknown): boolean | undefined {
   return ['1', 'true', 'yes', 'y', 'paid', '✓', '✔', 'x', 'on'].includes(s);
 }
 
-function shapeJob(row: any) {
+async function shapeJob(row: any, supabase: ReturnType<typeof getSupabaseServer>) {
   const priceProcessing = toNum(row.price_processing);
   const specialtyOverride = toNum(row.specialty_price_override);
   const computedSpecialty = specialtyPrice(row);
@@ -103,6 +105,7 @@ function shapeJob(row: any) {
   const paidSpecialty = toBool(row.paid_specialty);
   const amountPaidProcessing = toNum(row.amount_paid_processing);
   const amountPaidSpecialty = toNum(row.amount_paid_specialty);
+  const publicToken = await ensurePublicToken(supabase, row);
 
   const base: any = {
     ok: true,
@@ -123,6 +126,7 @@ function shapeJob(row: any) {
     ...(paidOverall !== undefined ? { paid: paidOverall } : {}),
     ...(amountPaidProcessing !== undefined ? { amountPaidProcessing } : {}),
     ...(amountPaidSpecialty !== undefined ? { amountPaidSpecialty } : {}),
+    ...(publicToken ? { intakeLink: `/intake/view/${encodeURIComponent(publicToken)}` } : {}),
   };
 
   return base;
@@ -157,7 +161,7 @@ async function handle(confirmation: string, tag: string, lastName: string, hostn
     if (error) return { ok: false, error: 'Server error' };
 
     const row = (data || [])[0];
-    if (row) return shapeJob(row);
+    if (row) return shapeJob(row, supabase);
     // fall through to tag+last name attempt if provided
   }
 
@@ -175,7 +179,7 @@ async function handle(confirmation: string, tag: string, lastName: string, hostn
     if (error) return { ok: false, error: 'Server error' };
 
     const hit = (data || []).find((r: any) => lname(r.customer_name) === wantLN);
-    if (hit) return shapeJob(hit);
+    if (hit) return shapeJob(hit, supabase);
   }
 
   return { ok: false, notFound: true, error: 'No match.' };

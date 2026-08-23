@@ -601,7 +601,7 @@ async function stampNotificationField(supabaseServer: any, row: any, field: stri
   if (error) throw error;
 }
 
-async function ensurePublicToken(supabaseServer: any, row: any) {
+export async function ensurePublicToken(supabaseServer: any, row: any) {
   const existing = String(row?.public_token || '').trim();
   if (existing) return existing;
 
