@@ -60,7 +60,8 @@ export default function PrintQueuePage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [printing, setPrinting] = useState('');
-  const [selectedJob, setSelectedJob] = useState<AnyRec | null>(null);
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [printJobs, setPrintJobs] = useState<AnyRec[]>([]);
   const [webbsEnabled, setWebbsEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [specialtyEnabled, setSpecialtyEnabled] = useState(true);
@@ -74,6 +75,10 @@ export default function PrintQueuePage() {
     try {
       const data = await fetchQueue();
       setRows(data);
+      setSelectedTags((prev) => {
+        const available = new Set(data.map((row) => String(row.tag || '').trim()).filter(Boolean));
+        return new Set(Array.from(prev).filter((tag) => available.has(tag)));
+      });
     } catch (e: any) {
       setErr(String(e?.message || e));
     } finally {
@@ -109,7 +114,6 @@ export default function PrintQueuePage() {
       const resp = await fetchJobFromApi(normalized);
       const job = (resp?.job || null) as AnyRec | null;
       if (!job) throw new Error('Could not load intake sheet.');
-      setSelectedJob(job);
       return job;
     } catch (e: any) {
       setErr(String(e?.message || e));
@@ -122,27 +126,93 @@ export default function PrintQueuePage() {
     if (!normalized) return;
     setErr('');
     setPrinting(normalized);
+    setPrintJobs([]);
     try {
-      let job = selectedJob;
-      const currentTag = String(selectedJob?.tag ?? selectedJob?.Tag ?? '').trim();
-      if (!job || currentTag !== normalized) {
-        job = await loadJob(normalized);
-      }
-      if (!job) return;
+      const job = await loadJob(normalized);
+      if (!job) throw new Error(`Could not load intake sheet for tag ${normalized}.`);
+      setPrintJobs([job]);
 
       await markPrinted(normalized);
       setRows((prev) => prev.filter((row) => String(row.tag || '') !== normalized));
+      setSelectedTags((prev) => {
+        const next = new Set(prev);
+        next.delete(normalized);
+        return next;
+      });
 
       openBrowserPrintPreview(() => {
         setPrinting('');
+        setPrintJobs([]);
       });
     } catch (e: any) {
       setErr(String(e?.message || e));
       setPrinting('');
+      setPrintJobs([]);
     }
   };
 
-  const header = useMemo(() => (
+  const visibleTags = useMemo(
+    () => rows.map((row) => String(row.tag || '').trim()).filter(Boolean),
+    [rows]
+  );
+  const selectedVisibleTags = useMemo(
+    () => visibleTags.filter((tag) => selectedTags.has(tag)),
+    [visibleTags, selectedTags]
+  );
+  const allSelected = visibleTags.length > 0 && selectedVisibleTags.length === visibleTags.length;
+
+  const toggleSelected = (tag: string, selected: boolean) => {
+    const normalized = String(tag || '').trim();
+    if (!normalized || printing) return;
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (selected) next.add(normalized);
+      else next.delete(normalized);
+      return next;
+    });
+  };
+
+  const toggleAll = (selected: boolean) => {
+    if (printing) return;
+    setSelectedTags(selected ? new Set(visibleTags) : new Set());
+  };
+
+  const printSelected = async () => {
+    const tags = selectedVisibleTags;
+    if (!tags.length) return;
+    setErr('');
+    setPrinting('__batch__');
+    setPrintJobs([]);
+    try {
+      const jobs: AnyRec[] = [];
+      for (const tag of tags) {
+        const job = await loadJob(tag);
+        if (!job) throw new Error(`Could not load intake sheet for tag ${tag}.`);
+        jobs.push(job);
+      }
+
+      setPrintJobs(jobs);
+
+      for (const tag of tags) {
+        await markPrinted(tag);
+      }
+
+      const printed = new Set(tags);
+      setRows((prev) => prev.filter((row) => !printed.has(String(row.tag || '').trim())));
+      setSelectedTags(new Set());
+
+      openBrowserPrintPreview(() => {
+        setPrinting('');
+        setPrintJobs([]);
+      });
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+      setPrinting('');
+      setPrintJobs([]);
+    }
+  };
+
+  const header = (
     <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
       <div>
         <div style={{ fontSize: 18, fontWeight: 700 }}>Print Queue</div>
@@ -150,14 +220,25 @@ export default function PrintQueuePage() {
           Intake sheets that have not been marked printed yet.
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
         <div style={{ opacity: 0.75 }}>{rows.length} waiting</div>
+        <button
+          onClick={printSelected}
+          disabled={loading || !!printing || selectedVisibleTags.length === 0}
+          className="btn"
+        >
+          {printing === '__batch__'
+            ? 'Preparing Print...'
+            : selectedVisibleTags.length
+              ? `Print Selected (${selectedVisibleTags.length})`
+              : 'Print Selected'}
+        </button>
         <button onClick={refresh} disabled={loading} className="btn">
           {loading ? 'Refreshing...' : 'Refresh List'}
         </button>
       </div>
     </div>
-  ), [rows.length, loading]);
+  );
 
   return (
     <div className="form-card print-queue">
@@ -172,9 +253,27 @@ export default function PrintQueuePage() {
 
         <div style={{ border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ padding: '12px 14px', background: '#f7f7f7', borderBottom: '1px solid #e5e5e5' }}>
-            <div style={{ fontWeight: 700 }}>Unprinted Intake Sheets</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div>
+                <div style={{ fontWeight: 700 }}>Unprinted Intake Sheets</div>
+                <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
+                  Printing from here will mark the job as printed and remove it from this queue.
+                </div>
+              </div>
+              {rows.length ? (
+                <label style={{ display: 'inline-flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={(e) => toggleAll(e.target.checked)}
+                    disabled={!!printing}
+                  />
+                  Select all
+                </label>
+              ) : null}
+            </div>
             <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
-              Printing from here will mark the job as printed and remove it from this queue.
+              {selectedVisibleTags.length ? `${selectedVisibleTags.length} selected` : 'Select one or more sheets to batch print.'}
             </div>
           </div>
 
@@ -189,15 +288,34 @@ export default function PrintQueuePage() {
             </div>
           ) : (
             rows.map((r) => {
-              const tag = String(r.tag || '');
+              const tag = String(r.tag || '').trim();
               const isPrinting = printing === tag;
+              const checked = selectedTags.has(tag);
               return (
                 <div
                   key={tag}
                   style={{ display: 'grid', gap: 12, padding: '16px', borderTop: '1px solid #eee', background: isPrinting ? '#fafaf9' : '#fff' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
-                    <div style={{ minWidth: 0 }}>
+                    <label
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'auto minmax(0, 1fr)',
+                        gap: 12,
+                        alignItems: 'start',
+                        minWidth: 0,
+                        flex: '1 1 420px',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => toggleSelected(tag, e.target.checked)}
+                        disabled={!!printing}
+                        aria-label={`Select intake sheet for tag ${tag || 'unknown'}`}
+                        style={{ marginTop: 8 }}
+                      />
+                      <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.15 }}>
                         {r.customer || 'Unnamed Customer'}
                       </div>
@@ -218,11 +336,12 @@ export default function PrintQueuePage() {
                           {r.status || 'Dropped Off'}
                         </span>
                       </div>
-                    </div>
+                      </div>
+                    </label>
                   </div>
 
                   <div className="queue-actions">
-                    <button className="btn" onClick={() => printTag(tag)} disabled={isPrinting}>
+                    <button className="btn" onClick={() => printTag(tag)} disabled={!!printing && !isPrinting}>
                       {isPrinting ? 'Preparing Print...' : 'Print & Mark Printed'}
                     </button>
                   </div>
@@ -234,17 +353,22 @@ export default function PrintQueuePage() {
       </div>
 
       <div className="print-only">
-        {selectedJob ? (
-          <PrintSheet
-            job={selectedJob}
-            webbsEnabled={webbsEnabled}
-            smsEnabled={smsEnabled}
-            specialtyEnabled={specialtyEnabled}
-            cutOptions={cutOptions}
-            pricing={pricing}
-            specialtyCatalog={specialtyCatalog}
-          />
-        ) : null}
+        {printJobs.map((job, index) => (
+          <div
+            key={`${String(job?.tag ?? job?.Tag ?? index)}-${index}`}
+            className="batch-print-job"
+          >
+            <PrintSheet
+              job={job}
+              webbsEnabled={webbsEnabled}
+              smsEnabled={smsEnabled}
+              specialtyEnabled={specialtyEnabled}
+              cutOptions={cutOptions}
+              pricing={pricing}
+              specialtyCatalog={specialtyCatalog}
+            />
+          </div>
+        ))}
       </div>
 
       <style jsx>{`
@@ -271,6 +395,10 @@ export default function PrintQueuePage() {
           }
           .print-only {
             display: block !important;
+          }
+          .batch-print-job + .batch-print-job {
+            break-before: page !important;
+            page-break-before: always !important;
           }
         }
       `}</style>
