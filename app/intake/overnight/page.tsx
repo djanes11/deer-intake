@@ -51,7 +51,7 @@ const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
 const WEBBS_PRICE_NOTE =
   'Totals may include the processor Webbs handling fee, but Webbs product prices are not included. Those product charges will be provided when the Webbs order is delivered.';
 const WEBBS_PROCESSING_PAYMENT_NOTE =
-  'Webbs orders require regular processing payment at drop-off. If staff is not present, the shop must follow up before the Webbs order can move forward.';
+  'Webbs orders require regular processing payment at drop-off. Submit this intake first; then pay staff if they are present, or the shop will follow up for processing payment before the Webbs order moves forward.';
 
 /* ---------------- Types ---------------- */
 
@@ -210,6 +210,7 @@ const REQUIRED_LABELS: Record<string, string> = {
   sex: 'Deer Sex',
   howKilled: 'How Killed',
   processType: 'Process Type',
+  webbsPayment: 'Webbs Payment Note',
   webbsItems: 'Webbs Items',
 };
 
@@ -290,6 +291,8 @@ function OvernightIntakePage() {
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [closureMessage, setClosureMessage] = useState('');
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
+  const [webbsPaymentNoticeOpen, setWebbsPaymentNoticeOpen] = useState(false);
+  const [webbsPaymentAcknowledged, setWebbsPaymentAcknowledged] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
   const [processCatalog, setProcessCatalog] = useState<ProcessTypeCatalogItem[]>(defaultProcessCatalog(DEFAULT_SITE_PRICING));
@@ -553,6 +556,8 @@ function OvernightIntakePage() {
       webbsPounds: '',
     }));
     setWebbsModalOpen(false);
+    setWebbsPaymentNoticeOpen(false);
+    setWebbsPaymentAcknowledged(false);
   }, [webbsEnabled]);
 
   // status coercion/initialization (hidden UI)
@@ -586,10 +591,11 @@ function OvernightIntakePage() {
   }, [job.processType]);
 
   useEffect(() => {
-    if (!job.webbsOrder && webbsModalOpen) {
-      setWebbsModalOpen(false);
-    }
-  }, [job.webbsOrder, webbsModalOpen]);
+    if (job.webbsOrder) return;
+    if (webbsModalOpen) setWebbsModalOpen(false);
+    if (webbsPaymentNoticeOpen) setWebbsPaymentNoticeOpen(false);
+    if (webbsPaymentAcknowledged) setWebbsPaymentAcknowledged(false);
+  }, [job.webbsOrder, webbsModalOpen, webbsPaymentNoticeOpen, webbsPaymentAcknowledged]);
 
   useEffect(() => {
     if (!job.specialtyProducts && specialtyModalOpen) {
@@ -739,6 +745,7 @@ function OvernightIntakePage() {
     if (showRoastCounts && job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
 
     if (webbsEnabled && job.webbsOrder) {
+      if (!webbsPaymentAcknowledged) e.webbsPayment = 'Review the Webbs payment note';
       if (webbsOrderStyle === 'whole_deer_percent') {
         if (!webbsAllocations.length) e.webbsItems = 'Enter at least one Webbs product percentage';
         else if (webbsAllocationTotal !== 100) e.webbsItems = 'Webbs percentages must add up to 100%';
@@ -760,7 +767,7 @@ function OvernightIntakePage() {
     if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
     if (k === 'cuts') ['hindRoastCount', 'frontRoastCount'].forEach(pick);
-    if (k === 'extras') ['webbsItems'].forEach(pick);
+    if (k === 'extras') ['webbsPayment', 'webbsItems'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
   };
@@ -777,9 +784,20 @@ function OvernightIntakePage() {
   const requiredDone = currentStepMissing.length === 0;
   const compactRequiredList = stepIdx > 0 && currentStepMissing.length > 3;
 
+  const openWebbsPaymentNotice = () => {
+    setWebbsModalOpen(false);
+    setWebbsPaymentNoticeOpen(true);
+  };
+
   const goNext = () => {
     if (locked) return;
     setMsg('');
+    if (step.key === 'extras' && webbsEnabled && job.webbsOrder && !webbsPaymentAcknowledged) {
+      setErrors({ webbsPayment: 'Review the Webbs payment note' });
+      setMsg('Review the Webbs payment note.');
+      openWebbsPaymentNotice();
+      return;
+    }
     const e = validateStep(step.key);
     setErrors(e);
     if (Object.keys(e).length) {
@@ -899,8 +917,13 @@ function OvernightIntakePage() {
     scrollPageTop();
   }, [stepIdx, showThanks, scrollPageTop]);
 
-  const setVal = <K extends keyof Job>(k: K, v: Job[K]) =>
-    !locked &&
+  const setVal = <K extends keyof Job>(k: K, v: Job[K]) => {
+    if (locked) return;
+    if (k === 'webbsOrder' && !v) {
+      setWebbsPaymentNoticeOpen(false);
+      setWebbsPaymentAcknowledged(false);
+      setWebbsModalOpen(false);
+    }
     setJob((p) => {
       const next = { ...p, [k]: v };
       if (k === 'webbsOrder' && !v) {
@@ -914,11 +937,18 @@ function OvernightIntakePage() {
       }
       return next;
     });
+  };
 
   const setAddOnSelected = (slug: string, selected: boolean) => {
     if (locked) return;
+    const selectedCatalogItem = activeAddOnCatalog.find((item) => item.slug === slug);
+    if (selectedCatalogItem?.legacyBooleanKey === 'webbsOrder' && !selected) {
+      setWebbsPaymentNoticeOpen(false);
+      setWebbsPaymentAcknowledged(false);
+      setWebbsModalOpen(false);
+    }
     setJob((prev) => {
-      const catalogItem = activeAddOnCatalog.find((item) => item.slug === slug);
+      const catalogItem = selectedCatalogItem;
       if (!catalogItem) return prev;
       const nextItems = normalizeJobAddOnItems(prev.addOnItems).filter((item) => item.slug !== slug);
       if (selected) {
@@ -937,6 +967,30 @@ function OvernightIntakePage() {
       };
       if (catalogItem.legacyBooleanKey === 'beefFat') next.beefFat = selected;
       if (catalogItem.legacyBooleanKey === 'webbsOrder') next.webbsOrder = selected;
+      return next;
+    });
+  };
+
+  const confirmWebbsPaymentNotice = () => {
+    setWebbsPaymentAcknowledged(true);
+    setWebbsPaymentNoticeOpen(false);
+    setWebbsModalOpen(true);
+    setMsg('');
+    setErrors((prev) => {
+      if (!prev.webbsPayment) return prev;
+      const next = { ...prev };
+      delete next.webbsPayment;
+      return next;
+    });
+  };
+
+  const removeWebbsOrder = () => {
+    setVal('webbsOrder', false);
+    setErrors((prev) => {
+      if (!prev.webbsPayment && !prev.webbsItems) return prev;
+      const next = { ...prev };
+      delete next.webbsPayment;
+      delete next.webbsItems;
       return next;
     });
   };
@@ -1688,7 +1742,7 @@ function OvernightIntakePage() {
                             onChange={(e) => {
                               setAddOnSelected(item.slug, e.target.checked);
                               if (item.legacyBooleanKey === 'webbsOrder' && e.target.checked) {
-                                setWebbsModalOpen(true);
+                                openWebbsPaymentNotice();
                               }
                             }}
                             disabled={locked}
@@ -1811,8 +1865,8 @@ function OvernightIntakePage() {
                         checked={!!job.webbsOrder}
                         onChange={(e) => {
                           const checked = e.target.checked;
-                          setVal('webbsOrder', e.target.checked);
-                          if (checked) setWebbsModalOpen(true);
+                          setVal('webbsOrder', checked);
+                          if (checked) openWebbsPaymentNotice();
                         }}
                         disabled={locked}
                       />
@@ -1875,6 +1929,7 @@ function OvernightIntakePage() {
                             </div>
                           ) : null}
                           {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
+                          {errors.webbsPayment ? <div className="errText" data-err="webbsPayment" style={{ marginTop: 12 }}>{errors.webbsPayment}</div> : null}
                           <div style={{ marginTop: 12 }}>
                             <button type="button" className="btn secondary" onClick={() => setWebbsModalOpen(true)} disabled={locked}>
                               Fill Out Webbs Order
@@ -2133,6 +2188,31 @@ function OvernightIntakePage() {
         </div>
       ) : null}
 
+      {webbsEnabled && webbsPaymentNoticeOpen && job.webbsOrder && !locked ? (
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="webbs-payment-title">
+          <div className="modal-card webbsPaymentCard" onClick={(e) => e.stopPropagation()}>
+            <div className="modalKicker">Webbs Heads Up</div>
+            <h3 id="webbs-payment-title">Finish This Intake First</h3>
+            <div className="webbsPaymentNotice" data-err="webbsPayment">
+              <strong>Webbs orders have a processing payment step after this form is submitted.</strong>
+              <span>{WEBBS_PROCESSING_PAYMENT_NOTE}</span>
+              <span>{WEBBS_PRICE_NOTE}</span>
+            </div>
+            <div className="webbsPaymentCopy">
+              This form saves your deer and Webbs instructions first. Payment is handled after the saved intake exists, so you will not lose this form by continuing.
+            </div>
+            <div className="webbsPaymentActions">
+              <button className="btn secondary" type="button" onClick={removeWebbsOrder}>
+                Remove Webbs
+              </button>
+              <button className="btn" type="button" onClick={confirmWebbsPaymentNotice}>
+                Continue Intake
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {webbsEnabled && webbsModalOpen && job.webbsOrder && !locked ? (
         <div className="modal" onClick={() => setWebbsModalOpen(false)}>
           <div className="modal-card webbsModalCard" onClick={(e) => e.stopPropagation()}>
@@ -2145,6 +2225,7 @@ function OvernightIntakePage() {
                     ? 'Enter percentages that add up to 100% for the whole deer.'
                     : 'Enter the products and pounds you want sent to Webbs.'}
                 </div>
+                <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PROCESSING_PAYMENT_NOTE}</div>
                 <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PRICE_NOTE}</div>
                 <div style={{ marginTop: 8 }}>
                   <a
@@ -2816,6 +2897,36 @@ function OvernightIntakePage() {
         .webbsWorksheetRow { padding:8px 12px; border-top:1px solid #eef2f7; }
         .webbsWorksheetRow:first-of-type { border-top:0; }
         .webbsWorksheetLabel { font-size:13px; font-weight:700; color:#0f172a; }
+        .webbsPaymentCard {
+          max-width: 560px;
+          display: grid;
+          gap: 14px;
+          padding: 20px;
+        }
+        .webbsPaymentNotice {
+          display: grid;
+          gap: 8px;
+          padding: 14px;
+          border: 1px solid #fde68a;
+          border-radius: 14px;
+          background: #fffbeb;
+          color: #78350f;
+          font-size: 14px;
+          line-height: 1.45;
+        }
+        .webbsPaymentNotice strong {
+          font-size: 15px;
+        }
+        .webbsPaymentCopy {
+          color: #334155;
+          font-size: 14px;
+          line-height: 1.55;
+        }
+        .webbsPaymentActions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
 
         .print-only { display: none; }
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
@@ -2984,6 +3095,9 @@ function OvernightIntakePage() {
           .webbsModalCard {
             max-height: calc(100vh - 20px);
             padding: 14px;
+          }
+          .webbsPaymentActions {
+            grid-template-columns: 1fr;
           }
           .webbsWorksheetHead,
           .webbsWorksheetRow { grid-template-columns:minmax(0,1fr) 96px; }
