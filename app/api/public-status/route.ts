@@ -114,6 +114,7 @@ async function shapeJob(row: any, supabase: ReturnType<typeof getSupabaseServer>
     customer: String(row.customer_name || ''),
     tag: String(row.tag || ''),
     confirmation: String(row.confirmation || ''),
+    dropoffDate: String(row.dropoff_date || ''),
     status: String(row.status || ''),
     tracks: {
       capeStatus: String(row.caping_status || ''),
@@ -188,7 +189,9 @@ async function handle(confirmation: string, tag: string, lastName: string, phone
   }
 
   // 3) Phone + last name. This is for customers who chose phone calls and may not have
-  // the long confirmation number or final tag handy.
+  // the long confirmation number or final tag handy. If more than one deer matches,
+  // return the possible matches so the customer can choose the right one instead of
+  // guessing by newest drop-off.
   if (wantPhone.length === 10 && safeLN) {
     let query = supabase
       .from('jobs')
@@ -201,8 +204,14 @@ async function handle(confirmation: string, tag: string, lastName: string, phone
 
     if (error) return { ok: false, error: 'Server error' };
 
-    const hit = (data || []).find((r: any) => phoneDigits(r.phone) === wantPhone && lname(r.customer_name) === wantLN);
-    if (hit) return shapeJob(hit, supabase);
+    const hits = (data || []).filter((r: any) => phoneDigits(r.phone) === wantPhone && lname(r.customer_name) === wantLN);
+    if (hits.length === 1) return shapeJob(hits[0], supabase);
+    if (hits.length > 1) {
+      return {
+        ok: true,
+        matches: await Promise.all(hits.map((row: any) => shapeJob(row, supabase))),
+      };
+    }
   }
 
   return { ok: false, notFound: true, error: 'No match.' };

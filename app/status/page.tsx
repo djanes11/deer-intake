@@ -18,6 +18,7 @@ type LookupResult = {
   customer?: string;
   tag?: string;
   confirmation?: string;
+  dropoffDate?: string;
   status?: string;
   tracks?: {
     webbsStatus?: string;
@@ -34,6 +35,7 @@ type LookupResult = {
   paid?: boolean | string;
   intakeLink?: string;
   updatedAt?: string;
+  matches?: LookupResult[];
 };
 
 type StatusTone = 'ready' | 'progress' | 'hold' | 'unknown';
@@ -152,6 +154,28 @@ function formatDateTime(value?: string) {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+  });
+}
+
+function formatDateOnly(value?: string) {
+  if (!value) return 'Drop-off date not listed';
+  const parts = String(value).slice(0, 10).split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts.map((part) => Number(part));
+    if (year && month && day) {
+      return new Date(year, month - 1, day).toLocaleDateString([], {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    }
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return 'Drop-off date not listed';
+  return d.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 }
 
@@ -332,6 +356,7 @@ export default function StatusPage() {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [res, setRes] = useState<LookupResult | null>(null);
+  const [matches, setMatches] = useState<LookupResult[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
@@ -589,6 +614,7 @@ export default function StatusPage() {
   const doLookupChain = useCallback(async (payload: { confirmation?: string; tag?: string; lastName?: string; phone?: string }) => {
     setLoading(true);
     setErr(null);
+    setMatches([]);
     try {
       const attempts: Array<{ confirmation?: string; tag?: string; lastName?: string; phone?: string }> = [];
       const hasConfirmation = !!payload.confirmation;
@@ -606,8 +632,15 @@ export default function StatusPage() {
       let lastErr: string | null = null;
       for (const p of attempts) {
         const resp = await postStatus(p);
+        if (resp?.ok && Array.isArray(resp.matches) && resp.matches.length) {
+          setRes(null);
+          setMatches(resp.matches);
+          setLastUpdatedAt(Date.now());
+          return;
+        }
         if (resp?.ok) {
           setRes(resp);
+          setMatches([]);
           setLastUpdatedAt(Date.now());
           return;
         }
@@ -618,9 +651,11 @@ export default function StatusPage() {
       }
 
       setRes(null);
+      setMatches([]);
       setErr(lastErr || 'No deer matched that search. Try your confirmation number first, or use phone number and last name if you do not have it.');
     } catch (e: any) {
       setRes(null);
+      setMatches([]);
       setErr(e?.message || 'Lookup failed.');
     } finally {
       setLoading(false);
@@ -875,6 +910,66 @@ export default function StatusPage() {
           phoneHref={branding.phoneHref}
           phoneDisplay={branding.phoneDisplay}
         />
+      ) : null}
+
+      {matches.length ? (
+        <section className="app-surface-light" style={{ padding: 18, display: 'grid', gap: 12 }}>
+          <div className="app-section-head">
+            <div className="app-section-title">Choose Your Deer</div>
+            <div className="app-section-copy">
+              We found {matches.length} deer with that phone number and last name. Select the one you want to check.
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {matches.map((match, index) => {
+              const matchSummaries = trackSummaries(match, {
+                webbsEnabled: branding.webbsEnabled,
+                specialtyEnabled: branding.specialtyEnabled,
+              });
+              const matchStage = matchSummaries[0];
+              const key = `${match.confirmation || match.tag || index}-${match.dropoffDate || index}`;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setRes(match);
+                    setMatches([]);
+                    setErr(null);
+                    setLastUpdatedAt(Date.now());
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    border: '1px solid #dbe4ee',
+                    borderRadius: 14,
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    padding: 14,
+                    cursor: 'pointer',
+                    display: 'grid',
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontWeight: 950, fontSize: 18 }}>{match.customer || 'Customer'}</div>
+                      <div style={{ color: '#475569', marginTop: 3 }}>
+                        Drop-off {formatDateOnly(match.dropoffDate)}
+                      </div>
+                    </div>
+                    {matchStage ? (
+                      <StatusPill tone={matchStage.tone} label={customerFacingStatus(matchStage.value) || 'Status pending'} />
+                    ) : null}
+                  </div>
+                  <div style={{ color: '#475569', lineHeight: 1.45 }}>
+                    Confirmation {match.confirmation || '-'} {match.tag ? `| Tag ${match.tag}` : ''}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       ) : null}
 
       {res ? (
