@@ -656,10 +656,9 @@ function OvernightIntakePage() {
   const confirmationLast5 = displayConfirmation.replace(/\D/g, '').slice(-5);
   const readOnlyIntakeLink = savedPublicToken ? `/intake/view/${encodeURIComponent(savedPublicToken)}` : '';
   const statusLink = displayConfirmation ? `/status?confirmation=${encodeURIComponent(displayConfirmation)}` : '/status';
-  const reviewDropoffInstructions = [
-    ...(publicCopy.beforeDropoffChecklist || []),
+  const reviewLeaveInstructions = [
     publicCopy.pickupInstructions,
-    confirmationLast5 ? `Write down the last 5 digits of your confirmation number: ${confirmationLast5}.` : '',
+    confirmationLast5 ? `Write the last 5 digits of your confirmation number on that note: ${confirmationLast5}.` : '',
   ].map((item) => String(item || '').trim()).filter(Boolean);
 
   const focusFirstError = (nextErrors: Record<string, string>) => {
@@ -1944,32 +1943,37 @@ function OvernightIntakePage() {
             <h3>Review</h3>
             <Hint>Double-check everything below. If it looks right, submit and leave your deer with your confirmation details attached.</Hint>
             <div className="reviewPrep">
-              <div className="reviewPrepTitle">Before you submit, confirm these three things:</div>
-              <div className="reviewPrepList">
-                {reviewChecks.map((item) => (
-                  <div key={item} className="reviewPrepItem">
-                    <span className="reviewPrepDot" aria-hidden="true" />
-                    <span>{item}</span>
+              <div className="reviewPrepTitle">Final Check Before Submit</div>
+              <div className="reviewPrepCopy">
+                Review the intake and make sure the deer has matching contact details attached.
+              </div>
+              <div className="reviewPrepGrid">
+                <div>
+                  <div className="reviewPrepSectionTitle">Check the Intake</div>
+                  <div className="reviewPrepList">
+                    {reviewChecks.map((item) => (
+                      <div key={item} className="reviewPrepItem">
+                        <span className="reviewPrepDot" aria-hidden="true" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+                {reviewLeaveInstructions.length ? (
+                  <div>
+                    <div className="reviewPrepSectionTitle">Leave With Deer</div>
+                    <div className="reviewPrepList">
+                      {reviewLeaveInstructions.map((item) => (
+                        <div key={item} className="reviewPrepItem">
+                          <span className="reviewPrepDot" aria-hidden="true" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
-            {reviewDropoffInstructions.length ? (
-              <div className="reviewLeaveCard">
-                <div className="reviewLeaveTitle">Before You Leave Your Deer</div>
-                <div className="reviewLeaveCopy">
-                  After you submit, make sure the deer is left with enough information for staff to match it to this intake.
-                </div>
-                <div className="reviewLeaveList">
-                  {reviewDropoffInstructions.map((item) => (
-                    <div key={item} className="reviewLeaveItem">
-                      <span className="reviewPrepDot" aria-hidden="true" />
-                      <span>{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
             <div className="reviewMobile" style={{ marginTop: 12 }}>
               <div className="reviewSummaryGrid">
                 <div className="reviewCard">
@@ -2554,6 +2558,26 @@ function OvernightIntakePage() {
           text-transform: uppercase;
           letter-spacing: .06em;
           color: #406c4d;
+          margin-bottom: 6px;
+        }
+        .reviewPrepCopy {
+          color: #173321;
+          font-size: 13px;
+          line-height: 1.5;
+          font-weight: 750;
+          margin-bottom: 12px;
+        }
+        .reviewPrepGrid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 14px;
+        }
+        .reviewPrepSectionTitle {
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+          color: #406c4d;
           margin-bottom: 8px;
         }
         .reviewPrepList {
@@ -2568,40 +2592,6 @@ function OvernightIntakePage() {
           color: #173321;
           font-size: 14px;
           line-height: 1.5;
-        }
-        .reviewLeaveCard {
-          margin-top: 12px;
-          border: 1px solid #fde68a;
-          border-radius: 14px;
-          background: #fffbeb;
-          color: #78350f;
-          padding: 12px;
-          display: grid;
-          gap: 8px;
-        }
-        .reviewLeaveTitle {
-          font-size: 12px;
-          font-weight: 900;
-          text-transform: uppercase;
-          letter-spacing: .06em;
-        }
-        .reviewLeaveCopy {
-          font-size: 13px;
-          line-height: 1.5;
-          font-weight: 750;
-        }
-        .reviewLeaveList {
-          display: grid;
-          gap: 8px;
-        }
-        .reviewLeaveItem {
-          display: grid;
-          grid-template-columns: auto 1fr;
-          gap: 10px;
-          align-items: start;
-          font-size: 13px;
-          line-height: 1.45;
-          font-weight: 800;
         }
         .reviewPrepDot {
           width: 10px;
@@ -3093,6 +3083,9 @@ function OvernightIntakePage() {
             margin-left: -2px;
             margin-right: -2px;
             border-radius: 12px;
+          }
+          .reviewPrepGrid {
+            grid-template-columns: 1fr;
           }
           .thanksConfValue {
             font-size: 24px;
