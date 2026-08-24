@@ -210,7 +210,6 @@ const REQUIRED_LABELS: Record<string, string> = {
   sex: 'Deer Sex',
   howKilled: 'How Killed',
   processType: 'Process Type',
-  webbsPayment: 'Webbs Payment Note',
   webbsItems: 'Webbs Items',
 };
 
@@ -287,12 +286,11 @@ function OvernightIntakePage() {
   const [showThanks, setShowThanks] = useState<boolean>(false);
   const [savedConfirmation, setSavedConfirmation] = useState('');
   const [savedPublicToken, setSavedPublicToken] = useState('');
+  const [webbsPaymentChoice, setWebbsPaymentChoice] = useState<'staff' | ''>('');
   const [copyMsg, setCopyMsg] = useState('');
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [closureMessage, setClosureMessage] = useState('');
   const [webbsModalOpen, setWebbsModalOpen] = useState(false);
-  const [webbsPaymentNoticeOpen, setWebbsPaymentNoticeOpen] = useState(false);
-  const [webbsPaymentAcknowledged, setWebbsPaymentAcknowledged] = useState(false);
   const [specialtyModalOpen, setSpecialtyModalOpen] = useState(false);
   const [pricing, setPricing] = useState(DEFAULT_SITE_PRICING);
   const [processCatalog, setProcessCatalog] = useState<ProcessTypeCatalogItem[]>(defaultProcessCatalog(DEFAULT_SITE_PRICING));
@@ -556,8 +554,6 @@ function OvernightIntakePage() {
       webbsPounds: '',
     }));
     setWebbsModalOpen(false);
-    setWebbsPaymentNoticeOpen(false);
-    setWebbsPaymentAcknowledged(false);
   }, [webbsEnabled]);
 
   // status coercion/initialization (hidden UI)
@@ -591,11 +587,10 @@ function OvernightIntakePage() {
   }, [job.processType]);
 
   useEffect(() => {
-    if (job.webbsOrder) return;
-    if (webbsModalOpen) setWebbsModalOpen(false);
-    if (webbsPaymentNoticeOpen) setWebbsPaymentNoticeOpen(false);
-    if (webbsPaymentAcknowledged) setWebbsPaymentAcknowledged(false);
-  }, [job.webbsOrder, webbsModalOpen, webbsPaymentNoticeOpen, webbsPaymentAcknowledged]);
+    if (!job.webbsOrder && webbsModalOpen) {
+      setWebbsModalOpen(false);
+    }
+  }, [job.webbsOrder, webbsModalOpen]);
 
   useEffect(() => {
     if (!job.specialtyProducts && specialtyModalOpen) {
@@ -663,6 +658,11 @@ function OvernightIntakePage() {
   const confirmationLast5 = displayConfirmation.replace(/\D/g, '').slice(-5);
   const readOnlyIntakeLink = savedPublicToken ? `/intake/view/${encodeURIComponent(savedPublicToken)}` : '';
   const statusLink = displayConfirmation ? `/status?confirmation=${encodeURIComponent(displayConfirmation)}` : '/status';
+  const reviewDropoffInstructions = [
+    ...(publicCopy.beforeDropoffChecklist || []),
+    publicCopy.pickupInstructions,
+    confirmationLast5 ? `Write down the last 5 digits of your confirmation number: ${confirmationLast5}.` : '',
+  ].map((item) => String(item || '').trim()).filter(Boolean);
 
   const focusFirstError = (nextErrors: Record<string, string>) => {
     const firstKey = Object.keys(nextErrors)[0];
@@ -745,7 +745,6 @@ function OvernightIntakePage() {
     if (showRoastCounts && job.front?.['Front - Roast'] && !toInt(job.frontRoastCount)) e.frontRoastCount = 'Front Roast Count is required';
 
     if (webbsEnabled && job.webbsOrder) {
-      if (!webbsPaymentAcknowledged) e.webbsPayment = 'Review the Webbs payment note';
       if (webbsOrderStyle === 'whole_deer_percent') {
         if (!webbsAllocations.length) e.webbsItems = 'Enter at least one Webbs product percentage';
         else if (webbsAllocationTotal !== 100) e.webbsItems = 'Webbs percentages must add up to 100%';
@@ -767,7 +766,7 @@ function OvernightIntakePage() {
     if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
     if (k === 'cuts') ['hindRoastCount', 'frontRoastCount'].forEach(pick);
-    if (k === 'extras') ['webbsPayment', 'webbsItems'].forEach(pick);
+    if (k === 'extras') ['webbsItems'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
   };
@@ -784,20 +783,9 @@ function OvernightIntakePage() {
   const requiredDone = currentStepMissing.length === 0;
   const compactRequiredList = stepIdx > 0 && currentStepMissing.length > 3;
 
-  const openWebbsPaymentNotice = () => {
-    setWebbsModalOpen(false);
-    setWebbsPaymentNoticeOpen(true);
-  };
-
   const goNext = () => {
     if (locked) return;
     setMsg('');
-    if (step.key === 'extras' && webbsEnabled && job.webbsOrder && !webbsPaymentAcknowledged) {
-      setErrors({ webbsPayment: 'Review the Webbs payment note' });
-      setMsg('Review the Webbs payment note.');
-      openWebbsPaymentNotice();
-      return;
-    }
     const e = validateStep(step.key);
     setErrors(e);
     if (Object.keys(e).length) {
@@ -920,8 +908,6 @@ function OvernightIntakePage() {
   const setVal = <K extends keyof Job>(k: K, v: Job[K]) => {
     if (locked) return;
     if (k === 'webbsOrder' && !v) {
-      setWebbsPaymentNoticeOpen(false);
-      setWebbsPaymentAcknowledged(false);
       setWebbsModalOpen(false);
     }
     setJob((p) => {
@@ -943,8 +929,6 @@ function OvernightIntakePage() {
     if (locked) return;
     const selectedCatalogItem = activeAddOnCatalog.find((item) => item.slug === slug);
     if (selectedCatalogItem?.legacyBooleanKey === 'webbsOrder' && !selected) {
-      setWebbsPaymentNoticeOpen(false);
-      setWebbsPaymentAcknowledged(false);
       setWebbsModalOpen(false);
     }
     setJob((prev) => {
@@ -967,30 +951,6 @@ function OvernightIntakePage() {
       };
       if (catalogItem.legacyBooleanKey === 'beefFat') next.beefFat = selected;
       if (catalogItem.legacyBooleanKey === 'webbsOrder') next.webbsOrder = selected;
-      return next;
-    });
-  };
-
-  const confirmWebbsPaymentNotice = () => {
-    setWebbsPaymentAcknowledged(true);
-    setWebbsPaymentNoticeOpen(false);
-    setWebbsModalOpen(true);
-    setMsg('');
-    setErrors((prev) => {
-      if (!prev.webbsPayment) return prev;
-      const next = { ...prev };
-      delete next.webbsPayment;
-      return next;
-    });
-  };
-
-  const removeWebbsOrder = () => {
-    setVal('webbsOrder', false);
-    setErrors((prev) => {
-      if (!prev.webbsPayment && !prev.webbsItems) return prev;
-      const next = { ...prev };
-      delete next.webbsPayment;
-      delete next.webbsItems;
       return next;
     });
   };
@@ -1742,7 +1702,7 @@ function OvernightIntakePage() {
                             onChange={(e) => {
                               setAddOnSelected(item.slug, e.target.checked);
                               if (item.legacyBooleanKey === 'webbsOrder' && e.target.checked) {
-                                openWebbsPaymentNotice();
+                                setWebbsModalOpen(true);
                               }
                             }}
                             disabled={locked}
@@ -1866,7 +1826,7 @@ function OvernightIntakePage() {
                         onChange={(e) => {
                           const checked = e.target.checked;
                           setVal('webbsOrder', checked);
-                          if (checked) openWebbsPaymentNotice();
+                          if (checked) setWebbsModalOpen(true);
                         }}
                         disabled={locked}
                       />
@@ -1929,7 +1889,6 @@ function OvernightIntakePage() {
                             </div>
                           ) : null}
                           {errors.webbsItems ? <div className="errText" data-err="webbsItems" style={{ marginTop: 12 }}>{errors.webbsItems}</div> : null}
-                          {errors.webbsPayment ? <div className="errText" data-err="webbsPayment" style={{ marginTop: 12 }}>{errors.webbsPayment}</div> : null}
                           <div style={{ marginTop: 12 }}>
                             <button type="button" className="btn secondary" onClick={() => setWebbsModalOpen(true)} disabled={locked}>
                               Fill Out Webbs Order
@@ -2001,6 +1960,22 @@ function OvernightIntakePage() {
                 ))}
               </div>
             </div>
+            {reviewDropoffInstructions.length ? (
+              <div className="reviewLeaveCard">
+                <div className="reviewLeaveTitle">Before You Leave Your Deer</div>
+                <div className="reviewLeaveCopy">
+                  After you submit, make sure the deer is left with enough information for staff to match it to this intake.
+                </div>
+                <div className="reviewLeaveList">
+                  {reviewDropoffInstructions.map((item) => (
+                    <div key={item} className="reviewLeaveItem">
+                      <span className="reviewPrepDot" aria-hidden="true" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="reviewMobile" style={{ marginTop: 12 }}>
               <div className="reviewSummaryGrid">
                 <div className="reviewCard">
@@ -2188,31 +2163,6 @@ function OvernightIntakePage() {
         </div>
       ) : null}
 
-      {webbsEnabled && webbsPaymentNoticeOpen && job.webbsOrder && !locked ? (
-        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="webbs-payment-title">
-          <div className="modal-card webbsPaymentCard" onClick={(e) => e.stopPropagation()}>
-            <div className="modalKicker">Webbs Heads Up</div>
-            <h3 id="webbs-payment-title">Finish This Intake First</h3>
-            <div className="webbsPaymentNotice" data-err="webbsPayment">
-              <strong>Webbs orders have a processing payment step after this form is submitted.</strong>
-              <span>{WEBBS_PROCESSING_PAYMENT_NOTE}</span>
-              <span>{WEBBS_PRICE_NOTE}</span>
-            </div>
-            <div className="webbsPaymentCopy">
-              This form saves your deer and Webbs instructions first. Payment is handled after the saved intake exists, so you will not lose this form by continuing.
-            </div>
-            <div className="webbsPaymentActions">
-              <button className="btn secondary" type="button" onClick={removeWebbsOrder}>
-                Remove Webbs
-              </button>
-              <button className="btn" type="button" onClick={confirmWebbsPaymentNotice}>
-                Continue Intake
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {webbsEnabled && webbsModalOpen && job.webbsOrder && !locked ? (
         <div className="modal" onClick={() => setWebbsModalOpen(false)}>
           <div className="modal-card webbsModalCard" onClick={(e) => e.stopPropagation()}>
@@ -2316,32 +2266,42 @@ function OvernightIntakePage() {
               <div className="thanksConfValue">{displayConfirmation || 'Saved'}</div>
             </div>
             <p style={{ marginTop: 10, lineHeight: 1.6 }}>
-              {publicCopy.thankYouMessage} Your intake is saved. Staff still reviews every deer before assigning the final tag.
+              {publicCopy.thankYouMessage} Your intake is saved.
             </p>
-            <p style={{ marginTop: 10, lineHeight: 1.6 }}>
-              {publicCopy.pickupInstructions}
-              {confirmationLast5 ? <> The last 5 digits of your confirmation number are <code>{confirmationLast5}</code>.</> : null}
-            </p>
-            <p style={{ marginTop: 10, lineHeight: 1.6 }}>
-              Staff will review your intake, assign the permanent tag, and use your selected contact method when an update is available.
-            </p>
-            <div className="thanksList" style={{ marginTop: 12 }}>
-              {publicCopy.turnaroundEstimate ? <div>{publicCopy.turnaroundEstimate}</div> : null}
-              {Array.isArray(publicCopy.acceptedPaymentMethods) && publicCopy.acceptedPaymentMethods.length ? (
-                <div>
-                  Accepted payments: {publicCopy.acceptedPaymentMethods.map((method) => ({ cash: 'cash', check: 'check', card: 'card', other: 'other' }[method] || method)).join(', ')}.
+            {job.webbsOrder ? (
+              <div className="thanksWebbsNext">
+                <div className="thanksWebbsTitle">Webbs Processing Payment</div>
+                <div>Choose how you plan to handle the regular processing payment for this Webbs order.</div>
+                <div className="webbsPaymentOptions">
+                  <button className="webbsPaymentOption" type="button" disabled>
+                    <span>Pay Online with Square</span>
+                    <small>Coming soon</small>
+                  </button>
+                  <button
+                    className={`webbsPaymentOption ${webbsPaymentChoice === 'staff' ? 'selected' : ''}`}
+                    type="button"
+                    onClick={() => setWebbsPaymentChoice('staff')}
+                  >
+                    <span>Pay with Staff / Person</span>
+                    <small>Cash, check, or card with staff</small>
+                  </button>
                 </div>
-              ) : null}
-              {publicCopy.callBeforePickup ? <div>Please call the shop before pickup so staff can have your order ready.</div> : null}
-              {job.webbsOrder ? <div>{WEBBS_PROCESSING_PAYMENT_NOTE}</div> : null}
-              {job.webbsOrder ? <div>{WEBBS_PRICE_NOTE}</div> : null}
-              {publicCopy.storageFeePolicy ? <div>{publicCopy.storageFeePolicy}</div> : null}
-            </div>
-            <div className="thanksList">
-              <div>1. Staff will review your intake and assign the real deer tag.</div>
-              <div>2. Use this confirmation number on the status page until that tag is assigned.</div>
-              <div>3. We will contact you using the method you selected when there is an update.</div>
-            </div>
+                {webbsPaymentChoice === 'staff' ? (
+                  <div className="webbsPaymentSelected">
+                    Selected: pay with staff/person. Staff will collect processing payment before the Webbs order moves forward.
+                  </div>
+                ) : (
+                  <div className="webbsPaymentHint">
+                    Square is not connected yet, so staff/person is the only usable option for now.
+                  </div>
+                )}
+                <div className="webbsPaymentFinePrint">{WEBBS_PRICE_NOTE}</div>
+              </div>
+            ) : (
+              <p className="muted" style={{ marginTop: 10 }}>
+                Staff will review your intake, assign the permanent tag, and use your selected contact method when an update is available.
+              </p>
+            )}
             <p className="muted" style={{ marginTop: 10 }}>
               If anything looks wrong later, contact the shop and have this confirmation number ready.
             </p>
@@ -2465,6 +2425,75 @@ function OvernightIntakePage() {
           font-size: 14px;
           line-height: 1.5;
         }
+        .thanksWebbsNext {
+          margin-top: 12px;
+          display: grid;
+          gap: 10px;
+          padding: 12px;
+          border-radius: 12px;
+          background: #fffbeb;
+          border: 1px solid #fde68a;
+          color: #78350f;
+          font-size: 14px;
+          line-height: 1.5;
+          font-weight: 750;
+        }
+        .thanksWebbsTitle {
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+        }
+        .webbsPaymentOptions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+        }
+        .webbsPaymentOption {
+          display: grid;
+          gap: 4px;
+          text-align: left;
+          padding: 12px;
+          border: 1px solid #f59e0b;
+          border-radius: 12px;
+          background: #fff;
+          color: #78350f;
+          cursor: pointer;
+          font-weight: 900;
+        }
+        .webbsPaymentOption small {
+          color: #92400e;
+          font-size: 12px;
+          font-weight: 800;
+        }
+        .webbsPaymentOption:disabled {
+          opacity: .65;
+          cursor: not-allowed;
+          background: #fef3c7;
+        }
+        .webbsPaymentOption.selected {
+          border-color: #235532;
+          background: #eef8f0;
+          color: #173321;
+          box-shadow: 0 0 0 3px rgba(47, 111, 63, .12);
+        }
+        .webbsPaymentOption.selected small {
+          color: #406c4d;
+        }
+        .webbsPaymentSelected,
+        .webbsPaymentHint,
+        .webbsPaymentFinePrint {
+          font-size: 13px;
+          line-height: 1.45;
+        }
+        .webbsPaymentSelected {
+          color: #173321;
+          font-weight: 900;
+        }
+        .webbsPaymentHint,
+        .webbsPaymentFinePrint {
+          color: #92400e;
+        }
         .thanksActions { display:flex; gap:10px; flex-wrap:wrap; margin-top: 14px; }
         .thanksCopyStatus {
           margin-top: 8px;
@@ -2563,6 +2592,40 @@ function OvernightIntakePage() {
           color: #173321;
           font-size: 14px;
           line-height: 1.5;
+        }
+        .reviewLeaveCard {
+          margin-top: 12px;
+          border: 1px solid #fde68a;
+          border-radius: 14px;
+          background: #fffbeb;
+          color: #78350f;
+          padding: 12px;
+          display: grid;
+          gap: 8px;
+        }
+        .reviewLeaveTitle {
+          font-size: 12px;
+          font-weight: 900;
+          text-transform: uppercase;
+          letter-spacing: .06em;
+        }
+        .reviewLeaveCopy {
+          font-size: 13px;
+          line-height: 1.5;
+          font-weight: 750;
+        }
+        .reviewLeaveList {
+          display: grid;
+          gap: 8px;
+        }
+        .reviewLeaveItem {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          gap: 10px;
+          align-items: start;
+          font-size: 13px;
+          line-height: 1.45;
+          font-weight: 800;
         }
         .reviewPrepDot {
           width: 10px;
@@ -2897,36 +2960,6 @@ function OvernightIntakePage() {
         .webbsWorksheetRow { padding:8px 12px; border-top:1px solid #eef2f7; }
         .webbsWorksheetRow:first-of-type { border-top:0; }
         .webbsWorksheetLabel { font-size:13px; font-weight:700; color:#0f172a; }
-        .webbsPaymentCard {
-          max-width: 560px;
-          display: grid;
-          gap: 14px;
-          padding: 20px;
-        }
-        .webbsPaymentNotice {
-          display: grid;
-          gap: 8px;
-          padding: 14px;
-          border: 1px solid #fde68a;
-          border-radius: 14px;
-          background: #fffbeb;
-          color: #78350f;
-          font-size: 14px;
-          line-height: 1.45;
-        }
-        .webbsPaymentNotice strong {
-          font-size: 15px;
-        }
-        .webbsPaymentCopy {
-          color: #334155;
-          font-size: 14px;
-          line-height: 1.55;
-        }
-        .webbsPaymentActions {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 10px;
-        }
 
         .print-only { display: none; }
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
@@ -3092,12 +3125,12 @@ function OvernightIntakePage() {
             display: grid;
             grid-template-columns: 1fr;
           }
+          .webbsPaymentOptions {
+            grid-template-columns: 1fr;
+          }
           .webbsModalCard {
             max-height: calc(100vh - 20px);
             padding: 14px;
-          }
-          .webbsPaymentActions {
-            grid-template-columns: 1fr;
           }
           .webbsWorksheetHead,
           .webbsWorksheetRow { grid-template-columns:minmax(0,1fr) 96px; }
