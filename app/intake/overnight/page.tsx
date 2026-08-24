@@ -49,9 +49,7 @@ export const dynamic = 'force-dynamic';
 
 const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
 const WEBBS_PRICE_NOTE =
-  'Totals may include the processor Webbs handling fee, but Webbs product prices are not included. Those product charges will be provided when the Webbs order is delivered.';
-const WEBBS_PROCESSING_PAYMENT_NOTE =
-  'Webbs orders require regular processing payment at drop-off. Submit this intake first; then pay staff if they are present, or the shop will follow up for processing payment before the Webbs order moves forward.';
+  'Webbs product prices are not included here. Those charges are provided when the Webbs order is delivered.';
 
 /* ---------------- Types ---------------- */
 
@@ -1124,7 +1122,6 @@ function OvernightIntakePage() {
                 <span>Processing ${processingPrice.toFixed(2)}</span>
                 {specialtyEnabled ? <span>Specialty ${specialtyPrice.toFixed(2)}</span> : null}
               </div>
-              {job.webbsOrder ? <div className="webbsPriceNotice compactNotice">{WEBBS_PRICE_NOTE}</div> : null}
             </div>
           ) : (
             <>
@@ -1158,7 +1155,6 @@ function OvernightIntakePage() {
                   <div className="money total">{totalPrice.toFixed(2)}</div>
                 </div>
               </div>
-              {job.webbsOrder ? <div className="webbsPriceNotice">{WEBBS_PRICE_NOTE}</div> : null}
             </>
           )}
         </div>
@@ -1845,8 +1841,6 @@ function OvernightIntakePage() {
                             <div>
                               <div className="webbsSummaryTitle">Webbs Order</div>
                               <div className="muted" style={{ fontSize: 13 }}>{webbsSummaryText}</div>
-                              <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PROCESSING_PAYMENT_NOTE}</div>
-                              <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PRICE_NOTE}</div>
                               <div style={{ marginTop: 8 }}>
                                 <a
                                   href={WEBBS_PRICE_SHEET_URL}
@@ -2028,9 +2022,6 @@ function OvernightIntakePage() {
                   {webbsEnabled ? (
                     <div className="reviewLine">Webbs: {job.webbsOrder ? webbsSummaryText : 'No Webbs order'}</div>
                   ) : null}
-                  {job.webbsOrder ? (
-                    <div className="reviewLine"><strong>{WEBBS_PROCESSING_PAYMENT_NOTE}</strong></div>
-                  ) : null}
                   {job.webbsOrder && webbsOrderStyle === 'whole_deer_percent' && webbsAllocationLines.length > 0 ? (
                     <div className="reviewList">
                       {webbsAllocationLines.map((line) => (
@@ -2175,8 +2166,6 @@ function OvernightIntakePage() {
                     ? 'Enter percentages that add up to 100% for the whole deer.'
                     : 'Enter the products and pounds you want sent to Webbs.'}
                 </div>
-                <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PROCESSING_PAYMENT_NOTE}</div>
-                <div className="webbsPriceNotice" style={{ marginTop: 8 }}>{WEBBS_PRICE_NOTE}</div>
                 <div style={{ marginTop: 8 }}>
                   <a
                     href={WEBBS_PRICE_SHEET_URL}
@@ -2500,19 +2489,6 @@ function OvernightIntakePage() {
           color: #406c4d;
           font-size: 12px;
           font-weight: 900;
-        }
-        .webbsPriceNotice {
-          border: 1px solid #fde68a;
-          background: #fffbeb;
-          color: #92400e;
-          border-radius: 12px;
-          padding: 10px 12px;
-          font-size: 13px;
-          line-height: 1.45;
-          font-weight: 800;
-        }
-        .webbsPriceNotice.compactNotice {
-          margin-top: 8px;
         }
         .intakeNotice {
           display: flex;
