@@ -108,6 +108,22 @@ export type PublicSiteSettings = {
   updated_at?: string | null;
 };
 
+const PUBLIC_SITE_SETTINGS_CACHE_TTL_MS = 30_000;
+const publicSiteSettingsCache = new Map<string, { settings: PublicSiteSettings; expiresAt: number }>();
+
+function siteSettingsCacheKey(processor: ProcessorContext): string {
+  return processor.id ? `processor:${processor.id}` : `legacy:${processor.slug || 'default'}`;
+}
+
+export function clearPublicSiteSettingsCache(processorId?: string | null) {
+  const normalizedProcessorId = String(processorId || '').trim();
+  if (!normalizedProcessorId) {
+    publicSiteSettingsCache.clear();
+    return;
+  }
+  publicSiteSettingsCache.delete(`processor:${normalizedProcessorId}`);
+}
+
 export function normalizeProcessorFeatures(raw: any): ProcessorFeatureSettings {
   const plan: ProcessorFeatureSettings['plan'] =
     raw?.plan === 'basic' || raw?.plan === 'texting' || raw?.plan === 'custom'
@@ -349,6 +365,13 @@ export async function getPublicSiteSettings(
       : requestHostname
       ? await getProcessorContextForHostname(requestHostname)
       : await getDefaultProcessorContext();
+    const cacheKey = siteSettingsCacheKey(processor);
+    const now = Date.now();
+    const cached = publicSiteSettingsCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.settings;
+    }
+
     let query = supabase
       .from('site_settings')
       .select('public_intake_enabled,banner_enabled,banner_message,hours,updated_at,standard_processing_price,caped_price,cape_donate_price,beef_fat_add_on,webbs_add_on,summer_sausage_price_per_lb,snack_stix_price_per_lb,process_catalog,add_on_catalog,notification_templates,cut_option_settings,state_form_type,public_copy');
@@ -400,7 +423,7 @@ export async function getPublicSiteSettings(
       }
     }
 
-    return {
+    const settings: PublicSiteSettings = {
       public_intake_enabled: !!data.public_intake_enabled,
       banner_enabled: !!data.banner_enabled,
       banner_message: String(data.banner_message || ''),
@@ -417,6 +440,11 @@ export async function getPublicSiteSettings(
       publicCopy: normalizePublicCopy((data as any).public_copy),
       updated_at: data.updated_at ?? null,
     };
+    publicSiteSettingsCache.set(cacheKey, {
+      settings,
+      expiresAt: now + PUBLIC_SITE_SETTINGS_CACHE_TTL_MS,
+    });
+    return settings;
   } catch {
     return defaultPublicSiteSettings();
   }

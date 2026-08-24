@@ -193,18 +193,33 @@ async function handle(confirmation: string, tag: string, lastName: string, phone
   // return the possible matches so the customer can choose the right one instead of
   // guessing by newest drop-off.
   if (wantPhone.length === 10 && safeLN) {
-    let query = supabase
-      .from('jobs')
-      .select(PUBLIC_STATUS_SELECT)
-      .ilike('customer_name', `%${safeLN}%`);
+    const findMatches = async (phoneScoped: boolean) => {
+      let query = supabase
+        .from('jobs')
+        .select(PUBLIC_STATUS_SELECT)
+        .ilike('customer_name', `%${safeLN}%`);
 
-    if (processor.id) query = query.eq('processor_id', processor.id);
+      if (phoneScoped) query = query.eq('phone', wantPhone);
+      if (processor.id) query = query.eq('processor_id', processor.id);
 
-    const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(50);
+      const { data, error } = await query.order('dropoff_date', { ascending: false }).limit(phoneScoped ? 25 : 50);
+      if (error) throw error;
 
-    if (error) return { ok: false, error: 'Server error' };
+      return (data || []).filter((r: any) => phoneDigits(r.phone) === wantPhone && lname(r.customer_name) === wantLN);
+    };
 
-    const hits = (data || []).filter((r: any) => phoneDigits(r.phone) === wantPhone && lname(r.customer_name) === wantLN);
+    let hits: any[] = [];
+    try {
+      hits = await findMatches(true);
+      if (!hits.length) {
+        // Older staff-entered rows may have formatted phone numbers, so keep the original
+        // broader lookup as a fallback while making normal public-intake lookups indexed.
+        hits = await findMatches(false);
+      }
+    } catch {
+      return { ok: false, error: 'Server error' };
+    }
+
     if (hits.length === 1) return shapeJob(hits[0], supabase);
     if (hits.length > 1) {
       return {

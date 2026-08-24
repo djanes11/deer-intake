@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { normalizeHours, defaultPublicSiteSettings, normalizePublicCopy } from '@/lib/siteSettings';
+import { clearPublicSiteSettingsCache, normalizeHours, defaultPublicSiteSettings, normalizePublicCopy } from '@/lib/siteSettings';
 import { normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { normalizeStateFormType } from '@/lib/stateforms/catalog';
 import { normalizeCutOptionSettings as normalizeCutOptions } from '@/lib/cutOptions';
@@ -308,6 +308,8 @@ export async function POST(req: Request) {
         cutOptions: merged.cutOptions,
       },
     });
+
+    clearPublicSiteSettingsCache(processor.id);
 
     return NextResponse.json({ ok: true, settings: merged });
   } catch (e: any) {

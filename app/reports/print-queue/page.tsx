@@ -55,6 +55,28 @@ async function markPrinted(tag: string) {
   return data;
 }
 
+async function runLimited<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, limit), items.length);
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        results[currentIndex] = await worker(items[currentIndex], currentIndex);
+      }
+    })
+  );
+
+  return results;
+}
+
 export default function PrintQueuePage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,18 +206,15 @@ export default function PrintQueuePage() {
     setPrinting('__batch__');
     setPrintJobs([]);
     try {
-      const jobs: AnyRec[] = [];
-      for (const tag of tags) {
+      const jobs = await runLimited(tags, 4, async (tag) => {
         const job = await loadJob(tag);
         if (!job) throw new Error(`Could not load intake sheet for tag ${tag}.`);
-        jobs.push(job);
-      }
+        return job;
+      });
 
       setPrintJobs(jobs);
 
-      for (const tag of tags) {
-        await markPrinted(tag);
-      }
+      await runLimited(tags, 6, (tag) => markPrinted(tag));
 
       const printed = new Set(tags);
       setRows((prev) => prev.filter((row) => !printed.has(String(row.tag || '').trim())));
