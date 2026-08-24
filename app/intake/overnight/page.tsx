@@ -284,7 +284,9 @@ function OvernightIntakePage() {
   const [showThanks, setShowThanks] = useState<boolean>(false);
   const [savedConfirmation, setSavedConfirmation] = useState('');
   const [savedPublicToken, setSavedPublicToken] = useState('');
-  const [webbsPaymentChoice, setWebbsPaymentChoice] = useState<'staff' | ''>('');
+  const [webbsPaymentChoice, setWebbsPaymentChoice] = useState<'square' | 'staff' | ''>('');
+  const [squarePaymentBusy, setSquarePaymentBusy] = useState(false);
+  const [squarePaymentMsg, setSquarePaymentMsg] = useState('');
   const [copyMsg, setCopyMsg] = useState('');
   const [intakeEnabled, setIntakeEnabled] = useState(true);
   const [closureMessage, setClosureMessage] = useState('');
@@ -895,6 +897,44 @@ function OvernightIntakePage() {
     } finally {
       setBusy(false);
       setTimeout(() => setMsg(''), 1500);
+    }
+  };
+
+  const startSquarePayment = async () => {
+    setWebbsPaymentChoice('square');
+    setSquarePaymentMsg('');
+    if (!savedPublicToken) {
+      setSquarePaymentMsg('Save the intake first, then open Square payment.');
+      return;
+    }
+
+    try {
+      setSquarePaymentBusy(true);
+      const r = await fetch('/api/square/create-processing-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ publicToken: savedPublicToken }),
+      });
+      const res = await r.json().catch(() => ({} as any));
+      if (!r.ok || !res?.ok) {
+        setSquarePaymentMsg(res?.error || 'Could not open Square payment.');
+        return;
+      }
+      if (res?.paid) {
+        setSquarePaymentMsg(res?.message || 'Regular processing is already marked paid.');
+        return;
+      }
+      const checkoutUrl = String(res?.checkoutUrl || '').trim();
+      if (!checkoutUrl) {
+        setSquarePaymentMsg('Square did not return a checkout link.');
+        return;
+      }
+      window.location.assign(checkoutUrl);
+    } catch (e: any) {
+      setSquarePaymentMsg(e?.message || String(e));
+    } finally {
+      setSquarePaymentBusy(false);
     }
   };
 
@@ -2266,9 +2306,14 @@ function OvernightIntakePage() {
                 <div className="thanksWebbsTitle">Webbs Processing Payment</div>
                 <div>Choose how you plan to handle the regular processing payment for this Webbs order.</div>
                 <div className="webbsPaymentOptions">
-                  <button className="webbsPaymentOption" type="button" disabled>
-                    <span>Pay Online with Square</span>
-                    <small>Coming soon</small>
+                  <button
+                    className={`webbsPaymentOption ${webbsPaymentChoice === 'square' ? 'selected' : ''}`}
+                    type="button"
+                    onClick={startSquarePayment}
+                    disabled={squarePaymentBusy || !savedPublicToken}
+                  >
+                    <span>{squarePaymentBusy ? 'Opening Square...' : 'Pay Online with Square'}</span>
+                    <small>${processingPrice.toFixed(2)} regular processing</small>
                   </button>
                   <button
                     className={`webbsPaymentOption ${webbsPaymentChoice === 'staff' ? 'selected' : ''}`}
@@ -2283,9 +2328,13 @@ function OvernightIntakePage() {
                   <div className="webbsPaymentSelected">
                     Selected: pay with staff/person. Staff will collect processing payment before the Webbs order moves forward.
                   </div>
+                ) : webbsPaymentChoice === 'square' ? (
+                  <div className={squarePaymentMsg ? 'webbsPaymentHint' : 'webbsPaymentSelected'}>
+                    {squarePaymentMsg || 'Square will open a secure checkout page for regular processing payment.'}
+                  </div>
                 ) : (
                   <div className="webbsPaymentHint">
-                    Square is not connected yet, so staff/person is the only usable option for now.
+                    Online payment opens Square checkout after this intake is saved.
                   </div>
                 )}
                 <div className="webbsPaymentFinePrint">{WEBBS_PRICE_NOTE}</div>
