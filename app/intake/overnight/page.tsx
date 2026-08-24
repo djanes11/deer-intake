@@ -902,9 +902,9 @@ function OvernightIntakePage() {
 
   const startSquarePayment = async () => {
     setWebbsPaymentChoice('square');
-    setSquarePaymentMsg('');
+    setSquarePaymentMsg('Opening Square checkout...');
     if (!savedPublicToken) {
-      setSquarePaymentMsg('Save the intake first, then open Square payment.');
+      setSquarePaymentMsg('This saved intake is missing its secure payment token. Use pay with staff for this test and try a fresh intake after redeploy.');
       return;
     }
 
@@ -2310,7 +2310,7 @@ function OvernightIntakePage() {
                     className={`webbsPaymentOption ${webbsPaymentChoice === 'square' ? 'selected' : ''}`}
                     type="button"
                     onClick={startSquarePayment}
-                    disabled={squarePaymentBusy || !savedPublicToken}
+                    disabled={squarePaymentBusy}
                   >
                     <span>{squarePaymentBusy ? 'Opening Square...' : 'Pay Online with Square'}</span>
                     <small>${processingPrice.toFixed(2)} regular processing</small>
