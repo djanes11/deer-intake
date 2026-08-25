@@ -166,7 +166,10 @@ function CapeSection({
             <tbody>
               {rows.map((row, idx) => {
                 const ageAt = dateForRow(row);
-                const searchValue = row.tag || row.confirmation || '';
+                const tag = String(row.tag || '').trim();
+                const hasRealTag = !!tag && !tag.toUpperCase().startsWith('PENDING-');
+                const intakeHref = hasRealTag ? `/intake/${encodeURIComponent(tag)}` : '/overnight/review';
+                const intakeLabel = hasRealTag ? 'Open Intake' : 'Review Public Intake';
                 return (
                   <tr key={row.id} className={idx % 2 ? 'alt' : ''}>
                     <td className="age-cell" style={{ color: ageColor(ageAt) }}>{ageText(ageAt)}</td>
@@ -182,7 +185,7 @@ function CapeSection({
                     <td className="next-step">{nextStep}</td>
                     <td>
                       <div className="row-actions">
-                        <Link className="btn small" href={`/search?q=${encodeURIComponent(searchValue)}`} style={{ textDecoration: 'none' }}>Search</Link>
+                        <Link className="btn small" href={intakeHref} style={{ textDecoration: 'none' }}>{intakeLabel}</Link>
                         {showContactAction ? (
                           <Link className="btn secondary small" href="/reports/contact-watch" style={{ textDecoration: 'none' }}>Contact</Link>
                         ) : null}

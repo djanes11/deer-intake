@@ -88,6 +88,7 @@ export default async function SpecialtyReport() {
       'id,tag,customer_name,phone,email,dropoff_date,specialty_status,specialty_finished_email_sent_at,specialty_finished_sms_sent_at,last_call_at,updated_at'
     )
     .eq('specialty_products', true)
+    .is('pending_deleted_at', null)
     .or('specialty_status.is.null,specialty_status.neq.Picked Up');
 
   if (processor.id) {

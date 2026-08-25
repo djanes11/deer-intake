@@ -333,41 +333,47 @@ export default async function ContactWatchPage() {
                 </tr>
               </thead>
               <tbody>
-                {watchRows.map((row, idx) => (
-                  <tr key={`${row.id}-${row.track}`} style={{ borderTop: '1px solid #e5e7eb', background: idx % 2 ? '#fbfdff' : '#fff' }}>
-                    <td style={{ padding: 12, fontWeight: 950, color: (ageDays(row.readyAt) || 0) >= 3 ? '#9a3412' : '#0f172a' }}>{ageText(row.readyAt)}</td>
-                    <td style={{ padding: 12 }}><span className="pill">{row.trackLabel}</span></td>
-                    <td style={{ padding: 12 }}>
-                      <div style={{ fontWeight: 900 }}>{row.customer}</div>
-                      <div style={{ color: '#64748b', fontSize: 13 }}>
-                        Tag {row.tag || '-'} | Confirmation {row.confirmation} | Drop-off {formatDisplayDate(row.dropoffDate)}
-                      </div>
-                    </td>
-                    <td style={{ padding: 12 }}>
-                      <div style={{ fontWeight: 900 }}>{row.contactMethod}</div>
-                      <div style={{ color: '#64748b', fontSize: 13 }}>{row.contactDestination}</div>
-                    </td>
-                    <td style={{ padding: 12 }}>
-                      <div>{row.reason}</div>
-                      {row.lastFailure ? <div style={{ color: '#b91c1c', fontSize: 13, marginTop: 4 }}>{row.lastFailure}</div> : null}
-                    </td>
-                    <td style={{ padding: 12 }}>{formatDisplayDateTime(row.readyAt)}</td>
-                    <td style={{ padding: 12 }}>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <Link className="btn small" href={`/search?q=${encodeURIComponent(row.tag || row.confirmation)}`} style={{ textDecoration: 'none' }}>Search</Link>
-                        {row.contactMethod === 'Call' ? (
-                          <Link className="btn secondary small" href="/reports/calls" style={{ textDecoration: 'none' }}>Call Queue</Link>
-                        ) : null}
-                        <ContactWatchActions
-                          tag={row.tag}
-                          track={row.track}
-                          contactMethod={row.contactMethod}
-                          canUpdate={canUpdate}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {watchRows.map((row, idx) => {
+                  const tag = String(row.tag || '').trim();
+                  const hasRealTag = !!tag && !tag.toUpperCase().startsWith('PENDING-');
+                  const intakeHref = hasRealTag ? `/intake/${encodeURIComponent(tag)}` : '/overnight/review';
+                  const intakeLabel = hasRealTag ? 'Open Intake' : 'Review Public Intake';
+                  return (
+                    <tr key={`${row.id}-${row.track}`} style={{ borderTop: '1px solid #e5e7eb', background: idx % 2 ? '#fbfdff' : '#fff' }}>
+                      <td style={{ padding: 12, fontWeight: 950, color: (ageDays(row.readyAt) || 0) >= 3 ? '#9a3412' : '#0f172a' }}>{ageText(row.readyAt)}</td>
+                      <td style={{ padding: 12 }}><span className="pill">{row.trackLabel}</span></td>
+                      <td style={{ padding: 12 }}>
+                        <div style={{ fontWeight: 900 }}>{row.customer}</div>
+                        <div style={{ color: '#64748b', fontSize: 13 }}>
+                          Tag {row.tag || '-'} | Confirmation {row.confirmation} | Drop-off {formatDisplayDate(row.dropoffDate)}
+                        </div>
+                      </td>
+                      <td style={{ padding: 12 }}>
+                        <div style={{ fontWeight: 900 }}>{row.contactMethod}</div>
+                        <div style={{ color: '#64748b', fontSize: 13 }}>{row.contactDestination}</div>
+                      </td>
+                      <td style={{ padding: 12 }}>
+                        <div>{row.reason}</div>
+                        {row.lastFailure ? <div style={{ color: '#b91c1c', fontSize: 13, marginTop: 4 }}>{row.lastFailure}</div> : null}
+                      </td>
+                      <td style={{ padding: 12 }}>{formatDisplayDateTime(row.readyAt)}</td>
+                      <td style={{ padding: 12 }}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <Link className="btn small" href={intakeHref} style={{ textDecoration: 'none' }}>{intakeLabel}</Link>
+                          {row.contactMethod === 'Call' ? (
+                            <Link className="btn secondary small" href="/reports/calls" style={{ textDecoration: 'none' }}>Call Queue</Link>
+                          ) : null}
+                          <ContactWatchActions
+                            tag={row.tag}
+                            track={row.track}
+                            contactMethod={row.contactMethod}
+                            canUpdate={canUpdate}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

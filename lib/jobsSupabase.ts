@@ -3141,10 +3141,11 @@ export async function listJobsNeedingTag(opts: { processorContext?: ProcessorCon
     supabaseServer
     .from('jobs')
     .select(SEARCH_SELECT)
-    .or('tag.is.null,tag.eq.,requires_tag.eq.true')
+    .eq('requires_tag', true)
     .is('pending_deleted_at', null),
     processor.id
   )
+    .or('tag.ilike.PENDING-%,tag.is.null,tag.eq.')
     .order('dropoff_date', { ascending: false })
     .limit(200);
 
@@ -3377,6 +3378,7 @@ export async function listJobsNeedingPrint(opts: { processorContext?: ProcessorC
     .eq('requires_tag', false)
     .not('tag', 'is', null)
     .neq('tag', '')
+    .is('pending_deleted_at', null)
     .is('intake_sheet_printed_at', null),
     processor.id
   )
@@ -3707,7 +3709,9 @@ export async function getDashboardSummary() {
       supabaseServer
         .from('jobs')
         .select('id', { count: 'exact', head: true })
-        .eq('requires_tag', true),
+        .eq('requires_tag', true)
+        .is('pending_deleted_at', null)
+        .or('tag.ilike.PENDING-%,tag.is.null,tag.eq.'),
       processor.id
     ),
     withProcessorFilter(
@@ -3717,6 +3721,7 @@ export async function getDashboardSummary() {
         .eq('requires_tag', false)
         .not('tag', 'is', null)
         .neq('tag', '')
+        .is('pending_deleted_at', null)
         .is('intake_sheet_printed_at', null),
       processor.id
     ),
@@ -3732,6 +3737,7 @@ export async function getDashboardSummary() {
       supabaseServer
         .from('jobs')
         .select('id', { count: 'exact', head: true })
+        .is('pending_deleted_at', null)
         .eq('dropoff_date', new Date().toISOString().slice(0, 10)),
       processor.id
     ),
@@ -3739,6 +3745,7 @@ export async function getDashboardSummary() {
       supabaseServer
         .from('jobs')
         .select('id,status,caping_status,webbs_status,picked_up_processing,picked_up_cape,picked_up_webbs')
+        .is('pending_deleted_at', null)
         .or('status.eq.Called,caping_status.eq.Called,webbs_status.eq.Called')
         .limit(1000),
       processor.id
@@ -3748,6 +3755,7 @@ export async function getDashboardSummary() {
         .from('jobs')
         .select('id', { count: 'exact', head: true })
         .eq('specialty_products', true)
+        .is('pending_deleted_at', null)
         .or('specialty_status.is.null,specialty_status.neq.Picked Up'),
       processor.id
     ),
@@ -3755,6 +3763,7 @@ export async function getDashboardSummary() {
       supabaseServer
         .from('jobs')
         .select('id,status,caping_status,webbs_status,specialty_status,picked_up_processing,picked_up_processing_at,picked_up_cape,picked_up_webbs,specialty_products,processing_started_at,processing_finished_at,price_processing,price_specialty,paid_processing,paid_specialty,amount_paid_processing,amount_paid_specialty,finished_email_sent_at,meat_finished_sms_sent_at,cape_finished_email_sent_at,cape_finished_sms_sent_at,specialty_finished_email_sent_at,specialty_finished_sms_sent_at,webbs_delivered_email_sent_at,webbs_delivered_sms_sent_at,last_call_at,pref_email,pref_sms,pref_call,sms_consent,process_type,process_type_requires_cape,dropoff_date,created_at,updated_at')
+        .is('pending_deleted_at', null)
         .limit(2000),
       processor.id
     ),
@@ -3762,6 +3771,7 @@ export async function getDashboardSummary() {
       supabaseServer
         .from('jobs')
         .select('id', { count: 'exact', head: true })
+        .is('pending_deleted_at', null)
         .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       processor.id
     ),
@@ -3770,6 +3780,7 @@ export async function getDashboardSummary() {
         .from('jobs')
         .select('id', { count: 'exact', head: true })
         .eq('paid_processing', false)
+        .is('pending_deleted_at', null)
         .neq('status', 'Picked Up'),
       processor.id
     ),
@@ -3779,6 +3790,7 @@ export async function getDashboardSummary() {
         .select('id', { count: 'exact', head: true })
         .eq('specialty_products', true)
         .eq('paid_specialty', false)
+        .is('pending_deleted_at', null)
         .or('specialty_status.is.null,specialty_status.neq.Picked Up'),
       processor.id
     ),

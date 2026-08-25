@@ -125,6 +125,7 @@ export default async function BalancesPage() {
     .from('jobs')
     .select('id,tag,confirmation,customer_name,phone,dropoff_date,status,specialty_status,specialty_products,price_processing,price_specialty,amount_paid_processing,amount_paid_specialty,paid_processing,paid_specialty,picked_up_processing')
     .eq('processor_id', processor.id)
+    .is('pending_deleted_at', null)
     .limit(3000);
 
   const rows = ((data || []) as BalanceRow[])
