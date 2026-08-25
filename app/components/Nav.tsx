@@ -231,6 +231,9 @@ export default function Nav() {
                       <Link href="/reports/webbs-payments" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Webbs Payments
                       </Link>
+                      <Link href="/reports/square-reconciliation" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                        Square Payments
+                      </Link>
                       <Link href="/reports/specialty" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Specialty
                       </Link>
