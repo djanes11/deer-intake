@@ -16,6 +16,7 @@ import {
 import { specialtyBreakdown, specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import { defaultSpecialtyCatalog, normalizeJobSpecialtyItems, normalizeSpecialtyCatalog, SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 import { calcProcessingPrice, DEFAULT_SITE_PRICING, normalizePricing, normProc } from '@/lib/pricing';
+import { SQUARE_ONLINE_PAYMENT_FEE } from '@/lib/paymentConfig';
 import {
   AddOnCatalogItem,
   ProcessTypeCatalogItem,
@@ -50,7 +51,6 @@ export const dynamic = 'force-dynamic';
 const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
 const WEBBS_PRICE_NOTE =
   'Webbs product prices are not included here. Those charges are provided when the Webbs order is delivered.';
-const SQUARE_ONLINE_PAYMENT_FEE = 6;
 
 /* ---------------- Types ---------------- */
 

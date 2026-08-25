@@ -8,7 +8,8 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getProcessorContextForHostname } from '@/lib/processorContext';
 import { sharedRateLimit } from '@/lib/ratelimit';
-import { createSquareProcessingPaymentLink, getSquareConfig, SQUARE_ONLINE_PAYMENT_FEE_CENTS, squareMoneyCents } from '@/lib/square';
+import { createSquareProcessingPaymentLink, getSquareConfig, squareMoneyCents } from '@/lib/square';
+import { SQUARE_ONLINE_PAYMENT_FEE_CENTS } from '@/lib/paymentConfig';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 
 function getIp(req: NextRequest): string {

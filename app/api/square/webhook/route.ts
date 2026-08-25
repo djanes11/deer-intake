@@ -69,8 +69,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, ignored: true, reason: 'unknown_order' });
     }
 
+    const previousLinkStatus = String((link as any).status || '').trim().toLowerCase();
+    const linkWasRetired = ['superseded', 'cancelled', 'canceled', 'voided'].includes(previousLinkStatus);
     const nextLinkStatus =
-      paymentStatus === 'COMPLETED'
+      paymentStatus === 'COMPLETED' && linkWasRetired
+        ? 'completed_after_superseded'
+        : paymentStatus === 'COMPLETED'
         ? 'completed'
         : paymentStatus
           ? paymentStatus.toLowerCase()
@@ -99,6 +103,9 @@ export async function POST(req: NextRequest) {
     const expectedAmount = Number((link as any).amount_cents ?? 0) || 0;
     if (expectedAmount > 0 && paymentAmountCents > 0 && paymentAmountCents < expectedAmount) {
       return NextResponse.json({ ok: true, status: 'completed_under_expected_amount' });
+    }
+    if (linkWasRetired) {
+      return NextResponse.json({ ok: true, status: nextLinkStatus, needsReview: true });
     }
 
     const { data: job, error: jobError } = await supabase

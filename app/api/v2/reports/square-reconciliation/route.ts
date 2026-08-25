@@ -73,17 +73,23 @@ function mapSquareRow(row: any): SquareReportRow {
     ? Math.max(0, amountCents - onlineFeeCents)
     : cents(row?.processing_amount_cents);
   const status = str(row?.status).toLowerCase() || 'unknown';
-  const completed = status === 'completed' || !!row?.completed_at;
+  const completedAfterRetired = status === 'completed_after_superseded';
+  const completed = status === 'completed' || (!!row?.completed_at && !completedAfterRetired);
+  const inactive = ['superseded', 'cancelled', 'canceled', 'voided'].includes(status);
   const appProcessingPrice = money(job?.price_processing);
   const appProcessingPaid = money(job?.amount_paid_processing);
   const appPaidProcessing = !!job?.paid_processing || (appProcessingPrice > 0 && appProcessingPaid >= appProcessingPrice);
   const paymentMethod = str(job?.payment_method_processing).toLowerCase();
-  const staleOpen = !completed && rowAgeDays(row?.created_at || null) >= 1;
+  const staleOpen = !completed && !inactive && rowAgeDays(row?.created_at || null) >= 1;
   const issueLabels: string[] = [];
   let issueLevel: SquareReportRow['issueLevel'] = 'ok';
 
   if (!job) {
     issueLabels.push('Job missing');
+    issueLevel = 'critical';
+  }
+  if (completedAfterRetired) {
+    issueLabels.push('Retired Square link was paid after in-person payment');
     issueLevel = 'critical';
   }
   if (completed && !appPaidProcessing) {
@@ -102,7 +108,13 @@ function mapSquareRow(row: any): SquareReportRow {
     issueLabels.push('Open Square link older than 24 hours');
     issueLevel = issueLevel === 'ok' ? 'warning' : issueLevel;
   }
-  if (!completed && !issueLabels.length) {
+  if (inactive && appPaidProcessing && !issueLabels.length) {
+    issueLabels.push('Paid in app; Square link retired');
+  }
+  if (inactive && !appPaidProcessing && !issueLabels.length) {
+    issueLabels.push('Square link retired');
+  }
+  if (!completed && !inactive && !issueLabels.length) {
     issueLabels.push('Square link created, not paid yet');
   }
   if (completed && appPaidProcessing && !issueLabels.length) {
@@ -111,7 +123,7 @@ function mapSquareRow(row: any): SquareReportRow {
 
   const category = issueLevel !== 'ok'
     ? 'needs_attention'
-    : completed
+    : completed || inactive
       ? 'paid'
       : 'open';
 

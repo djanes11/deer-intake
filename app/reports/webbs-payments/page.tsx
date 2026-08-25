@@ -110,7 +110,10 @@ export default function WebbsPaymentsPage() {
       const json = await readJson(r);
       if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
       setRows((prev) => prev.filter((item) => item.tag !== tag));
-      setMessage(`Marked ${row.customer || tag} paid by ${methodLabel(method)}.`);
+      setMessage(
+        `Marked ${row.customer || tag} paid by ${methodLabel(method)}.` +
+        (json?.squarePaymentLinkWarning ? ` ${json.squarePaymentLinkWarning}` : '')
+      );
     } catch (err: any) {
       setError(String(err?.message || err));
     } finally {
@@ -135,7 +138,7 @@ export default function WebbsPaymentsPage() {
         <h1 style={{ margin: '8px 0 6px', fontSize: 30, lineHeight: 1.05 }}>Webbs Processing Payments</h1>
         <div style={{ color: 'rgba(248,250,252,.88)', maxWidth: 820, lineHeight: 1.5 }}>
           Every Webbs order here still needs regular processing payment collected or reviewed before it should move forward.
-          Square online links are not live yet, so staff can clear cash, check, or card/Square payments here.
+          Public overnight customers can pay online after saving. Use this page when staff collects regular processing in person by cash, check, or card.
         </div>
       </section>
 
@@ -239,9 +242,6 @@ export default function WebbsPaymentsPage() {
                         {busyKey === `${row.tag}:${method}` ? 'Saving...' : `Paid ${methodLabel(method)}`}
                       </button>
                     ))}
-                    <button className="btn secondaryBtn" disabled title="Square online payment links are not connected yet.">
-                      Send Square Link Soon
-                    </button>
                   </div>
                 </div>
               );

@@ -3472,6 +3472,36 @@ export async function listWebbsProcessingPaymentNeeded(
   return { ok: true, rows };
 }
 
+function missingSquarePaymentLinksError(error: any) {
+  const message = String(error?.message || error || '');
+  return /square_payment_links|schema cache|relation .* does not exist|column .* does not exist/i.test(message);
+}
+
+async function retireActiveSquarePaymentLinksForJob(
+  supabaseServer: any,
+  params: { jobId: string; paidAt: string }
+) {
+  const jobId = String(params.jobId || '').trim();
+  if (!jobId) return { ok: true, skipped: true };
+
+  const { error } = await supabaseServer
+    .from('square_payment_links')
+    .update({
+      status: 'superseded',
+      last_event_type: 'app.in_person_processing_payment',
+      last_event_at: params.paidAt,
+      updated_at: params.paidAt,
+    })
+    .eq('job_id', jobId)
+    .in('status', ['pending', 'created', 'open']);
+
+  if (!error) return { ok: true, skipped: false };
+  if (missingSquarePaymentLinksError(error)) return { ok: true, skipped: true };
+
+  console.error('retireActiveSquarePaymentLinksForJob error', error);
+  return { ok: false, error: String(error?.message || error) };
+}
+
 export async function markWebbsProcessingPaid(params: {
   tag: string;
   method?: 'cash' | 'card' | 'check' | 'other' | string | null;
@@ -3535,6 +3565,11 @@ export async function markWebbsProcessingPaid(params: {
 
   if (!updated) return { ok: false, error: 'Webbs job not found' };
 
+  const squareLinks = await retireActiveSquarePaymentLinksForJob(supabaseServer, {
+    jobId: String((row as any).id || ''),
+    paidAt,
+  });
+
   return {
     ok: true,
     tag: String((updated as any).tag || tag),
@@ -3543,6 +3578,9 @@ export async function markWebbsProcessingPaid(params: {
     paidProcessing: !!(updated as any).paid_processing,
     paymentMethodProcessing: paymentMethodOrNull((updated as any).payment_method_processing),
     paidProcessingAt: (updated as any).paid_processing_at ?? paidAt,
+    squarePaymentLinkWarning: squareLinks.ok
+      ? null
+      : 'Payment was saved, but an open Square link could not be retired. Check the Square Payments report.',
   };
 }
 

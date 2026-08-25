@@ -2,6 +2,8 @@ import 'server-only';
 
 import crypto from 'crypto';
 
+export { SQUARE_ONLINE_PAYMENT_FEE_CENTS } from './paymentConfig';
+
 export type SquareEnvironment = 'sandbox' | 'production';
 
 export type SquareConfig = {
@@ -20,8 +22,6 @@ export type SquarePaymentLinkResult = {
   longUrl: string;
   raw: any;
 };
-
-export const SQUARE_ONLINE_PAYMENT_FEE_CENTS = 600;
 
 function clean(value: unknown) {
   return String(value || '').trim().replace(/^['"]|['"]$/g, '');
