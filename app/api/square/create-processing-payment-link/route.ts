@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
       amountCents,
       customerName: String((job as any).customer_name || ''),
       confirmation,
+      buyerEmail: String((job as any).email || ''),
+      buyerPhone: String((job as any).phone || ''),
       tag: (job as any).tag,
       redirectUrl,
       note: `Regular processing: $${(processingAmountCents / 100).toFixed(2)} | Online payment fee: $${(onlineFeeCents / 100).toFixed(2)} | job:${(job as any).id} | confirmation:${confirmation}`,

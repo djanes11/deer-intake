@@ -64,6 +64,8 @@ export async function createSquareProcessingPaymentLink(params: {
   amountCents: number;
   customerName: string;
   confirmation: string;
+  buyerEmail?: string | null;
+  buyerPhone?: string | null;
   tag?: string | null;
   redirectUrl: string;
   note: string;
@@ -79,6 +81,12 @@ export async function createSquareProcessingPaymentLink(params: {
     params.customerName || 'Customer',
     params.confirmation ? `Conf ${params.confirmation}` : '',
   ].filter(Boolean);
+  const buyerEmail = clean(params.buyerEmail);
+  const buyerPhone = normalizeBuyerPhone(params.buyerPhone);
+  const prePopulatedData = {
+    ...(buyerEmail && /\S+@\S+\.\S+/.test(buyerEmail) ? { buyer_email: buyerEmail } : {}),
+    ...(buyerPhone ? { buyer_phone_number: buyerPhone } : {}),
+  };
 
   const resp = await fetch(`${config.apiBaseUrl}/v2/online-checkout/payment-links`, {
     method: 'POST',
@@ -101,6 +109,7 @@ export async function createSquareProcessingPaymentLink(params: {
       checkout_options: {
         redirect_url: params.redirectUrl,
       },
+      ...(Object.keys(prePopulatedData).length ? { pre_populated_data: prePopulatedData } : {}),
       payment_note: params.note.slice(0, 500),
     }),
   });
@@ -126,6 +135,14 @@ export async function createSquareProcessingPaymentLink(params: {
     longUrl: String(link.long_url || ''),
     raw,
   };
+}
+
+function normalizeBuyerPhone(value: unknown) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  if (String(value || '').trim().startsWith('+') && digits.length >= 11) return `+${digits}`;
+  return '';
 }
 
 export function verifySquareWebhookSignature(params: {
