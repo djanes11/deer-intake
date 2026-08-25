@@ -200,22 +200,26 @@ export default function Nav() {
 
               <details className="dd">
                 <summary>Reports</summary>
-                <div className="dropdown-menu" role="menu">
-                  <details className="dropdown-submenu" open>
-                    <summary>Public Intake</summary>
-                    <div className="dropdown-submenu-body">
+                <div className="dropdown-menu reports-menu" role="menu">
+                  <div className="reports-menu-grid">
+                    <div className="report-menu-group">
+                      <div className="report-menu-title">Intake</div>
                       <Link href="/overnight/review" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Needs Tag
                       </Link>
+                      <Link href="/reports/print-queue" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                        Print Queue
+                      </Link>
+                      <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                        State Form
+                      </Link>
                       <Link href="/reports/removed-public-intakes" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                        Removed Public Intakes
+                        Removed Intakes
                       </Link>
                     </div>
-                  </details>
 
-                  <details className="dropdown-submenu">
-                    <summary>Operations</summary>
-                    <div className="dropdown-submenu-body">
+                    <div className="report-menu-group">
+                      <div className="report-menu-title">Contact</div>
                       <Link href="/reports/calls" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Call Report
                       </Link>
@@ -225,6 +229,13 @@ export default function Nav() {
                       <Link href="/reports/called" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Called / Pickups
                       </Link>
+                      <Link href="/reports/notifications" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
+                        Notifications
+                      </Link>
+                    </div>
+
+                    <div className="report-menu-group">
+                      <div className="report-menu-title">Products</div>
                       <Link href="/reports/cape-watch" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Cape Watch
                       </Link>
@@ -237,28 +248,11 @@ export default function Nav() {
                       <Link href="/reports/specialty" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                         Specialty
                       </Link>
-                      <Link href="/reports/print-queue" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                        Print Queue
-                      </Link>
-                      <Link href="/reports/state-form" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                        State Form
-                      </Link>
                     </div>
-                  </details>
 
-                  <details className="dropdown-submenu">
-                    <summary>Communication</summary>
-                    <div className="dropdown-submenu-body">
-                      <Link href="/reports/notifications" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
-                        Notifications
-                      </Link>
-                    </div>
-                  </details>
-
-                  {canManageSettings ? (
-                    <details className="dropdown-submenu">
-                      <summary>Owner</summary>
-                      <div className="dropdown-submenu-body">
+                    {canManageSettings ? (
+                      <div className="report-menu-group">
+                        <div className="report-menu-title">Owner</div>
                         <Link href="/reports/balances" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>
                           Balances
                         </Link>
@@ -269,8 +263,8 @@ export default function Nav() {
                           Activity History
                         </Link>
                       </div>
-                    </details>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
               </details>
 

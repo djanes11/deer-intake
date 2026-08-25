@@ -188,6 +188,37 @@ body::before{
 .menu .dd .dropdown-menu .dropdown-submenu-body a {
   padding-left: 14px;
 }
+.menu .dd .dropdown-menu.reports-menu {
+  width: min(640px, calc(100vw - 28px));
+  max-height: min(76vh, 680px);
+  overflow: auto;
+}
+.reports-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.report-menu-group {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+  padding: 8px;
+}
+.report-menu-title {
+  padding: 6px 8px 4px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(215, 199, 171, .78);
+}
+.menu .dd .dropdown-menu.reports-menu .report-menu-group a {
+  padding: 8px 9px;
+  font-size: 14px;
+  line-height: 1.15;
+}
 
 /* Desktop hover can still reveal the menu via <details open> */
 @media (min-width: 761px) {
@@ -215,6 +246,18 @@ body::before{
     border-radius: 10px;
     border: 1px solid rgba(200,138,61,.18);
     margin-top: 4px;
+  }
+  .menu .dd .dropdown-menu.reports-menu {
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+  }
+  .reports-menu-grid {
+    grid-template-columns: 1fr;
+  }
+  .menu .dd .dropdown-menu.reports-menu .report-menu-group a {
+    padding: 10px 12px;
+    font-size: 15px;
   }
 }
 
