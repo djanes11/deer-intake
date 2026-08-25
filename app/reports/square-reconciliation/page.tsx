@@ -11,17 +11,16 @@ type SquareRow = {
   tag: string;
   confirmation: string;
   customer: string;
-  email: string;
-  phone: string;
-  contactPreference: string;
   status: string;
   squareEnvironment: string;
   checkoutUrl: string;
   squarePaymentId: string;
+  squareOrderId: string;
   createdAt: string | null;
   completedAt: string | null;
   updatedAt: string | null;
   lastEventAt: string | null;
+  paymentConfirmedAt: string | null;
   amountCents: number;
   processingAmountCents: number;
   onlineFeeCents: number;
@@ -31,13 +30,7 @@ type SquareRow = {
   appPaymentMethod: string;
   issueLevel: 'critical' | 'warning' | 'ok';
   issueLabels: string[];
-  category: 'needs_attention' | 'open' | 'paid' | 'all';
-  paymentConfirmationChannel: string;
-  paymentConfirmationSentAt: string | null;
-  paymentConfirmationError: string;
-  expectedConfirmationChannel: 'sms' | 'email' | '';
-  expectedConfirmationDestination: string;
-  canRetryConfirmation: boolean;
+  category: 'needs_attention' | 'open' | 'paid';
 };
 
 type Summary = {
@@ -45,7 +38,6 @@ type Summary = {
   openLinks: number;
   needsAttention: number;
   completedNotApplied: number;
-  confirmationIssues: number;
   paidOk: number;
   squarePaidCents: number;
   openLinkCents: number;
@@ -104,7 +96,6 @@ function emptySummary(): Summary {
     openLinks: 0,
     needsAttention: 0,
     completedNotApplied: 0,
-    confirmationIssues: 0,
     paidOk: 0,
     squarePaidCents: 0,
     openLinkCents: 0,
@@ -114,12 +105,9 @@ function emptySummary(): Summary {
 export default function SquareReconciliationPage() {
   const [rows, setRows] = useState<SquareRow[]>([]);
   const [summary, setSummary] = useState<Summary>(emptySummary());
-  const [canRetry, setCanRetry] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState('');
   const [filter, setFilter] = useState<'needs_attention' | 'open' | 'paid' | 'all'>('needs_attention');
   const [search, setSearch] = useState('');
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const load = async () => {
@@ -131,7 +119,6 @@ export default function SquareReconciliationPage() {
       if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
       setRows(Array.isArray(json.rows) ? json.rows : []);
       setSummary(json.summary || emptySummary());
-      setCanRetry(json.canRetryConfirmations === true);
     } catch (err: any) {
       setError(String(err?.message || err));
     } finally {
@@ -152,44 +139,13 @@ export default function SquareReconciliationPage() {
         row.customer,
         row.tag,
         row.confirmation,
-        row.phone,
-        row.email,
         row.status,
         row.issueLabels.join(' '),
         row.squarePaymentId,
+        row.squareOrderId,
       ].some((value) => String(value || '').toLowerCase().includes(q));
     });
   }, [rows, filter, search]);
-
-  const retryConfirmation = async (row: SquareRow) => {
-    if (!canRetry || !row.canRetryConfirmation) return;
-    const ok = window.confirm(`Retry the Square payment confirmation for ${row.customer || row.tag || row.confirmation}?`);
-    if (!ok) return;
-
-    setBusyId(row.id);
-    setMessage('');
-    setError('');
-    try {
-      const r = await fetch(API, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({ linkId: row.id }),
-      });
-      const json = await readJson(r);
-      if (!r.ok || json?.ok === false) throw new Error(json?.error || `HTTP ${r.status}`);
-      if (json.skipped) {
-        setMessage(`No confirmation was sent: ${String(json.reason || 'skipped').replace(/_/g, ' ')}.`);
-      } else {
-        setMessage(`Payment confirmation sent by ${json.channel} to ${json.destination}.`);
-      }
-      await load();
-    } catch (err: any) {
-      setError(String(err?.message || err));
-    } finally {
-      setBusyId('');
-    }
-  };
 
   return (
     <main className="app-frame">
@@ -199,10 +155,10 @@ export default function SquareReconciliationPage() {
             <div className="app-kicker">Payment safety</div>
             <h1 className="app-title" style={{ fontSize: 'clamp(28px, 4vw, 36px)' }}>Square Reconciliation</h1>
             <div className="app-copy">
-              Compare Square payment links against job payment status, and retry customer payment confirmations when a completed payment did not notify cleanly.
+              Confirm Square payments made it back into the app, and catch any open links or paid orders that need staff review.
             </div>
           </div>
-          <button className="btn" type="button" onClick={load} disabled={loading || !!busyId}>
+          <button className="btn" type="button" onClick={load} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
@@ -211,16 +167,10 @@ export default function SquareReconciliationPage() {
       <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <Metric label="Needs Attention" value={String(summary.needsAttention)} tone={summary.needsAttention ? 'bad' : 'good'} />
         <Metric label="Completed Not Applied" value={String(summary.completedNotApplied)} tone={summary.completedNotApplied ? 'bad' : 'good'} />
-        <Metric label="Confirmation Issues" value={String(summary.confirmationIssues)} tone={summary.confirmationIssues ? 'watch' : 'good'} />
         <Metric label="Open Links" value={String(summary.openLinks)} sub={moneyCents(summary.openLinkCents)} tone={summary.openLinks ? 'watch' : 'good'} />
-        <Metric label="Square Paid" value={moneyCents(summary.squarePaidCents)} sub={`${summary.paidOk} applied`} tone="good" />
+        <Metric label="Square Confirmed" value={moneyCents(summary.squarePaidCents)} sub={`${summary.paidOk} applied`} tone="good" />
       </section>
 
-      {message ? (
-        <div style={{ padding: 12, borderRadius: 12, background: '#ecfdf3', border: '1px solid #bbf7d0', color: '#166534', fontWeight: 800 }}>
-          {message}
-        </div>
-      ) : null}
       {error ? (
         <div style={{ padding: 12, borderRadius: 12, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontWeight: 800 }}>
           {error}
@@ -270,11 +220,11 @@ export default function SquareReconciliationPage() {
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <div style={{ minWidth: 1100, display: 'grid' }}>
+            <div style={{ minWidth: 1030, display: 'grid' }}>
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(210px,1.1fr) 130px 170px 170px minmax(260px,1.4fr) 180px',
+                  gridTemplateColumns: 'minmax(210px,1.15fr) 130px 170px 160px minmax(260px,1.4fr) 150px',
                   background: '#f3f6f9',
                   border: '1px solid #dbe4ee',
                   borderRadius: '12px 12px 0 0',
@@ -285,24 +235,19 @@ export default function SquareReconciliationPage() {
                 <Cell head>Customer</Cell>
                 <Cell head>Square</Cell>
                 <Cell head>App Payment</Cell>
-                <Cell head>Confirmation</Cell>
+                <Cell head>Confirmed</Cell>
                 <Cell head>Issue</Cell>
                 <Cell head>Action</Cell>
               </div>
 
               {filtered.map((row, idx) => {
                 const tone = issueTone(row.issueLevel);
-                const sentLabel = row.paymentConfirmationSentAt
-                  ? `${row.paymentConfirmationChannel || row.expectedConfirmationChannel || 'sent'} ${formatDate(row.paymentConfirmationSentAt)}`
-                  : row.expectedConfirmationChannel
-                    ? `Needed: ${row.expectedConfirmationChannel.toUpperCase()}`
-                    : 'No destination';
                 return (
                   <div
                     key={row.id}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'minmax(210px,1.1fr) 130px 170px 170px minmax(260px,1.4fr) 180px',
+                      gridTemplateColumns: 'minmax(210px,1.15fr) 130px 170px 160px minmax(260px,1.4fr) 150px',
                       borderLeft: '1px solid #dbe4ee',
                       borderRight: '1px solid #dbe4ee',
                       borderBottom: '1px solid #dbe4ee',
@@ -317,16 +262,13 @@ export default function SquareReconciliationPage() {
                         <div style={{ color: '#475569', fontSize: 13 }}>
                           {row.tag ? `Tag ${row.tag}` : 'No tag'} | Conf {row.confirmation || '-'}
                         </div>
-                        <div style={{ color: '#64748b', fontSize: 12 }}>
-                          {row.contactPreference} | {row.phone || row.email || '-'}
-                        </div>
                       </div>
                     </Cell>
                     <Cell>
                       <div style={{ display: 'grid', gap: 4 }}>
                         <strong style={{ color: row.status === 'completed' ? '#166534' : '#92400e', textTransform: 'capitalize' }}>{row.status}</strong>
                         <span>{moneyCents(row.amountCents)}</span>
-                        <span style={{ color: '#64748b', fontSize: 12 }}>{formatDate(row.completedAt || row.lastEventAt || row.createdAt)}</span>
+                        <span style={{ color: '#64748b', fontSize: 12 }}>Fee {moneyCents(row.onlineFeeCents)}</span>
                       </div>
                     </Cell>
                     <Cell>
@@ -340,15 +282,10 @@ export default function SquareReconciliationPage() {
                     </Cell>
                     <Cell>
                       <div style={{ display: 'grid', gap: 4 }}>
-                        <strong style={{ color: row.paymentConfirmationSentAt ? '#166534' : row.canRetryConfirmation ? '#92400e' : '#64748b' }}>
-                          {sentLabel}
+                        <strong style={{ color: row.paymentConfirmedAt ? '#166534' : '#92400e' }}>
+                          {row.paymentConfirmedAt ? 'Confirmed' : 'Waiting'}
                         </strong>
-                        {row.expectedConfirmationDestination ? (
-                          <span style={{ color: '#64748b', fontSize: 12, wordBreak: 'break-word' }}>{row.expectedConfirmationDestination}</span>
-                        ) : null}
-                        {row.paymentConfirmationError ? (
-                          <span style={{ color: '#991b1b', fontSize: 12, wordBreak: 'break-word' }}>{row.paymentConfirmationError}</span>
-                        ) : null}
+                        <span style={{ color: '#64748b', fontSize: 12 }}>{formatDate(row.paymentConfirmedAt || row.lastEventAt || row.createdAt)}</span>
                       </div>
                     </Cell>
                     <Cell>
@@ -383,11 +320,6 @@ export default function SquareReconciliationPage() {
                           <a className="btn secondary" href={row.checkoutUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                             Square
                           </a>
-                        ) : null}
-                        {canRetry && row.canRetryConfirmation ? (
-                          <button className="btn" type="button" disabled={!!busyId} onClick={() => retryConfirmation(row)}>
-                            {busyId === row.id ? 'Retrying...' : 'Retry Notice'}
-                          </button>
                         ) : null}
                       </div>
                       <div style={{ marginTop: 8, color: '#64748b', fontSize: 12 }}>

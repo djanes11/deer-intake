@@ -6,7 +6,6 @@ export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySquareWebhookSignature } from '@/lib/square';
-import { sendSquarePaymentConfirmation } from '@/lib/squarePaymentConfirmation';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 
 function notificationUrl(req: NextRequest) {
@@ -104,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id,processor_id,tag,confirmation,customer_name,email,phone,pref_email,pref_sms,pref_call,sms_consent,price_processing,amount_paid_processing,price_specialty,amount_paid_specialty,paid_specialty')
+      .select('id,processor_id,price_processing,amount_paid_processing,price_specialty,amount_paid_specialty,paid_specialty')
       .eq('id', (link as any).job_id)
       .maybeSingle();
     if (jobError) throw jobError;
@@ -131,8 +130,6 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', (job as any).id);
     if (updateJobError) throw updateJobError;
-
-    await sendSquarePaymentConfirmation({ supabase, link, job });
 
     return NextResponse.json({ ok: true, status: 'completed' });
   } catch (error: any) {
