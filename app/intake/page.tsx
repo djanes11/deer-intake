@@ -2359,8 +2359,8 @@ useEffect(() => {
           <div className="grid">
             <div className="c12">
               <div style={{ fontWeight: 800, marginBottom: 8 }}>Preferred Contact Method</div>
-              <div className="checks">
-                <label className="chk">
+              <div className="checks contactChecks">
+                <label className="chk contactChoice">
                   <input
                     type="radio"
                     name="preferred-contact-staff"
@@ -2370,7 +2370,7 @@ useEffect(() => {
                   <span>Email</span>
                 </label>
                 {smsEnabled ? (
-                  <label className="chk">
+                  <label className="chk contactChoice">
                     <input
                       type="radio"
                       name="preferred-contact-staff"
@@ -2380,7 +2380,7 @@ useEffect(() => {
                     <span>Text (SMS)</span>
                   </label>
                 ) : null}
-                <label className="chk">
+                <label className="chk contactChoice">
                   <input
                     type="radio"
                     name="preferred-contact-staff"
@@ -2884,7 +2884,26 @@ useEffect(() => {
 
         .rowInline { display: flex; align-items: center; padding-top: 22px; gap: 8px; }
         .checks { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .chk { display: inline-flex; align-items: center; gap: 6px; }
+        .chk { display: inline-flex; align-items: center; gap: 6px; min-width: 0; margin-bottom: 0; line-height: 1.2; }
+        .chk input[type="checkbox"],
+        .chk input[type="radio"] {
+          width: auto;
+          min-width: 18px;
+          height: 18px;
+          flex: 0 0 auto;
+          margin: 0;
+        }
+        .chk span { min-width: 0; overflow-wrap: anywhere; }
+        .contactChecks { align-items: stretch; }
+        .contactChoice {
+          min-height: 42px;
+          flex: 1 1 150px;
+          box-sizing: border-box;
+          padding: 9px 11px;
+          border: 1px solid #d8e3f5;
+          border-radius: 10px;
+          background: #fbfdff;
+        }
         .muted { color: #475569; font-size: 12px; }
 
         .summaryMini {
@@ -3283,6 +3302,11 @@ useEffect(() => {
         .print-only { display: none; }
         @media print { .screen-only { display: none !important; } .print-only { display: block !important; } }
         @media (max-width: 900px) {
+          .contactChecks {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+          }
           .summary .row.small { grid-template-columns: 1fr 1fr; }
           .paymentRow { grid-template-columns: minmax(0, 1fr) minmax(130px, 1fr); }
           .paymentCheck { justify-content: flex-start; }
@@ -3292,6 +3316,13 @@ useEffect(() => {
         @media (max-width: 720px) {
           .summaryMini {
             padding: 8px;
+          }
+          .contactChecks {
+            grid-template-columns: 1fr;
+          }
+          .contactChoice {
+            width: 100%;
+            min-height: 44px;
           }
           .miniChip {
             flex: 1 1 140px;
