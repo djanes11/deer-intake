@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseServer();
     const { data: link, error: linkError } = await supabase
       .from('square_payment_links')
-      .select('id,job_id,processor_id,amount_cents,status')
+      .select('id,job_id,processor_id,amount_cents,processing_amount_cents,online_fee_cents,status')
       .eq('square_order_id', orderId)
       .maybeSingle();
 
@@ -111,18 +111,20 @@ export async function POST(req: NextRequest) {
 
     const processingPrice = money((job as any).price_processing);
     const currentProcessingPaid = money((job as any).amount_paid_processing);
-    const nextProcessingPaid = Math.max(processingPrice, currentProcessingPaid, paymentAmountCents / 100);
+    const linkedProcessingPaid = Math.max(0, Number((link as any).processing_amount_cents ?? 0) || 0) / 100;
+    const nextProcessingPaid = Math.max(currentProcessingPaid, linkedProcessingPaid || Math.min(processingPrice, paymentAmountCents / 100));
+    const paidProcessing = processingPrice <= 0 || nextProcessingPaid >= processingPrice;
     const specialtyPrice = money((job as any).price_specialty);
     const specialtyPaid = !!(job as any).paid_specialty || money((job as any).amount_paid_specialty) >= specialtyPrice;
-    const paidOverall = specialtyPrice <= 0 || specialtyPaid;
+    const paidOverall = paidProcessing && (specialtyPrice <= 0 || specialtyPaid);
 
     const { error: updateJobError } = await supabase
       .from('jobs')
       .update({
         amount_paid_processing: nextProcessingPaid,
-        paid_processing: true,
+        paid_processing: paidProcessing,
         payment_method_processing: 'card',
-        paid_processing_at: new Date().toISOString(),
+        paid_processing_at: paidProcessing ? new Date().toISOString() : null,
         paid: paidOverall,
         updated_at: new Date().toISOString(),
       })

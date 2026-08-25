@@ -8,6 +8,8 @@ create table if not exists public.square_payment_links (
   confirmation text null,
   customer_name text null,
   amount_cents integer not null,
+  processing_amount_cents integer null,
+  online_fee_cents integer not null default 0,
   currency text not null default 'USD',
   status text not null default 'pending',
   square_environment text not null default 'sandbox',

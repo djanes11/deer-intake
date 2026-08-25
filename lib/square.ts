@@ -21,6 +21,8 @@ export type SquarePaymentLinkResult = {
   raw: any;
 };
 
+export const SQUARE_ONLINE_PAYMENT_FEE_CENTS = 600;
+
 function clean(value: unknown) {
   return String(value || '').trim().replace(/^['"]|['"]$/g, '');
 }
@@ -73,7 +75,7 @@ export async function createSquareProcessingPaymentLink(params: {
   }
 
   const labelBits = [
-    'Regular Processing',
+    'Regular Processing + Online Payment Fee',
     params.customerName || 'Customer',
     params.confirmation ? `Conf ${params.confirmation}` : '',
   ].filter(Boolean);

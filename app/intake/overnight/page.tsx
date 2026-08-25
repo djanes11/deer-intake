@@ -50,6 +50,7 @@ export const dynamic = 'force-dynamic';
 const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
 const WEBBS_PRICE_NOTE =
   'Webbs product prices are not included here. Those charges are provided when the Webbs order is delivered.';
+const SQUARE_ONLINE_PAYMENT_FEE = 6;
 
 /* ---------------- Types ---------------- */
 
@@ -499,6 +500,7 @@ function OvernightIntakePage() {
   }, [job.specialtyProducts, specialtyItems, specialtyPrice]);
 
   const totalPrice = processingPrice + specialtyPrice;
+  const squareProcessingTotal = processingPrice + SQUARE_ONLINE_PAYMENT_FEE;
   const processingEstimatePending = false;
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsAllocations = useMemo(() => normalizeWebbsAllocations(job.webbsAllocations), [job.webbsAllocations]);
@@ -2304,7 +2306,15 @@ function OvernightIntakePage() {
             {job.webbsOrder ? (
               <div className="thanksWebbsNext">
                 <div className="thanksWebbsTitle">Webbs Processing Payment</div>
-                <div>Choose how you plan to handle the regular processing payment for this Webbs order.</div>
+                <div>
+                  Online card payment includes a ${SQUARE_ONLINE_PAYMENT_FEE.toFixed(2)} fee.
+                  Paying staff with cash or check avoids this online card fee.
+                </div>
+                <div className="webbsPaymentBreakdown">
+                  <div><span>Regular processing</span><strong>${processingPrice.toFixed(2)}</strong></div>
+                  <div><span>Online card fee</span><strong>${SQUARE_ONLINE_PAYMENT_FEE.toFixed(2)}</strong></div>
+                  <div className="webbsPaymentBreakdownTotal"><span>Square total</span><strong>${squareProcessingTotal.toFixed(2)}</strong></div>
+                </div>
                 <div className="webbsPaymentOptions">
                   <button
                     className={`webbsPaymentOption ${webbsPaymentChoice === 'square' ? 'selected' : ''}`}
@@ -2313,7 +2323,7 @@ function OvernightIntakePage() {
                     disabled={squarePaymentBusy}
                   >
                     <span>{squarePaymentBusy ? 'Opening Square...' : 'Pay Online with Square'}</span>
-                    <small>${processingPrice.toFixed(2)} regular processing</small>
+                    <small>${squareProcessingTotal.toFixed(2)} total with online fee</small>
                   </button>
                   <button
                     className={`webbsPaymentOption ${webbsPaymentChoice === 'staff' ? 'selected' : ''}`}
@@ -2321,20 +2331,20 @@ function OvernightIntakePage() {
                     onClick={() => setWebbsPaymentChoice('staff')}
                   >
                     <span>Pay with Staff / Person</span>
-                    <small>Cash, check, or card with staff</small>
+                    <small>Cash or check avoids the online card fee</small>
                   </button>
                 </div>
                 {webbsPaymentChoice === 'staff' ? (
                   <div className="webbsPaymentSelected">
-                    Selected: pay with staff/person. Staff will collect processing payment before the Webbs order moves forward.
+                    Selected: pay with staff/person. Cash or check avoids the ${SQUARE_ONLINE_PAYMENT_FEE.toFixed(2)} online card fee.
                   </div>
                 ) : webbsPaymentChoice === 'square' ? (
                   <div className={squarePaymentMsg ? 'webbsPaymentHint' : 'webbsPaymentSelected'}>
-                    {squarePaymentMsg || 'Square will open a secure checkout page for regular processing payment.'}
+                    {squarePaymentMsg || `Square will open a secure checkout page for $${squareProcessingTotal.toFixed(2)}.`}
                   </div>
                 ) : (
                   <div className="webbsPaymentHint">
-                    Online payment opens Square checkout after this intake is saved.
+                    Choose Square to pay by card now, or choose staff payment if you will pay without using online card payment.
                   </div>
                 )}
                 <div className="webbsPaymentFinePrint">{WEBBS_PRICE_NOTE}</div>
@@ -2485,6 +2495,24 @@ function OvernightIntakePage() {
           font-weight: 900;
           text-transform: uppercase;
           letter-spacing: .06em;
+        }
+        .webbsPaymentBreakdown {
+          display: grid;
+          gap: 6px;
+          padding: 10px;
+          border-radius: 10px;
+          background: #fff7d6;
+          border: 1px solid #facc15;
+        }
+        .webbsPaymentBreakdown div {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        .webbsPaymentBreakdownTotal {
+          padding-top: 6px;
+          border-top: 1px solid rgba(146, 64, 14, .22);
+          font-size: 15px;
         }
         .webbsPaymentOptions {
           display: grid;

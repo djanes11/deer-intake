@@ -8,7 +8,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getProcessorContextForHostname } from '@/lib/processorContext';
 import { sharedRateLimit } from '@/lib/ratelimit';
-import { createSquareProcessingPaymentLink, getSquareConfig, squareMoneyCents } from '@/lib/square';
+import { createSquareProcessingPaymentLink, getSquareConfig, SQUARE_ONLINE_PAYMENT_FEE_CENTS, squareMoneyCents } from '@/lib/square';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 
 function getIp(req: NextRequest): string {
@@ -72,14 +72,16 @@ export async function POST(req: NextRequest) {
     const priceProcessing = money((job as any).price_processing);
     const amountPaid = money((job as any).amount_paid_processing);
     const due = Math.max(0, priceProcessing - amountPaid);
-    const amountCents = squareMoneyCents(due);
-    if ((job as any).paid_processing || amountCents <= 0) {
+    const processingAmountCents = squareMoneyCents(due);
+    const onlineFeeCents = SQUARE_ONLINE_PAYMENT_FEE_CENTS;
+    const amountCents = processingAmountCents + onlineFeeCents;
+    if ((job as any).paid_processing || processingAmountCents <= 0) {
       return NextResponse.json({ ok: true, paid: true, message: 'Regular processing is already marked paid.' });
     }
 
     const { data: existingLink, error: existingError } = await supabase
       .from('square_payment_links')
-      .select('id,square_checkout_url,amount_cents,status,square_order_id')
+      .select('id,square_checkout_url,amount_cents,processing_amount_cents,online_fee_cents,status,square_order_id')
       .eq('job_id', (job as any).id)
       .in('status', ['pending', 'created', 'open'])
       .order('created_at', { ascending: false })
@@ -87,13 +89,28 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     if (existingError) throw existingError;
 
-    if (existingLink?.square_checkout_url) {
+    if (
+      existingLink?.square_checkout_url &&
+      Number(existingLink.amount_cents || 0) === amountCents &&
+      Number(existingLink.processing_amount_cents || 0) === processingAmountCents &&
+      Number(existingLink.online_fee_cents || 0) === onlineFeeCents
+    ) {
       return NextResponse.json({
         ok: true,
         checkoutUrl: String(existingLink.square_checkout_url),
-        amountCents: Number(existingLink.amount_cents || amountCents),
+        amountCents,
+        processingAmountCents,
+        onlineFeeCents,
         reused: true,
       });
+    }
+
+    if (existingLink?.id) {
+      const { error: supersedeError } = await supabase
+        .from('square_payment_links')
+        .update({ status: 'superseded', updated_at: new Date().toISOString() })
+        .eq('id', existingLink.id);
+      if (supersedeError) throw supersedeError;
     }
 
     const root = publicBaseUrl(req);
@@ -109,7 +126,7 @@ export async function POST(req: NextRequest) {
       confirmation,
       tag: (job as any).tag,
       redirectUrl,
-      note: `Regular processing payment | job:${(job as any).id} | confirmation:${confirmation}`,
+      note: `Regular processing: $${(processingAmountCents / 100).toFixed(2)} | Online payment fee: $${(onlineFeeCents / 100).toFixed(2)} | job:${(job as any).id} | confirmation:${confirmation}`,
     });
 
     const { error: insertError } = await supabase
@@ -121,6 +138,8 @@ export async function POST(req: NextRequest) {
         confirmation,
         customer_name: (job as any).customer_name || null,
         amount_cents: amountCents,
+        processing_amount_cents: processingAmountCents,
+        online_fee_cents: onlineFeeCents,
         currency: 'USD',
         status: 'pending',
         square_environment: getSquareConfig().environment,
@@ -137,6 +156,8 @@ export async function POST(req: NextRequest) {
       ok: true,
       checkoutUrl: created.url,
       amountCents,
+      processingAmountCents,
+      onlineFeeCents,
       reused: false,
     });
   } catch (error: any) {
