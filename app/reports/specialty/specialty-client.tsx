@@ -596,7 +596,7 @@ export default function SpecialtyOrdersClient({
     );
   };
 
-  const renderInventoryControls = (row: (typeof inventoryRows)[number], mobile = false) => {
+  const renderInventoryControls = (row: (typeof inventoryRows)[number]) => {
     const value = inventoryInputs[row.slug] || '';
     const quantity = n(value);
     const baseDisabled = !canUpdate || !inventoryActive || !!busyInventory || quantity <= 0;
@@ -611,7 +611,7 @@ export default function SpecialtyOrdersClient({
           : '';
 
     return (
-      <div style={styles.inventoryActions} className={mobile ? 'inventory-mobile-actions' : undefined}>
+      <div style={styles.inventoryActions}>
         <input
           type="number"
           inputMode="decimal"
@@ -654,72 +654,9 @@ export default function SpecialtyOrdersClient({
         <div style={styles.empty}>No specialty products are configured yet.</div>
       ) : (
         <>
-          <div className="inventory-mobile-list">
-            {inventoryRows.map((row) => {
-              const short = row.afterOpenOrders < 0;
-              return (
-                <div key={`inventory-mobile-${row.slug}`} className="inventory-mobile-card">
-                  <div className="inventory-mobile-top">
-                    <div>
-                      <div className="specialty-mobile-tag">{row.shortName || row.name}</div>
-                      <div className="specialty-mobile-name">{row.name}</div>
-                    </div>
-                    <div className={short ? 'inventory-short-pill' : 'inventory-ok-pill'}>
-                      {short ? 'Short' : 'OK'}
-                    </div>
-                  </div>
-                  <div className="inventory-mobile-metrics">
-                    <div>
-                      <span>In Stock</span>
-                      <strong>{row.inStock.toFixed(1)} lb</strong>
-                    </div>
-                    <div>
-                      <span>Open</span>
-                      <strong>{row.outstanding.toFixed(1)} lb</strong>
-                    </div>
-                    <div>
-                      <span>After Open</span>
-                      <strong className={short ? 'inventory-short-text' : 'inventory-ok-text'}>
-                        {row.afterOpenOrders.toFixed(1)} lb
-                      </strong>
-                    </div>
-                  </div>
-                  {renderInventoryControls(row, true)}
-                </div>
-              );
-            })}
-            <div className="inventory-mobile-card inventory-mobile-total-card">
-              <div className="inventory-mobile-top">
-                <div>
-                  <div className="specialty-mobile-tag">Totals</div>
-                  <div className="specialty-mobile-name">Specialty Inventory</div>
-                </div>
-                <div className={inventorySummary.shortProducts > 0 ? 'inventory-short-pill' : 'inventory-ok-pill'}>
-                  {inventorySummary.shortProducts > 0 ? `${inventorySummary.shortProducts} short` : 'All covered'}
-                </div>
-              </div>
-              <div className="inventory-mobile-metrics">
-                <div>
-                  <span>In Stock</span>
-                  <strong>{inventorySummary.inStock.toFixed(1)} lb</strong>
-                </div>
-                <div>
-                  <span>Open</span>
-                  <strong>{inventorySummary.outstanding.toFixed(1)} lb</strong>
-                </div>
-                <div>
-                  <span>After Open</span>
-                  <strong className={inventorySummary.afterOpenOrders < 0 ? 'inventory-short-text' : 'inventory-ok-text'}>
-                    {inventorySummary.afterOpenOrders.toFixed(1)} lb
-                  </strong>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <div style={styles.wrap} className="inventory-table-wrap">
             <div style={styles.tableScroller}>
-              <table style={styles.table}>
+              <table style={{ ...styles.table, minWidth: 760 }}>
                 <thead>
                   <tr>
                     <th style={styles.th}>Product</th>
@@ -1086,69 +1023,6 @@ export default function SpecialtyOrdersClient({
           width: 100%;
           justify-content: center;
         }
-        .inventory-mobile-list {
-          display: none;
-        }
-        .inventory-mobile-card {
-          display: grid;
-          gap: 12px;
-          padding: 14px;
-          border: 1px solid #e5e7eb;
-          border-radius: 16px;
-          background: #fff;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-        }
-        .inventory-mobile-top {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: start;
-        }
-        .inventory-ok-pill,
-        .inventory-short-pill {
-          padding: 6px 10px;
-          border-radius: 999px;
-          font-weight: 900;
-          line-height: 1;
-          white-space: nowrap;
-        }
-        .inventory-ok-pill {
-          background: #dcfce7;
-          color: #166534;
-        }
-        .inventory-short-pill {
-          background: #fee2e2;
-          color: #991b1b;
-        }
-        .inventory-mobile-metrics {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 8px;
-        }
-        .inventory-mobile-metrics div {
-          display: grid;
-          gap: 4px;
-          padding: 9px;
-          border-radius: 12px;
-          background: #f8fafc;
-          border: 1px solid #e5e7eb;
-        }
-        .inventory-mobile-metrics span {
-          color: #64748b;
-          font-size: 11px;
-          font-weight: 900;
-          text-transform: uppercase;
-        }
-        .inventory-mobile-metrics strong {
-          color: #0f172a;
-          font-size: 15px;
-        }
-        .inventory-ok-text {
-          color: #166534 !important;
-        }
-        .inventory-short-text {
-          color: #b91c1c !important;
-        }
         @media (max-width: 860px) {
           .specialty-kpi-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -1163,30 +1037,6 @@ export default function SpecialtyOrdersClient({
           }
           .specialty-table-wrap {
             display: none;
-          }
-          .inventory-mobile-list {
-            display: grid;
-            gap: 10px;
-            margin-top: 12px;
-          }
-          .inventory-table-wrap {
-            display: none;
-          }
-          .inventory-mobile-actions {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr;
-          }
-          .inventory-mobile-actions input {
-            grid-column: 1 / -1;
-            width: 100% !important;
-          }
-          .inventory-mobile-actions button {
-            width: 100%;
-          }
-        }
-        @media (max-width: 520px) {
-          .inventory-mobile-metrics {
-            grid-template-columns: 1fr;
           }
         }
       `}</style>
