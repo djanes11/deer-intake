@@ -66,6 +66,10 @@ function phoneDigits(s?: string) {
   return String(s || '').replace(/\D+/g, '');
 }
 
+function cleanPublicToken(s?: string) {
+  return String(s || '').trim();
+}
+
 function toNum(v: unknown): number | undefined {
   const n =
     typeof v === 'number'
@@ -136,9 +140,17 @@ async function shapeJob(row: any, supabase: ReturnType<typeof getSupabaseServer>
   return base;
 }
 
-async function handle(confirmation: string, tag: string, lastName: string, phone: string, hostname?: string | null) {
+async function handle(
+  confirmation: string,
+  tag: string,
+  lastName: string,
+  phone: string,
+  hostname?: string | null,
+  token?: string
+) {
   const settings = await getPublicSiteSettings(hostname);
   const identifierSettings = identifierSettingsFromPublicCopy(settings.publicCopy);
+  const wantToken = cleanPublicToken(token);
   const wantConf = normalizeConfirmationInput(confirmation, identifierSettings).trim();
   const wantTag = String(tag || '').trim();
   const wantLN = lname(lastName);
@@ -146,12 +158,30 @@ async function handle(confirmation: string, tag: string, lastName: string, phone
   const safeLN = wantLN.replace(/[%_]/g, '');
   const confCandidates = confirmationSearchCandidates(wantConf, identifierSettings);
 
-  if (!wantConf && !(wantTag && wantLN) && !(wantPhone.length === 10 && wantLN)) {
+  if (!wantToken && !wantConf && !(wantTag && wantLN) && !(wantPhone.length === 10 && wantLN)) {
     return { ok: false, error: 'Provide Confirmation #, Tag + Last Name, or Phone + Last Name.' };
   }
 
   const supabase = getSupabaseServer();
   const processor = await getProcessorContextForHostname(hostname);
+
+  // 0) Private token link from customer notifications. This opens one specific deer
+  // without asking customers to retype a long confirmation number.
+  if (wantToken) {
+    let query = supabase
+      .from('jobs')
+      .select(PUBLIC_STATUS_SELECT)
+      .eq('public_token', wantToken);
+
+    if (processor.id) query = query.eq('processor_id', processor.id);
+
+    const { data, error } = await query.limit(1);
+    if (error) return { ok: false, error: 'Server error' };
+
+    const row = (data || [])[0];
+    if (row) return shapeJob(row, supabase);
+    return { ok: false, notFound: true, error: 'No match.' };
+  }
 
   // 1) Confirmation match (strict) — best for overnight/untagged
   if (wantConf) {
@@ -238,9 +268,9 @@ export async function POST(req: NextRequest) {
     if (!rl.allowed) {
       return NextResponse.json({ ok: false, error: 'Rate limited' }, { status: 429 });
     }
-    const { confirmation = '', tag = '', lastName = '', phone = '' } = await req.json();
+    const { confirmation = '', tag = '', lastName = '', phone = '', token = '' } = await req.json();
     const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
-    const resp = await handle(confirmation, tag, lastName, phone, hostname);
+    const resp = await handle(confirmation, tag, lastName, phone, hostname, token);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });
@@ -258,8 +288,9 @@ export async function GET(req: NextRequest) {
     const tag = searchParams.get('tag') || '';
     const lastName = searchParams.get('lastName') || '';
     const phone = searchParams.get('phone') || '';
+    const token = searchParams.get('token') || '';
     const hostname = req.headers.get('x-forwarded-host') || req.headers.get('host') || '';
-    const resp = await handle(confirmation, tag, lastName, phone, hostname);
+    const resp = await handle(confirmation, tag, lastName, phone, hostname, token);
     return NextResponse.json(resp);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'Server error' });

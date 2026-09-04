@@ -38,6 +38,14 @@ type LookupResult = {
   matches?: LookupResult[];
 };
 
+type LookupPayload = {
+  confirmation?: string;
+  tag?: string;
+  lastName?: string;
+  phone?: string;
+  token?: string;
+};
+
 type StatusTone = 'ready' | 'progress' | 'hold' | 'unknown';
 
 type TrackSummary = {
@@ -610,7 +618,7 @@ export default function StatusPage() {
     padding: 12,
   };
 
-  async function postStatus(payload: { confirmation?: string; tag?: string; lastName?: string; phone?: string }) {
+  async function postStatus(payload: LookupPayload) {
     const r = await fetch('/api/public-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -619,17 +627,20 @@ export default function StatusPage() {
     return (await r.json()) as LookupResult;
   }
 
-  const doLookupChain = useCallback(async (payload: { confirmation?: string; tag?: string; lastName?: string; phone?: string }) => {
+  const doLookupChain = useCallback(async (payload: LookupPayload) => {
     setLoading(true);
     setErr(null);
     setMatches([]);
     try {
-      const attempts: Array<{ confirmation?: string; tag?: string; lastName?: string; phone?: string }> = [];
+      const attempts: LookupPayload[] = [];
+      const hasToken = !!payload.token;
       const hasConfirmation = !!payload.confirmation;
       const hasTagAndName = !!payload.tag && !!payload.lastName;
       const hasPhoneAndName = !!payload.phone && payload.phone.length === 10 && !!payload.lastName;
 
-      if (hasConfirmation || hasTagAndName || hasPhoneAndName) {
+      if (hasToken) {
+        attempts.push({ token: payload.token });
+      } else if (hasConfirmation || hasTagAndName || hasPhoneAndName) {
         attempts.push(payload);
       } else {
         setRes(null);
@@ -671,7 +682,7 @@ export default function StatusPage() {
   }, []);
 
   const doLookup = useCallback(
-    async (payload: { confirmation?: string; tag?: string; lastName?: string; phone?: string }) => doLookupChain(payload),
+    async (payload: LookupPayload) => doLookupChain(payload),
     [doLookupChain]
   );
 
@@ -679,13 +690,20 @@ export default function StatusPage() {
     if (urlLookupStarted || typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const rawConfirmation = params.get('confirmation') || params.get('conf') || '';
+    const rawToken = params.get('token') || '';
     const rawTag = params.get('tag') || '';
     const rawLastName = params.get('lastName') || params.get('last') || '';
     const rawPhone = params.get('phone') || '';
+    const nextToken = rawToken.trim();
     const nextConfirmation = normalizeConfirmationInput(rawConfirmation, identifierSettings);
     const nextTag = normalizeTagInput(rawTag, identifierSettings);
     const nextLastName = normalizeName(rawLastName);
     const nextPhone = normalizePhone(rawPhone);
+    if (nextToken) {
+      setUrlLookupStarted(true);
+      void doLookupChain({ token: nextToken });
+      return;
+    }
     if (!nextConfirmation && !(nextTag && nextLastName) && !(nextPhone && nextLastName)) {
       setUrlLookupStarted(true);
       return;
