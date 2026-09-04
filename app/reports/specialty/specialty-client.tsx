@@ -650,38 +650,6 @@ export default function SpecialtyOrdersClient({
     <>
       {inventoryNotice ? <div style={styles.warn}>{inventoryNotice}</div> : null}
 
-      <div className="specialty-kpi-grid" style={styles.kpiGrid}>
-        <div style={styles.card}>
-          <div style={styles.label}>Stock On Hand</div>
-          <div style={styles.value}>{inventorySummary.inStock.toFixed(1)} lb</div>
-          <div style={styles.kpiHint}>Recorded finished product</div>
-        </div>
-        <div style={styles.card}>
-          <div style={styles.label}>Open Demand</div>
-          <div style={styles.value}>{inventorySummary.outstanding.toFixed(1)} lb</div>
-          <div style={styles.kpiHint}>Outstanding orders</div>
-        </div>
-        <div style={styles.card}>
-          <div style={styles.label}>After Open Orders</div>
-          <div
-            style={{
-              ...styles.value,
-              ...(inventorySummary.afterOpenOrders < 0 ? styles.stockLow : styles.stockOk),
-            }}
-          >
-            {inventorySummary.afterOpenOrders.toFixed(1)} lb
-          </div>
-          <div style={styles.kpiHint}>Stock minus outstanding</div>
-        </div>
-        <div style={styles.card}>
-          <div style={styles.label}>Products Short</div>
-          <div style={{ ...styles.value, ...(inventorySummary.shortProducts > 0 ? styles.stockLow : styles.stockOk) }}>
-            {inventorySummary.shortProducts}
-          </div>
-          <div style={styles.kpiHint}>Need another batch</div>
-        </div>
-      </div>
-
       {!inventoryRows.length ? (
         <div style={styles.empty}>No specialty products are configured yet.</div>
       ) : (
@@ -720,6 +688,33 @@ export default function SpecialtyOrdersClient({
                 </div>
               );
             })}
+            <div className="inventory-mobile-card inventory-mobile-total-card">
+              <div className="inventory-mobile-top">
+                <div>
+                  <div className="specialty-mobile-tag">Totals</div>
+                  <div className="specialty-mobile-name">Specialty Inventory</div>
+                </div>
+                <div className={inventorySummary.shortProducts > 0 ? 'inventory-short-pill' : 'inventory-ok-pill'}>
+                  {inventorySummary.shortProducts > 0 ? `${inventorySummary.shortProducts} short` : 'All covered'}
+                </div>
+              </div>
+              <div className="inventory-mobile-metrics">
+                <div>
+                  <span>In Stock</span>
+                  <strong>{inventorySummary.inStock.toFixed(1)} lb</strong>
+                </div>
+                <div>
+                  <span>Open</span>
+                  <strong>{inventorySummary.outstanding.toFixed(1)} lb</strong>
+                </div>
+                <div>
+                  <span>After Open</span>
+                  <strong className={inventorySummary.afterOpenOrders < 0 ? 'inventory-short-text' : 'inventory-ok-text'}>
+                    {inventorySummary.afterOpenOrders.toFixed(1)} lb
+                  </strong>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div style={styles.wrap} className="inventory-table-wrap">
@@ -757,6 +752,32 @@ export default function SpecialtyOrdersClient({
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td style={{ ...styles.td, fontWeight: 950 as any }}>Totals</td>
+                    <td style={{ ...styles.td, fontWeight: 950 as any }}>
+                      {inventorySummary.inStock.toFixed(1)} lb
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 950 as any }}>
+                      {inventorySummary.outstanding.toFixed(1)} lb
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 950 as any }}>
+                      <span style={inventorySummary.afterOpenOrders < 0 ? styles.stockLow : styles.stockOk}>
+                        {inventorySummary.afterOpenOrders.toFixed(1)} lb
+                      </span>
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 950 as any }}>
+                      {inventoryRows.reduce((sum, row) => sum + row.finished, 0).toFixed(1)} lb
+                    </td>
+                    <td style={styles.td}>
+                      {inventorySummary.shortProducts > 0 ? (
+                        <span style={styles.stockLow}>{inventorySummary.shortProducts} short</span>
+                      ) : (
+                        <span style={styles.stockOk}>All covered</span>
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
