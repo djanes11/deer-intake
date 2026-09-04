@@ -375,31 +375,31 @@ export function defaultNotificationTemplates(businessName = 'Game Butcher Board'
       emailSubject: 'We received your deer ({{tag}})',
       emailBody:
         'Hi {{name}}\n\nWe received your deer ({{tag}}).\n{{intakeLinkLine}}\nIf you need to make any updates or have questions, please contact {{businessName}}{{phoneSuffix}}.',
-      smsBody: '{{businessName}}: Deer tagged {{tag}}. View intake: {{intakeLink}}',
+      smsBody: '{{smsBusinessName}}: Tag {{tag}}. Intake: {{intakeLink}}',
     },
     meat_finished: {
       emailSubject: 'Finished & ready for pickup ({{tag}})',
       emailBody:
         'Hi {{name}}\n\nYour meat for deer {{tag}} is finished and ready for pickup. Please pick it up as soon as possible during the next business hours.\n{{processingDueLine}}\nPickup hours: {{pickupHours}}\nPlease bring a box or cooler for transport.\n{{statusLine}}',
-      smsBody: '{{businessName}}: Meat for {{tag}} is finished. Please pick up ASAP during the next business hours and bring a box or cooler. {{statusLine}}',
+      smsBody: '{{smsBusinessName}}: Meat {{tag}} done. Pickup ASAP next business hrs. Bring box/cooler. {{statusUrl}}',
     },
     cape_finished: {
       emailSubject: 'Cape finished & ready for pickup ({{tag}})',
       emailBody:
         'Hi {{name}}\n\nYour cape for deer {{tag}} is finished and ready for pickup. Please pick it up as soon as possible during the next business hours.\nPickup hours: {{pickupHours}}\n{{statusLine}}',
-      smsBody: '{{businessName}}: Cape for {{tag}} is finished. Please pick up ASAP during the next business hours. {{statusLine}}',
+      smsBody: '{{smsBusinessName}}: Cape {{tag}} done. Pickup ASAP next business hrs. {{statusUrl}}',
     },
     specialty_finished: {
       emailSubject: 'Specialty products finished ({{tag}})',
       emailBody:
         'Hi {{name}}\n\nYour specialty products for deer {{tag}} are finished and ready for pickup. Please pick them up as soon as possible during the next business hours.\n{{specialtyDueLine}}\nPickup hours: {{pickupHours}}\n{{statusLine}}',
-      smsBody: '{{businessName}}: Specialty products for {{tag}} are finished. Please pick up ASAP during the next business hours. {{statusLine}}',
+      smsBody: '{{smsBusinessName}}: Specialty {{tag}} done. Pickup ASAP next business hrs. {{statusUrl}}',
     },
     webbs_delivered: {
       emailSubject: 'Webbs order delivered ({{tag}})',
       emailBody:
         'Hi {{name}}\n\nYour Webbs order has been delivered and is ready for pickup. Webbs product charges are separate from any processing or specialty totals and will be provided with this delivery.\n{{statusLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
-      smsBody: '{{businessName}}: Webbs delivered. Charges provided with delivery. {{tag}}. {{statusLine}}',
+      smsBody: '{{smsBusinessName}}: Webbs {{tag}} delivered. Charges due at pickup. {{statusUrl}}',
     },
   };
 }
@@ -439,19 +439,56 @@ function legacyDefaultNotificationTemplates(): NotificationTemplateSet {
   };
 }
 
+function priorLongSmsNotificationTemplates(): NotificationTemplateSet {
+  return {
+    intake: {
+      emailSubject: 'We received your deer ({{tag}})',
+      emailBody:
+        'Hi {{name}}\n\nWe received your deer ({{tag}}).\n{{intakeLinkLine}}\nIf you need to make any updates or have questions, please contact {{businessName}}{{phoneSuffix}}.',
+      smsBody: '{{businessName}}: Deer tagged {{tag}}. View intake: {{intakeLink}}',
+    },
+    meat_finished: {
+      emailSubject: 'Finished & ready for pickup ({{tag}})',
+      emailBody:
+        'Hi {{name}}\n\nYour meat for deer {{tag}} is finished and ready for pickup. Please pick it up as soon as possible during the next business hours.\n{{processingDueLine}}\nPickup hours: {{pickupHours}}\nPlease bring a box or cooler for transport.\n{{statusLine}}',
+      smsBody: '{{businessName}}: Meat for {{tag}} is finished. Please pick up ASAP during the next business hours and bring a box or cooler. {{statusLine}}',
+    },
+    cape_finished: {
+      emailSubject: 'Cape finished & ready for pickup ({{tag}})',
+      emailBody:
+        'Hi {{name}}\n\nYour cape for deer {{tag}} is finished and ready for pickup. Please pick it up as soon as possible during the next business hours.\nPickup hours: {{pickupHours}}\n{{statusLine}}',
+      smsBody: '{{businessName}}: Cape for {{tag}} is finished. Please pick up ASAP during the next business hours. {{statusLine}}',
+    },
+    specialty_finished: {
+      emailSubject: 'Specialty products finished ({{tag}})',
+      emailBody:
+        'Hi {{name}}\n\nYour specialty products for deer {{tag}} are finished and ready for pickup. Please pick them up as soon as possible during the next business hours.\n{{specialtyDueLine}}\nPickup hours: {{pickupHours}}\n{{statusLine}}',
+      smsBody: '{{businessName}}: Specialty products for {{tag}} are finished. Please pick up ASAP during the next business hours. {{statusLine}}',
+    },
+    webbs_delivered: {
+      emailSubject: 'Webbs order delivered ({{tag}})',
+      emailBody:
+        'Hi {{name}}\n\nYour Webbs order has been delivered and is ready for pickup. Webbs product charges are separate from any processing or specialty totals and will be provided with this delivery.\n{{statusLine}}\nPickup hours: {{pickupHours}}\nPlease contact {{businessName}}{{phoneSuffix}} to confirm your pickup time or ask any questions.',
+      smsBody: '{{businessName}}: Webbs delivered. Charges provided with delivery. {{tag}}. {{statusLine}}',
+    },
+  };
+}
+
 function sameNotificationTemplate(a: unknown, b: unknown) {
   return String(a || '').replace(/\r\n/g, '\n').trim() === String(b || '').replace(/\r\n/g, '\n').trim();
 }
 
 export function normalizeNotificationTemplates(input: unknown, businessName = 'Game Butcher Board'): NotificationTemplateSet {
   const defaults = defaultNotificationTemplates(businessName);
-  const legacyDefaults = legacyDefaultNotificationTemplates();
+  const legacyDefaults = [legacyDefaultNotificationTemplates(), priorLongSmsNotificationTemplates()];
   const raw = input && typeof input === 'object' ? (input as Record<string, any>) : {};
   const out = { ...defaults } as NotificationTemplateSet;
   (Object.keys(defaults) as NotificationTemplateEventKey[]).forEach((key) => {
     const pick = (field: 'emailSubject' | 'emailBody' | 'smsBody') => {
       const value = String(raw?.[key]?.[field] || '');
-      if (!value || sameNotificationTemplate(value, legacyDefaults[key][field])) return defaults[key][field];
+      if (!value || legacyDefaults.some((legacy) => sameNotificationTemplate(value, legacy[key][field]))) {
+        return defaults[key][field];
+      }
       return value;
     };
     out[key] = {

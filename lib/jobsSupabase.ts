@@ -83,7 +83,7 @@ function intakeFormLink(tag: string, publicToken: string, baseUrl = SITE_URL) {
   const root = normalizeBaseUrl(baseUrl || SITE_URL);
   const safeToken = String(publicToken || '').trim();
   if (!root || !safeToken) return '';
-  return `${root}/intake/view/${encodeURIComponent(safeToken)}`;
+  return `${root}/i/${encodeURIComponent(safeToken)}`;
 }
 
 function splitTrailingUrlPunctuation(raw: string) {
@@ -127,7 +127,7 @@ function statusPageLink(baseUrl = SITE_URL, publicToken?: string) {
   const root = normalizeBaseUrl(baseUrl || SITE_URL);
   if (!root) return '';
   const token = String(publicToken || '').trim();
-  return token ? `${root}/status?token=${encodeURIComponent(token)}` : `${root}/status`;
+  return token ? `${root}/s/${encodeURIComponent(token)}` : `${root}/status`;
 }
 
 async function statusPageLinkForRow(supabaseServer: any, row: any, baseUrl = SITE_URL) {
@@ -185,6 +185,20 @@ function balanceDue(priceValue?: number, amountPaidValue?: number, paidFlag?: bo
   return Math.max(0, price - amountPaid);
 }
 
+function compactSmsBusinessName(value: unknown) {
+  const raw = String(value || 'Game Butcher Board').replace(/\s+/g, ' ').trim();
+  if (!raw) return 'Shop';
+  if (raw.length <= 16) return raw;
+
+  const compact = raw
+    .replace(/\b(deer|processing|processor|butcher|board|wild|game|shop|llc|inc|co)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (compact.length >= 3 && compact.length <= 16) return compact;
+  return raw.split(/\s+/)[0].slice(0, 16) || 'Shop';
+}
+
 function notificationVars(opts: NotificationTemplateOpts) {
   const phoneDisplay = String(opts.phoneDisplay || '').trim();
   const statusUrl = String(opts.statusUrl || statusPageLink()).trim();
@@ -196,6 +210,7 @@ function notificationVars(opts: NotificationTemplateOpts) {
     name: String(opts.name || 'there'),
     tag: String(opts.tag || ''),
     businessName: String(opts.businessName || 'Game Butcher Board'),
+    smsBusinessName: compactSmsBusinessName(opts.businessName || 'Game Butcher Board'),
     phoneDisplay,
     phoneSuffix: phoneDisplay ? ` at ${phoneDisplay}` : '',
     intakeLink: String(opts.link || ''),
@@ -220,9 +235,9 @@ function requiredNotificationLinkLine(
   const link = eventKey === 'intake' ? vars.intakeLink : vars.statusUrl;
   if (!link) return '';
   if (eventKey === 'intake') {
-    return mode === 'sms' ? `View intake: ${link}` : `View your intake form: ${link}`;
+    return mode === 'sms' ? `Intake: ${link}` : `View your intake form: ${link}`;
   }
-  return mode === 'sms' ? `Status: ${link}` : `Check status and pickup details: ${link}`;
+  return mode === 'sms' ? link : `Check status and pickup details: ${link}`;
 }
 
 function ensureNotificationLink(
