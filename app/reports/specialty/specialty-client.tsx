@@ -29,6 +29,37 @@ type OrderRow = {
   }>;
 };
 
+type SpecialtyCatalogItem = {
+  slug: string;
+  name: string;
+  shortName: string;
+  active?: boolean;
+  sortOrder?: number;
+};
+
+type InventoryEntry = {
+  id: string;
+  itemSlug: string;
+  itemName: string;
+  shortName: string;
+  quantityDelta: number;
+  reason: string;
+  note?: string | null;
+  tag?: string | null;
+  jobId?: string | null;
+  createdAt?: string | null;
+};
+
+type SpecialtyView = 'outstanding' | 'pickup' | 'inventory';
+
+type SpecialtyOrdersClientProps = {
+  initialRows: OrderRow[];
+  specialtyCatalog: SpecialtyCatalogItem[];
+  initialInventoryEntries: InventoryEntry[];
+  inventoryAvailable: boolean;
+  inventoryWarning?: string | null;
+};
+
 function n(v: any) {
   const x = Number(v ?? 0);
   return Number.isFinite(x) ? x : 0;
@@ -130,6 +161,106 @@ function aggregateRows(sourceRows: OrderRow[]) {
       .map(([slug, item]) => ({ slug, ...item }))
       .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)),
   };
+}
+
+type AggregatedItem = ReturnType<typeof aggregateRows>['items'][number];
+
+function signedPounds(value: number) {
+  const amount = Math.abs(value).toFixed(1);
+  if (value > 0) return `+${amount} lb`;
+  if (value < 0) return `-${amount} lb`;
+  return '0.0 lb';
+}
+
+function inventoryReasonLabel(reason: string) {
+  if (reason === 'batch') return 'Batch added';
+  if (reason === 'job_finished') return 'Job finished';
+  if (reason === 'waste') return 'Removed';
+  return 'Adjustment';
+}
+
+function mergeInventoryEntries(incoming: InventoryEntry[], current: InventoryEntry[]) {
+  const seen = new Set<string>();
+  const merged: InventoryEntry[] = [];
+  for (const entry of [...incoming, ...current]) {
+    const key = entry.id || `${entry.itemSlug}-${entry.reason}-${entry.createdAt}-${entry.quantityDelta}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(entry);
+  }
+  return merged;
+}
+
+function buildInventoryRows({
+  catalog,
+  entries,
+  outstanding,
+  pickup,
+}: {
+  catalog: SpecialtyCatalogItem[];
+  entries: InventoryEntry[];
+  outstanding: AggregatedItem[];
+  pickup: AggregatedItem[];
+}) {
+  const bySlug = new Map<
+    string,
+    {
+      slug: string;
+      name: string;
+      shortName: string;
+      sortOrder: number;
+      inStock: number;
+      outstanding: number;
+      finished: number;
+    }
+  >();
+
+  const touch = (slugInput: string, nameInput?: string, shortNameInput?: string, sortOrderInput = 9999) => {
+    const slug = lower(slugInput);
+    if (!slug) return null;
+    const current = bySlug.get(slug);
+    if (current) {
+      if (nameInput && !current.name) current.name = nameInput;
+      if (shortNameInput && !current.shortName) current.shortName = shortNameInput;
+      current.sortOrder = Math.min(current.sortOrder, sortOrderInput);
+      return current;
+    }
+    const row = {
+      slug,
+      name: nameInput || shortNameInput || slug,
+      shortName: shortNameInput || nameInput || slug,
+      sortOrder: sortOrderInput,
+      inStock: 0,
+      outstanding: 0,
+      finished: 0,
+    };
+    bySlug.set(slug, row);
+    return row;
+  };
+
+  catalog.forEach((item, index) => {
+    if (item.active === false) return;
+    touch(item.slug, item.name, item.shortName, item.sortOrder ?? (index + 1) * 10);
+  });
+
+  for (const item of outstanding) {
+    const row = touch(item.slug, item.name, item.shortName);
+    if (row) row.outstanding += n(item.total);
+  }
+
+  for (const item of pickup) {
+    const row = touch(item.slug, item.name, item.shortName);
+    if (row) row.finished += n(item.total);
+  }
+
+  for (const entry of entries) {
+    const row = touch(entry.itemSlug, entry.itemName, entry.shortName);
+    if (row) row.inStock += n(entry.quantityDelta);
+  }
+
+  return Array.from(bySlug.values())
+    .map((row) => ({ ...row, afterOpenOrders: row.inStock - row.outstanding }))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
 function lifecycle(row: OrderRow) {
@@ -238,23 +369,78 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     cursor: 'not-allowed',
   },
+  input: {
+    width: 96,
+    padding: '7px 8px',
+    borderRadius: 8,
+    border: '1px solid #cbd5e1',
+    fontWeight: 900,
+  },
+  inventoryActions: {
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  stockOk: { color: '#166534', fontWeight: 950 as any },
+  stockLow: { color: '#b91c1c', fontWeight: 950 as any },
+  warn: {
+    fontSize: 12,
+    color: '#92400e',
+    background: '#fffbeb',
+    border: '1px solid #fde68a',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    fontWeight: 900,
+  },
   msg: { fontSize: 12, color: '#334155', marginBottom: 8, fontWeight: 800 },
   err: { fontSize: 12, color: '#b91c1c', marginBottom: 8, fontWeight: 900 },
 };
 
-export default function SpecialtyOrdersClient({ initialRows }: { initialRows: OrderRow[] }) {
+export default function SpecialtyOrdersClient({
+  initialRows,
+  specialtyCatalog,
+  initialInventoryEntries,
+  inventoryAvailable,
+  inventoryWarning,
+}: SpecialtyOrdersClientProps) {
   const [rows, setRows] = useState<OrderRow[]>(initialRows);
+  const [inventoryEntries, setInventoryEntries] = useState<InventoryEntry[]>(initialInventoryEntries);
+  const [inventoryInputs, setInventoryInputs] = useState<Record<string, string>>({});
+  const [inventoryActive, setInventoryActive] = useState<boolean>(inventoryAvailable);
+  const [inventoryNotice, setInventoryNotice] = useState<string>(inventoryWarning || '');
   const [busyTag, setBusyTag] = useState<string>('');
+  const [busyInventory, setBusyInventory] = useState<string>('');
   const [msg, setMsg] = useState<string>('');
   const [err, setErr] = useState<string>('');
   const [staffRole, setStaffRole] = useState<'admin' | 'staff' | 'readonly' | null>(null);
-  const [view, setView] = useState<'outstanding' | 'pickup'>('outstanding');
+  const [view, setView] = useState<SpecialtyView>('outstanding');
 
   const outstandingRows = useMemo(() => rows.filter((row) => !readyLike(specialtyStatus(row))), [rows]);
   const pickupRows = useMemo(() => rows.filter((row) => readyLike(specialtyStatus(row))), [rows]);
   const visibleRows = view === 'pickup' ? pickupRows : outstandingRows;
   const outstandingAggregated = useMemo(() => aggregateRows(outstandingRows), [outstandingRows]);
+  const pickupAggregated = useMemo(() => aggregateRows(pickupRows), [pickupRows]);
   const visibleAggregated = useMemo(() => aggregateRows(visibleRows), [visibleRows]);
+  const inventoryRows = useMemo(
+    () =>
+      buildInventoryRows({
+        catalog: specialtyCatalog,
+        entries: inventoryEntries,
+        outstanding: outstandingAggregated.items,
+        pickup: pickupAggregated.items,
+      }),
+    [inventoryEntries, outstandingAggregated.items, pickupAggregated.items, specialtyCatalog]
+  );
+  const inventorySummary = useMemo(() => {
+    const inStock = inventoryRows.reduce((sum, row) => sum + row.inStock, 0);
+    const outstanding = inventoryRows.reduce((sum, row) => sum + row.outstanding, 0);
+    const afterOpenOrders = inventoryRows.reduce((sum, row) => sum + row.afterOpenOrders, 0);
+    const shortProducts = inventoryRows.filter((row) => row.afterOpenOrders < 0).length;
+    return { inStock, outstanding, afterOpenOrders, shortProducts };
+  }, [inventoryRows]);
+  const recentInventoryEntries = useMemo(() => inventoryEntries.slice(0, 8), [inventoryEntries]);
 
   const summary = useMemo(() => {
     const needsContact = pickupRows.filter((row) => !contacted(row)).length;
@@ -302,7 +488,18 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
             : r
         )
       );
-      setMsg(`Marked ${tag} specialty as Finished`);
+      if (Array.isArray(j?.inventoryEntries) && j.inventoryEntries.length) {
+        setInventoryEntries((prev) => mergeInventoryEntries(j.inventoryEntries, prev));
+      }
+      if (j?.inventoryWarning) {
+        setInventoryActive(j?.inventoryAvailable !== false);
+        setInventoryNotice(String(j.inventoryWarning));
+      }
+      setMsg(
+        j?.inventoryWarning
+          ? `Marked ${tag} specialty as Finished. Inventory note: ${j.inventoryWarning}`
+          : `Marked ${tag} specialty as Finished`
+      );
       setTimeout(() => setMsg(''), 1500);
     } catch (e: any) {
       setErr(String(e?.message || e));
@@ -324,6 +521,52 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
       setErr(String(e?.message || e));
     } finally {
       setBusyTag('');
+    }
+  };
+
+  const setInventoryInput = (slug: string, value: string) => {
+    setInventoryInputs((prev) => ({ ...prev, [slug]: value }));
+  };
+
+  const saveInventory = async (row: { slug: string; name: string }, action: 'batch' | 'waste') => {
+    const quantity = n(inventoryInputs[row.slug]);
+    if (!quantity || quantity <= 0) {
+      setErr('Enter pounds greater than zero.');
+      return;
+    }
+
+    setErr('');
+    setMsg('');
+    setBusyInventory(`${action}:${row.slug}`);
+    try {
+      const res = await fetch('/api/specialty/inventory', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...tokenHeader() },
+        body: JSON.stringify({ itemSlug: row.slug, quantity, action }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `Inventory update failed (${res.status})`);
+      if (j?.entry) {
+        setInventoryEntries((prev) => mergeInventoryEntries([j.entry], prev));
+      }
+      setInventoryInput(row.slug, '');
+      setInventoryActive(true);
+      setInventoryNotice('');
+      setMsg(
+        action === 'waste'
+          ? `Removed ${quantity.toFixed(1)} lb of ${row.name} from stock`
+          : `Added ${quantity.toFixed(1)} lb of ${row.name} to stock`
+      );
+      setTimeout(() => setMsg(''), 1800);
+    } catch (e: any) {
+      const message = String(e?.message || e);
+      setErr(message);
+      if (/not active|specialty inventory/i.test(message)) {
+        setInventoryActive(false);
+        setInventoryNotice(message);
+      }
+    } finally {
+      setBusyInventory('');
     }
   };
 
@@ -352,6 +595,190 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
       </button>
     );
   };
+
+  const renderInventoryControls = (row: (typeof inventoryRows)[number], mobile = false) => {
+    const value = inventoryInputs[row.slug] || '';
+    const quantity = n(value);
+    const baseDisabled = !canUpdate || !inventoryActive || !!busyInventory || quantity <= 0;
+    const addBusy = busyInventory === `batch:${row.slug}`;
+    const removeBusy = busyInventory === `waste:${row.slug}`;
+    const disabledTitle = !canUpdate
+      ? 'Only Staff or Admin can change specialty inventory.'
+      : !inventoryActive
+        ? 'Run the specialty inventory SQL before changing stock.'
+        : quantity <= 0
+          ? 'Enter pounds first.'
+          : '';
+
+    return (
+      <div style={styles.inventoryActions} className={mobile ? 'inventory-mobile-actions' : undefined}>
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.1"
+          placeholder="lbs"
+          value={value}
+          disabled={!canUpdate || !inventoryActive || !!busyInventory}
+          onChange={(event) => setInventoryInput(row.slug, event.target.value)}
+          style={styles.input}
+          aria-label={`Pounds for ${row.name}`}
+        />
+        <button
+          type="button"
+          onClick={() => saveInventory(row, 'batch')}
+          disabled={baseDisabled}
+          title={disabledTitle || `Add ${row.name} to stock`}
+          style={baseDisabled ? styles.btnOff : styles.btn}
+        >
+          {addBusy ? 'Adding...' : 'Add Batch'}
+        </button>
+        <button
+          type="button"
+          onClick={() => saveInventory(row, 'waste')}
+          disabled={baseDisabled}
+          title={disabledTitle || `Remove ${row.name} from stock`}
+          style={baseDisabled ? styles.btnOff : { ...styles.btn, background: '#7f1d1d' }}
+        >
+          {removeBusy ? 'Removing...' : 'Remove'}
+        </button>
+      </div>
+    );
+  };
+
+  const renderInventoryView = () => (
+    <>
+      {inventoryNotice ? <div style={styles.warn}>{inventoryNotice}</div> : null}
+
+      <div className="specialty-kpi-grid" style={styles.kpiGrid}>
+        <div style={styles.card}>
+          <div style={styles.label}>Stock On Hand</div>
+          <div style={styles.value}>{inventorySummary.inStock.toFixed(1)} lb</div>
+          <div style={styles.kpiHint}>Recorded finished product</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Open Demand</div>
+          <div style={styles.value}>{inventorySummary.outstanding.toFixed(1)} lb</div>
+          <div style={styles.kpiHint}>Outstanding orders</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>After Open Orders</div>
+          <div
+            style={{
+              ...styles.value,
+              ...(inventorySummary.afterOpenOrders < 0 ? styles.stockLow : styles.stockOk),
+            }}
+          >
+            {inventorySummary.afterOpenOrders.toFixed(1)} lb
+          </div>
+          <div style={styles.kpiHint}>Stock minus outstanding</div>
+        </div>
+        <div style={styles.card}>
+          <div style={styles.label}>Products Short</div>
+          <div style={{ ...styles.value, ...(inventorySummary.shortProducts > 0 ? styles.stockLow : styles.stockOk) }}>
+            {inventorySummary.shortProducts}
+          </div>
+          <div style={styles.kpiHint}>Need another batch</div>
+        </div>
+      </div>
+
+      {!inventoryRows.length ? (
+        <div style={styles.empty}>No specialty products are configured yet.</div>
+      ) : (
+        <>
+          <div className="inventory-mobile-list">
+            {inventoryRows.map((row) => {
+              const short = row.afterOpenOrders < 0;
+              return (
+                <div key={`inventory-mobile-${row.slug}`} className="inventory-mobile-card">
+                  <div className="inventory-mobile-top">
+                    <div>
+                      <div className="specialty-mobile-tag">{row.shortName || row.name}</div>
+                      <div className="specialty-mobile-name">{row.name}</div>
+                    </div>
+                    <div className={short ? 'inventory-short-pill' : 'inventory-ok-pill'}>
+                      {short ? 'Short' : 'OK'}
+                    </div>
+                  </div>
+                  <div className="inventory-mobile-metrics">
+                    <div>
+                      <span>In Stock</span>
+                      <strong>{row.inStock.toFixed(1)} lb</strong>
+                    </div>
+                    <div>
+                      <span>Open</span>
+                      <strong>{row.outstanding.toFixed(1)} lb</strong>
+                    </div>
+                    <div>
+                      <span>After Open</span>
+                      <strong className={short ? 'inventory-short-text' : 'inventory-ok-text'}>
+                        {row.afterOpenOrders.toFixed(1)} lb
+                      </strong>
+                    </div>
+                  </div>
+                  {renderInventoryControls(row, true)}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={styles.wrap} className="inventory-table-wrap">
+            <div style={styles.tableScroller}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Product</th>
+                    <th style={styles.th}>In Stock</th>
+                    <th style={styles.th}>Outstanding</th>
+                    <th style={styles.th}>After Open Orders</th>
+                    <th style={styles.th}>Finished / Pickup</th>
+                    <th style={styles.th}>Add / Remove</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inventoryRows.map((row) => {
+                    const short = row.afterOpenOrders < 0;
+                    return (
+                      <tr key={row.slug}>
+                        <td style={styles.td}>
+                          <div>{row.name}</div>
+                          <div style={styles.muted}>{row.shortName}</div>
+                        </td>
+                        <td style={styles.td}>{row.inStock.toFixed(1)} lb</td>
+                        <td style={styles.td}>{row.outstanding.toFixed(1)} lb</td>
+                        <td style={styles.td}>
+                          <span style={short ? styles.stockLow : styles.stockOk}>
+                            {row.afterOpenOrders.toFixed(1)} lb
+                          </span>
+                        </td>
+                        <td style={styles.td}>{row.finished.toFixed(1)} lb</td>
+                        <td style={styles.td}>{renderInventoryControls(row)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {recentInventoryEntries.length ? (
+            <div style={{ ...styles.card, marginTop: 12 }}>
+              <div style={styles.label}>Recent Inventory Changes</div>
+              {recentInventoryEntries.map((entry) => (
+                <div key={entry.id} style={styles.orderLine}>
+                  <span>
+                    {entry.shortName || entry.itemName} - {inventoryReasonLabel(entry.reason)}
+                    {entry.tag ? ` (${entry.tag})` : ''}
+                  </span>
+                  <span>{signedPounds(n(entry.quantityDelta))}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
+      )}
+    </>
+  );
 
   const isPickupView = view === 'pickup';
   const emptyText = isPickupView
@@ -398,11 +825,12 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
         {[
           { key: 'outstanding', label: `Outstanding (${outstandingRows.length})` },
           { key: 'pickup', label: `Finished / Pickup (${pickupRows.length})` },
+          { key: 'inventory', label: `Inventory (${inventoryRows.length})` },
         ].map((item) => (
           <button
             key={item.key}
             type="button"
-            onClick={() => setView(item.key as typeof view)}
+            onClick={() => setView(item.key as SpecialtyView)}
             style={view === item.key ? styles.viewButtonActive : styles.viewButton}
           >
             {item.label}
@@ -410,7 +838,11 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
         ))}
       </div>
 
-      {visibleAggregated.items.length ? (
+      {view === 'inventory' ? (
+        renderInventoryView()
+      ) : (
+        <>
+          {visibleAggregated.items.length ? (
         <div className="specialty-summary-grid" style={{ ...styles.kpiGrid, gridTemplateColumns: 'minmax(0, 1fr)' }}>
           <div style={styles.card}>
             <div style={styles.label}>{breakdownTitle}</div>
@@ -422,11 +854,11 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
             ))}
           </div>
         </div>
-      ) : null}
+          ) : null}
 
-      {!visibleRows.length ? (
+          {!visibleRows.length ? (
         <div style={styles.empty}>{emptyText}</div>
-      ) : (
+          ) : (
         <>
           <div className="specialty-mobile-list">
             {visibleRows.map((r) => {
@@ -541,6 +973,8 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
             </div>
           </div>
         </>
+          )}
+        </>
       )}
 
       <style jsx>{`
@@ -631,6 +1065,69 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
           width: 100%;
           justify-content: center;
         }
+        .inventory-mobile-list {
+          display: none;
+        }
+        .inventory-mobile-card {
+          display: grid;
+          gap: 12px;
+          padding: 14px;
+          border: 1px solid #e5e7eb;
+          border-radius: 16px;
+          background: #fff;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .inventory-mobile-top {
+          display: flex;
+          justify-content: space-between;
+          gap: 12px;
+          align-items: start;
+        }
+        .inventory-ok-pill,
+        .inventory-short-pill {
+          padding: 6px 10px;
+          border-radius: 999px;
+          font-weight: 900;
+          line-height: 1;
+          white-space: nowrap;
+        }
+        .inventory-ok-pill {
+          background: #dcfce7;
+          color: #166534;
+        }
+        .inventory-short-pill {
+          background: #fee2e2;
+          color: #991b1b;
+        }
+        .inventory-mobile-metrics {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .inventory-mobile-metrics div {
+          display: grid;
+          gap: 4px;
+          padding: 9px;
+          border-radius: 12px;
+          background: #f8fafc;
+          border: 1px solid #e5e7eb;
+        }
+        .inventory-mobile-metrics span {
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 900;
+          text-transform: uppercase;
+        }
+        .inventory-mobile-metrics strong {
+          color: #0f172a;
+          font-size: 15px;
+        }
+        .inventory-ok-text {
+          color: #166534 !important;
+        }
+        .inventory-short-text {
+          color: #b91c1c !important;
+        }
         @media (max-width: 860px) {
           .specialty-kpi-grid {
             grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -645,6 +1142,30 @@ export default function SpecialtyOrdersClient({ initialRows }: { initialRows: Or
           }
           .specialty-table-wrap {
             display: none;
+          }
+          .inventory-mobile-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 12px;
+          }
+          .inventory-table-wrap {
+            display: none;
+          }
+          .inventory-mobile-actions {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+          }
+          .inventory-mobile-actions input {
+            grid-column: 1 / -1;
+            width: 100% !important;
+          }
+          .inventory-mobile-actions button {
+            width: 100%;
+          }
+        }
+        @media (max-width: 520px) {
+          .inventory-mobile-metrics {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

@@ -9,6 +9,8 @@ import type React from 'react';
 import { createClient } from '@supabase/supabase-js';
 import SpecialtyOrdersClient from './specialty-client';
 import { ReportAccessDenied, requireReportAccess } from '../reportAccess';
+import { getProcessorSpecialtyCatalog } from '@/lib/specialtyCatalog';
+import { loadSpecialtyInventoryEntries } from '@/lib/specialtyInventory';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -100,6 +102,11 @@ export default async function SpecialtyReport() {
     .order('tag', { ascending: true });
 
   const rows = ((data as any) || []) as OrderRow[];
+  const [specialtyCatalog, inventory] = await Promise.all([
+    getProcessorSpecialtyCatalog(processor.id),
+    loadSpecialtyInventoryEntries({ processorId: processor.id }),
+  ]);
+
   const jobIds = rows.map((row) => row.id).filter(Boolean);
   let itemMap = new Map<string, OrderRow['specialtyItems']>();
   if (jobIds.length) {
@@ -136,6 +143,16 @@ export default async function SpecialtyReport() {
           ...row,
           specialtyItems: itemMap.get(String(row.id)) || [],
         }))}
+        specialtyCatalog={specialtyCatalog.map((item) => ({
+          slug: item.slug,
+          name: item.name,
+          shortName: item.shortName,
+          active: item.active,
+          sortOrder: item.sortOrder,
+        }))}
+        initialInventoryEntries={inventory.entries}
+        inventoryAvailable={inventory.available}
+        inventoryWarning={inventory.warning || inventory.error || null}
       />
     </div>
   );

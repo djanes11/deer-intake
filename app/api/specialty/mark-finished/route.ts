@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { writeAuditEntry } from '@/lib/auditLog';
 import { saveJob } from '@/lib/jobsSupabase';
+import { deductSpecialtyInventoryForFinishedJob } from '@/lib/specialtyInventory';
 
 export async function POST(req: Request) {
   try {
@@ -21,6 +22,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error }, { status: error.toLowerCase().includes('not found') ? 404 : 400 });
     }
 
+    const inventory = await deductSpecialtyInventoryForFinishedJob({
+      processorId: processor?.id,
+      job: result.job as any,
+    });
+
     await writeAuditEntry({
       req,
       processorId: processor?.id,
@@ -28,10 +34,21 @@ export async function POST(req: Request) {
       targetType: 'job',
       targetLabel: tag,
       summary: `Marked specialty finished for tag ${tag}`,
-      details: { tag },
+      details: {
+        tag,
+        inventoryDeductionCount: inventory.entries.length,
+        inventoryWarning: inventory.warning || inventory.error || null,
+      },
     });
 
-    return NextResponse.json({ ok: true, data: { tag, specialty_status: 'Finished' }, job: result.job });
+    return NextResponse.json({
+      ok: true,
+      data: { tag, specialty_status: 'Finished' },
+      job: result.job,
+      inventoryEntries: inventory.entries,
+      inventoryAvailable: inventory.available,
+      inventoryWarning: inventory.warning || inventory.error || null,
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }
