@@ -179,6 +179,12 @@ function inventoryReasonLabel(reason: string) {
   return 'Adjustment';
 }
 
+function refreshTimeText(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+}
+
 function mergeInventoryEntries(incoming: InventoryEntry[], current: InventoryEntry[]) {
   const seen = new Set<string>();
   const merged: InventoryEntry[] = [];
@@ -406,10 +412,13 @@ export default function SpecialtyOrdersClient({
   inventoryWarning,
 }: SpecialtyOrdersClientProps) {
   const [rows, setRows] = useState<OrderRow[]>(initialRows);
+  const [catalog, setCatalog] = useState<SpecialtyCatalogItem[]>(specialtyCatalog);
   const [inventoryEntries, setInventoryEntries] = useState<InventoryEntry[]>(initialInventoryEntries);
   const [inventoryInputs, setInventoryInputs] = useState<Record<string, string>>({});
   const [inventoryActive, setInventoryActive] = useState<boolean>(inventoryAvailable);
   const [inventoryNotice, setInventoryNotice] = useState<string>(inventoryWarning || '');
+  const [refreshError, setRefreshError] = useState<string>('');
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string>('');
   const [busyTag, setBusyTag] = useState<string>('');
   const [busyInventory, setBusyInventory] = useState<string>('');
   const [msg, setMsg] = useState<string>('');
@@ -426,12 +435,12 @@ export default function SpecialtyOrdersClient({
   const inventoryRows = useMemo(
     () =>
       buildInventoryRows({
-        catalog: specialtyCatalog,
+        catalog,
         entries: inventoryEntries,
         outstanding: outstandingAggregated.items,
         pickup: pickupAggregated.items,
       }),
-    [inventoryEntries, outstandingAggregated.items, pickupAggregated.items, specialtyCatalog]
+    [catalog, inventoryEntries, outstandingAggregated.items, pickupAggregated.items]
   );
   const inventorySummary = useMemo(() => {
     const inStock = inventoryRows.reduce((sum, row) => sum + row.inStock, 0);
@@ -468,6 +477,45 @@ export default function SpecialtyOrdersClient({
   }, []);
 
   const canUpdate = staffRole === 'admin' || staffRole === 'staff';
+
+  const refreshSpecialtyReport = React.useCallback(async () => {
+    if (busyTag || busyInventory) return;
+    try {
+      const res = await fetch('/api/specialty/report', {
+        cache: 'no-store',
+        headers: tokenHeader(),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) throw new Error(j?.error || `Refresh failed (${res.status})`);
+
+      if (Array.isArray(j.rows)) setRows(j.rows);
+      if (Array.isArray(j.specialtyCatalog)) setCatalog(j.specialtyCatalog);
+      if (Array.isArray(j.inventoryEntries)) setInventoryEntries(j.inventoryEntries);
+      if (typeof j.inventoryAvailable === 'boolean') setInventoryActive(j.inventoryAvailable);
+      setInventoryNotice(j.inventoryWarning ? String(j.inventoryWarning) : '');
+      setRefreshError('');
+      setLastRefreshedAt(String(j.refreshedAt || new Date().toISOString()));
+    } catch (e: any) {
+      setRefreshError(String(e?.message || e || 'Auto-refresh failed.'));
+    }
+  }, [busyInventory, busyTag]);
+
+  React.useEffect(() => {
+    if (view !== 'inventory') return;
+    let cancelled = false;
+
+    const run = async () => {
+      if (cancelled || document.hidden) return;
+      await refreshSpecialtyReport();
+    };
+
+    void run();
+    const timer = window.setInterval(run, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [refreshSpecialtyReport, view]);
 
   const markFinished = async (tag: string) => {
     setErr('');
@@ -649,6 +697,12 @@ export default function SpecialtyOrdersClient({
   const renderInventoryView = () => (
     <>
       {inventoryNotice ? <div style={styles.warn}>{inventoryNotice}</div> : null}
+      {refreshError ? <div style={styles.warn}>Inventory refresh failed: {refreshError}</div> : null}
+      {lastRefreshedAt ? (
+        <div style={{ ...styles.muted, marginBottom: 8 }}>
+          Last checked {refreshTimeText(lastRefreshedAt)}
+        </div>
+      ) : null}
 
       {!inventoryRows.length ? (
         <div style={styles.empty}>No specialty products are configured yet.</div>
