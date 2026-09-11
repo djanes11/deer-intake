@@ -48,7 +48,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf';
+const WEBBS_PRICE_SHEET_URL = '/webbs-price.pdf?v=2026-09';
 const WEBBS_PRICE_NOTE =
   'Webbs product prices are not included here. Those charges are provided when the Webbs order is delivered.';
 
