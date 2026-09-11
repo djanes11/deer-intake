@@ -24,6 +24,7 @@ function resolveAlias(specifier) {
 
 registerHooks({
   resolve(specifier, context, defaultResolve) {
+    if (specifier === 'next/server') return defaultResolve('next/server.js', context, defaultResolve);
     if (specifier === 'server-only') {
       return {
         shortCircuit: true,

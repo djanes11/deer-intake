@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
-import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
+import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { DEFAULT_SITE_PRICING, normalizePricing } from '@/lib/pricing';
 import { defaultSpecialtyCatalog, normalizeSpecialtyCatalog, type SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
 
@@ -154,6 +154,10 @@ export default function PrintQueuePage() {
       if (!job) throw new Error(`Could not load intake sheet for tag ${normalized}.`);
       setPrintJobs([job]);
 
+      const confirmed = await confirmIntakePrint();
+      setPrinting('');
+      setPrintJobs([]);
+      if (!confirmed) return;
       await markPrinted(normalized);
       setRows((prev) => prev.filter((row) => String(row.tag || '') !== normalized));
       setSelectedTags((prev) => {
@@ -162,10 +166,7 @@ export default function PrintQueuePage() {
         return next;
       });
 
-      openBrowserPrintPreview(() => {
-        setPrinting('');
-        setPrintJobs([]);
-      });
+
     } catch (e: any) {
       setErr(String(e?.message || e));
       setPrinting('');
@@ -214,16 +215,21 @@ export default function PrintQueuePage() {
 
       setPrintJobs(jobs);
 
-      await runLimited(tags, 6, (tag) => markPrinted(tag));
+      const confirmed = await confirmIntakePrint(tags.length);
+      setPrinting('');
+      setPrintJobs([]);
+      if (!confirmed) return;
+      // Reconcile each successful write even if another sheet fails to be recorded.
+      await runLimited(tags, 6, async (tag) => {
+        await markPrinted(tag);
+        setRows(prev => prev.filter(row => String(row.tag || '') !== tag));
+      });
 
       const printed = new Set(tags);
       setRows((prev) => prev.filter((row) => !printed.has(String(row.tag || '').trim())));
       setSelectedTags(new Set());
 
-      openBrowserPrintPreview(() => {
-        setPrinting('');
-        setPrintJobs([]);
-      });
+
     } catch (e: any) {
       setErr(String(e?.message || e));
       setPrinting('');

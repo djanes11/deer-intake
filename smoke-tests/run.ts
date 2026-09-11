@@ -7,6 +7,7 @@ import { run as runStateForms } from './stateforms.test.ts';
 import { run as runJobWriteSafety } from './job-write-safety.test.ts';
 import { run as runDatabaseSafety } from './database-safety.test.ts';
 import { run as runClientWrites } from './client-writes.test.ts';
+import { run as runReadiness } from './readiness.test.ts';
 
 const suites = [
   ['identifiers', runIdentifiers],
@@ -18,6 +19,7 @@ const suites = [
   ['job write safety', runJobWriteSafety],
   ['database safety', runDatabaseSafety],
   ['client writes', runClientWrites],
+  ['readiness', runReadiness],
 ] as const;
 
 for (const [label, fn] of suites) {

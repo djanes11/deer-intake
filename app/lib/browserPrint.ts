@@ -1,6 +1,6 @@
 type CleanupFn = () => void;
 
-export function openBrowserPrintPreview(onAfterPrint?: CleanupFn) {
+export function openBrowserPrintPreview(onAfterPrint?: CleanupFn, onError?: CleanupFn) {
   if (typeof window === 'undefined') {
     onAfterPrint?.();
     return;
@@ -28,7 +28,7 @@ export function openBrowserPrintPreview(onAfterPrint?: CleanupFn) {
           if (fallbackTimer) window.clearTimeout(fallbackTimer);
           openElementPrintPreview(labelElement, {
             onAfterPrint: finish,
-            onError: () => finish(),
+            onError: () => { onError?.(); finish(); },
           });
           return;
         }
@@ -37,10 +37,26 @@ export function openBrowserPrintPreview(onAfterPrint?: CleanupFn) {
           window.print();
           fallbackTimer = window.setTimeout(finish, 120000);
         } catch {
+          onError?.();
           finish();
         }
       }, 200);
     });
+  });
+}
+
+export function confirmIntakePrint(count = 1): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  return new Promise(resolve => {
+    let failed = false;
+    openBrowserPrintPreview(() => {
+      // Let the browser close its print dialog before asking about the physical sheets.
+      window.setTimeout(() => resolve(!failed && window.confirm(
+        count === 1
+          ? 'Did the intake sheet print successfully? Choose Cancel to keep it awaiting printing.'
+          : `Did all ${count} intake sheets print successfully? Choose Cancel to keep them awaiting printing.`,
+      )), 100);
+    }, () => { failed = true; });
   });
 }
 

@@ -17,7 +17,8 @@ export async function run() {
       create table jobs (
         id uuid primary key default gen_random_uuid(), processor_id uuid references processors,
         tag text not null, confirmation text unique, customer_name text, notes text,
-        status text, requires_tag boolean default false, pending_deleted_at timestamptz,
+        status text, requires_tag boolean default false, pending_deleted_at timestamptz, webbs_order boolean default true,
+        intake_sheet_printed_at timestamptz, intake_sheet_print_count integer default 0,
         price_processing numeric default 0, price_specialty numeric default 0,
         amount_paid_processing numeric default 0, amount_paid_specialty numeric default 0,
         paid_processing boolean default false, paid_specialty boolean default false, paid boolean default false,
@@ -35,6 +36,8 @@ export async function run() {
     await db.exec(fs.readFileSync('sql/2026-08-24-square-payment-links.sql', 'utf8').replace('create extension if not exists pgcrypto;', ''));
     const migration = fs.readFileSync('sql/2026-09-11-opening-weekend-safety.sql', 'utf8');
     await db.exec(migration);
+    const readinessMigration = fs.readFileSync('sql/2026-09-11-final-readiness.sql', 'utf8');
+    await db.exec(readinessMigration);
 
     const rpc = { async rpc(name: string, args: any) {
       try {
@@ -52,6 +55,33 @@ export async function run() {
     const payload = { tag: '10001', confirmation: '1234567890123', customer_name: 'Hunter A', status: 'Dropped Off',
       price_processing: 150, amount_paid_processing: 50, price_specialty: 0, amount_paid_specialty: 0 };
     let job = await save(payload);
+
+    // Print-only writes preserve the editing version, but actual edits still conflict.
+    await db.query('update jobs set intake_sheet_printed_at=now(), intake_sheet_print_count=1, updated_at=now() where id=$1', [job.id]);
+    assert.equal((await read(job.id)).updated_at, job.updated_at);
+    job = await save({ ...payload, notes: 'Edited after printing' }, job);
+
+    const checkoutJob = await save({ ...payload, tag: 'CHECKOUT', confirmation: 'CHECKOUT' });
+    const link = { amount_cents: 10300, processing_amount_cents: 10000, online_fee_cents: 300,
+      square_environment: 'sandbox', square_payment_link_id: 'sandbox-link', square_order_id: 'sandbox-order',
+      square_checkout_url: 'https://sandbox.example/checkout', idempotency_key: 'sandbox-key' };
+    const publish = async (data: any, price = 150, paid = 50) => (await db.query<any>(
+      'select publish_square_checkout($1,$2,$3,$4,$5) as value', [checkoutJob.id, processor, price, paid, data]
+    )).rows[0].value;
+    assert.equal((await publish(link)).reused, false);
+    assert.equal((await publish(link)).reused, true);
+    const productionLink = { ...link, square_environment: 'production', square_payment_link_id: 'prod-link',
+      square_order_id: 'prod-order', square_checkout_url: 'https://production.example/checkout', idempotency_key: 'prod-key' };
+    assert.equal((await publish({ ...productionLink, square_checkout_url: null })).needsCreation, true);
+    assert.equal((await publish(productionLink)).checkoutUrl, productionLink.square_checkout_url);
+    assert.equal((await db.query<any>("select status from square_payment_links where square_order_id='sandbox-order'")).rows[0].status, 'superseded');
+    const simultaneous = await Promise.all([publish(productionLink), publish({ ...productionLink, square_order_id: 'duplicate-order' })]);
+    assert.ok(simultaneous.every(result => result.reused));
+    // Staff records cash while the remote create request is in flight.
+    await save({ ...payload, tag: checkoutJob.tag, confirmation: checkoutJob.confirmation, amount_paid_processing: 75 }, checkoutJob);
+    await assert.rejects(publish({ ...productionLink, square_order_id: 'stale-order' }), /balance changed/);
+    assert.equal((await db.query<any>("select count(*)::int as n from square_payment_links where square_order_id='stale-order'")).rows[0].n, 0);
+    await assert.rejects(publish({ ...productionLink, processing_amount_cents: 7500, amount_cents: 1 }, 150, 75), /Invalid checkout/);
 
     await assert.rejects(save({ ...payload, confirmation: '2234567890123', customer_name: 'Hunter B' }), /already in use/);
     assert.equal((await read(job.id)).customer_name, 'Hunter A');
@@ -136,6 +166,7 @@ export async function run() {
 
     // Migration is repeatable, and replaying a completed pre-migration payment cannot add money again.
     await db.exec(migration);
+    await db.exec(readinessMigration);
     assert.equal((await pay('legacy-completed')).alreadyApplied, true);
     assert.equal(Number((await read(legacyJob.id)).amount_paid_processing), 150);
     await pay('deposit-balance');

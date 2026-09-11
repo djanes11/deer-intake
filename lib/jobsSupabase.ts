@@ -1,5 +1,6 @@
 // lib/jobsSupabase.ts
 import { getSupabaseServer } from './supabaseClient';
+import { resolveOrderPrices } from './orderPrices';
 import { Job, JobSearchRow } from '@/types/job';
 import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
@@ -2519,15 +2520,14 @@ export async function saveJob(job: Partial<Job>, options?: { processorContext?: 
   const specialtyTotals = specialtyLegacyValues(specialtyItems);
 
   const processingOverride = numOrNull(
-    (effectiveJob as any).processing_price_override ?? (effectiveJob as any).processingPriceOverride
+    Object.hasOwn(effectiveJob, 'processing_price_override') ? (effectiveJob as any).processing_price_override : (effectiveJob as any).processingPriceOverride
   );
   const specialtyOverride  = numOrNull(
-    (effectiveJob as any).specialty_price_override  ?? (effectiveJob as any).specialtyPriceOverride
+    Object.hasOwn(effectiveJob, 'specialty_price_override') ? (effectiveJob as any).specialty_price_override : (effectiveJob as any).specialtyPriceOverride
   );
 
-  const usedProcessingPrice = processingOverride ?? (numOrNull(effectiveJob.priceProcessing) ?? computedProcessingPrice);
-  const usedSpecialtyPrice  = specialtyOverride  ?? (numOrNull(effectiveJob.priceSpecialty) ?? computedSpecialtyPrice);
-  const usedTotalPrice      = numOrNull(effectiveJob.price) ?? (usedProcessingPrice + usedSpecialtyPrice);
+  const { priceProcessing: usedProcessingPrice, priceSpecialty: usedSpecialtyPrice, price: usedTotalPrice } =
+    resolveOrderPrices(effectiveJob, existingJob, computedProcessingPrice, computedSpecialtyPrice);
 
   const hasAmountPaidProcessing = Object.prototype.hasOwnProperty.call(effectiveJob, 'amountPaidProcessing');
   const hasAmountPaidSpecialty = Object.prototype.hasOwnProperty.call(effectiveJob, 'amountPaidSpecialty');

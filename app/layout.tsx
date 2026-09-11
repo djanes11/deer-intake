@@ -1,6 +1,7 @@
 // app/layout.tsx
 import './globals.css';
 import Nav from './components/Nav';
+import StaffSessionRefresh from './components/StaffSessionRefresh';
 import NavGate from './components/NavGate';
 import CustomerHeader from './components/CustomerHeader';
 import AlertBanner from './components/AlertBanner';
@@ -71,6 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="color-scheme" content="dark light" />
       </head>
       <body className={`${IS_PUBLIC ? 'public' : ''} watermark`}>
+        {!IS_PUBLIC ? <StaffSessionRefresh /> : null}
         {!IS_PUBLIC ? (
           <NavGate>
             <Nav />

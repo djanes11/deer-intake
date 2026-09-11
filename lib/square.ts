@@ -59,6 +59,15 @@ export function squareMoneyCents(value: unknown) {
   return Math.max(0, Math.round(n * 100));
 }
 
+export async function deleteSquarePaymentLink(id: string) {
+  const config = getSquareConfig();
+  const response = await fetch(`${config.apiBaseUrl}/v2/online-checkout/payment-links/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { 'Square-Version': config.apiVersion, Authorization: `Bearer ${config.accessToken}` },
+  });
+  if (!response.ok && response.status !== 404) throw new Error(`Could not cancel obsolete Square checkout (${response.status}).`);
+}
+
 export async function createSquareProcessingPaymentLink(params: {
   idempotencyKey: string;
   amountCents: number;

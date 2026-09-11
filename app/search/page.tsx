@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
-import { openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
+import { confirmIntakePrint, openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
 import { getJob, patchJob, searchJobs, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -315,6 +315,12 @@ export default function SearchPage() {
       const job = (res?.job || null) as Record<string, any> | null;
       if (!job) throw new Error('Could not load intake sheet for printing.');
 
+      setPrintJob(job);
+      setPrintMode('sheet');
+      const confirmed = await confirmIntakePrint();
+      setPrintMode('');
+      setPrinting('');
+      if (!confirmed) return;
       const markRes = await fetch(API_MARK, {
         method: 'POST',
         headers: {
@@ -327,12 +333,7 @@ export default function SearchPage() {
       const markJson = await markRes.json().catch(() => ({}));
       if (!markJson?.ok) throw new Error(markJson?.error || `HTTP ${markRes.status}`);
 
-      setPrintJob(job);
-      setPrintMode('sheet');
-      openBrowserPrintPreview(() => {
-        setPrintMode('');
-        setPrinting('');
-      });
+
       if (selectedTag === tag) {
         await loadDetails(tag);
         setPrintMsg('Intake marked printed. Use Print Options for labels or a reprint.');

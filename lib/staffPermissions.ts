@@ -17,10 +17,11 @@ export function hasProcessorPermission(
   context: Pick<StaffProcessorContext, 'role' | 'authType'>,
   permission: ProcessorPermission
 ) {
+  if (context.authType === 'none') return false;
   switch (permission) {
     case 'view':
     case 'print':
-      return true;
+      return context.role === 'admin' || context.role === 'staff' || context.role === 'readonly';
     case 'edit_jobs':
     case 'update_status':
       return context.role === 'admin' || context.role === 'staff';
@@ -56,7 +57,7 @@ export async function requireProcessorPermission(req: Request, permission: Proce
     };
   }
 
-  if (!hasProcessorPermission(context, permission)) {
+  if (!context.id || !hasProcessorPermission(context, permission)) {
     return {
       denied: NextResponse.json(
         { ok: false, error: `You do not have permission to ${permission.replace(/_/g, ' ')}.` },

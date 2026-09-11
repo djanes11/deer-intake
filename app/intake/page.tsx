@@ -3,9 +3,10 @@
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob, tokenHeader } from '@/lib/api';
+import { resolveOrderPrices } from '@/lib/orderPrices';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
-import { openBrowserPrintPreview } from '@/app/lib/browserPrint';
+import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -485,6 +486,7 @@ function IntakePage() {
 
   // ---- UNSAVED CHANGES GUARD ----
   const [lastSavedJson, setLastSavedJson] = useState<string>('');
+  const [savedOrder, setSavedOrder] = useState<Record<string, any> | null>(null);
   const currentJson = useMemo(() => stableStringify(snapshotJob(job)), [job]);
   const dirty = useMemo(() => {
     if (!lastSavedJson) return false; // no baseline yet
@@ -823,6 +825,7 @@ useEffect(() => {
           next.paid = !!(j.Paid ?? j.paid ?? fp);
 
           setJob(next);
+          setSavedOrder(next);
           setLastSavedJson(stableStringify(snapshotJob(next))); // baseline after load
         }
       } catch (e: any) {
@@ -897,8 +900,8 @@ useEffect(() => {
   const processingOverride = toMoneyOrNull((job as any).processing_price_override);
   const specialtyOverride = toMoneyOrNull((job as any).specialty_price_override);
 
-  const processingPriceUsed = processingOverride ?? processingPriceAuto;
-  const specialtyPriceUsed = specialtyOverride ?? specialtyPriceAuto;
+  const { priceProcessing: processingPriceUsed, priceSpecialty: specialtyPriceUsed } =
+    resolveOrderPrices(job, savedOrder, processingPriceAuto, specialtyPriceAuto);
   const amountPaidProcessing = Math.min(toMoneyOrNull((job as any).amountPaidProcessing) ?? 0, processingPriceUsed);
   const amountPaidSpecialty = Math.min(toMoneyOrNull((job as any).amountPaidSpecialty) ?? 0, specialtyPriceUsed);
   const processingRemaining = Math.max(0, processingPriceUsed - amountPaidProcessing);
@@ -1164,6 +1167,7 @@ useEffect(() => {
       }
       // Keep the committed identity/version even if the following refresh fails.
       if (res.job) setJob((prev) => ({ ...prev, ...res.job, tag: String(res.job?.tag || payload.tag || '') } as Job));
+      if (res.job) setSavedOrder(res.job);
 
       setLastSavedAt(new Date().toISOString());
       setMsg('Saved. You can print the intake, open butcher view, or start the next deer.');
@@ -1201,6 +1205,7 @@ useEffect(() => {
             merged.paid = !!(j.Paid ?? j.paid ?? fp);
 
             setJob(merged);
+            setSavedOrder(merged);
             setLastSavedJson(stableStringify(snapshotJob(merged)));
             setLastSavedAt(new Date().toISOString());
           }
@@ -1227,6 +1232,7 @@ useEffect(() => {
       sex: (job.sex || '') as Job['sex'],
     };
     setJob(fresh);
+    setSavedOrder(null);
     setZipDirty(false);
     setMsg('');
     setCustomerMatch(null);
@@ -1444,14 +1450,14 @@ useEffect(() => {
                     setMsg(`${identifierSettings.tagLabel} is required before printing`);
                     return;
                   }
+                  setPrintMode('sheet');
                   try {
-                    await markPrinted(tagToPrint);
+                    if (await confirmIntakePrint()) await markPrinted(tagToPrint);
                   } catch (e: any) {
                     setMsg(e?.message || 'Could not mark intake sheet as printed');
-                    return;
+                  } finally {
+                    setPrintMode('');
                   }
-                  setPrintMode('sheet');
-                  openBrowserPrintPreview(() => setPrintMode(''));
                 }}
               >
                 Print Intake
@@ -2524,14 +2530,14 @@ useEffect(() => {
                     setMsg(`${identifierSettings.tagLabel} is required before printing`);
                     return;
                   }
+                  setPrintMode('sheet');
                   try {
-                    await markPrinted(tagToPrint);
+                    if (await confirmIntakePrint()) await markPrinted(tagToPrint);
                   } catch (e: any) {
                     setMsg(e?.message || 'Could not mark intake sheet as printed');
-                    return;
+                  } finally {
+                    setPrintMode('');
                   }
-                  setPrintMode('sheet');
-                  openBrowserPrintPreview(() => setPrintMode(''));
                 }}
                 disabled={busy}
               >
@@ -2578,14 +2584,14 @@ useEffect(() => {
                       setMsg(`${identifierSettings.tagLabel} is required before printing`);
                       return;
                     }
+                    setPrintMode('sheet');
                     try {
-                      await markPrinted(tagToPrint);
+                      if (await confirmIntakePrint()) await markPrinted(tagToPrint);
                     } catch (e: any) {
                       setMsg(e?.message || 'Could not mark intake sheet as printed');
-                      return;
+                    } finally {
+                      setPrintMode('');
                     }
-                    setPrintMode('sheet');
-                    openBrowserPrintPreview(() => setPrintMode(''));
                   }}
                   disabled={busy}
                 >

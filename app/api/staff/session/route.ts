@@ -31,6 +31,10 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const accessToken = String(body?.accessToken || '').trim();
     const localSessionToken = String(body?.localSessionToken || '').trim();
+    // Background refresh must never replace a deliberately selected local staff login.
+    if (body?.refreshOnly === true && req.headers.get('cookie')?.split(';').some(part => part.trim().startsWith(`${STAFF_LOCAL_SESSION_COOKIE}=`))) {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
 
     if (!accessToken && !localSessionToken) {
       return NextResponse.json({ ok: false, error: 'Missing session token.' }, { status: 400 });

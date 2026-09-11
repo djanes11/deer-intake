@@ -8,7 +8,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getProcessorContextForHostname } from '@/lib/processorContext';
 import { sharedRateLimit } from '@/lib/ratelimit';
-import { createSquareProcessingPaymentLink, getSquareConfig, squareMoneyCents } from '@/lib/square';
+import { createSquareProcessingPaymentLink, deleteSquarePaymentLink, getSquareConfig, squareMoneyCents } from '@/lib/square';
 import { SQUARE_ONLINE_PAYMENT_FEE_CENTS } from '@/lib/paymentConfig';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Too many payment link attempts. Please wait a minute and try again.' }, { status: 429 });
     }
 
-    getSquareConfig();
+    const config = getSquareConfig();
 
     const body = await req.json().catch(() => ({}));
     const publicToken = String(body?.publicToken || '').trim();
@@ -80,38 +80,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, paid: true, message: 'Regular processing is already marked paid.' });
     }
 
-    const { data: existingLink, error: existingError } = await supabase
-      .from('square_payment_links')
-      .select('id,square_checkout_url,amount_cents,processing_amount_cents,online_fee_cents,status,square_order_id')
-      .eq('job_id', (job as any).id)
-      .in('status', ['pending', 'created', 'open'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existingError) throw existingError;
-
-    if (
-      existingLink?.square_checkout_url &&
-      Number(existingLink.amount_cents || 0) === amountCents &&
-      Number(existingLink.processing_amount_cents || 0) === processingAmountCents &&
-      Number(existingLink.online_fee_cents || 0) === onlineFeeCents
-    ) {
-      return NextResponse.json({
-        ok: true,
-        checkoutUrl: String(existingLink.square_checkout_url),
-        amountCents,
-        processingAmountCents,
-        onlineFeeCents,
-        reused: true,
+    const linkAmounts = {
+      amount_cents: amountCents, processing_amount_cents: processingAmountCents,
+      online_fee_cents: onlineFeeCents, square_environment: config.environment,
+    };
+    const publish = async (link: Record<string, any>) => {
+      const { data, error } = await supabase.rpc('publish_square_checkout', {
+        p_job_id: job.id, p_processor_id: job.processor_id,
+        p_expected_price: priceProcessing, p_expected_paid: amountPaid,
+        p_link: { ...linkAmounts, ...link },
       });
-    }
-
-    if (existingLink?.id) {
-      const { error: supersedeError } = await supabase
-        .from('square_payment_links')
-        .update({ status: 'superseded', updated_at: new Date().toISOString() })
-        .eq('id', existingLink.id);
-      if (supersedeError) throw supersedeError;
+      if (error) throw error;
+      if (!data) throw new Error('Could not validate checkout. Please try again.');
+      return data;
+    };
+    const preflight = await publish({});
+    if (preflight.checkoutUrl) {
+      return NextResponse.json({ ok: true, ...preflight, amountCents, processingAmountCents, onlineFeeCents });
     }
 
     const root = publicBaseUrl(req);
@@ -132,36 +117,32 @@ export async function POST(req: NextRequest) {
       note: `Regular processing: $${(processingAmountCents / 100).toFixed(2)} | Online payment fee: $${(onlineFeeCents / 100).toFixed(2)} | job:${(job as any).id} | confirmation:${confirmation}`,
     });
 
-    const { error: insertError } = await supabase
-      .from('square_payment_links')
-      .insert({
-        job_id: (job as any).id,
-        processor_id: (job as any).processor_id || processor.id || null,
-        tag: (job as any).tag || null,
-        confirmation,
-        customer_name: (job as any).customer_name || null,
-        amount_cents: amountCents,
-        processing_amount_cents: processingAmountCents,
-        online_fee_cents: onlineFeeCents,
-        currency: 'USD',
-        status: 'pending',
-        square_environment: getSquareConfig().environment,
-        square_payment_link_id: created.paymentLinkId,
-        square_order_id: created.orderId,
-        square_checkout_url: created.url,
-        square_long_url: created.longUrl || null,
-        idempotency_key: idempotencyKey,
-        raw_create_response: created.raw,
+    let published;
+    try {
+      published = await publish({
+        square_payment_link_id: created.paymentLinkId, square_order_id: created.orderId,
+        square_checkout_url: created.url, square_long_url: created.longUrl || null,
+        idempotency_key: idempotencyKey, raw_create_response: created.raw,
       });
-    if (insertError) throw insertError;
-
+    } catch (error) {
+      // Never expose a checkout based on a balance that changed during the Square request.
+      await deleteSquarePaymentLink(created.paymentLinkId).catch(cancelError => console.error('Square checkout cleanup required', created.paymentLinkId, cancelError));
+      // Also handles an ambiguous RPC response that committed before the connection failed.
+      await supabase.from('square_payment_links').update({ status: 'superseded' }).eq('square_payment_link_id', created.paymentLinkId).in('status', ['pending', 'created', 'open']);
+      throw error;
+    }
+    if (published.reused) {
+      await deleteSquarePaymentLink(created.paymentLinkId).catch(error => console.error('Unused Square checkout cleanup required', created.paymentLinkId, error));
+    }
+    for (const retired of published.retired || []) {
+      // Production credentials cannot cancel sandbox resources (or the reverse).
+      if (retired.id && retired.environment === config.environment) {
+        await deleteSquarePaymentLink(retired.id).catch(error => console.error('Retired Square checkout cleanup required', retired.id, error));
+      }
+    }
     return NextResponse.json({
-      ok: true,
-      checkoutUrl: created.url,
-      amountCents,
-      processingAmountCents,
-      onlineFeeCents,
-      reused: false,
+      ok: true, checkoutUrl: published.checkoutUrl, reused: published.reused,
+      amountCents, processingAmountCents, onlineFeeCents,
     });
   } catch (error: any) {
     console.error('create Square processing payment link error', error);
@@ -174,7 +155,7 @@ export async function POST(req: NextRequest) {
           ? 'Square payment tracking table is missing. Run the Square payment SQL migration first.'
           : message,
       },
-      { status: missingTable ? 500 : 400 }
+      { status: error?.code === '40001' ? 409 : missingTable ? 500 : 400 }
     );
   }
 }
