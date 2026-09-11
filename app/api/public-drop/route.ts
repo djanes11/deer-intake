@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { sharedRateLimit } from '@/lib/ratelimit';
 import { saveJob } from '@/lib/jobsSupabase';
+import { publicIntakeInput } from '@/lib/publicIntakeInput';
 import { getPublicSiteSettings } from '@/lib/siteSettings';
 import { getSupabaseServer } from '@/lib/supabaseClient';
 import { confirmationSearchCandidates, identifierSettingsFromPublicCopy, normalizeConfirmationInput, validateConfirmation } from '@/lib/identifiers';
@@ -129,7 +130,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}));
-  const rawJob = (body?.job && typeof body.job === 'object' ? body.job : body) as Record<string, any>;
+  let rawJob: Record<string, any>;
+  try {
+    rawJob = publicIntakeInput((body?.job && typeof body.job === 'object' ? body.job : body) || {}, settings);
+  } catch (error: any) {
+    return json({ ok: false, error: error.message || 'Invalid intake selections.' }, 400);
+  }
   const customer = String(rawJob.customer || '').trim();
   const phone = String(rawJob.phone || '').trim();
   const email = String(rawJob.email || '').trim();
@@ -180,7 +186,7 @@ export async function POST(req: NextRequest) {
             processType: processType || '',
             notes: notes || '',
             requiresTag: true,
-            status: rawJob.status || 'Dropped Off',
+            status: rawJob.status,
             dropoff: rawJob.dropoff || new Date().toISOString().slice(0, 10),
             publicToken,
           },

@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const tag = String(body?.tag || '').trim();
     if (!tag) return NextResponse.json({ ok: false, error: 'Missing tag' }, { status: 400 });
 
-    const result = await saveJob({ tag, specialtyStatus: 'Finished' } as any, { processorContext: processor });
+    const result = await saveJob({ tag, specialtyStatus: 'Finished' } as any, { processorContext: processor, mode: 'patch' });
     if (!result?.ok || !result?.job) {
       const error = (result as any)?.error || `No job found for tag ${tag}`;
       return NextResponse.json({ ok: false, error }, { status: error.toLowerCase().includes('not found') ? 404 : 400 });

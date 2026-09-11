@@ -1,6 +1,8 @@
 # Next.js build output
 .next
 .next2
+*.tsbuildinfo
+tmp/
 
 # Dependencies
 node_modules
@@ -21,4 +23,3 @@ Thumbs.db
 
 # Editor
 .vscode
-

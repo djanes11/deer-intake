@@ -150,11 +150,15 @@ export function drawTextInRect(
   paddingX = 2,
 ) {
   if (text === undefined || text === null || text === '') return;
-  const baselineOffset = Math.max((rect.height - size) / 2, 1);
-  page.drawText(String(text), {
+  const value = String(text);
+  const availableWidth = Math.max(1, rect.width - paddingX * 2);
+  const textWidth = font.widthOfTextAtSize(value, size);
+  const fittedSize = Math.min(size, Math.max(1, rect.height - 2), textWidth > availableWidth ? size * availableWidth / textWidth : size);
+  const baselineOffset = Math.max((rect.height - fittedSize) / 2, 1);
+  page.drawText(value, {
     x: rect.x + paddingX,
     y: rect.y + baselineOffset,
-    size,
+    size: fittedSize,
     font,
     color: rgb(0, 0, 0),
   });

@@ -6,7 +6,7 @@ import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
-import { getJob, saveJob, searchJobs, tokenHeader } from '@/lib/api';
+import { getJob, patchJob, searchJobs, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { specialtyBreakdown } from '@/lib/specialty';
@@ -836,16 +836,20 @@ export default function SearchPage() {
     setPickupActionBusy(kind);
     setPickupActionMsg(null);
     try {
-      await saveJob(
+      await patchJob(
         kind === 'processing'
           ? ({
               tag: selectedTag,
+              id: selectedJob.id,
+              updatedAt: selectedJob.updatedAt,
               amountPaidProcessing: currentPaid + due,
               paidProcessing: true,
               paymentMethodProcessing: quickPaymentMethod,
             } as any)
           : ({
               tag: selectedTag,
+              id: selectedJob.id,
+              updatedAt: selectedJob.updatedAt,
               amountPaidSpecialty: currentPaid + due,
               paidSpecialty: true,
               paymentMethodSpecialty: quickPaymentMethod,
@@ -871,13 +875,13 @@ export default function SearchPage() {
     };
     try {
       if (track === 'meat') {
-        await saveJob({ tag: selectedTag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now, ...shared } as any);
+        await patchJob({ tag: selectedTag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now, ...shared } as any);
       } else if (track === 'cape') {
-        await saveJob({ tag: selectedTag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now, ...shared } as any);
+        await patchJob({ tag: selectedTag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now, ...shared } as any);
       } else if (track === 'specialty') {
-        await saveJob({ tag: selectedTag, specialtyStatus: 'Picked Up', ...shared } as any);
+        await patchJob({ tag: selectedTag, specialtyStatus: 'Picked Up', ...shared } as any);
       } else {
-        await saveJob({ tag: selectedTag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now, ...shared } as any);
+        await patchJob({ tag: selectedTag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now, ...shared } as any);
       }
       await loadDetails(selectedTag);
       setPickupActionMsg(`Marked ${track === 'meat' ? 'processing' : track} pickup complete.`);

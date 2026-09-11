@@ -295,6 +295,7 @@ export default function MissingTagsPage() {
         await loadJob(newTag);
       }
     } catch (e: any) {
+      await refresh();
       setErr(String(e?.message || e));
     } finally {
       setAssigning('');

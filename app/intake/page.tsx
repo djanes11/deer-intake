@@ -71,6 +71,8 @@ type CutsBlock = {
 };
 
 type Job = {
+  id?: string;
+  updatedAt?: string | null;
   tag?: string;
   confirmation?: string;
 
@@ -1160,6 +1162,8 @@ useEffect(() => {
         setMsg(`Could not save this intake. ${res?.error || 'Check the required fields and try again.'}`);
         return false;
       }
+      // Keep the committed identity/version even if the following refresh fails.
+      if (res.job) setJob((prev) => ({ ...prev, ...res.job, tag: String(res.job?.tag || payload.tag || '') } as Job));
 
       setLastSavedAt(new Date().toISOString());
       setMsg('Saved. You can print the intake, open butcher view, or start the next deer.');
@@ -1211,7 +1215,6 @@ useEffect(() => {
       return false;
     } finally {
       setBusy(false);
-      setTimeout(() => setMsg(''), 2600);
     }
   };
 

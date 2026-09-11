@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 import { headerFields, pdfFieldMap } from '@/lib/stateform/map';
 import {
   buildAddress,
@@ -11,11 +11,11 @@ import {
   loadPdfTemplate,
   normalizeHowKilled,
   normalizeSex,
-  Rect,
+  type Rect,
   requireFieldRect,
   stateformDateOut,
 } from '@/lib/stateforms/shared';
-import { StateFormDefinition, StateFormPreparedPayload } from '@/lib/stateforms/types';
+import type { StateFormDefinition, StateFormPreparedPayload } from '@/lib/stateforms/types';
 
 const ROW_FIELD_ORDER = Array.from({ length: 44 }, (_, i) => i + 1).filter((i) => i !== 23);
 const HEADER_PADDING_X = 2;
@@ -64,7 +64,7 @@ function splitPhoneForHeader(phone: string | undefined) {
 
 function drawPage1Header(page: any, template: PDFDocument, helvBold: any, headerVals: Record<string, string>) {
   const form = template.getForm();
-  const areaCode = String(headerVals.phoneAreaCode || '').trim();
+  const areaCode = String(headerVals.areaCode || '').trim();
   const phoneNumber = String(headerVals.phoneNumber || '').trim();
 
   drawTextInRect(page, headerVals.year, requireFieldRect(form, headerFields.year), helvBold, 10, HEADER_PADDING_X);
@@ -134,6 +134,9 @@ export const indianaStateForm: StateFormDefinition = {
 
     for (let sheetIndex = 0; sheetIndex < sheetGroups.length; sheetIndex += 1) {
       const [page1, page2] = await pdf.copyPages(template, [0, 1]);
+      // This report paints saved data directly. Template widgets can cover that text.
+      page1.node.delete(PDFName.of('Annots'));
+      page2.node.delete(PDFName.of('Annots'));
       pdf.addPage(page1);
       pdf.addPage(page2);
     }

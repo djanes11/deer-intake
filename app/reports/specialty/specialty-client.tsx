@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { saveJob, tokenHeader } from '@/lib/api';
+import { patchJob, tokenHeader } from '@/lib/api';
 
 type OrderRow = {
   id: string;
@@ -561,7 +561,7 @@ export default function SpecialtyOrdersClient({
     setMsg('');
     setBusyTag(tag);
     try {
-      await saveJob({ tag, specialtyStatus: 'Picked Up' } as any);
+      await patchJob({ tag, specialtyStatus: 'Picked Up' } as any);
       setRows((prev) => prev.filter((r) => r.tag !== tag));
       setMsg(`Marked ${tag} specialty as Picked Up`);
       setTimeout(() => setMsg(''), 1500);

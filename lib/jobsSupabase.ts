@@ -21,6 +21,8 @@ import { calcProcessingPrice, SitePricing } from '@/lib/pricing';
 import { getPublicSiteSettings, normalizeProcessorFeatures } from '@/lib/siteSettings';
 import { getDefaultProcessorContext, type ProcessorContext } from '@/lib/processorContext';
 import { makePendingPublicTag } from '@/lib/publicIntakeSafety';
+import { identifierSettingsFromPublicCopy, normalizeConfirmationInput, validateConfirmation, validateTag } from '@/lib/identifiers';
+import { JobWriteError, JOB_CONFLICT, persistJobRecord, requireFreshJob, validateJobPatch, operationalPayload } from '@/lib/jobWriteSafety';
 
 /* ---------------- helpers ---------------- */
 
@@ -472,88 +474,6 @@ async function loadJobSpecialtyItemsMap(supabaseServer: any, jobIds: string[]) {
     out.set(key, list);
   }
   return out;
-}
-
-async function syncJobSpecialtyItems(
-  supabaseServer: any,
-  params: {
-    jobId: string;
-    processorId?: string | null;
-    specialtyItems: Array<{
-      id?: string | null;
-      catalogId?: string | null;
-      slug: string;
-      name: string;
-      shortName: string;
-      unit: string;
-      priceType: string;
-      quantity: number;
-      pricePerUnit: number;
-      total: number;
-      sortOrder: number;
-    }>;
-  },
-) {
-  const { jobId, processorId, specialtyItems } = params;
-  const { data: existing, error: existingError } = await supabaseServer
-    .from('job_specialty_items')
-    .select('id,item_slug')
-    .eq('job_id', jobId);
-  if (existingError) throw existingError;
-
-  const existingMap = new Map<string, string>();
-  for (const row of existing || []) {
-    existingMap.set(String((row as any).item_slug || '').toLowerCase(), String((row as any).id));
-  }
-
-  const keepIds = new Set<string>();
-  for (const item of specialtyItems) {
-    const payload = {
-      job_id: jobId,
-      ...(processorId ? { processor_id: processorId } : {}),
-      processor_specialty_item_id: item.catalogId ?? null,
-      item_slug: item.slug,
-      item_name: item.name,
-      short_name: item.shortName,
-      unit: item.unit,
-      price_type: item.priceType,
-      quantity: item.quantity,
-      unit_price: item.pricePerUnit,
-      total_price: item.total,
-      sort_order: item.sortOrder,
-      updated_at: nowIso(),
-    };
-    const existingId = item.id || existingMap.get(item.slug.toLowerCase());
-    if (existingId) {
-      keepIds.add(String(existingId));
-      const { error: updateError } = await supabaseServer
-        .from('job_specialty_items')
-        .update(payload)
-        .eq('id', existingId)
-        .eq('job_id', jobId);
-      if (updateError) throw updateError;
-    } else {
-      const { data: inserted, error: insertError } = await supabaseServer
-        .from('job_specialty_items')
-        .insert(payload)
-        .select('id')
-        .single();
-      if (insertError) throw insertError;
-      keepIds.add(String((inserted as any)?.id || ''));
-    }
-  }
-
-  for (const row of existing || []) {
-    const id = String((row as any).id || '');
-    if (!keepIds.has(id)) {
-      const { error: deleteError } = await supabaseServer
-        .from('job_specialty_items')
-        .delete()
-        .eq('id', id)
-        .eq('job_id', jobId);
-      if (deleteError) throw deleteError;
-    }
-  }
 }
 
 function intOrNull(v: any): number | null {
@@ -2406,7 +2326,7 @@ function calcSpecialtyPriceFromLbs(job: Partial<Job>, pricing?: Partial<SitePric
   return specialtyPrice(job as Record<string, any>, pricing);
 }
 
-export async function saveJob(job: Partial<Job>, options?: { processorContext?: ProcessorContext | null }) {
+export async function saveJob(job: Partial<Job>, options?: { processorContext?: ProcessorContext | null; mode?: 'create' | 'update' | 'patch' }) {
   const supabaseServer = getSupabaseServer();
   const processor = options?.processorContext || (await getDefaultProcessorContext());
   const settings = await getPublicSiteSettings(null, processor);
@@ -2414,12 +2334,14 @@ export async function saveJob(job: Partial<Job>, options?: { processorContext?: 
   const processCatalog = normalizeProcessCatalog(settings.processCatalog, pricing);
   const addOnCatalog = settings.addOnCatalog;
   const specialtyCatalog = settings.features.specialtyEnabled === false ? [] : settings.specialtyCatalog;
+  const mode = options?.mode ?? (job.id ? 'update' : 'create');
+  if (mode === 'patch') validateJobPatch(job);
+  const identifiers = identifierSettingsFromPublicCopy(settings.publicCopy);
   // ---- Tag rules ----
   // Staff intake must provide a real tag.
   // Overnight/public submission has no tag yet: store a unique placeholder tag and mark requires_tag=true.
   const rawTag = String((job as any).tag ?? '').trim();
-  const confirmationDigits = String((job as any).confirmation ?? '').replace(/\D/g, '');
-  const hasConfirmation13 = confirmationDigits.length === 13;
+  const confirmation = normalizeConfirmationInput(String(job.confirmation ?? ''), identifiers).trim();
 
   const hasRealTagInput =
     rawTag !== '' &&
@@ -2427,9 +2349,9 @@ export async function saveJob(job: Partial<Job>, options?: { processorContext?: 
     rawTag.toLowerCase() !== 'undefined' &&
     !rawTag.toLowerCase().startsWith('pending-');
 
-  const allowMissingTag = !!(job as any).requiresTag || (!hasRealTagInput && hasConfirmation13);
+  const allowMissingTag = mode === 'create' && job.requiresTag === true;
 
-let tagToStore: string;
+  let tagToStore: string;
   let requiresTag = !!(job as any).requiresTag;
 
   if (hasRealTagInput) {
@@ -2437,20 +2359,22 @@ let tagToStore: string;
     requiresTag = false;
   } else {
     if (!allowMissingTag) throw new Error('Tag is required.');
-    if (!hasConfirmation13) throw new Error('Confirmation must be 13 digits when Tag is missing (overnight).');
-    tagToStore = makePendingTag(confirmationDigits);
+    const confirmationError = validateConfirmation(confirmation, identifiers);
+    if (confirmationError) throw new JobWriteError(confirmationError, 400);
+    tagToStore = makePendingTag(confirmation);
     requiresTag = true;
   }
 
   let effectiveJob: Partial<Job> = job;
   let existingJob: Job | null = null;
 
-  if (hasRealTagInput) {
+  if (mode !== 'create') {
+    if (mode === 'update' && !job.id) throw new JobWriteError('Reload this intake before editing it.');
     const { data: existingRow, error: existingError } = await withProcessorFilter(
       supabaseServer
       .from('jobs')
       .select(JOB_DETAIL_SELECT)
-      .eq('tag', rawTag),
+      .eq(mode === 'update' ? 'id' : 'tag', mode === 'update' ? job.id! : rawTag),
       processor.id
     )
       .maybeSingle();
@@ -2460,8 +2384,11 @@ let tagToStore: string;
       throw existingError;
     }
 
+    if (!existingRow || existingRow.pending_deleted_at) throw new JobWriteError('Deer not found. Reopen it from Search.', 404);
     if (existingRow) {
-      existingJob = mapDbRowToJob(existingRow);
+      const savedItems = (await loadJobSpecialtyItemsMap(supabaseServer, [String(existingRow.id)])).get(String(existingRow.id)) || [];
+      existingJob = mapDbRowToJob(existingRow, savedItems);
+      requireFreshJob(job, existingJob, mode);
       effectiveJob = {
         ...existingJob,
         ...job,
@@ -2475,6 +2402,15 @@ let tagToStore: string;
         },
       };
     }
+  }
+  if (mode !== 'patch') {
+    const confirmationError = validateConfirmation(confirmation, identifiers);
+    if (confirmationError) throw new JobWriteError(confirmationError, 400);
+    if (hasRealTagInput) {
+      const tagError = validateTag(rawTag, identifiers);
+      if (tagError) throw new JobWriteError(tagError, 400);
+    }
+    effectiveJob = { ...effectiveJob, confirmation };
   }
 
   const saveStamp = nowIso();
@@ -2765,26 +2701,13 @@ Object.keys(upsertPayload).forEach((k) => {
 });
 
 
-  const { data, error } = await supabaseServer
-    .from('jobs')
-    .upsert(upsertPayload, {
-      onConflict: processor.id ? 'processor_id,tag' : 'tag',
-    })
-    .select(JOB_DETAIL_SELECT)
-    .maybeSingle();
-
-  if (error) {
-    console.error('saveJob error', error);
-    throw error;
-  }
-
-  if (data?.id) {
-    await syncJobSpecialtyItems(supabaseServer, {
-      jobId: String(data.id),
-      processorId: processor.id,
-      specialtyItems,
-    });
-  }
+  const data = await persistJobRecord(supabaseServer, {
+    jobId: existingJob?.id || null,
+    processorId: processor.id,
+    expectedUpdatedAt: existingJob?.updatedAt || null,
+    payload: mode === 'patch' ? operationalPayload(job, upsertPayload) : upsertPayload,
+    specialtyItems: mode === 'patch' ? null : specialtyItems,
+  });
 
 // ---- Emails (best-effort) ----
   try {
@@ -2801,18 +2724,21 @@ Object.keys(upsertPayload).forEach((k) => {
   const specialtyItemsMap = data?.id
     ? await loadJobSpecialtyItemsMap(supabaseServer, [String(data.id)])
     : new Map<string, any[]>();
+  // Notification stamps can change the database version after the write.
+  const { data: refreshed } = await supabaseServer.from('jobs').select(JOB_DETAIL_SELECT).eq('id', data.id).maybeSingle();
   return {
     ok: true,
-    job: data ? mapDbRowToJob(data, specialtyItemsMap.get(String(data.id)) || specialtyItems) : null,
+    job: mapDbRowToJob(refreshed || data, specialtyItemsMap.get(String(data.id)) || specialtyItems),
   };
 }
 
 /* ---------------- progress ---------------- */
 
 // MAIN STATUS PROGRESSION FOR BUTCHER SCAN
-export async function progressJob(tag: string) {
+export async function progressJob(tag: string, options: { processorContext: ProcessorContext | null }) {
   const supabaseServer = getSupabaseServer();
-  const processor = await getDefaultProcessorContext();
+  const processor = options.processorContext;
+  if (!processor?.id) throw new JobWriteError('Select an authorized processor before scanning.', 403);
   let scanEnabled = true;
   let capeScanEnabled = true;
 
@@ -2906,7 +2832,8 @@ export async function progressJob(tag: string) {
     supabaseServer
       .from('jobs')
       .update(updates)
-      .eq('id', job.id),
+      .eq('id', job.id)
+      .eq('updated_at', job.updated_at),
     processor.id
   )
     .select(JOB_DETAIL_SELECT)
@@ -2916,6 +2843,7 @@ export async function progressJob(tag: string) {
     console.error('progressJob update error', updErr);
     throw updErr;
   }
+  if (!updated) throw new JobWriteError(JOB_CONFLICT);
 
   if (updated) {
     try {
@@ -4052,6 +3980,13 @@ export async function setJobTag(params: {
     return { ok: false, error: 'Job not found' };
   }
 
+  if (!job.requires_tag || job.pending_deleted_at) {
+    return { ok: false, error: 'This intake has already been assigned or removed. Refresh the public intake queue.' };
+  }
+  const settings = await getPublicSiteSettings(null, processor);
+  const tagError = validateTag(tag, identifierSettingsFromPublicCopy(settings.publicCopy));
+  if (tagError) return { ok: false, error: tagError };
+
   const updates: any = {
     tag,
     requires_tag: false,
@@ -4064,7 +3999,10 @@ export async function setJobTag(params: {
     supabaseServer
     .from('jobs')
     .update(updates)
-    .eq('id', jobId),
+    .eq('id', jobId)
+    .eq('requires_tag', true)
+    .eq('tag', job.tag)
+    .is('pending_deleted_at', null),
     processor.id
   )
     .select(JOB_DETAIL_SELECT)
@@ -4072,8 +4010,10 @@ export async function setJobTag(params: {
 
   if (updErr) {
     console.error('setJobTag update error', updErr);
+    if (updErr.code === '23505') return { ok: false, error: 'Tag already in use. Refresh the queue and choose another tag.' };
     throw updErr;
   }
+  if (!updated) return { ok: false, error: 'Another station already assigned or removed this intake. Refresh the public intake queue.' };
 
   if (!returnRow) {
     return { ok: true, jobId, tag };

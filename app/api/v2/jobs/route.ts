@@ -13,6 +13,7 @@ import {
 import { requireProcessorPermission } from '@/lib/staffPermissions';
 import { Job } from '@/types/job';
 import { writeAuditEntry } from '@/lib/auditLog';
+import { JobWriteError } from '@/lib/jobWriteSafety';
 
 function normalizeAction(v: string | null) {
   const s = (v || '').trim().toLowerCase();
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const permission =
-      action === 'save' || action === 'log-call' || action === 'settag'
+      action === 'save' || action === 'patch' || action === 'log-call' || action === 'settag'
         ? 'edit_jobs'
         : action === 'progress' || action === 'markcalled'
           ? 'update_status'
@@ -105,14 +106,14 @@ export async function POST(req: NextRequest) {
       return new Response(await denied.text(), { status: denied.status, headers: { 'content-type': 'application/json' } });
     }
 
-    if (action === 'save') {
+    if (action === 'save' || action === 'patch') {
       const job = body.job as Partial<Job>;
       if (!job) {
         return new Response(JSON.stringify({ ok: false, error: 'Missing job payload' }), {
           status: 400,
         });
       }
-      const result = await saveJob(job, { processorContext });
+      const result = await saveJob(job, { processorContext, mode: action === 'patch' ? 'patch' : job.id ? 'update' : 'create' });
       if (result?.ok && job?.tag) {
         await writeAuditEntry({
           req,
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const result = await progressJob(finalTag);
+      const result = await progressJob(finalTag, { processorContext });
       if ((result as any)?.ok !== false) {
         await writeAuditEntry({
           req,
@@ -241,6 +242,9 @@ export async function POST(req: NextRequest) {
     console.error('POST v2/jobs error', err);
 
     const msg = String(err?.message || err || 'Server error');
+    if (err instanceof JobWriteError) {
+      return new Response(JSON.stringify({ ok: false, error: msg }), { status: err.status });
+    }
 
     // Validation/shape issues should be 400 (client error), not 500
     if (

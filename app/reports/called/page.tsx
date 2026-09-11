@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { searchJobs, saveJob } from '@/lib/api';
+import { searchJobs, patchJob } from '@/lib/api';
 import { specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
 import { formatDisplayDateTime } from '@/lib/dateFormat';
 
@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 type Track = 'meat' | 'cape' | 'webbs';
 
 type Row = {
+  updatedAt?: string;
   tag: string;
   confirmation: string;
   customer: string;
@@ -170,6 +171,7 @@ async function fetchCalled(): Promise<Row[]> {
 
     if (isCalled(status) || isReadyLike(status)) {
       out.push({
+        updatedAt: r.updatedAt || r.updated_at,
         tag,
         confirmation,
         customer,
@@ -199,6 +201,7 @@ async function fetchCalled(): Promise<Row[]> {
     }
     if (isCalled(capingStatus) || isReadyLike(capingStatus)) {
       out.push({
+        updatedAt: r.updatedAt || r.updated_at,
         tag,
         confirmation,
         customer,
@@ -228,6 +231,7 @@ async function fetchCalled(): Promise<Row[]> {
     }
     if (isCalled(webbsStatus) || isReadyLike(webbsStatus)) {
       out.push({
+        updatedAt: r.updatedAt || r.updated_at,
         tag,
         confirmation,
         customer,
@@ -272,11 +276,12 @@ async function recordPayment(
   kind: 'processing' | 'specialty',
   amount: number,
   method: 'cash' | 'card' | 'check' | 'other' | null,
+  updatedAt?: string,
 ) {
-  return saveJob(
+  return patchJob(
     kind === 'specialty'
-      ? ({ tag, amountPaidSpecialty: amount, paymentMethodSpecialty: method } as any)
-      : ({ tag, amountPaidProcessing: amount, paymentMethodProcessing: method } as any),
+      ? ({ tag, updatedAt, amountPaidSpecialty: amount, paymentMethodSpecialty: method } as any)
+      : ({ tag, updatedAt, amountPaidProcessing: amount, paymentMethodProcessing: method } as any),
   );
 }
 
@@ -290,6 +295,7 @@ function mergePaymentUpdate(row: Row, job: any): Row {
 
   return {
     ...row,
+    updatedAt: job?.updatedAt ?? row.updatedAt,
     priceProc,
     priceSpec,
     amountPaidProc,
@@ -314,12 +320,12 @@ async function markPickedUp(tag: string, track: Track, pickedUpBy?: string, pick
   };
 
   if (track === 'meat') {
-    return saveJob({ tag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now, ...shared } as any);
+    return patchJob({ tag, status: 'Picked Up', pickedUpProcessing: true, pickedUpProcessingAt: now, ...shared } as any);
   }
   if (track === 'cape') {
-    return saveJob({ tag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now, ...shared } as any);
+    return patchJob({ tag, capingStatus: 'Picked Up', pickedUpCape: true, pickedUpCapeAt: now, ...shared } as any);
   }
-  return saveJob({ tag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now, ...shared } as any);
+  return patchJob({ tag, webbsStatus: 'Picked Up', pickedUpWebbs: true, pickedUpWebbsAt: now, ...shared } as any);
 }
 
 function TrackBadge({ track }: { track: Track | string }) {
@@ -872,11 +878,14 @@ export default function CalledPickupQueue() {
                     'processing',
                     Math.min(selected.amountPaidProc + amount, selected.priceProc),
                     processingPaymentMethod,
+                    selected.updatedAt,
                   );
                   if (res?.job) {
                     setRows((prev) => prev.map((row) => (row.tag === selected.tag ? mergePaymentUpdate(row, res.job) : row)));
                   }
                   await load();
+                } catch (error: any) {
+                  setErr(error?.message || 'Payment could not be saved. Reload this queue.');
                 } finally {
                   setBusy('');
                 }
@@ -900,11 +909,14 @@ export default function CalledPickupQueue() {
                     'specialty',
                     Math.min(selected.amountPaidSpec + amount, selected.priceSpec),
                     specialtyPaymentMethod,
+                    selected.updatedAt,
                   );
                   if (res?.job) {
                     setRows((prev) => prev.map((row) => (row.tag === selected.tag ? mergePaymentUpdate(row, res.job) : row)));
                   }
                   await load();
+                } catch (error: any) {
+                  setErr(error?.message || 'Payment could not be saved. Reload this queue.');
                 } finally {
                   setBusy('');
                 }

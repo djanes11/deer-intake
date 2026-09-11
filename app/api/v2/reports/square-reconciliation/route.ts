@@ -92,6 +92,14 @@ function mapSquareRow(row: any): SquareReportRow {
     issueLabels.push('Retired Square link was paid after in-person payment');
     issueLevel = 'critical';
   }
+  if (status === 'completed_amount_mismatch') {
+    issueLabels.push('Square payment amount or currency did not match the checkout link');
+    issueLevel = 'critical';
+  }
+  if (appProcessingPaid > appProcessingPrice && completed) {
+    issueLabels.push('Processing payments exceed the processing price');
+    issueLevel = 'critical';
+  }
   if (completed && !appPaidProcessing) {
     issueLabels.push('Square paid, job not marked paid');
     issueLevel = 'critical';

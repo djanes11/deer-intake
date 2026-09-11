@@ -67,14 +67,10 @@ async function getJSON<T = any>(url: string): Promise<T> {
   });
 
   const text = await r.text();
-  try {
-    const json = JSON.parse(text);
-    if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
-    return json as T;
-  } catch {
-    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-    return text as unknown as T;
-  }
+  let json: any;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!r.ok) throw new Error(json?.error || text || `HTTP ${r.status}`);
+  return (json ?? text) as T;
 }
 
 async function postJSON<T = any>(body: AnyRec): Promise<T> {
@@ -89,14 +85,10 @@ async function postJSON<T = any>(body: AnyRec): Promise<T> {
   });
 
   const text = await r.text();
-  try {
-    const json = JSON.parse(text);
-    if (!r.ok) throw new Error(json?.error || `HTTP ${r.status}`);
-    return json as T;
-  } catch {
-    if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
-    return text as unknown as T;
-  }
+  let json: any;
+  try { json = JSON.parse(text); } catch { json = null; }
+  if (!r.ok) throw new Error(json?.error || text || `HTTP ${r.status}`);
+  return (json ?? text) as T;
 }
 
 // ---------------- public API used across the app ----------------
@@ -110,7 +102,8 @@ export async function getJob(tag: string): Promise<GetResponse> {
 
 /**
  * Save a job (create or update).
- * - Regular intake: include a real tag → upsert-by-tag.
+ * - New intake: no id; duplicate tags are rejected.
+ * - Existing intake: include id and the loaded updatedAt version.
  * - Overnight intake: send `{ requiresTag: true, tag: '' }` → server marks Requires Tag.
  */
 export async function saveJob(job: Job): Promise<SaveResponse> {
@@ -232,6 +225,12 @@ export function normProc(s?: string): string {
 
 export function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean): number {
   return calcProcessingPrice(proc, beef, webbs);
+}
+
+/** Change only operational fields; never create or replace an intake. */
+export async function patchJob(job: Job): Promise<SaveResponse> {
+  if (!job?.tag) throw new Error('Missing tag');
+  return postJSON<SaveResponse>({ action: 'patch', job });
 }
 
 import { calcProcessingPrice } from '@/lib/pricing';

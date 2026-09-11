@@ -38,6 +38,8 @@ npm run test:smoke
 
 ## Pilot Readiness
 
+For the September 11 opening-weekend safety release, apply the required database migration before deploying. See [fixes and rollout instructions](docs/opening-weekend-fixes-2026-09-11.md).
+
 Before inviting processors into a pilot, run:
 
 ```bash
@@ -60,6 +62,10 @@ The smoke tests are lightweight checks for high-value behavior that should stay 
 - public copy normalization
 - process/add-on catalog behavior
 - state form registry coverage
+- state form PDF rendering and pagination
+- public-input boundaries and guarded job writes
+- transactional payment credits and competing database writes (isolated PostgreSQL)
+- client create/edit/patch requests and conflict messages
 
 These tests are not a replacement for end-to-end UI testing, but they do protect the most important configuration and workflow assumptions.
 

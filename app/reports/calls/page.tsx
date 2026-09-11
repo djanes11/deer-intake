@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Job } from '@/lib/api';
-import { searchJobs, getJob, markCalled, logCallSimple, saveJob } from '@/lib/api';
+import { searchJobs, getJob, markCalled, logCallSimple, patchJob } from '@/lib/api';
 import { formatDisplayDateTime } from '@/lib/dateFormat';
 
 export const dynamic = 'force-dynamic';
@@ -416,7 +416,7 @@ export default function CallReportPage() {
 
     try {
       setSaving(true);
-      await saveJob({ tag, callNotes: nextNotes } as any);
+      await patchJob({ tag, callNotes: nextNotes } as any);
       await refreshOne(tag);
       setNote(key, '');
     } catch (e: any) {

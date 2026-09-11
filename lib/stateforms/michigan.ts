@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, PDFName } from 'pdf-lib';
 import {
   buildAddress,
   chunks,
@@ -9,7 +9,7 @@ import {
   loadPdfTemplate,
   requireFieldRect,
 } from '@/lib/stateforms/shared';
-import { StateFormDefinition, StateFormPreparedPayload } from '@/lib/stateforms/types';
+import type { StateFormDefinition, StateFormPreparedPayload } from '@/lib/stateforms/types';
 
 const ROWS = Array.from({ length: 8 }, (_, i) => i);
 
@@ -97,6 +97,7 @@ export const michiganStateForm: StateFormDefinition = {
 
     for (let sheetIndex = 0; sheetIndex < sheetGroups.length; sheetIndex += 1) {
       const [page] = await pdf.copyPages(template, [0]);
+      page.node.delete(PDFName.of('Annots'));
       pdf.addPage(page);
     }
 
