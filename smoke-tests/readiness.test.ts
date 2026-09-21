@@ -1,11 +1,27 @@
 import assert from 'node:assert/strict';
 import { resolveOrderPrices } from '../lib/orderPrices.ts';
+import { amountPaid, paymentBalance, paymentReviewMessage } from '../lib/paymentBalance.ts';
 import { hasProcessorPermission } from '../lib/staffPermissions.ts';
 import { confirmIntakePrint } from '../app/lib/browserPrint.ts';
 import { subscribeStaffSessionRefresh } from '../lib/staffSessionRefresh.ts';
 import { POST as syncSession } from '../app/api/staff/session/route.ts';
 
 export async function run() {
+  const paidOrder = { processType: 'Standard', priceProcessing: 150, priceSpecialty: 40, specialtyProducts: true,
+    amountPaidProcessing: 150, amountPaidSpecialty: 40 };
+  const reduced = resolveOrderPrices({ ...paidOrder, processing_price_override: 120 }, paidOrder, 150, 40);
+  assert.deepEqual(paymentBalance(reduced.priceProcessing, paidOrder.amountPaidProcessing), { paid: 150, due: 0, overpaid: 30 });
+  assert.equal(amountPaid(paidOrder.amountPaidProcessing), 150);
+  assert.match(paymentReviewMessage(120, 150, 40, 40), /processing \$30.00/);
+  const removed = resolveOrderPrices({ ...paidOrder, specialtyProducts: false }, paidOrder, 150, 0);
+  assert.deepEqual(paymentBalance(removed.priceSpecialty, paidOrder.amountPaidSpecialty), { paid: 40, due: 0, overpaid: 40 });
+  assert.match(paymentReviewMessage(150, 150, 0, 40), /specialty \$40.00/);
+  assert.deepEqual(paymentBalance(180, 150), { paid: 150, due: 30, overpaid: 0 });
+  assert.deepEqual(paymentBalance(120, 50), { paid: 50, due: 70, overpaid: 0 });
+  assert.equal(paymentReviewMessage(150, 150, 40, 40), '');
+  assert.equal(amountPaid(-5), 0);
+  assert.equal(amountPaid(Infinity), 0);
+  assert.equal(amountPaid('150.25'), 150.25);
   const saved = { processType: 'Standard', priceProcessing: 100, priceSpecialty: 30, price: 130,
     specialtyProducts: true, specialtyItems: [{ slug: 'sausage', quantity: 5, pricePerUnit: 6 }] };
   assert.equal(resolveOrderPrices({ ...saved, notes: 'Correct phone' }, saved, 120, 40).price, 130, 'Unchanged orders preserve historical prices');

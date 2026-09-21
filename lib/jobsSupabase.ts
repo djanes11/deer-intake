@@ -1,6 +1,7 @@
 // lib/jobsSupabase.ts
 import { getSupabaseServer } from './supabaseClient';
 import { resolveOrderPrices } from './orderPrices';
+import { amountPaid } from './paymentBalance';
 import { Job, JobSearchRow } from '@/types/job';
 import crypto from 'crypto';
 import { sendEmail } from '@/lib/email';
@@ -414,12 +415,6 @@ function numOrNull(v: any): number | null {
 function numOrZero(v: any): number {
   const n = numOrNull(v);
   return n === null ? 0 : n;
-}
-
-function clampMoney(value: number, max: number): number {
-  const safeValue = Number.isFinite(value) ? value : 0;
-  const safeMax = Math.max(0, Number.isFinite(max) ? max : 0);
-  return Math.min(Math.max(0, safeValue), safeMax);
 }
 
 function paymentMethodOrNull(value: any): 'cash' | 'card' | 'check' | 'other' | null {
@@ -2545,8 +2540,8 @@ export async function saveJob(job: Partial<Job>, options?: { processorContext?: 
       ? ((effectiveJob as any).paidSpecialty ? usedSpecialtyPrice : 0)
       : numOrZero((existingJob as any)?.amountPaidSpecialty);
 
-  const amountPaidProcessing = clampMoney(rawAmountPaidProcessing, usedProcessingPrice);
-  const amountPaidSpecialty = clampMoney(rawAmountPaidSpecialty, usedSpecialtyPrice);
+  const amountPaidProcessing = amountPaid(rawAmountPaidProcessing);
+  const amountPaidSpecialty = amountPaid(rawAmountPaidSpecialty);
   const paymentMethodProcessing = amountPaidProcessing > 0
     ? paymentMethodOrNull((effectiveJob as any).paymentMethodProcessing) ?? paymentMethodOrNull((existingJob as any)?.paymentMethodProcessing)
     : null;

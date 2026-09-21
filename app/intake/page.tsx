@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob, tokenHeader } from '@/lib/api';
 import { resolveOrderPrices } from '@/lib/orderPrices';
+import { paymentBalance, paymentReviewMessage } from '@/lib/paymentBalance';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
@@ -580,7 +581,6 @@ function IntakePage() {
       specialtyStatus: '',
       specialtyItems: [],
       paidSpecialty: false,
-      amountPaidSpecialty: 0,
       specialty_price_override: null,
     }));
     setSpecialtyModalOpen(false);
@@ -902,8 +902,9 @@ useEffect(() => {
 
   const { priceProcessing: processingPriceUsed, priceSpecialty: specialtyPriceUsed } =
     resolveOrderPrices(job, savedOrder, processingPriceAuto, specialtyPriceAuto);
-  const amountPaidProcessing = Math.min(toMoneyOrNull((job as any).amountPaidProcessing) ?? 0, processingPriceUsed);
-  const amountPaidSpecialty = Math.min(toMoneyOrNull((job as any).amountPaidSpecialty) ?? 0, specialtyPriceUsed);
+  const amountPaidProcessing = paymentBalance(processingPriceUsed, (job as any).amountPaidProcessing).paid;
+  const amountPaidSpecialty = paymentBalance(specialtyPriceUsed, (job as any).amountPaidSpecialty).paid;
+  const paymentReview = paymentReviewMessage(processingPriceUsed, amountPaidProcessing, specialtyPriceUsed, amountPaidSpecialty);
   const processingRemaining = Math.max(0, processingPriceUsed - amountPaidProcessing);
   const specialtyRemaining = Math.max(0, specialtyPriceUsed - amountPaidSpecialty);
   const specialtyActive = asBool(job.specialtyProducts);
@@ -1018,7 +1019,6 @@ useEffect(() => {
           ...prev,
           specialtyItems: [],
           paidSpecialty: false,
-          amountPaidSpecialty: 0,
           specialtyStatus: '',
           specialty_price_override: null,
           originalSummerSausageLbs: '',
@@ -1140,7 +1140,7 @@ useEffect(() => {
       paidProcessing: !!job.paidProcessing,
       paidSpecialty: job.specialtyProducts ? !!job.paidSpecialty : false,
       amountPaidProcessing: toMoneyOrNull((job as any).amountPaidProcessing) ?? 0,
-      amountPaidSpecialty: job.specialtyProducts ? (toMoneyOrNull((job as any).amountPaidSpecialty) ?? 0) : 0,
+      amountPaidSpecialty: toMoneyOrNull((job as any).amountPaidSpecialty) ?? 0,
       addOnItems: normalizeJobAddOnItems(selectedAddOnItems),
       processTypeSlug: selectedProcessType?.slug || null,
       processTypeRequiresCape: !!selectedProcessType?.triggersCapeWorkflow,
@@ -1580,6 +1580,7 @@ useEffect(() => {
             <div className="col paymentCol">
               <label>Payment</label>
               <div className="paymentPanel">
+                {paymentReview ? <div role="status" style={{ border: '1px solid #f59e0b', background: '#fffbeb', color: '#92400e', borderRadius: 12, padding: 12 }}>{paymentReview}</div> : null}
                 {job.webbsOrder && processingRemaining > 0 ? (
                   <div style={{ border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', borderRadius: 12, padding: 12, fontWeight: 850, lineHeight: 1.35 }}>
                     {WEBBS_PROCESSING_PAYMENT_NOTE} Processing still shows ${processingRemaining.toFixed(2)} due.
@@ -1619,7 +1620,7 @@ useEffect(() => {
                       onChange={(e) => {
                         const v = e.target.checked;
                         setJob((prev) => {
-                          const next = { ...prev, paidProcessing: v, amountPaidProcessing: v ? processingPriceUsed : 0 };
+                          const next = { ...prev, paidProcessing: v, amountPaidProcessing: v ? Math.max(Number(prev.amountPaidProcessing) || 0, processingPriceUsed) : 0 };
                           const fp = fullPaid(next);
                           return { ...next, Paid: fp, paid: fp };
                         });
@@ -1664,7 +1665,7 @@ useEffect(() => {
                         onChange={(e) => {
                           const v = e.target.checked;
                           setJob((prev) => {
-                            const next = { ...prev, paidSpecialty: v, amountPaidSpecialty: v ? specialtyPriceUsed : 0 };
+                            const next = { ...prev, paidSpecialty: v, amountPaidSpecialty: v ? Math.max(Number(prev.amountPaidSpecialty) || 0, specialtyPriceUsed) : 0 };
                             const fp = fullPaid(next);
                             return { ...next, Paid: fp, paid: fp };
                           });
@@ -1693,9 +1694,9 @@ useEffect(() => {
                         const next: Job = {
                           ...prev,
                           paidProcessing: v ? true : false,
-                          amountPaidProcessing: v ? processingPriceUsed : 0,
+                          amountPaidProcessing: v ? Math.max(Number(prev.amountPaidProcessing) || 0, processingPriceUsed) : 0,
                           paidSpecialty: asBool(prev.specialtyProducts) ? (v ? true : false) : false,
-                          amountPaidSpecialty: asBool(prev.specialtyProducts) ? (v ? specialtyPriceUsed : 0) : 0,
+                          amountPaidSpecialty: asBool(prev.specialtyProducts) ? (v ? Math.max(Number(prev.amountPaidSpecialty) || 0, specialtyPriceUsed) : 0) : prev.amountPaidSpecialty,
                         };
                         const fp = fullPaid(next);
                         return { ...next, Paid: fp, paid: fp };
@@ -3433,8 +3434,6 @@ useEffect(() => {
     </div>
   );
 }
-
-
 
 
 

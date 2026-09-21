@@ -7,6 +7,7 @@ import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type Thermal
 import { confirmIntakePrint, openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
 import { getJob, patchJob, searchJobs, tokenHeader } from '@/lib/api';
+import { paymentReviewMessage } from '@/lib/paymentBalance';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
 import { formatDisplayDate, formatDisplayDateTime } from '@/lib/dateFormat';
 import { specialtyBreakdown } from '@/lib/specialty';
@@ -1275,6 +1276,11 @@ export default function SearchPage() {
                             ))}
                           </div>
 
+                          {paymentReviewMessage(selectedJob.priceProcessing ?? selectedJob.price_processing, selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing, selectedJob.priceSpecialty ?? selectedJob.price_specialty, selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty) ? (
+                            <div role="status" style={{ color: '#92400e', background: '#fffbeb', padding: 10 }}>
+                              {paymentReviewMessage(selectedJob.priceProcessing ?? selectedJob.price_processing, selectedJob.amountPaidProcessing ?? selectedJob.amount_paid_processing, selectedJob.priceSpecialty ?? selectedJob.price_specialty, selectedJob.amountPaidSpecialty ?? selectedJob.amount_paid_specialty)}
+                            </div>
+                          ) : null}
                           <details className="compactDisclosure">
                             <summary>
                               <span>Payment and pickup details</span>
@@ -2490,4 +2496,3 @@ function useDebounced(value: string, delay = 300) {
   }, [value, delay]);
   return v;
 }
-

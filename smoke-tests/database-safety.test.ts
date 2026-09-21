@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { persistJobRecord } from '../lib/jobWriteSafety.ts';
+import { amountPaid, paymentBalance } from '../lib/paymentBalance.ts';
+import { resolveOrderPrices } from '../lib/orderPrices.ts';
 
 const processor = '00000000-0000-4000-8000-000000000001';
 const otherProcessor = '00000000-0000-4000-8000-000000000002';
@@ -55,6 +57,21 @@ export async function run() {
     const payload = { tag: '10001', confirmation: '1234567890123', customer_name: 'Hunter A', status: 'Dropped Off',
       price_processing: 150, amount_paid_processing: 50, price_specialty: 0, amount_paid_specialty: 0 };
     let job = await save(payload);
+
+    // A paid order remains paid at the original amount after a discount/removal and reload.
+    const paidRecord = await save({ ...payload, tag: 'PAID-EDIT', confirmation: 'PAID-EDIT',
+      amount_paid_processing: 150, price_specialty: 40, amount_paid_specialty: 40 });
+    const loadedOrder = { processType: 'Standard', specialtyProducts: true,
+      priceProcessing: paidRecord.price_processing, priceSpecialty: paidRecord.price_specialty,
+      amountPaidProcessing: paidRecord.amount_paid_processing, amountPaidSpecialty: paidRecord.amount_paid_specialty };
+    const revised = resolveOrderPrices({ ...loadedOrder, processing_price_override: 120, specialtyProducts: false }, loadedOrder, 150, 0);
+    await save({ tag: paidRecord.tag, price_processing: revised.priceProcessing, price_specialty: revised.priceSpecialty,
+      amount_paid_processing: amountPaid(loadedOrder.amountPaidProcessing), amount_paid_specialty: amountPaid(loadedOrder.amountPaidSpecialty) }, paidRecord);
+    const reread = await read(paidRecord.id);
+    assert.deepEqual(paymentBalance(reread.price_processing, reread.amount_paid_processing), { paid: 150, due: 0, overpaid: 30 });
+    assert.deepEqual(paymentBalance(reread.price_specialty, reread.amount_paid_specialty), { paid: 40, due: 0, overpaid: 40 });
+    await save({ tag: paidRecord.tag, notes: 'Unrelated follow-up edit' }, reread);
+    assert.equal(Number((await read(paidRecord.id)).amount_paid_processing), 150);
 
     // Print-only writes preserve the editing version, but actual edits still conflict.
     await db.query('update jobs set intake_sheet_printed_at=now(), intake_sheet_print_count=1, updated_at=now() where id=$1', [job.id]);
