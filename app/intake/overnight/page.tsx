@@ -200,6 +200,8 @@ const REQUIRED_LABELS: Record<string, string> = {
   confirmation: 'Confirmation #',
   customer: 'Customer Name',
   phone: 'Phone',
+  email: 'Email address',
+  smsConsent: 'Text message consent',
   address: 'Address',
   city: 'City',
   state: 'State',
@@ -767,7 +769,7 @@ function OvernightIntakePage() {
     if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
     if (k === 'cuts') ['hindRoastCount', 'frontRoastCount'].forEach(pick);
-    if (k === 'extras') ['webbsItems'].forEach(pick);
+    if (k === 'extras') ['email', 'smsConsent', 'webbsItems'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
   };
@@ -1023,6 +1025,13 @@ function OvernightIntakePage() {
 
   const setContactMethod = (method: 'email' | 'sms' | 'call') => {
     if (locked) return;
+    setMsg('');
+    setErrors((prev) => {
+      const next = { ...prev };
+      if (method !== 'email') delete next.email;
+      if (method !== 'sms') delete next.smsConsent;
+      return next;
+    });
     setJob((p) => ({
       ...p,
       prefEmail: method === 'email',
@@ -1958,6 +1967,30 @@ function OvernightIntakePage() {
                       <span>Phone Call</span>
                     </label>
                   </div>
+                  {job.prefEmail ? (
+                    <div style={{ marginTop: 12 }}>
+                      <label htmlFor="public-contact-email">Email address for updates</label>
+                      <Hint>Required for email updates. You can enter it here or choose another contact method.</Hint>
+                      <input
+                        id="public-contact-email"
+                        type="email"
+                        autoComplete="email"
+                        value={job.email || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setVal('email', value);
+                          if (value.trim()) clearErr('email');
+                        }}
+                        placeholder="Email address"
+                        className={errors.email ? 'err' : ''}
+                        data-err="email"
+                        aria-invalid={!!errors.email}
+                        aria-describedby={errors.email ? 'public-contact-email-error' : undefined}
+                        disabled={locked}
+                      />
+                      {errors.email ? <div id="public-contact-email-error" className="errText">{errors.email}</div> : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="c6">
@@ -1965,13 +1998,13 @@ function OvernightIntakePage() {
                   <div className="checks">
                     {job.prefSMS ? (
                       <label className="chk">
-                        <input type="checkbox" checked={!!job.smsConsent} onChange={(e) => setVal('smsConsent', e.target.checked)} disabled={locked} />
+                        <input type="checkbox" data-err="smsConsent" aria-invalid={!!errors.smsConsent} checked={!!job.smsConsent} onChange={(e) => { setVal('smsConsent', e.target.checked); if (e.target.checked) clearErr('smsConsent'); }} disabled={locked} />
                         <span>I consent to receive informational SMS updates</span>
                       </label>
                     ) : (
                       <div className="muted">No extra consent needed for email or staff phone calls.</div>
                     )}
-                    {errors.smsConsent ? <div className="errText" data-err="smsConsent">{errors.smsConsent}</div> : null}
+                    {errors.smsConsent ? <div className="errText">{errors.smsConsent}</div> : null}
                   </div>
                 </div>
               </div>
