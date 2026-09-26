@@ -23,7 +23,8 @@ export function run() {
   assert.equal(copy.faqItems.length, 1);
 
   const defaults = defaultPublicSiteSettings();
-  assert.equal(normalizePublicCopy({ confirmationValidation: 'exact_13' } as any).confirmationValidation, 'exact_15');
-  assert.equal(normalizePublicCopy({ confirmationValidation: 'exact_15' }).confirmationValidation, 'exact_15');
+  for (const confirmationValidation of ['exact_13', 'exact_15', 'exact_13_or_15']) {
+    assert.equal(normalizePublicCopy({ confirmationValidation } as any).confirmationValidation, 'exact_13_or_15');
+  }
   assert.deepEqual(normalizeHours([]), defaults.hours);
 }

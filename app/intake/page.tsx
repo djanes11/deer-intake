@@ -1723,7 +1723,7 @@ useEffect(() => {
                 value={job.confirmation || ''}
                 inputMode={confirmationInputMode(identifierSettings)}
                 pattern={identifierSettings.confirmationValidation === 'freeform' ? undefined : '[0-9]*'}
-                maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_15' ? 15 : 24}
+                maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_13_or_15' ? 15 : 24}
                 placeholder={identifierSettings.confirmationPlaceholder}
                 onChange={(e) => setVal('confirmation', normalizeConfirmationInput(e.target.value, identifierSettings))}
               />

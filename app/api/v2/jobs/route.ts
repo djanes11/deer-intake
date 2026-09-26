@@ -249,7 +249,7 @@ export async function POST(req: NextRequest) {
     // Validation/shape issues should be 400 (client error), not 500
     if (
       msg.includes('Tag is required') ||
-      msg.includes('Confirmation must be 15 digits') ||
+      msg.includes('Confirmation must be 13 or 15 digits') ||
       msg.includes('Missing job payload')
     ) {
       return new Response(JSON.stringify({ ok: false, error: msg }), { status: 400 });

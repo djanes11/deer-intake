@@ -57,7 +57,7 @@ type PublicCopySettings = {
   confirmationLabel: string;
   confirmationPlaceholder: string;
   confirmationHelpText: string;
-  confirmationValidation: 'exact_15' | 'digits_only' | 'freeform';
+  confirmationValidation: 'exact_13_or_15' | 'digits_only' | 'freeform';
   turnaroundEstimate: string;
   acceptedPaymentMethods: Array<'cash' | 'card' | 'check' | 'other'>;
   callBeforePickup: boolean;
@@ -182,7 +182,7 @@ const DEFAULT_PUBLIC_COPY: PublicCopySettings = {
   confirmationLabel: 'Confirmation #',
   confirmationPlaceholder: 'State confirmation #',
   confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
-  confirmationValidation: 'exact_15',
+  confirmationValidation: 'exact_13_or_15',
   turnaroundEstimate: 'Turnaround time depends on season volume and the cuts you choose. The shop will contact you when your order is ready.',
   acceptedPaymentMethods: ['cash', 'check', 'card'],
   callBeforePickup: false,
@@ -1258,7 +1258,7 @@ export default function AdminSettingsPage() {
                   onChange={(e) => setS({ ...s, publicCopy: { ...DEFAULT_PUBLIC_COPY, ...s.publicCopy, confirmationValidation: e.target.value as PublicCopySettings['confirmationValidation'] } })}
                   style={{ padding: 10, borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff', color: '#0f172a' }}
                 >
-                  <option value="exact_15">Exactly 15 digits</option>
+                  <option value="exact_13_or_15">Exactly 13 or 15 digits</option>
                   <option value="digits_only">Digits only</option>
                   <option value="freeform">Freeform</option>
                 </select>

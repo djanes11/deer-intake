@@ -13,11 +13,17 @@ export function run() {
   const defaultSettings = identifierSettingsFromPublicCopy();
   assert.equal(normalizeConfirmationInput('001-234-567-890123', defaultSettings), '001234567890123');
   assert.equal(validateConfirmation('001234567890123', defaultSettings), '');
-  assert.equal(validateConfirmation('1234567890123', defaultSettings), 'Confirmation # must be 15 digits');
-  assert.equal(validateConfirmation('12345678901234', defaultSettings), 'Confirmation # must be 15 digits');
-  const legacySettings = identifierSettingsFromPublicCopy({ confirmationValidation: 'exact_13' } as any);
-  assert.equal(legacySettings.confirmationValidation, 'exact_15');
-  assert.equal(normalizeConfirmationInput('001234567890123', legacySettings), '001234567890123');
+  assert.equal(validateConfirmation('1234567890123', defaultSettings), '');
+  assert.equal(validateConfirmation('12345678901234', defaultSettings), 'Confirmation # must be 13 or 15 digits');
+  assert.equal(validateConfirmation('123456789012', defaultSettings), 'Confirmation # must be 13 or 15 digits');
+  for (const confirmationValidation of ['exact_13', 'exact_15', 'exact_13_or_15']) {
+    const legacySettings = identifierSettingsFromPublicCopy({ confirmationValidation } as any);
+    assert.equal(legacySettings.confirmationValidation, 'exact_13_or_15');
+    assert.equal(normalizeConfirmationInput('001234567890123', legacySettings), '001234567890123');
+    assert.equal(validateConfirmation('0012345678901', legacySettings), '');
+    assert.equal(validateConfirmation('001234567890123', legacySettings), '');
+  }
+  assert.deepEqual(confirmationSearchCandidates('0012345678901', defaultSettings), ['0012345678901', '001234-5678901']);
   assert.deepEqual(confirmationSearchCandidates('001234567890123', defaultSettings), ['001234567890123', '001234-567890123']);
 
   const freeformSettings = identifierSettingsFromPublicCopy({
