@@ -79,12 +79,18 @@ export default function ThermalLabelSheet({
             JsBarcode(el, tag, {
               format: 'CODE128',
               lineColor: '#111',
-              width: isAntlerBarcode ? 1.45 : 2.3,
+              width: isAntlerBarcode ? 2 : 2.3,
               height: isAntlerBarcode ? 84 : 96,
               displayValue: false,
               font: 'monospace',
               margin: 0,
+              // Keep ten narrow-bar widths of clear space at both ends.
+              marginLeft: isAntlerBarcode ? 20 : 0,
+              marginRight: isAntlerBarcode ? 20 : 0,
             });
+            // Fill the strip horizontally instead of shrinking the bars to
+            // preserve the SVG's original width-to-height ratio.
+            if (isAntlerBarcode) el.setAttribute('preserveAspectRatio', 'none');
           } catch {}
         });
       } catch {}
@@ -253,25 +259,25 @@ export default function ThermalLabelSheet({
         }
 
         .thermalLabel--antler {
-          border-width: 1.5px;
-          width: 2.3125in;
-          height: 4in;
-          max-height: 4in;
-          padding: 0.08in;
-          grid-template-rows: minmax(0, 1fr) 0.18in 0.72in;
-          gap: 0.045in;
+          border-width: 0;
+          width: 59mm;
+          height: 102mm;
+          max-height: 102mm;
+          padding: 2mm;
+          grid-template-rows: minmax(0, 1fr) 4mm 22mm;
+          gap: 1mm;
         }
 
         .thermalLabelRoot--antler {
-          width: 2.3125in;
-          height: 4in;
+          width: 59mm;
+          height: 102mm;
           page: thermal-label-antler;
         }
 
         .thermalLabel__antlerInfo {
           display: grid;
-          grid-template-rows: 0.34in 0.28in minmax(0, 1fr) 0.16in;
-          gap: 0.055in;
+          grid-template-rows: 7mm 6mm minmax(0, 1fr) 4mm;
+          gap: 1mm;
           min-height: 0;
           overflow: hidden;
         }
@@ -300,8 +306,8 @@ export default function ThermalLabelSheet({
 
         .thermalLabel__antlerFields {
           display: grid;
-          grid-template-rows: minmax(0, 0.62in) repeat(3, minmax(0, 0.36in));
-          gap: 0.055in;
+          grid-template-rows: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr));
+          gap: 1mm;
           min-height: 0;
         }
 
@@ -325,9 +331,9 @@ export default function ThermalLabelSheet({
 
         .thermalLabel__antlerValue {
           min-width: 0;
-          font-size: 17px;
+          font-size: 16px;
           font-weight: 900;
-          line-height: 1.05;
+          line-height: 1.3;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -335,10 +341,10 @@ export default function ThermalLabelSheet({
 
         .thermalLabel__antlerField--customer .thermalLabel__antlerValue {
           font-size: 20px;
-          line-height: 1.02;
+          line-height: 1.25;
           white-space: normal;
           overflow-wrap: anywhere;
-          max-height: 0.43in;
+          max-height: none;
           overflow: hidden;
         }
 
@@ -383,14 +389,19 @@ export default function ThermalLabelSheet({
           transform: translateY(-0.01in);
         }
 
-        .thermalLabel__barcodeWrap--antler,
-        .thermalLabel__secondary--antler {
-          padding: 0.035in;
+        .thermalLabel--antler .thermalLabel__barcodeWrap--antler,
+        .thermalLabel--antler .thermalLabel__secondary--antler {
+          border: 0;
+          padding: 1mm 0;
+          min-width: 0;
+          min-height: 0;
         }
 
-        .thermalLabel__barcodeWrap--antler :global(svg) {
-          max-width: 2.05in;
-          height: 0.58in;
+        .thermalLabel--antler .thermalLabel__barcodeWrap--antler :global(svg) {
+          width: 100%;
+          max-width: none;
+          height: 20mm;
+          flex: 0 0 100%;
         }
 
         .thermalLabel__top {
@@ -570,7 +581,7 @@ export default function ThermalLabelSheet({
           }
 
           @page thermal-label-antler {
-            size: 2.3125in 4in;
+            size: 59mm 102mm;
             margin: 0;
           }
 
@@ -595,8 +606,8 @@ export default function ThermalLabelSheet({
           }
 
           .thermalLabelRoot--antler {
-            width: 2.3125in !important;
-            height: 4in !important;
+            width: 59mm !important;
+            height: 102mm !important;
             page: thermal-label-antler;
           }
 
@@ -613,10 +624,10 @@ export default function ThermalLabelSheet({
           }
 
           .thermalLabel--antler {
-            width: 2.3125in !important;
-            height: 4in !important;
-            max-height: 4in !important;
-            border-width: 1px;
+            width: 59mm !important;
+            height: 102mm !important;
+            max-height: 102mm !important;
+            border-width: 0;
           }
         }
       `}</style>

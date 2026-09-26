@@ -2059,9 +2059,12 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 
 /* === KILL THE PHANTOM PAGE: print-only hard stop === */
 @media print {
-  /* 1) Eliminate transforms/filters anywhere that could force an extra sheet */
-  *, *::before, *::after {
+  /* Preserve the barcode's SVG positioning, including its clear end margins. */
+  *:not(.thermalLabel svg *), *::before, *::after {
     transform: none !important;
+  }
+  /* 1) Eliminate filters anywhere that could force an extra sheet */
+  *, *::before, *::after {
     filter: none !important;
     perspective: none !important;
     backface-visibility: visible !important;
@@ -2390,6 +2393,11 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   margin: 0;
 }
 
+@page thermal-label-antler {
+  size: 59mm 102mm;
+  margin: 0;
+}
+
 @media print {
   .thermalLabelRoot {
     page: thermal-label;
@@ -2416,6 +2424,20 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
     overflow: hidden !important;
     break-inside: avoid-page !important;
     page-break-inside: avoid !important;
+  }
+}
+
+@media print {
+  .thermalLabelRoot.thermalLabelRoot--antler {
+    page: thermal-label-antler;
+    width: 59mm !important;
+    height: 102mm !important;
+  }
+
+  .thermalLabel.thermalLabel--antler {
+    width: 59mm !important;
+    height: 102mm !important;
+    max-height: 102mm !important;
   }
 }
 
