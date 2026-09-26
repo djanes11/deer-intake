@@ -85,12 +85,12 @@ export default function ThermalLabelSheet({
               font: 'monospace',
               margin: 0,
               // Keep ten narrow-bar widths of clear space at both ends.
-              marginLeft: isAntlerBarcode ? 20 : 0,
-              marginRight: isAntlerBarcode ? 20 : 0,
+              marginLeft: isAntlerBarcode ? 20 : 23,
+              marginRight: isAntlerBarcode ? 20 : 23,
             });
             // Fill the strip horizontally instead of shrinking the bars to
             // preserve the SVG's original width-to-height ratio.
-            if (isAntlerBarcode) el.setAttribute('preserveAspectRatio', 'none');
+            el.setAttribute('preserveAspectRatio', 'none');
           } catch {}
         });
       } catch {}
@@ -235,8 +235,8 @@ export default function ThermalLabelSheet({
 
         .thermalLabelRoot {
           display: block;
-          width: 4in;
-          height: 2.3125in;
+          width: 102mm;
+          height: 59mm;
           background: #fff;
           padding: 0;
           box-sizing: border-box;
@@ -244,16 +244,16 @@ export default function ThermalLabelSheet({
         }
 
         .thermalLabel {
-          width: 4in;
-          height: 2.3125in;
+          width: 102mm;
+          height: 59mm;
           border: 1px solid #111;
           background: #fff;
           color: #111;
           box-sizing: border-box;
-          padding: 0.075in 0.085in;
+          padding: 2mm;
           display: grid;
-          grid-template-rows: 0.31in minmax(0, 0.67in) minmax(0, 0.92in) 0.13in;
-          gap: 0.035in;
+          grid-template-rows: 8mm minmax(0, 1fr) 18mm 3mm;
+          gap: 0.8mm;
           font-family: Arial, Helvetica, sans-serif;
           overflow: hidden;
         }
@@ -471,7 +471,7 @@ export default function ThermalLabelSheet({
         .thermalLabel__details {
           display: grid;
           grid-template-columns: 1.25fr 0.95fr;
-          gap: 0.035in 0.12in;
+          gap: 0.5mm 3mm;
           min-width: 0;
           min-height: 0;
         }
@@ -504,24 +504,24 @@ export default function ThermalLabelSheet({
           min-width: 0;
           font-size: 14.6px;
           font-weight: 800;
-          line-height: 1.04;
+          line-height: 1.25;
           overflow-wrap: anywhere;
         }
 
         .thermalLabel__field--customer .thermalLabel__fieldValue {
-          font-size: 19px;
+          font-size: 18px;
           font-weight: 900;
-          line-height: 1;
+          line-height: 1.3;
         }
 
         .thermalLabel__field--customer.thermalLabel__fieldValue--small .thermalLabel__fieldValue {
           font-size: 16px;
-          line-height: 1;
+          line-height: 1.3;
         }
 
         .thermalLabel__field--customer.thermalLabel__fieldValue--tiny .thermalLabel__fieldValue {
           font-size: 13.4px;
-          line-height: 1;
+          line-height: 1.3;
         }
 
         .thermalLabel__field:not(.thermalLabel__field--customer) .thermalLabel__fieldValue {
@@ -565,18 +565,18 @@ export default function ThermalLabelSheet({
         .thermalLabel__barcodeWrap :global(svg) {
           width: 100%;
           max-width: 3.72in;
-          height: 0.86in;
+          height: 100%;
           display: block;
         }
 
         @media print {
           @page {
-            size: 4in 2.3125in;
+            size: 102mm 59mm;
             margin: 0;
           }
 
           @page thermal-label {
-            size: 4in 2.3125in;
+            size: 102mm 59mm;
             margin: 0;
           }
 
@@ -598,8 +598,8 @@ export default function ThermalLabelSheet({
           .thermalLabelRoot {
             padding: 0;
             min-height: auto;
-            width: 4in !important;
-            height: 2.3125in !important;
+            width: 102mm !important;
+            height: 59mm !important;
             overflow: hidden !important;
             break-after: page !important;
             page-break-after: always !important;
@@ -617,8 +617,8 @@ export default function ThermalLabelSheet({
           }
 
           .thermalLabel {
-            width: 4in !important;
-            height: 2.3125in !important;
+            width: 102mm !important;
+            height: 59mm !important;
             border-width: 1px;
             box-shadow: none !important;
           }

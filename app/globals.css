@@ -2389,7 +2389,7 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 }
 
 @page thermal-label {
-  size: 4in 2.3125in;
+  size: 102mm 59mm;
   margin: 0;
 }
 
@@ -2401,8 +2401,8 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
 @media print {
   .thermalLabelRoot {
     page: thermal-label;
-    width: 4in !important;
-    height: 2.3125in !important;
+    width: 102mm !important;
+    height: 59mm !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -2417,9 +2417,9 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   }
 
   .thermalLabel {
-    width: 4in !important;
-    height: 2.3125in !important;
-    max-height: 2.3125in !important;
+    width: 102mm !important;
+    height: 59mm !important;
+    max-height: 59mm !important;
     margin: 0 !important;
     overflow: hidden !important;
     break-inside: avoid-page !important;
