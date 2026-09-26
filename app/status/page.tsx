@@ -88,7 +88,7 @@ type PublicCopyState = {
   confirmationPlaceholder: string;
   tagLabel: string;
   tagPlaceholder: string;
-  confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
+  confirmationValidation: 'exact_15' | 'digits_only' | 'freeform';
   tagFormat: 'digits_only' | 'letters_numbers';
   tagSearchHelp: string;
   callBeforePickup: boolean;
@@ -107,7 +107,7 @@ const DEFAULT_STATUS_COPY: PublicCopyState = {
   confirmationPlaceholder: 'State confirmation #',
   tagLabel: 'Tag Number',
   tagPlaceholder: 'Deer tag number',
-  confirmationValidation: 'exact_13',
+  confirmationValidation: 'exact_15',
   tagFormat: 'digits_only',
   tagSearchHelp:
     'Only use this after staff have assigned the real deer tag.',

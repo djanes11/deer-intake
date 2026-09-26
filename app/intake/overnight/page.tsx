@@ -334,7 +334,7 @@ function OvernightIntakePage() {
     confirmationLabel: 'Confirmation #',
     confirmationPlaceholder: 'State confirmation #',
     confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
-    confirmationValidation: 'exact_13' as const,
+    confirmationValidation: 'exact_15' as const,
     turnaroundEstimate:
       'Turnaround time depends on season volume and the cuts you choose. The shop will contact you when your order is ready.',
     acceptedPaymentMethods: ['cash', 'check', 'card'],
@@ -1228,7 +1228,7 @@ function OvernightIntakePage() {
                   onChange={(e) => setConfirmation(e.target.value)}
                   inputMode={confirmationInputMode(identifierSettings)}
                   pattern={identifierSettings.confirmationValidation === 'freeform' ? undefined : '[0-9]*'}
-                  maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_13' ? 13 : 24}
+                  maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_15' ? 15 : 24}
                   placeholder={identifierSettings.confirmationPlaceholder}
                   className={errors.confirmation ? 'err' : ''}
                   data-err="confirmation"

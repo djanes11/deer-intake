@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -1723,7 +1723,7 @@ useEffect(() => {
                 value={job.confirmation || ''}
                 inputMode={confirmationInputMode(identifierSettings)}
                 pattern={identifierSettings.confirmationValidation === 'freeform' ? undefined : '[0-9]*'}
-                maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_13' ? 13 : 24}
+                maxLength={identifierSettings.confirmationValidation === 'freeform' ? 40 : identifierSettings.confirmationValidation === 'exact_15' ? 15 : 24}
                 placeholder={identifierSettings.confirmationPlaceholder}
                 onChange={(e) => setVal('confirmation', normalizeConfirmationInput(e.target.value, identifierSettings))}
               />

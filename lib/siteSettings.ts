@@ -69,7 +69,7 @@ export type PublicCopySettings = {
   confirmationLabel: string;
   confirmationPlaceholder: string;
   confirmationHelpText: string;
-  confirmationValidation: 'exact_13' | 'digits_only' | 'freeform';
+  confirmationValidation: 'exact_15' | 'digits_only' | 'freeform';
   turnaroundEstimate: string;
   acceptedPaymentMethods: Array<'cash' | 'card' | 'check' | 'other'>;
   callBeforePickup: boolean;
@@ -234,7 +234,7 @@ export function defaultPublicSiteSettings(): PublicSiteSettings {
       confirmationLabel: 'Confirmation #',
       confirmationPlaceholder: 'State confirmation #',
       confirmationHelpText: 'Use the confirmation number from your state harvest/check-in system.',
-      confirmationValidation: 'exact_13',
+      confirmationValidation: 'exact_15',
       turnaroundEstimate: 'Turnaround time depends on season volume and the cuts you choose. The shop will contact you when your order is ready.',
       acceptedPaymentMethods: ['cash', 'check', 'card'],
       callBeforePickup: false,

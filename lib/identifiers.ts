@@ -1,6 +1,6 @@
 import type { PublicCopySettings } from '@/lib/siteSettings';
 
-export type ConfirmationValidation = 'exact_13' | 'digits_only' | 'freeform';
+export type ConfirmationValidation = 'exact_15' | 'digits_only' | 'freeform';
 export type TagFormat = 'digits_only' | 'letters_numbers';
 
 export type IdentifierSettings = {
@@ -17,7 +17,7 @@ export type IdentifierSettings = {
 const DEFAULT_IDENTIFIER_SETTINGS: IdentifierSettings = {
   confirmationLabel: 'Confirmation #',
   confirmationPlaceholder: 'State confirmation #',
-  confirmationValidation: 'exact_13',
+  confirmationValidation: 'exact_15',
   tagLabel: 'Tag Number',
   tagPlaceholder: 'Deer tag number',
   tagFormat: 'digits_only',
@@ -50,15 +50,15 @@ export function normalizeConfirmationInput(value: string, settings: IdentifierSe
     return String(value || '').replace(/\s+/g, ' ').trimStart().slice(0, 40);
   }
   const digits = digitsOnly(value);
-  if (settings.confirmationValidation === 'exact_13') return digits.slice(0, 13);
+  if (settings.confirmationValidation === 'exact_15') return digits.slice(0, 15);
   return digits.slice(0, 24);
 }
 
 export function validateConfirmation(value: string, settings: IdentifierSettings) {
   const normalized = normalizeConfirmationInput(value, settings).trim();
   if (!normalized) return `${settings.confirmationLabel} is required`;
-  if (settings.confirmationValidation === 'exact_13' && normalized.length !== 13) {
-    return `${settings.confirmationLabel} must be 13 digits`;
+  if (settings.confirmationValidation === 'exact_15' && normalized.length !== 15) {
+    return `${settings.confirmationLabel} must be 15 digits`;
   }
   if (settings.confirmationValidation === 'digits_only' && !/^\d+$/.test(normalized)) {
     return `${settings.confirmationLabel} must use digits only`;
