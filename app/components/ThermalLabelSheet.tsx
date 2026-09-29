@@ -15,8 +15,7 @@ export function canPrintCapeLabel(job: AnyRec | null | undefined) {
 }
 
 export function canPrintAntlerLabel(job: AnyRec | null | undefined) {
-  const sex = String(job?.sex || job?.Sex || job?.['Deer Sex'] || '').trim().toLowerCase();
-  return sex === 'buck' || canPrintCapeLabel(job);
+  return canPrintCapeLabel(job);
 }
 
 function value(job: AnyRec | null | undefined, keys: string[]) {
