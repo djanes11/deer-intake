@@ -8,6 +8,7 @@ import { run as runJobWriteSafety } from './job-write-safety.test.ts';
 import { run as runDatabaseSafety } from './database-safety.test.ts';
 import { run as runClientWrites } from './client-writes.test.ts';
 import { run as runReadiness } from './readiness.test.ts';
+import { run as runPublicSpecialtyPrint } from './public-specialty-print.test.ts';
 
 const suites = [
   ['identifiers', runIdentifiers],
@@ -20,6 +21,7 @@ const suites = [
   ['database safety', runDatabaseSafety],
   ['client writes', runClientWrites],
   ['readiness', runReadiness],
+  ['public specialty printing', runPublicSpecialtyPrint],
 ] as const;
 
 for (const [label, fn] of suites) {

@@ -3982,6 +3982,13 @@ export async function setJobTag(params: {
   const tagError = validateTag(tag, identifierSettingsFromPublicCopy(settings.publicCopy));
   if (tagError) return { ok: false, error: tagError };
 
+  // The public queue prints this response immediately after assigning a tag.
+  // Load the saved line items before updating so a failed read leaves the
+  // intake pending and retryable, rather than returning an incomplete sheet.
+  const specialtyItemsMap = returnRow
+    ? await loadJobSpecialtyItemsMap(supabaseServer, [String(job.id)])
+    : new Map<string, any[]>();
+
   const updates: any = {
     tag,
     requires_tag: false,
@@ -4014,7 +4021,7 @@ export async function setJobTag(params: {
     return { ok: true, jobId, tag };
   }
 
-  const mapped = updated ? mapDbRowToJob(updated) : null;
+  const mapped = mapDbRowToJob(updated, specialtyItemsMap.get(String(updated.id)) || []);
 
   if (updated) {
     try {
