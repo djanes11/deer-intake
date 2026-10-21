@@ -362,8 +362,10 @@ export default function ButcherOverlay({
                       lineHeight: 1.04,
                       padding: 'clamp(12px, 1vw, 24px) clamp(14px, 1.2vw, 30px)',
                       borderRadius: 14,
-                      background: 'rgba(255,255,255,.04)',
-                      border: '1px solid rgba(255,255,255,.08)',
+                      background: 'linear-gradient(180deg, rgba(94,76,17,.98), rgba(63,49,10,.98))',
+                      border: '1px solid rgba(245, 215, 72, .38)',
+                      boxShadow: '0 0 0 1px rgba(255,229,143,.08), inset 0 1px 0 rgba(255,255,255,.04)',
+                      color: '#fffbea',
                     }}
                   >
                     {specialtyTotalLbs} lb
@@ -381,8 +383,10 @@ export default function ButcherOverlay({
                       lineHeight: 1.04,
                       padding: 'clamp(12px, 1vw, 24px) clamp(14px, 1.2vw, 30px)',
                       borderRadius: 14,
-                      background: 'rgba(255,255,255,.04)',
-                      border: '1px solid rgba(255,255,255,.08)',
+                      background: 'linear-gradient(180deg, rgba(94,76,17,.98), rgba(63,49,10,.98))',
+                      border: '1px solid rgba(245, 215, 72, .38)',
+                      boxShadow: '0 0 0 1px rgba(255,229,143,.08), inset 0 1px 0 rgba(255,255,255,.04)',
+                      color: '#fffbea',
                     }}
                   >
                     {webbsStyle === 'whole_deer_percent' ? 'Whole deer' : `${webbsPounds} lb`}
