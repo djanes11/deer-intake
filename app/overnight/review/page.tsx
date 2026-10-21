@@ -376,14 +376,6 @@ export default function MissingTagsPage() {
                 <button className="btn" onClick={() => printAssignedSheet(selectedTag)} disabled={!!printing}>
                   {printing === selectedTag ? 'Preparing Print...' : 'Print Full Sheet'}
                 </button>
-                <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'deer')} disabled={!!printing}>
-                  Deer Label
-                </button>
-                {canPrintAntlerLabel(selectedJob) ? (
-                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'deer-antler')} disabled={!!printing}>
-                    Deer + Antler Tags
-                  </button>
-                ) : null}
                 {canPrintAntlerLabel(selectedJob) ? (
                   <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'antler')} disabled={!!printing}>
                     Antler Tag

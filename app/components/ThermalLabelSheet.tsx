@@ -15,7 +15,9 @@ export function canPrintCapeLabel(job: AnyRec | null | undefined) {
 }
 
 export function canPrintAntlerLabel(job: AnyRec | null | undefined) {
-  return canPrintCapeLabel(job);
+  const processType = value(job, ['processType', 'Process Type', 'process_type'])
+    .toLowerCase().replace(/&/g, 'and').replace(/[-–_]/g, ' ').replace(/\s+/g, ' ').trim();
+  return ['caped', 'cape and donate', 'caped and donate', 'skull cap', 'european'].includes(processType);
 }
 
 function value(job: AnyRec | null | undefined, keys: string[]) {
@@ -57,6 +59,7 @@ export default function ThermalLabelSheet({
   const confirmation = value(job, ['confirmation', 'Confirmation #', 'Confirmation', 'confirmationNumber', 'confirmation_number', 'Confirmation Number']);
   const phone = value(job, ['phone', 'Phone', 'Phone #', 'Phone Number', 'phoneNumber', 'customerPhone', 'customer_phone', 'Customer Phone']);
   const tag = value(job, ['tag', 'Tag', 'tagId', 'tag_id', 'tagNumber', 'tag_number', 'Tag Number']);
+  const processType = value(job, ['processType', 'Process Type', 'process_type']);
   const shouldShowBarcode = !!tag;
 
   useEffect(() => {
@@ -160,7 +163,7 @@ export default function ThermalLabelSheet({
                   </div>
                 ))}
               </div>
-              <div className="thermalLabel__antlerFooter">Keep with deer</div>
+              <div className="thermalLabel__antlerFooter">Processing: {processType || '-'}</div>
             </div>
             <div className="thermalLabel__cutLine"><span>Cut off barcode</span></div>
             {shouldShowBarcode ? (

@@ -2450,49 +2450,6 @@ useEffect(() => {
             </div>
 
             <div className="actionsUtility">
-              <button
-                className="btn secondaryBtn"
-                type="button"
-                onClick={async () => {
-                  if (dirty) {
-                    const ok = await onSave();
-                    if (!ok) return;
-                  }
-                  const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                  if (!tagToPrint) {
-                    setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                    return;
-                  }
-                  setPrintMode('deer');
-                  openBrowserPrintPreview(() => setPrintMode(''));
-                }}
-                disabled={busy}
-              >
-                Deer Label
-              </button>
-
-              {canPrintAntlerLabel(job) ? (
-                <button
-                  className="btn secondaryBtn"
-                  type="button"
-                  onClick={async () => {
-                    if (dirty) {
-                      const ok = await onSave();
-                      if (!ok) return;
-                    }
-                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                    if (!tagToPrint) {
-                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                      return;
-                    }
-                    setPrintMode('deer-antler');
-                    openBrowserPrintPreview(() => setPrintMode(''));
-                  }}
-                  disabled={busy}
-                >
-                  Deer + Antler Tags
-                </button>
-              ) : null}
 
               {canPrintAntlerLabel(job) ? (
                 <button
@@ -2598,48 +2555,6 @@ useEffect(() => {
                 >
                   Print Intake
                 </button>
-                <button
-                  className="actionMenuBtn"
-                  type="button"
-                  onClick={async () => {
-                    if (dirty) {
-                      const ok = await onSave();
-                      if (!ok) return;
-                    }
-                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                    if (!tagToPrint) {
-                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                      return;
-                    }
-                    setPrintMode('deer');
-                    openBrowserPrintPreview(() => setPrintMode(''));
-                  }}
-                  disabled={busy}
-                >
-                  Print Deer Label
-                </button>
-                {canPrintAntlerLabel(job) ? (
-                  <button
-                    className="actionMenuBtn"
-                    type="button"
-                    onClick={async () => {
-                      if (dirty) {
-                        const ok = await onSave();
-                        if (!ok) return;
-                      }
-                      const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                      if (!tagToPrint) {
-                        setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                        return;
-                      }
-                      setPrintMode('deer-antler');
-                      openBrowserPrintPreview(() => setPrintMode(''));
-                    }}
-                    disabled={busy}
-                  >
-                    Print Deer + Antler Tags
-                  </button>
-                ) : null}
                 {canPrintAntlerLabel(job) ? (
                   <button
                     className="actionMenuBtn"
