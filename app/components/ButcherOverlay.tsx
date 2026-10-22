@@ -11,7 +11,7 @@ type Row = Record<string, any>;
 const CARD: CSSProperties = {
   border: '1px solid #22303a',
   borderRadius: 16,
-  padding: 'clamp(18px, 1.8vw, 38px)',
+  padding: 'clamp(9px, 0.9vmin, 19px)',
   background: 'linear-gradient(180deg, rgba(18,26,31,.98), rgba(12,18,22,.98))',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,.03)',
 };
@@ -170,8 +170,8 @@ export default function ButcherOverlay({
 
   const SummaryCard = ({ label, value }: { label: string; value: string }) => (
     <div style={CARD}>
-      <div style={{ fontSize: 'clamp(20px, 1.25vw, 34px)', color: '#9fb0bb', marginBottom: 12, fontWeight: 800 }}>{label}</div>
-      <div style={{ fontSize: 'clamp(46px, 4vw, 96px)', fontWeight: 950, lineHeight: 1.04, whiteSpace: 'pre-wrap' }}>
+      <div style={{ fontSize: 'clamp(14px, 0.625vmin, 17px)', color: '#9fb0bb', marginBottom: 6, fontWeight: 800 }}>{label}</div>
+      <div style={{ fontSize: 'clamp(28px, 2vmin, 48px)', fontWeight: 950, lineHeight: 1.04, whiteSpace: 'pre-wrap' }}>
         {value || '-'}
       </div>
     </div>
@@ -179,16 +179,16 @@ export default function ButcherOverlay({
 
   const ListCard = ({ label, items }: { label: string; items: string[] }) => (
     <div style={CARD}>
-      <div style={{ fontSize: 'clamp(22px, 1.35vw, 36px)', color: '#9fb0bb', marginBottom: 14, fontWeight: 800 }}>{label}</div>
+      <div style={{ fontSize: 'clamp(14px, 0.675vmin, 18px)', color: '#9fb0bb', marginBottom: 7, fontWeight: 800 }}>{label}</div>
       <div style={{ display: 'grid', gap: 'clamp(10px, .9vw, 22px)' }}>
         {items.map((item) => (
           <div
             key={`${label}-${item}`}
             style={{
-              fontSize: 'clamp(44px, 3.6vw, 92px)',
+              fontSize: 'clamp(28px, 1.8vmin, 46px)',
               fontWeight: 900,
               lineHeight: 1.08,
-              padding: 'clamp(12px, 1vw, 24px) clamp(14px, 1.2vw, 30px)',
+              padding: 'clamp(6px, 0.5vmin, 12px) clamp(7px, 0.6vmin, 15px)',
               borderRadius: 14,
               background: 'rgba(34,197,94,.08)',
               border: '1px solid rgba(34,197,94,.22)',
@@ -211,6 +211,7 @@ export default function ButcherOverlay({
 
   return (
     <div
+      className="butcher-tv-overlay"
       aria-hidden={!visible}
       style={{
         position: 'fixed',
@@ -238,32 +239,32 @@ export default function ButcherOverlay({
           boxShadow: '0 24px 60px rgba(0,0,0,.45)',
           overflow: 'hidden',
           display: 'grid',
-          gridTemplateRows: 'minmax(220px, 27vh) minmax(0, 1fr) minmax(112px, 14vh)',
+          gridTemplateRows: 'auto minmax(0, 1fr) auto',
         }}
       >
         <div
           style={{
-            padding: 'clamp(24px, 3vh, 46px) clamp(34px, 4vw, 82px)',
+            padding: 'clamp(12px, 1.5vh, 23px) clamp(17px, 2vmin, 41px)',
             borderBottom: '1px solid #1c2931',
             display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1.35fr) minmax(340px, .65fr)',
-            gap: 'clamp(24px, 3vw, 70px)',
+            gridTemplateColumns: 'minmax(0, 1.35fr) minmax(180px, .65fr)',
+            gap: 'clamp(12px, 1.5vmin, 35px)',
             alignItems: 'center',
             background: 'linear-gradient(180deg, rgba(19,32,27,.88), rgba(11,15,18,.88))',
           }}
         >
           <div>
-            <div style={{ fontSize: 'clamp(24px, 1.8vw, 46px)', letterSpacing: 0, textTransform: 'uppercase', color: '#97b4a4', fontWeight: 900 }}>
+            <div style={{ fontSize: 'clamp(14px, 0.9vmin, 23px)', letterSpacing: 0, textTransform: 'uppercase', color: '#97b4a4', fontWeight: 900 }}>
               Butcher Processing
             </div>
-            <div style={{ fontSize: 'clamp(112px, 10.5vw, 250px)', fontWeight: 950, lineHeight: .9, marginTop: 10, overflowWrap: 'anywhere' }}>{tag || '-'}</div>
-            <div style={{ fontSize: 'clamp(78px, 6.6vw, 170px)', fontWeight: 950, lineHeight: .96, marginTop: 14, overflowWrap: 'anywhere' }}>{customer || 'Unknown customer'}</div>
+            <div style={{ fontSize: 'clamp(56px, 5.25vmin, 125px)', fontWeight: 950, lineHeight: .9, marginTop: 5, overflowWrap: 'anywhere' }}>{tag || '-'}</div>
+            <div style={{ fontSize: 'clamp(39px, 3.3vmin, 85px)', fontWeight: 950, lineHeight: .96, marginTop: 7, overflowWrap: 'anywhere' }}>{customer || 'Unknown customer'}</div>
           </div>
           <div style={{ display: 'grid', gap: 10, justifyItems: 'end', alignContent: 'start' }}>
-            <div style={{ fontSize: 'clamp(24px, 1.5vw, 42px)', fontWeight: 900, color: '#9fb0bb', letterSpacing: 0, textTransform: 'uppercase' }}>
+            <div style={{ fontSize: 'clamp(14px, 0.75vmin, 21px)', fontWeight: 900, color: '#9fb0bb', letterSpacing: 0, textTransform: 'uppercase' }}>
               Processing View
             </div>
-            <div style={{ fontSize: 'clamp(34px, 2.5vw, 64px)', fontWeight: 900, color: '#dfe9ee', lineHeight: 1.08, textAlign: 'right' }}>
+            <div style={{ fontSize: 'clamp(17px, 1.25vmin, 32px)', fontWeight: 900, color: '#dfe9ee', lineHeight: 1.08, textAlign: 'right' }}>
               Follow the cut instructions, then scan the tag again.
             </div>
           </div>
@@ -271,19 +272,21 @@ export default function ButcherOverlay({
 
         <div
           style={{
-            padding: 'clamp(22px, 2.2vw, 54px)',
+            padding: 'clamp(11px, 1.1vmin, 27px)',
             display: 'grid',
-            gap: 'clamp(18px, 1.6vw, 38px)',
-            gridTemplateColumns: 'minmax(0, 1.18fr) minmax(360px, .82fr)',
+            gap: 'clamp(9px, 0.8vmin, 19px)',
+            gridTemplateColumns: 'minmax(0, 1.55fr) minmax(240px, .7fr)',
             alignItems: 'start',
-            overflow: 'hidden',
+            minHeight: 0,
+            overflow: 'auto',
+            pointerEvents: 'auto',
           }}
         >
-          <div style={{ display: 'grid', gap: 'clamp(18px, 1.5vw, 36px)', minHeight: 0 }}>
+          <div style={{ display: 'grid', gap: 'clamp(9px, 0.75vmin, 18px)', minHeight: 0 }}>
             {detailCards.length ? (
-              <div style={{ ...CARD, display: 'grid', gap: 'clamp(14px, 1vw, 28px)' }}>
-                <div style={{ fontSize: 'clamp(22px, 1.45vw, 38px)', color: '#9fb0bb', fontWeight: 800 }}>Primary Cut Instructions</div>
-                <div style={{ display: 'grid', gap: 'clamp(14px, 1.2vw, 30px)', gridTemplateColumns: `repeat(${Math.max(1, Math.min(detailCards.length, 3))}, minmax(0,1fr))` }}>
+              <div style={{ ...CARD, display: 'grid', gap: 'clamp(7px, 0.5vmin, 14px)' }}>
+                <div style={{ fontSize: 'clamp(14px, 0.725vmin, 19px)', color: '#9fb0bb', fontWeight: 800 }}>Primary Cut Instructions</div>
+                <div style={{ display: 'grid', gap: 'clamp(7px, 0.6vmin, 15px)', gridTemplateColumns: `repeat(${Math.max(1, Math.min(detailCards.length, 3))}, minmax(0,1fr))` }}>
                   {detailCards.map((card) => (
                     <SummaryCard key={card.label} label={card.label} value={card.value} />
                   ))}
@@ -292,7 +295,7 @@ export default function ButcherOverlay({
             ) : null}
 
             {(hind.length || front.length) ? (
-              <div style={{ display: 'grid', gap: 'clamp(18px, 1.5vw, 36px)', gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+              <div style={{ display: 'grid', gap: 'clamp(9px, 0.75vmin, 18px)', gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
                 {hind.length ? <ListCard label="Hind Quarter" items={hind} /> : <div />}
                 {front.length ? <ListCard label="Front Shoulder" items={front} /> : <div />}
               </div>
@@ -307,12 +310,12 @@ export default function ButcherOverlay({
                   boxShadow: '0 0 0 1px rgba(255,229,143,.08), inset 0 1px 0 rgba(255,255,255,.04)',
                 }}
               >
-                <div style={{ fontSize: 'clamp(24px, 1.5vw, 42px)', color: '#fff3b0', marginBottom: 14, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>
+                <div style={{ fontSize: 'clamp(14px, 0.75vmin, 21px)', color: '#fff3b0', marginBottom: 7, fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>
                   Notes
                 </div>
                 <div
                   style={{
-                    fontSize: 'clamp(48px, 4vw, 102px)',
+                    fontSize: 'clamp(28px, 2vmin, 51px)',
                     fontWeight: 950,
                     lineHeight: 1.08,
                     whiteSpace: 'pre-wrap',
@@ -326,21 +329,21 @@ export default function ButcherOverlay({
             ) : null}
           </div>
 
-          <div style={{ display: 'grid', gap: 'clamp(18px, 1.5vw, 36px)', minHeight: 0 }}>
-            <div style={{ ...CARD, display: 'grid', gap: 'clamp(16px, 1.2vw, 30px)' }}>
-              <div style={{ fontSize: 'clamp(28px, 1.9vw, 50px)', color: '#9fb0bb', fontWeight: 900 }}>Watch For</div>
+          <div style={{ display: 'grid', gap: 'clamp(9px, 0.75vmin, 18px)', minHeight: 0 }}>
+            <div style={{ ...CARD, display: 'grid', gap: 'clamp(8px, 0.6vmin, 15px)' }}>
+              <div style={{ fontSize: 'clamp(14px, 0.95vmin, 25px)', color: '#9fb0bb', fontWeight: 900 }}>Watch For</div>
 
               {addOnItems.length ? (
                 <div style={{ display: 'grid', gap: 'clamp(10px, .9vw, 22px)' }}>
-                  <div style={{ fontSize: 'clamp(22px, 1.2vw, 34px)', color: '#9fb0bb', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>Add-Ons</div>
+                  <div style={{ fontSize: 'clamp(14px, 0.6vmin, 17px)', color: '#9fb0bb', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>Add-Ons</div>
                   {addOnItems.map((item) => (
                     <div
                       key={item}
                       style={{
-                        fontSize: 'clamp(34px, 2.6vw, 74px)',
+                        fontSize: 'clamp(17px, 1.3vmin, 37px)',
                         fontWeight: 900,
                         lineHeight: 1.08,
-                        padding: 'clamp(12px, 1vw, 24px) clamp(14px, 1.2vw, 30px)',
+                        padding: 'clamp(6px, 0.5vmin, 12px) clamp(7px, 0.6vmin, 15px)',
                         borderRadius: 14,
                         background: 'rgba(34,197,94,.08)',
                         border: '1px solid rgba(34,197,94,.22)',
@@ -354,13 +357,13 @@ export default function ButcherOverlay({
 
               {showSpecialty ? (
                 <div style={{ display: 'grid', gap: 'clamp(10px, .9vw, 22px)' }}>
-                  <div style={{ fontSize: 'clamp(22px, 1.2vw, 34px)', color: '#9fb0bb', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>Specialty</div>
+                  <div style={{ fontSize: 'clamp(14px, 0.6vmin, 17px)', color: '#9fb0bb', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>Specialty</div>
                   <div
                     style={{
-                      fontSize: 'clamp(46px, 3.8vw, 100px)',
+                      fontSize: 'clamp(28px, 1.9vmin, 50px)',
                       fontWeight: 950,
                       lineHeight: 1.04,
-                      padding: 'clamp(12px, 1vw, 24px) clamp(14px, 1.2vw, 30px)',
+                      padding: 'clamp(6px, 0.5vmin, 12px) clamp(7px, 0.6vmin, 15px)',
                       borderRadius: 14,
                       background: 'linear-gradient(180deg, rgba(94,76,17,.98), rgba(63,49,10,.98))',
                       border: '1px solid rgba(245, 215, 72, .38)',
@@ -375,13 +378,13 @@ export default function ButcherOverlay({
 
               {showWebbs ? (
                 <div style={{ display: 'grid', gap: 'clamp(10px, .9vw, 22px)' }}>
-                  <div style={{ fontSize: 'clamp(22px, 1.2vw, 34px)', color: '#9fb0bb', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>Webbs</div>
+                  <div style={{ fontSize: 'clamp(14px, 0.6vmin, 17px)', color: '#9fb0bb', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0 }}>Webbs</div>
                   <div
                     style={{
-                      fontSize: 'clamp(46px, 3.8vw, 100px)',
+                      fontSize: 'clamp(28px, 1.9vmin, 50px)',
                       fontWeight: 950,
                       lineHeight: 1.04,
-                      padding: 'clamp(12px, 1vw, 24px) clamp(14px, 1.2vw, 30px)',
+                      padding: 'clamp(6px, 0.5vmin, 12px) clamp(7px, 0.6vmin, 15px)',
                       borderRadius: 14,
                       background: 'linear-gradient(180deg, rgba(94,76,17,.98), rgba(63,49,10,.98))',
                       border: '1px solid rgba(245, 215, 72, .38)',
@@ -395,7 +398,7 @@ export default function ButcherOverlay({
               ) : null}
 
               {!addOnItems.length && !showSpecialty && !showWebbs ? (
-                <div style={{ fontSize: 'clamp(34px, 2.5vw, 72px)', fontWeight: 800, color: '#c7d4dd' }}>No extra items</div>
+                <div style={{ fontSize: 'clamp(17px, 1.25vmin, 36px)', fontWeight: 800, color: '#c7d4dd' }}>No extra items</div>
               ) : null}
             </div>
           </div>
@@ -403,16 +406,16 @@ export default function ButcherOverlay({
 
         <div
           style={{
-            padding: 'clamp(14px, 1.4vh, 28px) clamp(28px, 3vw, 76px)',
+            padding: 'clamp(7px, 0.7vh, 14px) clamp(14px, 1.5vmin, 38px)',
             borderTop: '1px solid #1c2931',
             display: 'grid',
-            gap: 'clamp(10px, 1vh, 22px)',
+            gap: 'clamp(5px, 0.5vh, 11px)',
             pointerEvents: 'auto',
           }}
         >
           <div
             style={{
-              fontSize: 'clamp(32px, 2.4vw, 70px)',
+              fontSize: 'clamp(16px, 1.2vmin, 35px)',
               fontWeight: 900,
               color: '#a9b8c2',
               textAlign: 'center',
@@ -423,7 +426,7 @@ export default function ButcherOverlay({
           <div
             style={{
               display: 'flex',
-              gap: 'clamp(12px, 1vw, 28px)',
+              gap: 'clamp(6px, 0.5vmin, 14px)',
               alignItems: 'center',
               justifyContent: 'center',
               flexWrap: 'wrap',
@@ -441,14 +444,14 @@ export default function ButcherOverlay({
               placeholder="Enter tag to continue"
               aria-label="Enter tag to continue"
               style={{
-                width: 'clamp(320px, 24vw, 620px)',
+                width: 'clamp(210px, 24vw, 310px)',
                 maxWidth: '70vw',
-                padding: 'clamp(14px, 1vw, 28px) clamp(16px, 1.2vw, 32px)',
+                padding: 'clamp(7px, 0.5vmin, 14px) clamp(8px, 0.6vmin, 16px)',
                 borderRadius: 12,
                 border: '1px solid #475569',
                 background: '#f8fafc',
                 color: '#0f172a',
-                fontSize: 'clamp(26px, 1.8vw, 52px)',
+                fontSize: 'clamp(14px, 0.9vmin, 26px)',
                 fontWeight: 800,
               }}
             />
@@ -457,12 +460,12 @@ export default function ButcherOverlay({
               onClick={onManualSubmit}
               disabled={manualBusy || !manualTag.trim()}
               style={{
-                padding: 'clamp(14px, 1vw, 28px) clamp(22px, 1.8vw, 48px)',
+                padding: 'clamp(7px, 0.5vmin, 14px) clamp(11px, 0.9vmin, 24px)',
                 borderRadius: 12,
                 border: '1px solid #1f7a3f',
                 background: manualBusy || !manualTag.trim() ? '#3b4a41' : '#2f7d42',
                 color: '#f8fafc',
-                fontSize: 'clamp(26px, 1.8vw, 52px)',
+                fontSize: 'clamp(14px, 0.9vmin, 26px)',
                 fontWeight: 900,
                 cursor: manualBusy || !manualTag.trim() ? 'default' : 'pointer',
               }}
@@ -473,12 +476,12 @@ export default function ButcherOverlay({
               type="button"
               onClick={toggleFullscreen}
               style={{
-                padding: 'clamp(14px, 1vw, 28px) clamp(22px, 1.8vw, 48px)',
+                padding: 'clamp(7px, 0.5vmin, 14px) clamp(11px, 0.9vmin, 24px)',
                 borderRadius: 12,
                 border: '1px solid #475569',
                 background: 'rgba(248,250,252,.08)',
                 color: '#f8fafc',
-                fontSize: 'clamp(26px, 1.8vw, 52px)',
+                fontSize: 'clamp(14px, 0.9vmin, 26px)',
                 fontWeight: 900,
                 cursor: 'pointer',
               }}
