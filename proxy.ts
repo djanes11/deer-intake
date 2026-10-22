@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireStaffAccess } from '@/lib/staffAuth';
+import { isProtectedStaffPath, staffLoginUrl } from '@/lib/staffRouteAccess';
 
 const PUBLIC_MODE = process.env.PUBLIC_MODE === '1';
 const LOCK = process.env.LOCK_NON_INTAKE === '1';
@@ -70,7 +72,7 @@ function isPublicPath(path: string) {
   );
 }
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const url = new URL(req.url);
   const path = url.pathname;
   const host = normalizeHostname(req.headers.get('x-forwarded-host') || req.headers.get('host') || url.host);
@@ -78,6 +80,19 @@ export function proxy(req: NextRequest) {
   if (!PUBLIC_MODE && host === ADMIN_HOSTNAME && path === '/') {
     const target = new URL('/admin', req.url);
     return NextResponse.redirect(target);
+  }
+
+  if (isProtectedStaffPath(path, PUBLIC_MODE)) {
+    try {
+      const auth = await requireStaffAccess(req);
+      if (!auth.ok) {
+        const response = NextResponse.redirect(new URL(staffLoginUrl(path, url.search), req.url));
+        response.headers.set('Cache-Control', 'no-store');
+        return response;
+      }
+    } catch {
+      return new NextResponse('Unable to verify your staff session. Please reload.', { status: 503 });
+    }
   }
 
   if (PUBLIC_MODE) {

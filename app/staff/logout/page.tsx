@@ -17,6 +17,7 @@ export default function StaffLogoutPage() {
         // Ignore client sign-out errors and still clear cookie.
       }
       await fetch('/api/staff/session', { method: 'DELETE', cache: 'no-store' }).catch(() => {});
+      try { localStorage.setItem('staff-session-changed', String(Date.now())); } catch { /* Session polling also covers other tabs. */ }
       if (!cancelled) {
         router.replace('/staff/login');
         router.refresh();

@@ -4,8 +4,23 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { clearLocalStaffSession, getLocalStaffSessionByToken } from '@/lib/localStaffAuth';
 import { STAFF_ACCESS_COOKIE, STAFF_LOCAL_SESSION_COOKIE } from '@/lib/staffSession';
+import { getStaffIdentity } from '@/lib/staffContext';
+import { requireStaffAccess } from '@/lib/staffAuth';
 
 export const runtime = 'nodejs';
+
+export async function GET(req: Request) {
+  try {
+    const access = await requireStaffAccess(req);
+    if (!access.ok) return NextResponse.json({ ok: false, authType: 'none' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    const identity = await getStaffIdentity(req);
+    return NextResponse.json({ ok: true, authType: identity.authType }, {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Unable to verify staff session.' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+}
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 14;
 

@@ -72,7 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="color-scheme" content="dark light" />
       </head>
       <body className={`${IS_PUBLIC ? 'public' : ''} watermark`}>
-        {!IS_PUBLIC ? <StaffSessionRefresh /> : null}
+        <StaffSessionRefresh publicMode={IS_PUBLIC}>
         {!IS_PUBLIC ? (
           <NavGate>
             <Nav />
@@ -94,6 +94,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         ) : null}
 
         <main>{children}</main>
+        </StaffSessionRefresh>
       </body>
     </html>
   );
