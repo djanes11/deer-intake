@@ -1,5 +1,6 @@
 'use client';
 
+import { specialtyMeatLbs } from '@/lib/specialtyYield';
 import React from 'react';
 import type { CSSProperties } from 'react';
 import { specialtyBreakdown } from '@/lib/specialty';
@@ -121,9 +122,10 @@ export default function ButcherOverlay({
     webbsEnabled
   ).map((item) => `${item.name}${Number(item.price) > 0 ? ` (+$${Number(item.price).toFixed(2)})` : ''}`);
 
+  const specialtyRows = specialtyBreakdown(row as Record<string, any>).filter(item => item.pounds > 0);
   const specialtyTotalLbs = specialtyBreakdown(row as Record<string, any>)
     .filter((item) => item.pounds > 0)
-    .reduce((sum, item) => sum + Number(item.pounds || 0), 0);
+    .reduce((sum, item) => sum + specialtyMeatLbs(item, Number(item.pounds || 0)), 0);
 
   const webbsItemsRaw = get('Webbs Items', 'webbsItems');
   const webbsItemsText = (() => {
@@ -371,7 +373,8 @@ export default function ButcherOverlay({
                       color: '#fffbea',
                     }}
                   >
-                    {specialtyTotalLbs} lb
+                    {specialtyTotalLbs} lb meat needed
+                    <div style={{ fontSize: 18 }}>{specialtyRows.map(item => <div key={item.key}>{item.shortLabel}: {specialtyMeatLbs(item, item.pounds)} lb meat → {item.pounds} lb take-home</div>)}</div>
                   </div>
                 </div>
               ) : null}

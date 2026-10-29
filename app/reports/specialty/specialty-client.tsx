@@ -1,5 +1,6 @@
 'use client';
 
+import { specialtyMeatLbs } from '@/lib/specialtyYield';
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { patchJob, tokenHeader } from '@/lib/api';
@@ -809,9 +810,10 @@ export default function SpecialtyOrdersClient({
         </div>
       )}
 
+      <p>Summer sausage: 1 lb meat = approximately 1 lb take-home. Snack sticks: 2 lb meat = approximately 1 lb take-home. Prices, inventory, and batch weights use take-home pounds.</p>
       <div className="specialty-kpi-grid" style={styles.kpiGrid}>
         <div style={styles.card}>
-          <div style={styles.label}>Outstanding Lbs</div>
+          <div style={styles.label}>Outstanding Take-home Lbs</div>
           <div style={styles.value}>{outstandingAggregated.totalPounds.toFixed(1)} lb</div>
           <div style={styles.kpiHint}>Not finished yet</div>
         </div>
@@ -861,7 +863,7 @@ export default function SpecialtyOrdersClient({
             {visibleAggregated.items.map((item) => (
               <div key={item.slug} style={styles.orderLine}>
                 <span>{item.shortName || item.name}</span>
-                <span>{item.total.toFixed(1)} lb</span>
+                <span>{specialtyMeatLbs(item, item.total).toFixed(1)} lb meat → {item.total.toFixed(1)} lb take-home</span>
               </div>
             ))}
           </div>
@@ -900,7 +902,7 @@ export default function SpecialtyOrdersClient({
                       (r.specialtyItems || []).map((item) => (
                         <div key={`${r.tag}-${item.slug}`} className="specialty-mobile-order-row">
                           <span>{item.shortName || item.name}</span>
-                          <span>{n(item.quantity).toFixed(1)} lb</span>
+                          <span>{specialtyMeatLbs(item, n(item.quantity)).toFixed(1)} lb meat → {n(item.quantity).toFixed(1)} lb take-home</span>
                         </div>
                       ))
                     ) : (
@@ -908,7 +910,7 @@ export default function SpecialtyOrdersClient({
                     )}
                     <div className="specialty-mobile-total">
                       <span>Order total</span>
-                      <span>{rowPounds(r).toFixed(1)} lb</span>
+                      <span>{rowPounds(r).toFixed(1)} lb take-home</span>
                     </div>
                   </div>
                   {renderAction(r, true)}
@@ -964,7 +966,7 @@ export default function SpecialtyOrdersClient({
                               (r.specialtyItems || []).map((item) => (
                                 <div key={item.slug} style={styles.orderLine}>
                                   <span>{item.shortName || item.name}</span>
-                                  <span>{n(item.quantity).toFixed(1)} lb</span>
+                                  <span>{specialtyMeatLbs(item, n(item.quantity)).toFixed(1)} lb meat → {n(item.quantity).toFixed(1)} lb take-home</span>
                                 </div>
                               ))
                             ) : (
@@ -972,7 +974,7 @@ export default function SpecialtyOrdersClient({
                             )}
                             <div style={styles.orderTotal}>
                               <span>Order total</span>
-                              <span>{rowPounds(r).toFixed(1)} lb</span>
+                              <span>{rowPounds(r).toFixed(1)} lb take-home</span>
                             </div>
                           </div>
                         </td>

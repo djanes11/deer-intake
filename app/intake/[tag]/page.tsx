@@ -1,4 +1,5 @@
 // app/intake/[tag]/page.tsx — public read-only view (no actions)
+import { specialtyMeatLbs } from '@/lib/specialtyYield';
 import 'server-only';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -439,7 +440,7 @@ export default async function IntakeView({
                 <>
                   {specialtyItems.map((item) => (
                     <div className="c4" style={{gridColumn:'span 4'}} key={item.key}>
-                      <Field label={item.label} value={`${item.pounds} lb`} />
+                      <Field label={item.label} value={`${specialtyMeatLbs(item, item.pounds)} lb meat → ${item.pounds} lb take-home`} />
                     </div>
                   ))}
                 </>

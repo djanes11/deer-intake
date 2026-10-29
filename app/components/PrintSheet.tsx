@@ -1,4 +1,5 @@
 'use client';
+import { specialtyMeatLbs } from '@/lib/specialtyYield';
 import React, { useEffect, useMemo, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import {
@@ -624,7 +625,7 @@ return () => {
           </div>
 
           <div className="col-9 box attentionBox specialtyDetailBox">
-            <div className="label">Specialty Detail (lb)</div>
+            <div className="label">Specialty — meat needed / take-home (charged)</div>
             <div className="val attentionValue">
               <div className="specRow">
                 <div className="specLine">
@@ -632,14 +633,14 @@ return () => {
                     specialtyDisplayItems.map((item, idx) => (
                       <span key={item.key}>
                         {idx > 0 ? ' | ' : ''}
-                        <b>{item.shortLabel}:</b> {item.pounds || ''}
+                        <b>{item.shortLabel}:</b> {specialtyMeatLbs(item, item.pounds)} lb meat → {item.pounds} lb take-home
                       </span>
                     ))
                   ) : (
                     <span>Specialty products selected</span>
                   )}
                 </div>
-                <div className="specTotal"><b>Total lbs:</b> {specialtyLbs || ''}</div>
+                <div className="specTotal"><b>Total take-home lbs:</b> {specialtyLbs || ''}</div>
               </div>
             </div>
           </div>

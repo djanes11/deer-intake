@@ -1,5 +1,7 @@
 'use client';
 
+import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
+import { specialtyTakeHomeLbs, specialtyMeatLbs } from '@/lib/specialtyYield';
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob, tokenHeader } from '@/lib/api';
@@ -670,8 +672,8 @@ function IntakePage() {
   const requiresHuntingLicense = stateFormType === 'michigan';
 
   const setSpecialtyQuantity = (slug: string, rawValue: string) => {
-    const quantity = toInt(rawValue);
     const catalogItem = activeSpecialtyCatalog.find((item) => item.slug === slug);
+    const quantity = catalogItem ? specialtyTakeHomeLbs(catalogItem, toInt(rawValue)) : 0;
     setJob((prev) => {
       const nextItems = normalizeJobSpecialtyItems((prev as any).specialtyItems).filter((item) => item.slug !== slug);
       if (catalogItem && quantity > 0) {
@@ -924,7 +926,7 @@ useEffect(() => {
     const parts: string[] = [];
     if (specialtyItems.length) parts.push(`${specialtyItems.length} products`);
     if (specialtyItems.length) {
-      parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} lb total`);
+      parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} take-home lb total`);
     }
     if (specialtyPriceUsed) parts.push(`$${specialtyPriceUsed.toFixed(2)}`);
     return parts.length ? parts.join(' | ') : 'Specialty products selected';
@@ -2239,14 +2241,14 @@ useEffect(() => {
                     </div>
                     <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                       <span className="badge">Products: {specialtyItems.length || 0}</span>
-                      <span className="badge">Total lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
+                      <span className="badge">Take-home lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
                     </div>
                   </div>
                   {specialtyItems.length > 0 ? (
                     <div className="webbsSummaryList">
                       {specialtyItems.map((item) => (
                         <div key={item.key} className="webbsSummaryLine">
-                          {item.label}: {item.pounds} lb
+                          {item.label}: {specialtyMeatLbs(item, item.pounds)} lb meat → {item.pounds} lb take-home
                         </div>
                       ))}
                     </div>
@@ -2620,32 +2622,11 @@ useEffect(() => {
             <div className="webbsModalBody">
               <div>
                 <div className="webbsGroupTitle">Processor Specialty Catalog</div>
-                <div className="webbsWorksheet">
-                  <div className="webbsWorksheetHead">
-                    <div>Product</div>
-                    <div>Lb</div>
-                  </div>
-                  {activeSpecialtyCatalog.map((item) => (
-                    <div key={item.slug} className="webbsWorksheetRow">
-                      <div className="webbsWorksheetLabel">
-                        {item.name}
-                        <div className="muted" style={{ marginTop: 4 }}>
-                          ${Number(item.price ?? 0).toFixed(2)}/lb
-                        </div>
-                      </div>
-                      <input
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={String(
-                          normalizeJobSpecialtyItems((job as any).specialtyItems).find((entry) => entry.slug === item.slug)?.quantity ??
-                            ((item.legacyFieldKey ? (job as any)[item.legacyFieldKey] : '') || '')
-                        )}
-                        onChange={(e) => setSpecialtyQuantity(item.slug, e.target.value)}
-                        placeholder="0"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <SpecialtyQuantityFields
+                  items={activeSpecialtyCatalog}
+                  quantity={(item) => Number(normalizeJobSpecialtyItems((job as any).specialtyItems).find(entry => entry.slug === item.slug)?.quantity ?? (item.legacyFieldKey ? (job as any)[item.legacyFieldKey] : 0)) || 0}
+                  onChange={setSpecialtyQuantity}
+                />
               </div>
             </div>
 

@@ -1,6 +1,8 @@
 // app/(public)/overnight/page.tsx
 'use client';
 
+import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
+import { specialtyTakeHomeLbs, specialtyMeatLbs } from '@/lib/specialtyYield';
 import { Fragment, useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
@@ -495,7 +497,7 @@ function OvernightIntakePage() {
     const parts: string[] = [];
     if (specialtyItems.length) parts.push(`${specialtyItems.length} products`);
     if (specialtyItems.length) {
-      parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} lb total`);
+      parts.push(`${specialtyItems.reduce((sum, item) => sum + item.pounds, 0)} take-home lb total`);
     }
     if (specialtyPrice) parts.push(`$${specialtyPrice.toFixed(2)}`);
     return parts.length ? parts.join(' | ') : 'Specialty products selected';
@@ -998,8 +1000,8 @@ function OvernightIntakePage() {
 
   const setSpecialtyQuantity = (slug: string, rawValue: string) => {
     if (locked) return;
-    const quantity = toInt(rawValue);
     const catalogItem = activeSpecialtyCatalog.find((item) => item.slug === slug);
+    const quantity = catalogItem ? specialtyTakeHomeLbs(catalogItem, toInt(rawValue)) : 0;
     setJob((prev) => {
       const nextItems = normalizeJobSpecialtyItems((prev as any).specialtyItems).filter((item) => item.slug !== slug);
       if (catalogItem && quantity > 0) {
@@ -1828,14 +1830,14 @@ function OvernightIntakePage() {
                           </div>
                           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                             <span className="badge">Products: {specialtyItems.length || 0}</span>
-                            <span className="badge">Total lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
+                            <span className="badge">Take-home lbs: {specialtyItems.reduce((sum, item) => sum + item.pounds, 0) || 0}</span>
                           </div>
                         </div>
                         {specialtyItems.length > 0 ? (
                           <div className="webbsSummaryList">
                             {specialtyItems.map((item) => (
                               <div key={item.key} className="webbsSummaryLine">
-                                {item.label}: {item.pounds} lb
+                                {item.label}: {specialtyMeatLbs(item, item.pounds)} lb meat → {item.pounds} lb take-home
                               </div>
                             ))}
                           </div>
@@ -2094,7 +2096,7 @@ function OvernightIntakePage() {
                   {specialtyEnabled && job.specialtyProducts && specialtyItems.length > 0 ? (
                     <div className="reviewList">
                       {specialtyItems.map((item) => (
-                        <div key={item.key} className="reviewListItem">{item.label.replace(' (lb)', '')}: {item.pounds} lb</div>
+                        <div key={item.key} className="reviewListItem">{item.label.replace(' (lb)', '')}: {specialtyMeatLbs(item, item.pounds)} lb meat → {item.pounds} lb take-home</div>
                       ))}
                     </div>
                   ) : null}
@@ -2200,33 +2202,11 @@ function OvernightIntakePage() {
             <div className="webbsModalBody">
               <div>
                 <div className="webbsGroupTitle">Processor Specialty Catalog</div>
-                <div className="webbsWorksheet">
-                  <div className="webbsWorksheetHead">
-                    <div>Product</div>
-                    <div>Lb</div>
-                  </div>
-                  {activeSpecialtyCatalog.map((item) => (
-                    <div key={item.slug} className="webbsWorksheetRow">
-                      <div className="webbsWorksheetLabel">
-                        {item.name}
-                        <div className="muted" style={{ marginTop: 4 }}>
-                          ${Number(item.price ?? 0).toFixed(2)}/lb
-                        </div>
-                      </div>
-                      <div>
-                        <input
-                          inputMode="numeric"
-                          value={String(
-                            normalizeJobSpecialtyItems((job as any).specialtyItems).find((entry) => entry.slug === item.slug)?.quantity ??
-                              ((item.legacyFieldKey ? (job as any)[item.legacyFieldKey] : '') || '')
-                          )}
-                          onChange={(e) => setSpecialtyQuantity(item.slug, e.target.value)}
-                          placeholder="lb"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <SpecialtyQuantityFields
+                  items={activeSpecialtyCatalog}
+                  quantity={(item) => Number(normalizeJobSpecialtyItems((job as any).specialtyItems).find(entry => entry.slug === item.slug)?.quantity ?? (item.legacyFieldKey ? (job as any)[item.legacyFieldKey] : 0)) || 0}
+                  onChange={setSpecialtyQuantity}
+                />
               </div>
             </div>
           </div>

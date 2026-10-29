@@ -1,4 +1,5 @@
 'use client';
+import { specialtyMeatLbs } from '@/lib/specialtyYield';
 import { Suspense } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -98,7 +99,7 @@ function ButcherIntakeInner() {
     if (job.webbsOrder) items.push(`Webbs: ${job.webbsPounds ? `${job.webbsPounds} lb entered` : 'Order on file'}`);
     const specialtyLines = specialtyBreakdown(job as any)
       .filter((item) => Number(item.pounds || 0) > 0)
-      .map((item) => `${item.shortLabel || item.label}: ${Number(item.pounds || 0)} lb`);
+      .map((item) => `${item.shortLabel || item.label}: ${specialtyMeatLbs(item, Number(item.pounds || 0))} lb meat → ${Number(item.pounds || 0)} lb take-home`);
     const specTotal = specialtyTotalLbs(job as any);
     if (specialtyLines.length) items.push(`Specialty: ${specialtyLines.join(', ')}`);
     else if (job.specialtyProducts || specTotal > 0) items.push(`Specialty total: ${specTotal} lb`);
