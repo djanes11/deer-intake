@@ -1,7 +1,7 @@
 'use client';
 
 import type { SpecialtyCatalogItem } from '@/lib/specialtyCatalog';
-import { specialtyMeatLbs, specialtyMeatRatio, SPECIALTY_YIELD_NOTICE } from '@/lib/specialtyYield';
+import { specialtyMeatLbs, specialtyMeatRatio, specialtyQuantityError, SPECIALTY_YIELD_NOTICE } from '@/lib/specialtyYield';
 
 export default function SpecialtyQuantityFields({ items, quantity, onChange }: {
   items: SpecialtyCatalogItem[];
@@ -15,7 +15,7 @@ export default function SpecialtyQuantityFields({ items, quantity, onChange }: {
         <thead><tr><th style={{ textAlign: 'left' }}>Product</th><th>Approx. meat lb needed</th><th>Take-home lb</th></tr></thead>
         <tbody>{items.map(item => <tr key={item.slug}>
           <td style={{ padding: '12px 6px' }}>{item.name}<div className="muted">${item.price.toFixed(2)}/take-home lb</div><small>{specialtyMeatRatio(item)} lb meat → 1 lb take-home</small></td>
-          <td style={{ padding: 6, width: '28%' }}><input type="number" min="0" step="1" inputMode="numeric" aria-label={`${item.name}: approx. meat lb needed`} value={specialtyMeatLbs(item, quantity(item)) || ''} onChange={e => onChange(item.slug, e.target.value)} placeholder="0" style={{ width: '100%', minWidth: 60 }} /></td>
+          <td style={{ padding: 6, width: '28%' }}><input type="number" min="0" step={specialtyMeatRatio(item)} inputMode="numeric" aria-invalid={!!specialtyQuantityError(item, quantity(item))} aria-label={`${item.name}: approx. meat lb needed`} value={specialtyMeatLbs(item, quantity(item)) || ''} onChange={e => onChange(item.slug, e.target.value)} placeholder="0" style={{ width: '100%', minWidth: 60 }} />{specialtyQuantityError(item, quantity(item)) ? <small role="alert" style={{ display: 'block', color: '#b91c1c' }}>{specialtyQuantityError(item, quantity(item))}</small> : null}</td>
           <td style={{ textAlign: 'center', fontWeight: 700 }}><output aria-label={`${item.name}: take-home lb`}>{quantity(item)}</output></td>
         </tr>)}</tbody>
       </table>

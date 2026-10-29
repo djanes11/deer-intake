@@ -1,3 +1,4 @@
+import { specialtyQuantityError } from '@/lib/specialtyYield';
 // lib/jobsSupabase.ts
 import { getSupabaseServer } from './supabaseClient';
 import { resolveOrderPrices } from './orderPrices';
@@ -2511,6 +2512,10 @@ export async function saveJob(job: Partial<Job>, options?: { processorContext?: 
               })
               .filter((item) => item.quantity > 0)
           : []);
+  for (const item of specialtyItems) {
+    const error = specialtyQuantityError(item, item.quantity);
+    if (error) throw new JobWriteError(error, 400);
+  }
   const computedSpecialtyPrice = calcSpecialtyPriceFromLbs(effectiveJob, pricing);
   const specialtyTotals = specialtyLegacyValues(specialtyItems);
 

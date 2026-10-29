@@ -2,7 +2,7 @@
 'use client';
 
 import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
-import { specialtyTakeHomeLbs, specialtyMeatLbs } from '@/lib/specialtyYield';
+import { specialtyTakeHomeLbs, specialtyMeatLbs, specialtyQuantityError } from '@/lib/specialtyYield';
 import { Fragment, useCallback, useEffect, useMemo, useState, Suspense } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import { Hint } from '@/app/intake/overnight/_ux_upgrades';
@@ -726,6 +726,10 @@ function OvernightIntakePage() {
 
   const validateAll = (): Record<string, string> => {
     const e: Record<string, string> = {};
+    if (job.specialtyProducts) for (const item of specialtyItems) {
+      const error = specialtyQuantityError(item, item.quantity);
+      if (error) e.specialtyItems = error;
+    }
 
     // Customer (everything required except email)
     const confirmationError = validateConfirmation(String(job.confirmation || ''), identifierSettings);
@@ -771,7 +775,7 @@ function OvernightIntakePage() {
     if (k === 'customer') ['confirmation','customer','phone','address','city','state','zip'].forEach(pick);
     if (k === 'hunt') ['county', 'dropoff', 'sex', 'howKilled', 'processType'].forEach(pick);
     if (k === 'cuts') ['hindRoastCount', 'frontRoastCount'].forEach(pick);
-    if (k === 'extras') ['email', 'smsConsent', 'webbsItems'].forEach(pick);
+    if (k === 'extras') ['email', 'smsConsent', 'webbsItems', 'specialtyItems'].forEach(pick);
     if (k === 'review') Object.assign(e, all);
     return e;
   };
@@ -1001,7 +1005,7 @@ function OvernightIntakePage() {
   const setSpecialtyQuantity = (slug: string, rawValue: string) => {
     if (locked) return;
     const catalogItem = activeSpecialtyCatalog.find((item) => item.slug === slug);
-    const quantity = catalogItem ? specialtyTakeHomeLbs(catalogItem, toInt(rawValue)) : 0;
+    const quantity = catalogItem ? specialtyTakeHomeLbs(catalogItem, Math.max(0, Number(rawValue) || 0)) : 0;
     setJob((prev) => {
       const nextItems = normalizeJobSpecialtyItems((prev as any).specialtyItems).filter((item) => item.slug !== slug);
       if (catalogItem && quantity > 0) {

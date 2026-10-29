@@ -1,7 +1,7 @@
 'use client';
 
 import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
-import { specialtyTakeHomeLbs, specialtyMeatLbs } from '@/lib/specialtyYield';
+import { specialtyTakeHomeLbs, specialtyMeatLbs, specialtyQuantityError } from '@/lib/specialtyYield';
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { saveJob, getJob, tokenHeader } from '@/lib/api';
@@ -673,7 +673,7 @@ function IntakePage() {
 
   const setSpecialtyQuantity = (slug: string, rawValue: string) => {
     const catalogItem = activeSpecialtyCatalog.find((item) => item.slug === slug);
-    const quantity = catalogItem ? specialtyTakeHomeLbs(catalogItem, toInt(rawValue)) : 0;
+    const quantity = catalogItem ? specialtyTakeHomeLbs(catalogItem, Math.max(0, Number(rawValue) || 0)) : 0;
     setJob((prev) => {
       const nextItems = normalizeJobSpecialtyItems((prev as any).specialtyItems).filter((item) => item.slug !== slug);
       if (catalogItem && quantity > 0) {
@@ -1041,6 +1041,10 @@ useEffect(() => {
 
   const validate = (): string[] => {
     const missing: string[] = [];
+    if (job.specialtyProducts) for (const item of specialtyItems) {
+      const error = specialtyQuantityError(item, item.quantity);
+      if (error) missing.push(error);
+    }
     const tagError = validateTag(String(job.tag || ''), identifierSettings);
     if (tagError) missing.push(tagError);
     const confirmationError = validateConfirmation(String(job.confirmation || ''), identifierSettings);

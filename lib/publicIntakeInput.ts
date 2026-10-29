@@ -1,3 +1,4 @@
+import { specialtyQuantityError } from '@/lib/specialtyYield';
 import { normalizeAddOnCatalog, normalizeProcessCatalog, resolveProcessType, processTypeAllowedForSex } from '@/lib/processorCatalog';
 import type { PublicSiteSettings } from '@/lib/siteSettings';
 import { normalizeWebbsOrderItems, normalizeWebbsAllocations, webbsOrderTotalLbs } from '@/lib/webbs';
@@ -47,6 +48,8 @@ export function publicIntakeInput(raw: Record<string, any>, settings: PublicSite
       const selection = submitted.find((entry: any) => entry?.slug === item.slug);
       const quantity = Number(selection ? selection.quantity : item.legacyFieldKey ? raw[item.legacyFieldKey] || 0 : 0);
       if (!Number.isFinite(quantity) || quantity < 0) throw new Error('Specialty pounds must be a valid non-negative number.');
+      const quantityError = specialtyQuantityError(item, quantity);
+      if (quantityError) throw new Error(quantityError);
       if (quantity > 0) job.specialtyItems.push({
         catalogId: item.id ?? null, slug: item.slug, name: item.name, shortName: item.shortName,
         unit: item.unit, priceType: item.priceType, quantity, pricePerUnit: item.price,
