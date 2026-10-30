@@ -2441,6 +2441,21 @@ a[x-apple-data-detectors], a[href^="tel:"], a[href^="mailto:"], a[href^="sms:"] 
   }
 }
 
+.printsheet .specialtySaveTitle { font-size: 12px; font-weight: 900; line-height: 1.1; }
+.printsheet .specialtySaveAmount { font-size: 30px; font-weight: 950; line-height: 1.1; margin: 4px 0; }
+.printsheet .specialtySaveHint { font-size: 9px; font-weight: 700; line-height: 1.15; margin-top: 3px; }
+.printsheet .specialtySaveTable { width: 100%; border-collapse: collapse; font-size: 11px; line-height: 1.15; }
+.printsheet .specialtySaveTable th, .printsheet .specialtySaveTable td { padding: 2px 4px; text-align: left; }
+.printsheet .specialtySaveTable th { border-bottom: 1px solid #111; }
+.printsheet .specialtySaveTable td:nth-child(2), .printsheet .specialtySaveTable th:nth-child(2) { background: #eee; font-weight: 900; white-space: nowrap; }
+.printsheet .specialtySaveTable td:last-child { color: #444; white-space: nowrap; }
+.printsheet .specialtySaveTable tfoot { border-top: 1px solid #111; }
+@media print {
+  .printsheet .specialtySaveTable { font-size: 10.6px !important; line-height: 1.08 !important; }
+  .printsheet .specialtySaveTable th, .printsheet .specialtySaveTable td { padding: 1px 3px !important; }
+  .printsheet .specialtySaveAmount { font-size: 28px !important; }
+}
+
 /* === PRINTSHEET ONE-PAGE LOCK ===
    Final override for shop printing: one intake sheet per letter page, even for
    long notes, specialty, or Webbs-heavy orders. */

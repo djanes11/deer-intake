@@ -618,31 +618,20 @@ return () => {
       {hasSpecialty ? (
         <div className="row grid12 meat-row">
           <div className="col-3 box attentionBox specialtyFlagBox">
-            <div className="label">Specialty Products</div>
-            <div className="val attentionValue">
-              <strong className="check">{CHK}</strong> SPECIALTY ORDER
-            </div>
+            <div className="label">Save meat for</div>
+            <div className="specialtySaveTitle">IN-HOUSE SPECIALTY</div>
+            <div className="specialtySaveAmount">{specialtyDisplayItems.reduce((sum, item) => sum + specialtyMeatLbs(item, item.pounds), 0)} LB</div>
+            <div className="specialtySaveHint">TOTAL MEAT TO SET ASIDE</div>
           </div>
-
           <div className="col-9 box attentionBox specialtyDetailBox">
-            <div className="label">Specialty — meat needed / take-home (charged)</div>
-            <div className="val attentionValue">
-              <div className="specRow">
-                <div className="specLine">
-                  {specialtyDisplayItems.length ? (
-                    specialtyDisplayItems.map((item, idx) => (
-                      <span key={item.key}>
-                        {idx > 0 ? ' | ' : ''}
-                        <b>{item.shortLabel}:</b> {specialtyMeatLbs(item, item.pounds)} lb meat → {item.pounds} lb take-home
-                      </span>
-                    ))
-                  ) : (
-                    <span>Specialty products selected</span>
-                  )}
-                </div>
-                <div className="specTotal"><b>Total take-home lbs:</b> {specialtyLbs || ''}</div>
-              </div>
-            </div>
+            <table className="specialtySaveTable">
+              <thead><tr><th>Product</th><th>Meat to save</th><th>Take-home</th></tr></thead>
+              <tbody>{specialtyDisplayItems.map(item => (
+                <tr key={item.key}><td>{item.label}</td><td><strong>{specialtyMeatLbs(item, item.pounds)} lb</strong></td><td>{item.pounds} lb</td></tr>
+              ))}</tbody>
+              <tfoot><tr><th>Total</th><td><strong>{specialtyDisplayItems.reduce((sum, item) => sum + specialtyMeatLbs(item, item.pounds), 0)} lb</strong></td><td>{specialtyLbs} lb</td></tr></tfoot>
+            </table>
+            <div className="specialtySaveHint">Meat to save is for in-house specialty only. Webb’s is separate.</div>
           </div>
         </div>
       ) : null}
