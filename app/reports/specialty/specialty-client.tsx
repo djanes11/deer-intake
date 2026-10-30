@@ -580,7 +580,7 @@ export default function SpecialtyOrdersClient({
   const saveInventory = async (row: { slug: string; name: string }, action: 'batch' | 'waste') => {
     const quantity = n(inventoryInputs[row.slug]);
     if (!quantity || quantity <= 0) {
-      setErr('Enter pounds greater than zero.');
+      setErr('Enter finished-product pounds greater than zero.');
       return;
     }
 
@@ -656,11 +656,13 @@ export default function SpecialtyOrdersClient({
       : !inventoryActive
         ? 'Run the specialty inventory SQL before changing stock.'
         : quantity <= 0
-          ? 'Enter pounds first.'
+          ? 'Enter finished-product pounds first.'
           : '';
 
     return (
       <div style={styles.inventoryActions}>
+        <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+          Finished-product lb
         <input
           type="number"
           inputMode="decimal"
@@ -671,16 +673,17 @@ export default function SpecialtyOrdersClient({
           disabled={!canUpdate || !inventoryActive || !!busyInventory}
           onChange={(event) => setInventoryInput(row.slug, event.target.value)}
           style={styles.input}
-          aria-label={`Pounds for ${row.name}`}
+          aria-label={`Finished-product lb for ${row.name}`}
         />
+        </label>
         <button
           type="button"
           onClick={() => saveInventory(row, 'batch')}
           disabled={baseDisabled}
-          title={disabledTitle || `Add ${row.name} to stock`}
+          title={disabledTitle || `Add finished ${row.name} to stock`}
           style={baseDisabled ? styles.btnOff : styles.btn}
         >
-          {addBusy ? 'Adding...' : 'Add Batch'}
+          {addBusy ? 'Adding...' : 'Add finished product'}
         </button>
         <button
           type="button"
@@ -697,6 +700,7 @@ export default function SpecialtyOrdersClient({
 
   const renderInventoryView = () => (
     <>
+      <p style={styles.msg}>Enter finished-product weight here, not meat supplied. All inventory amounts below are finished-product pounds.</p>
       {inventoryNotice ? <div style={styles.warn}>{inventoryNotice}</div> : null}
       {refreshError ? <div style={styles.warn}>Inventory refresh failed: {refreshError}</div> : null}
       {lastRefreshedAt ? (
@@ -715,7 +719,7 @@ export default function SpecialtyOrdersClient({
                 <thead>
                   <tr>
                     <th style={styles.th}>Product</th>
-                    <th style={styles.th}>In Stock</th>
+                    <th style={styles.th}>Finished product in stock</th>
                     <th style={styles.th}>Outstanding</th>
                     <th style={styles.th}>After Open Orders</th>
                     <th style={styles.th}>Finished / Pickup</th>
@@ -810,10 +814,10 @@ export default function SpecialtyOrdersClient({
         </div>
       )}
 
-      <p>Summer sausage: 1 lb meat = approximately 1 lb take-home. Snack sticks: 2 lb meat = approximately 1 lb take-home. Prices, inventory, and batch weights use take-home pounds.</p>
+      <p>Summer sausage: 1 lb meat = approximately 1 lb take-home. Snack sticks: 2 lb meat = approximately 1 lb take-home. Meat needed is the estimated meat to set aside. Customer receives is the take-home quantity used for pricing. Inventory tracks finished product.</p>
       <div className="specialty-kpi-grid" style={styles.kpiGrid}>
         <div style={styles.card}>
-          <div style={styles.label}>Outstanding Take-home Lbs</div>
+          <div style={styles.label}>Take-home lb still to prepare</div>
           <div style={styles.value}>{outstandingAggregated.totalPounds.toFixed(1)} lb</div>
           <div style={styles.kpiHint}>Not finished yet</div>
         </div>
@@ -863,7 +867,7 @@ export default function SpecialtyOrdersClient({
             {visibleAggregated.items.map((item) => (
               <div key={item.slug} style={styles.orderLine}>
                 <span>{item.shortName || item.name}</span>
-                <span>{specialtyMeatLbs(item, item.total).toFixed(1)} lb meat → {item.total.toFixed(1)} lb take-home</span>
+                <span style={{ textAlign: 'right' }}>Meat needed: <strong>{specialtyMeatLbs(item, item.total).toFixed(1)} lb</strong><br />Customers receive: <strong>{item.total.toFixed(1)} lb</strong></span>
               </div>
             ))}
           </div>
@@ -902,7 +906,7 @@ export default function SpecialtyOrdersClient({
                       (r.specialtyItems || []).map((item) => (
                         <div key={`${r.tag}-${item.slug}`} className="specialty-mobile-order-row">
                           <span>{item.shortName || item.name}</span>
-                          <span>{specialtyMeatLbs(item, n(item.quantity)).toFixed(1)} lb meat → {n(item.quantity).toFixed(1)} lb take-home</span>
+                          <span style={{ textAlign: 'right' }}>Meat needed: <strong>{specialtyMeatLbs(item, n(item.quantity)).toFixed(1)} lb</strong><br />Customer receives: <strong>{n(item.quantity).toFixed(1)} lb</strong></span>
                         </div>
                       ))
                     ) : (
@@ -966,7 +970,7 @@ export default function SpecialtyOrdersClient({
                               (r.specialtyItems || []).map((item) => (
                                 <div key={item.slug} style={styles.orderLine}>
                                   <span>{item.shortName || item.name}</span>
-                                  <span>{specialtyMeatLbs(item, n(item.quantity)).toFixed(1)} lb meat → {n(item.quantity).toFixed(1)} lb take-home</span>
+                                  <span style={{ textAlign: 'right' }}>Meat needed: <strong>{specialtyMeatLbs(item, n(item.quantity)).toFixed(1)} lb</strong><br />Customer receives: <strong>{n(item.quantity).toFixed(1)} lb</strong></span>
                                 </div>
                               ))
                             ) : (
