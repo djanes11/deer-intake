@@ -1,9 +1,11 @@
 'use client';
 
+import TagPrintControls from '@/app/components/TagPrintControls';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
-import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
 import { getJob, patchJob, searchJobs, tokenHeader } from '@/lib/api';
@@ -1182,11 +1184,9 @@ export default function SearchPage() {
                         <span>{selectedJob.intakeSheetPrintCount ? `${selectedJob.intakeSheetPrintCount} printed` : 'Labels and reprint tools'}</span>
                       </summary>
                       <div className="printOptionsList">
-                        {canPrintAntlerLabel(selectedJob) ? (
-                          <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>
-                            Antler Tag
-                          </button>
-                        ) : null}
+                        <TagPrintControls job={selectedJob} disabled={!selectedTag || printing === selectedTag} brandingName={brandingName}
+                          prepareJob={async () => { const result = await getJob(selectedTag); if (!result?.job) throw new Error('Could not load the saved intake.'); return result.job; }}
+                          onBrowserPrint={kind => printLabel(selectedTag, kind)} />
                         {canEdit && selectedJob?.intakeSheetPrintedAt ? (
                           <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>
                             Mark Unprinted

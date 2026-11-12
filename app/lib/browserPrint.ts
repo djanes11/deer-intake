@@ -575,4 +575,13 @@ body {
   height: 20mm;
   flex: 0 0 100%;
 }
+
+        @page thermal-label-meat { size: 2in 1in; margin: 0; }
+        .thermalLabelRoot--deer { width: 2in !important; height: 1in !important; page: thermal-label-meat; }
+        .meatLabel { width: 2in; height: 1in; padding: 1.5mm 2mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 1mm; color: #000; background: #fff; font-family: Arial, sans-serif; overflow: hidden; }
+        .meatLabel__name { font-size: 11pt; line-height: 1.05; font-weight: 700; overflow-wrap: anywhere; }
+        .meatLabel__name.thermalLabel__fieldValue--small { font-size: 9pt; }
+        .meatLabel__name.thermalLabel__fieldValue--tiny { font-size: 8pt; }
+        .meatLabel__tag { font-size: 16pt; line-height: 1; font-weight: 900; }
+        .meatLabel__phone { font-size: 11pt; line-height: 1; }
 `;

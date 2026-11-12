@@ -1,8 +1,10 @@
 'use client';
 
+import TagPrintControls from '@/app/components/TagPrintControls';
+
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
-import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -376,11 +378,9 @@ export default function MissingTagsPage() {
                 <button className="btn" onClick={() => printAssignedSheet(selectedTag)} disabled={!!printing}>
                   {printing === selectedTag ? 'Preparing Print...' : 'Print Full Sheet'}
                 </button>
-                {canPrintAntlerLabel(selectedJob) ? (
-                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'antler')} disabled={!!printing}>
-                    Antler Tag
-                  </button>
-                ) : null}
+                <TagPrintControls job={selectedJob} disabled={!!printing || !selectedTag} brandingName={brandingName}
+                  prepareJob={async () => { const result = await fetchJobFromApi(selectedTag); if (!result?.job) throw new Error('Could not load the saved intake.'); return result.job; }}
+                  onBrowserPrint={kind => printAssignedLabel(selectedTag, kind)} />
               </div>
             </div>
             <div style={{ fontSize: 13, opacity: 0.72 }}>
