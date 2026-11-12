@@ -1,5 +1,6 @@
 'use client';
 
+import TagCorrection from '@/app/components/TagCorrection';
 import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
 import { specialtyTakeHomeLbs, specialtyMeatLbs, specialtyQuantityError } from '@/lib/specialtyYield';
 import { Fragment, useEffect, useMemo, useState, useRef, Suspense } from 'react';
@@ -1475,13 +1476,14 @@ useEffect(() => {
           </div>
         ) : null}
 
-        <fieldset disabled={!canEdit} style={{ display: 'contents', margin: 0, padding: 0, border: 0 }}>
+        <fieldset disabled={!canEdit || busy} style={{ display: 'contents', margin: 0, padding: 0, border: 0 }}>
         <div className="summary">
           <div className="row">
             <div className="col tagCol">
               <label>{identifierSettings.tagLabel}</label>
               <input
                 className="tagInput"
+                readOnly={!!job.id}
                 ref={tagRef}
                 value={job.tag || ''}
                 inputMode={tagInputMode(identifierSettings)}
@@ -1490,6 +1492,10 @@ useEffect(() => {
                 placeholder={identifierSettings.startingTagNumber || identifierSettings.tagPlaceholder}
               />
               <div className="muted" style={{ fontSize: 12 }}>{identifierSettings.tagLabel}</div>
+              {staffRole === 'admin' && job.id && job.updatedAt ? (
+                <TagCorrection key={job.id + job.tag} job={{ id: job.id, tag: job.tag || '', updatedAt: job.updatedAt }} identifiers={identifierSettings} disabled={dirty || busy} onBusyChange={setBusy} />
+              ) : null}
+              {sp.get('tagCorrected') === '1' ? <p role="status" style={{ fontWeight: 700 }}>Tag corrected. Reprint the intake and replace all labels before scanning this deer.</p> : null}
             </div>
 
             <div className="col price">
