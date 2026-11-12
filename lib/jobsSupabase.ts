@@ -1,3 +1,4 @@
+import { sendCheckinEmailOnce } from '@/lib/checkinEmailDelivery';
 import { specialtyQuantityError } from '@/lib/specialtyYield';
 // lib/jobsSupabase.ts
 import { getSupabaseServer } from './supabaseClient';
@@ -632,7 +633,7 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
   if (!shouldSendEmailNotification(row) || alreadyStamped) return;
 
   const token = await ensurePublicToken(supabaseServer, row);
-  const { data: locked } = await withProcessorFilter(
+  const { data: locked, error: readError } = await withProcessorFilter(
     supabaseServer
     .from('jobs')
     .select('id, processor_id, tag, email, customer_name, public_token')
@@ -641,6 +642,7 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
     row?.processor_id ? String(row.processor_id) : null
   ).maybeSingle();
 
+  if (readError) throw readError;
   if (!locked) return;
 
   const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
@@ -657,14 +659,14 @@ async function trySendDropoffEmail(supabaseServer: any, row: any) {
     notificationTemplates: branding.notificationTemplates,
   });
 
-  await sendEmail({
+  const sent = await sendCheckinEmailOnce(supabaseServer, locked, () => sendEmail({
     to: String(locked.email),
     subject: tpl.subject,
     html: tpl.html,
     text: tpl.text,
-  });
+  }));
 
-  await stampNotificationField(supabaseServer, locked, 'dropoff_email_sent_at');
+  if (sent) await stampNotificationField(supabaseServer, locked, 'dropoff_email_sent_at');
 }
 
 async function trySendDropoffSms(supabaseServer: any, row: any) {

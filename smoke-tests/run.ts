@@ -11,6 +11,7 @@ import { run as runReadiness } from './readiness.test.ts';
 import { run as runPublicSpecialtyPrint } from './public-specialty-print.test.ts';
 import { run as runStaffSessionGuard } from './staff-session-guard.test.ts';
 import { run as runTagCorrection } from './tag-correction.test.ts';
+import { run as runCheckinEmail } from './checkin-email.test.ts';
 
 const suites = [
   ['identifiers', runIdentifiers],
@@ -26,6 +27,7 @@ const suites = [
   ['public specialty printing', runPublicSpecialtyPrint],
   ['staff session guard', runStaffSessionGuard],
   ['admin tag correction', runTagCorrection],
+  ['check-in email deduplication', runCheckinEmail],
 ] as const;
 
 for (const [label, fn] of suites) {
