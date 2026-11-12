@@ -1,3 +1,4 @@
+import { run as runPickupQueue } from './pickup-queue.test.ts';
 import { run as runIdentifiers } from './identifiers.test.ts';
 import { run as runSiteSettings } from './site-settings.test.ts';
 import { run as runProcessorCatalog } from './processor-catalog.test.ts';
@@ -14,6 +15,7 @@ import { run as runTagCorrection } from './tag-correction.test.ts';
 import { run as runCheckinEmail } from './checkin-email.test.ts';
 
 const suites = [
+  ['pickup queue', runPickupQueue],
   ['identifiers', runIdentifiers],
   ['site settings', runSiteSettings],
   ['processor catalog', runProcessorCatalog],

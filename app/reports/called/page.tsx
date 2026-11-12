@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { searchJobs, patchJob } from '@/lib/api';
-import { specialtyPrice as calcSpecialtyPrice } from '@/lib/specialty';
+import { PICKUP_SORT_COLUMNS, sortPickupRows, processingPaymentLabel, type PickupSortKey } from '@/lib/pickupQueueSort';
 import { formatDisplayDateTime } from '@/lib/dateFormat';
 
 export const dynamic = 'force-dynamic';
@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
 type Track = 'meat' | 'cape' | 'webbs';
 
 type Row = {
+  processType: string;
+  webbsOrder: boolean;
   updatedAt?: string;
   tag: string;
   confirmation: string;
@@ -37,33 +39,6 @@ type Row = {
   pickedUpBy?: string;
   pickupNotes?: string;
 };
-
-function normProc(s?: string) {
-  const v = String(s || '').toLowerCase();
-  if (v.includes('donate') && v.includes('cape')) return 'Cape & Donate';
-  if (v.includes('donate')) return 'Donate';
-  if (v.includes('cape') && !v.includes('skull')) return 'Caped';
-  if (v.includes('skull')) return 'Skull-Cap';
-  if (v.includes('euro')) return 'European';
-  if (v.includes('standard')) return 'Standard Processing';
-  return '';
-}
-
-function suggestedProcessingPrice(proc?: string, beef?: boolean, webbs?: boolean) {
-  const p = normProc(proc);
-  const base =
-    p === 'Caped' ? 150 :
-    p === 'Cape & Donate' ? 50 :
-    ['Standard Processing', 'Skull-Cap', 'European'].includes(p) ? 130 :
-    p === 'Donate' ? 0 : 0;
-  if (!base) return 0;
-  return base + (beef ? 5 : 0) + (webbs ? 20 : 0);
-}
-
-function specialtyPrice(row: any) {
-  if (!row?.specialtyProducts) return 0;
-  return calcSpecialtyPrice(row);
-}
 
 function money(value: number | null | undefined) {
   return `$${Number(value || 0).toFixed(2)}`;
@@ -136,12 +111,11 @@ async function fetchCalled(): Promise<Row[]> {
       0
     ) || 0;
 
-    const priceProc = savedProc || suggestedProcessingPrice(
-      r?.processType ?? r?.['Process Type'],
-      !!(r?.beefFat ?? r?.['Beef Fat']),
-      !!(r?.webbsOrder ?? r?.['Webbs Order'])
-    );
-    const priceSpec = savedSpec || specialtyPrice(r);
+    // Saved prices are authoritative, including deliberate zero-price overrides.
+    const priceProc = savedProc;
+    const priceSpec = savedSpec;
+    const processType = String(r?.processType ?? r?.process_type ?? r?.['Process Type'] ?? '').trim();
+    const webbsOrder = !!(r?.webbsOrder ?? r?.webbs_order ?? r?.['Webbs Order']);
 
     const paidProcessing = !!(r?.paidProcessing ?? r?.paid_processing ?? r?.['Paid Processing']);
     const paidSpecialty = !!(r?.paidSpecialty ?? r?.paid_specialty ?? r?.['Paid Specialty']);
@@ -171,6 +145,7 @@ async function fetchCalled(): Promise<Row[]> {
 
     if (isCalled(status) || isReadyLike(status)) {
       out.push({
+        processType, webbsOrder,
         updatedAt: r.updatedAt || r.updated_at,
         tag,
         confirmation,
@@ -201,6 +176,7 @@ async function fetchCalled(): Promise<Row[]> {
     }
     if (isCalled(capingStatus) || isReadyLike(capingStatus)) {
       out.push({
+        processType, webbsOrder,
         updatedAt: r.updatedAt || r.updated_at,
         tag,
         confirmation,
@@ -231,6 +207,7 @@ async function fetchCalled(): Promise<Row[]> {
     }
     if (isCalled(webbsStatus) || isReadyLike(webbsStatus)) {
       out.push({
+        processType, webbsOrder,
         updatedAt: r.updatedAt || r.updated_at,
         tag,
         confirmation,
@@ -374,6 +351,12 @@ export default function CalledPickupQueue() {
   const [busy, setBusy] = useState<string>('');
   const [selectedKey, setSelectedKey] = useState<string>('');
   const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<PickupSortKey>('called');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  function changeSort(key: PickupSortKey) {
+    if (key === sortKey) setSortDirection(value => value === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDirection('asc'); }
+  }
   const [trackFilter, setTrackFilter] = useState<'all' | Track>('all');
   const [showPickedUp, setShowPickedUp] = useState(false);
   const [showUnpaidOnly, setShowUnpaidOnly] = useState(false);
@@ -411,16 +394,16 @@ export default function CalledPickupQueue() {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((row) => {
+    return sortPickupRows(rows.filter((row) => {
       if (!showPickedUp && row.pickedUp) return false;
       if (trackFilter !== 'all' && row.track !== trackFilter) return false;
       if (showUnpaidOnly && !(row.track === 'meat' && row.totalDue > 0)) return false;
       if (!q) return true;
-      return [row.tag, row.customer, row.confirmation, row.phone, row.track].some((value) =>
+      return [row.tag, row.customer, row.confirmation, row.phone, row.track, row.processType].some((value) =>
         String(value || '').toLowerCase().includes(q)
       );
-    });
-  }, [rows, search, trackFilter, showPickedUp, showUnpaidOnly]);
+    }), sortKey, sortDirection);
+  }, [rows, search, trackFilter, showPickedUp, showUnpaidOnly, sortKey, sortDirection]);
 
   const selected = useMemo(
     () => filteredRows.find((r) => `${r.tag}|${r.track}` === selectedKey) || rows.find((r) => `${r.tag}|${r.track}` === selectedKey),
@@ -478,7 +461,7 @@ export default function CalledPickupQueue() {
   }, []);
 
   const canUpdate = staffRole === 'admin' || staffRole === 'staff';
-  const gridCols = '0.8fr 1.5fr 0.8fr 0.9fr 1fr 0.9fr 0.8fr 0.8fr';
+  const gridCols = '80px minmax(180px, 1.5fr) 85px 140px 70px 125px 155px 140px 115px 75px 85px';
 
   function openIntake(tag: string) {
     const url = canUpdate ? `/intake?tag=${encodeURIComponent(tag)}` : `/intake/${encodeURIComponent(tag)}`;
@@ -563,6 +546,10 @@ export default function CalledPickupQueue() {
         <div style={{ color: '#b7a98d', fontWeight: 800, textAlign: 'right' }}>{filteredRows.length} shown</div>
       </section>
 
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', margin: '12px 0' }}>
+        <label>Sort by <select aria-label="Sort pickup queue by" value={sortKey} onChange={e => { setSortKey(e.target.value as PickupSortKey); setSortDirection('asc'); }}>{PICKUP_SORT_COLUMNS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <button type="button" className="btn secondary small" onClick={() => setSortDirection(value => value === 'asc' ? 'desc' : 'asc')}>{sortDirection === 'asc' ? 'Ascending ↑' : 'Descending ↓'}</button>
+      </div>
       {err && <div className="err">{err}</div>}
       {!canUpdate && (
         <div className="card readonly-banner">
@@ -772,6 +759,7 @@ export default function CalledPickupQueue() {
                     </span>
                     <span>{r.pickedUp ? 'Picked up' : 'Ready for pickup'}</span>
                   </div>
+                  <div className="mobile-called-meta"><span>{r.processType || 'Processing type not recorded'}</span><span>Webb’s: {r.webbsOrder ? 'Yes' : 'No'}</span><span>Processing: {processingPaymentLabel(r)}{r.procDue > 0 ? ' — ' + money(r.procDue) + ' due' : ''}</span></div>
                   <div className="mobile-called-balance">
                     <div className="mobile-called-balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
                     <div className="mobile-called-balance-sub">
@@ -787,14 +775,11 @@ export default function CalledPickupQueue() {
 
           <div className="table-wrap">
             <div className="thead" style={{ gridTemplateColumns: gridCols }}>
-              <div>Tag</div>
-              <div>Customer</div>
-              <div>Track</div>
-              <div>Called</div>
-              <div>Balance</div>
-              <div>Payment</div>
-              <div>Waiting</div>
-              <div>Pickup</div>
+              {PICKUP_SORT_COLUMNS.map(([key, label]) => (
+                <div key={key} role="columnheader" aria-sort={sortKey === key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button type="button" className="sort-heading" onClick={() => changeSort(key)}>{label}{sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ' ↕'}</button>
+                </div>
+              ))}
             </div>
 
             {filteredRows.map((r, i) => {
@@ -826,6 +811,9 @@ export default function CalledPickupQueue() {
                     </div>
                   </div>
                   <div><TrackBadge track={r.track} /></div>
+                  <div>{r.processType || '-'}</div>
+                  <div>{r.webbsOrder ? <span className="badge ready">Yes</span> : 'No'}</div>
+                  <div><span className={r.procDue > 0 ? 'badge warn' : 'badge ok'}>{processingPaymentLabel(r)}</span>{r.procDue > 0 ? <div className="balance-sub">{money(r.procDue)} due</div> : null}</div>
                   <div>{r.calledAt ? formatDisplayDateTime(r.calledAt) : r.readyAt ? `Ready ${formatDisplayDateTime(r.readyAt)}` : '-'}</div>
                   <div className="balance-cell">
                     <div className="balance-main">{r.track === 'meat' ? money(r.totalDue) : 'Included'}</div>
@@ -1088,12 +1076,17 @@ export default function CalledPickupQueue() {
           min-height: 92px;
         }
         .table-wrap {
+          min-width: 0;
+          max-width: 100%;
           background: #101715;
           border: 1px solid #1f2c24;
           border-radius: 12px;
-          overflow: hidden;
+          overflow-x: auto;
           color: #e5e7eb;
         }
+        .sort-heading { background: transparent; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; padding: 0; }
+        .sort-heading:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+        .thead, .trow { min-width: 1380px; }
         .thead {
           display: grid;
           gap: 8px;
