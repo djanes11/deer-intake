@@ -1,5 +1,7 @@
 'use client';
 
+import { NEEDS_TAG_COLUMNS, normRow, needsTagPayment, processingDue, sortNeedsTagRows, type Row, type NeedsTagSortKey } from '@/lib/needsTagQueue';
+import { formatDisplayDateTime } from '@/lib/dateFormat';
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
@@ -11,21 +13,6 @@ import { defaultSpecialtyCatalog, normalizeSpecialtyCatalog, type SpecialtyCatal
 import { identifierSettingsFromPublicCopy, normalizeTagInput, tagInputMode, validateTag } from '@/lib/identifiers';
 
 export const dynamic = 'force-dynamic';
-
-type Row = {
-  id?: string;
-  tag?: string;
-  confirmation?: string;
-  customer_name?: string;
-  phone?: string;
-  dropoff_date?: string;
-  status?: string;
-  webbs?: boolean;
-  paidProcessing?: boolean;
-  processType?: string;
-  priceProcessing?: number;
-  created_at?: string;
-};
 
 type AnyRec = Record<string, any>;
 
@@ -45,29 +32,6 @@ async function parseJsonSafe(r: Response) {
 
 const digitsOnly = (s: string) => (s || '').replace(/\D/g, '');
 const displayDate = (s?: string) => String(s || '').slice(0, 10) || '-';
-
-function normBool(v: any): boolean {
-  if (typeof v === 'boolean') return v;
-  const s = String(v ?? '').trim().toLowerCase();
-  return s === 'y' || s === 'yes' || s === 'true' || s === '1' || s === 'x';
-}
-
-function normRow(r: any): Row {
-  return {
-    id: r?.id,
-    tag: String(r?.tag ?? ''),
-    confirmation: String(r?.confirmation ?? ''),
-    customer_name: String(r?.customer_name ?? ''),
-    phone: String(r?.phone ?? ''),
-    dropoff_date: String(r?.dropoff_date ?? ''),
-    status: String(r?.status ?? ''),
-    webbs: normBool(r?.webbs),
-    paidProcessing: normBool(r?.paid_processing ?? r?.paidProcessing),
-    processType: String(r?.process_type ?? r?.processType ?? ''),
-    priceProcessing: Number(r?.price_processing ?? r?.priceProcessing ?? 0) || 0,
-    created_at: String(r?.created_at ?? ''),
-  };
-}
 
 async function fetchMissing(limit = 500): Promise<Row[]> {
   const r = await fetch(`${API_MISSING}?limit=${limit}`, {
@@ -119,6 +83,13 @@ async function markPrinted(tag: string) {
 export default function MissingTagsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<NeedsTagSortKey>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const sortedRows = useMemo(() => sortNeedsTagRows(rows, sortKey, sortDirection), [rows, sortKey, sortDirection]);
+  function changeSort(key: NeedsTagSortKey) {
+    if (sortKey === key) setSortDirection(v => v === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDirection('asc'); }
+  }
   const [err, setErr] = useState('');
 
   const [assigning, setAssigning] = useState('');
@@ -415,6 +386,16 @@ export default function MissingTagsPage() {
             </div>
           </div>
 
+          <div className="queue-sort-controls">
+            <label>Sort by <select value={sortKey} onChange={e => { setSortKey(e.target.value as NeedsTagSortKey); setSortDirection('asc'); }}>{NEEDS_TAG_COLUMNS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+            <button type="button" className="sort-button" onClick={() => setSortDirection(v => v === 'asc' ? 'desc' : 'asc')}>{sortDirection === 'asc' ? 'Ascending ↑' : 'Descending ↓'}</button>
+          </div>
+          <div className="queue-scroll">
+          {!loading && rows.length > 0 && <div className="queue-columns queue-head">
+            {NEEDS_TAG_COLUMNS.map(([key, label]) => <div key={key}>
+              <button type="button" className="sort-button" aria-label={label + (sortKey === key ? ', sorted ' + (sortDirection === 'asc' ? 'ascending' : 'descending') : ', sort ascending')} onClick={() => changeSort(key)}>{label} {sortKey === key ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</button>
+            </div>)}
+          </div>}
           {loading ? (
             <div style={{ padding: 16 }}>Loading...</div>
           ) : rows.length === 0 ? (
@@ -423,7 +404,7 @@ export default function MissingTagsPage() {
               <div style={{ marginTop: 4, opacity: 0.72 }}>You are caught up for now.</div>
             </div>
           ) : (
-            rows.map((r) => {
+            sortedRows.map((r) => {
               const pendingTag = r.tag || '';
               const draftKey = pendingTag || r.id || '';
               const isBusy = assigning === draftKey;
@@ -432,7 +413,8 @@ export default function MissingTagsPage() {
               const canUseDraft = !validateTag(draft, identifierSettings);
               return (
                 <div
-                  key={pendingTag || r.id || Math.random()}
+                  key={r.id || pendingTag}
+                  className="queue-row"
                   style={{
                     display: 'grid',
                     gap: 12,
@@ -441,26 +423,16 @@ export default function MissingTagsPage() {
                     background: isBusy ? '#fafaf9' : '#fff',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.15 }}>
-                        {r.customer_name || 'Unnamed Customer'}
-                      </div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
-                          Conf {r.confirmation || '-'}
-                        </span>
-                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontFamily: 'monospace', fontSize: 13 }}>
-                          {r.phone || 'No phone'}
-                        </span>
-                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#f3f4f6', fontSize: 13 }}>
-                          Dropped off {displayDate(r.dropoff_date)}
-                        </span>
-                        <span style={{ padding: '4px 8px', borderRadius: 999, background: '#eef6ee', color: '#2f6f3f', fontSize: 13, fontWeight: 600 }}>
-                          {r.status || 'Dropped Off'}
-                        </span>
-                      </div>
-                    </div>
+                  <div className="queue-columns queue-details">
+                    <div><span className="cell-label">Customer</span><strong>{r.customer_name || 'Unnamed Customer'}</strong></div>
+                    <div><span className="cell-label">Confirmation</span>{r.confirmation || '-'}</div>
+                    <div><span className="cell-label">Phone</span>{r.phone || '-'}</div>
+                    <div><span className="cell-label">Dropped off</span>{displayDate(r.dropoff_date)}</div>
+                    <div><span className="cell-label">Status</span>{r.status || 'Dropped Off'}</div>
+                    <div><span className="cell-label">Processing type</span>{r.processType || '-'}</div>
+                    <div><span className="cell-label">Webb’s</span><span className={r.webbs ? 'queue-badge webbs' : ''}>{r.webbs ? 'Yes' : 'No'}</span></div>
+                    <div><span className="cell-label">Processing payment</span><span className={'queue-badge ' + (processingDue(r) > 0 ? 'unpaid' : 'paid')}>{needsTagPayment(r)}</span>{processingDue(r) > 0 && <div className="queue-due">${processingDue(r).toFixed(2)} due</div>}</div>
+                    <div><span className="cell-label">Submitted</span>{r.created_at ? formatDisplayDateTime(r.created_at) : '-'}</div>
                   </div>
 
                   <div className="queue-actions">
@@ -489,6 +461,7 @@ export default function MissingTagsPage() {
               );
             })
           )}
+          </div>
         </div>
       </div>
 
@@ -510,6 +483,28 @@ export default function MissingTagsPage() {
       </div>
 
       <style jsx>{`
+        .queue-scroll { overflow-x: auto; min-width: 0; max-width: 100%; }
+        .queue-columns { display: grid; grid-template-columns: minmax(160px, 1fr) 150px 130px 105px 100px 140px 65px 135px 150px; gap: 10px; align-items: start; }
+        .queue-row, .queue-head { min-width: 1247px; box-sizing: border-box; }
+        .queue-head { padding: 12px 16px; background: #f3f4f6; font-weight: 700; }
+        .queue-details > div { min-width: 0; overflow-wrap: anywhere; }
+        .cell-label { display: none; }
+        .queue-sort-controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+        .sort-button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; padding: 0; }
+        .sort-button:focus-visible { outline: 2px solid #367d45; outline-offset: 3px; }
+        .queue-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .queue-badge.paid { background: #dcfce7; color: #166534; }
+        .queue-badge.unpaid { background: #ffedd5; color: #9a3412; }
+        .queue-badge.webbs { background: #dbeafe; color: #1e40af; }
+        .queue-due { margin-top: 4px; font-size: 13px; }
+        @media (max-width: 720px) {
+          .queue-row { min-width: 0; }
+          .queue-head { display: none; }
+          .queue-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+          .queue-details > div:first-child { grid-column: 1 / -1; font-size: 20px; }
+          .cell-label { display: block; font-size: 11px; font-weight: 700; opacity: 0.7; margin-bottom: 4px; }
+        }
+
         .btn {
           padding: 10px 14px;
           border: 0;
