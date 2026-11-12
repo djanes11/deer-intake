@@ -572,7 +572,23 @@ body {
 .thermalLabel--antler .thermalLabel__barcodeWrap--antler svg {
   width: 100%;
   max-width: none;
-  height: 20mm;
-  flex: 0 0 100%;
+  height: 16mm;
+  flex: none;
 }
+
+        .thermalLabel--antler .thermalLabel__barcodeWrap--antler {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: 16mm 3.5mm;
+          justify-content: stretch;
+          gap: 0.5mm;
+        }
+        .thermalLabel__cutoffTag {
+          font-size: 9pt;
+          line-height: 1;
+          font-weight: 900;
+          text-align: center;
+          color: #111;
+          white-space: nowrap;
+        }
 `;
