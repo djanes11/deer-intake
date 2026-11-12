@@ -316,7 +316,7 @@ export default function MissingTagsPage() {
 
   return (
     <div className="form-card overnight-review">
-      <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+      <div className="queue-content">
         {header}
 
         {selectedTag ? (
@@ -379,22 +379,16 @@ export default function MissingTagsPage() {
         ) : null}
 
         <div style={{ border: '1px solid #e5e5e5', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 14px', background: '#f7f7f7', borderBottom: '1px solid #e5e5e5' }}>
-            <div style={{ fontWeight: 700 }}>Public Intakes Waiting For Real Tags</div>
-            <div style={{ marginTop: 4, fontSize: 13, opacity: 0.7 }}>
-              Assign the real deer tag, then print the full intake sheet with the barcode. Use delete for a no-show that should leave the active queue.
-            </div>
-          </div>
-
           <div className="queue-sort-controls">
             <label>Sort by <select value={sortKey} onChange={e => { setSortKey(e.target.value as NeedsTagSortKey); setSortDirection('asc'); }}>{NEEDS_TAG_COLUMNS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
             <button type="button" className="sort-button" onClick={() => setSortDirection(v => v === 'asc' ? 'desc' : 'asc')}>{sortDirection === 'asc' ? 'Ascending ↑' : 'Descending ↓'}</button>
           </div>
           <div className="queue-scroll">
-          {!loading && rows.length > 0 && <div className="queue-columns queue-head">
-            {NEEDS_TAG_COLUMNS.map(([key, label]) => <div key={key}>
-              <button type="button" className="sort-button" aria-label={label + (sortKey === key ? ', sorted ' + (sortDirection === 'asc' ? 'ascending' : 'descending') : ', sort ascending')} onClick={() => changeSort(key)}>{label} {sortKey === key ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</button>
+          {!loading && rows.length > 0 && <div className="queue-head queue-grid">
+            {(['customer_name', 'processType', 'webbs', 'processingPayment'] as NeedsTagSortKey[]).map(key => <div key={key}>
+              <button type="button" className="sort-button" onClick={() => changeSort(key)}>{NEEDS_TAG_COLUMNS.find(c => c[0] === key)?.[1]} {sortKey === key ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</button>
             </div>)}
+            <div>Assign tag</div>
           </div>}
           {loading ? (
             <div style={{ padding: 16 }}>Loading...</div>
@@ -414,39 +408,33 @@ export default function MissingTagsPage() {
               return (
                 <div
                   key={r.id || pendingTag}
-                  className="queue-row"
-                  style={{
-                    display: 'grid',
-                    gap: 12,
-                    padding: '16px',
-                    borderTop: '1px solid #eee',
-                    background: isBusy ? '#fafaf9' : '#fff',
-                  }}
+                  className="queue-row queue-grid"
+                  style={{ background: isBusy ? '#fafaf9' : undefined }}
                 >
-                  <div className="queue-columns queue-details">
-                    <div><span className="cell-label">Customer</span><strong>{r.customer_name || 'Unnamed Customer'}</strong></div>
-                    <div><span className="cell-label">Confirmation</span>{r.confirmation || '-'}</div>
-                    <div><span className="cell-label">Phone</span>{r.phone || '-'}</div>
-                    <div><span className="cell-label">Dropped off</span>{displayDate(r.dropoff_date)}</div>
-                    <div><span className="cell-label">Status</span>{r.status || 'Dropped Off'}</div>
-                    <div><span className="cell-label">Processing type</span>{r.processType || '-'}</div>
-                    <div><span className="cell-label">Webb’s</span><span className={r.webbs ? 'queue-badge webbs' : ''}>{r.webbs ? 'Yes' : 'No'}</span></div>
-                    <div><span className="cell-label">Processing payment</span><span className={'queue-badge ' + (processingDue(r) > 0 ? 'unpaid' : 'paid')}>{needsTagPayment(r)}</span>{processingDue(r) > 0 && <div className="queue-due">${processingDue(r).toFixed(2)} due</div>}</div>
-                    <div><span className="cell-label">Submitted</span>{r.created_at ? formatDisplayDateTime(r.created_at) : '-'}</div>
+                  <div className="customer-cell">
+                    <strong>{r.customer_name || 'Unnamed Customer'}</strong>
+                    <div>{r.phone || 'No phone'}</div>
+                    <div className="queue-meta">Conf {r.confirmation || '-'}</div>
+                    <div className="queue-meta">Drop-off {displayDate(r.dropoff_date)}</div>
+                    <div className="queue-meta">Submitted {r.created_at ? formatDisplayDateTime(r.created_at) : '-'}</div>
                   </div>
+                  <div><span className="cell-label">Processing</span><strong>{r.processType || '-'}</strong><div className="queue-meta">{r.status || 'Dropped Off'}</div></div>
+                  <div><span className="cell-label">Webb’s</span><span className={r.webbs ? 'queue-badge webbs' : ''}>{r.webbs ? 'Yes' : 'No'}</span></div>
+                  <div><span className="cell-label">Processing payment</span><span className={'queue-badge ' + (processingDue(r) > 0 ? 'unpaid' : 'paid')}>{needsTagPayment(r)}</span>{processingDue(r) > 0 && <div className="queue-due">${processingDue(r).toFixed(2)} due</div>}</div>
 
                   <div className="queue-actions">
                     <input
                       value={drafts[draftKey] ?? ''}
                       onChange={(e) => setDrafts((p) => ({ ...p, [draftKey]: normalizeTagInput(e.target.value, identifierSettings) }))}
-                      placeholder={identifierSettings.tagPlaceholder || 'Enter actual deer tag'}
+                      placeholder={identifierSettings.tagPlaceholder || 'Enter deer tag'}
+                      aria-label={'Assign tag for ' + (r.customer_name || r.confirmation || 'this deer')}
                       inputMode={tagInputMode(identifierSettings)}
-                      style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #d1d5db', fontSize: 15 }}
+                      className="tag-input"
                       disabled={!canEdit || isBusy || isDeleting || !r.id}
                     />
                     <div className="queue-action-buttons">
                       <button className="btn btn-compact" onClick={() => doAssign(r)} disabled={!canEdit || isBusy || isDeleting || !r.id}>
-                        {isBusy ? 'Saving...' : 'Assign Tag'}
+                        {isBusy ? 'Saving...' : 'Assign'}
                       </button>
                       <button
                         className="btn btn-compact btn-danger"
@@ -483,28 +471,28 @@ export default function MissingTagsPage() {
       </div>
 
       <style jsx>{`
-        .queue-scroll { overflow-x: auto; min-width: 0; max-width: 100%; }
-        .queue-columns { display: grid; grid-template-columns: minmax(160px, 1fr) 150px 130px 105px 100px 140px 65px 135px 150px; gap: 10px; align-items: start; }
-        .queue-row, .queue-head { min-width: 1247px; box-sizing: border-box; }
-        .queue-head { padding: 12px 16px; background: #f3f4f6; font-weight: 700; }
-        .queue-details > div { min-width: 0; overflow-wrap: anywhere; }
+        .overnight-review { width: 100%; max-width: 1440px; min-width: 0; margin-inline: auto; }
+        .queue-content { padding: 12px; display: grid; gap: 10px; min-width: 0; }
+        .queue-scroll { min-width: 0; max-width: 100%; }
+        .queue-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr) 62px minmax(0, 1fr) 210px; gap: 12px; align-items: center; }
+        .queue-row { padding: 10px 12px; border-top: 1px solid #e5e7eb; font-size: 13px; line-height: 1.35; }
+        .queue-row:nth-child(odd) { background: #f8faf9; }
+        .queue-head { padding: 9px 12px; background: #eef2ef; font-size: 12px; font-weight: 700; }
+        .queue-grid > div { min-width: 0; overflow-wrap: anywhere; }
+        .customer-cell strong { font-size: 15px; display: block; }
+        .queue-meta { font-size: 11px; line-height: 1.4; color: #526057; }
         .cell-label { display: none; }
-        .queue-sort-controls { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+        .queue-sort-controls { padding: 8px 12px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 13px; }
+        .queue-sort-controls label { display: flex; align-items: center; gap: 6px; }
+        .queue-sort-controls select { width: auto; padding: 5px 8px; font-size: 13px; }
         .sort-button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: left; padding: 0; }
         .sort-button:focus-visible { outline: 2px solid #367d45; outline-offset: 3px; }
-        .queue-badge { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .queue-badge { display: inline-block; padding: 3px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; }
         .queue-badge.paid { background: #dcfce7; color: #166534; }
         .queue-badge.unpaid { background: #ffedd5; color: #9a3412; }
         .queue-badge.webbs { background: #dbeafe; color: #1e40af; }
-        .queue-due { margin-top: 4px; font-size: 13px; }
-        @media (max-width: 720px) {
-          .queue-row { min-width: 0; }
-          .queue-head { display: none; }
-          .queue-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-          .queue-details > div:first-child { grid-column: 1 / -1; font-size: 20px; }
-          .cell-label { display: block; font-size: 11px; font-weight: 700; opacity: 0.7; margin-bottom: 4px; }
-        }
-
+        .queue-due { margin-top: 3px; font-size: 12px; }
+        .tag-input { width: 100%; min-width: 0; padding: 7px 8px; border-radius: 7px; border: 1px solid #cbd5e1; font-size: 14px; }
         .btn {
           padding: 10px 14px;
           border: 0;
@@ -523,8 +511,8 @@ export default function MissingTagsPage() {
 
         .queue-actions {
           display: grid;
-          grid-template-columns: minmax(240px, 320px) auto;
-          gap: 10px;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 6px;
           align-items: center;
         }
 
@@ -536,8 +524,10 @@ export default function MissingTagsPage() {
         }
 
         .btn-compact {
-          padding: 10px 16px;
-          min-width: 132px;
+          padding: 7px 6px;
+          min-width: 0;
+          flex: 1;
+          font-size: 12px;
           text-align: center;
         }
 
@@ -549,25 +539,19 @@ export default function MissingTagsPage() {
           display: none;
         }
 
-        @media (max-width: 900px) {
-          .queue-actions {
-            grid-template-columns: minmax(0, 1fr) auto;
-          }
+        @media (max-width: 1050px) {
+          .queue-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 50px minmax(0, 1fr) 170px; gap: 8px; }
         }
-
-        @media (max-width: 720px) {
-          .queue-actions {
-            grid-template-columns: 1fr;
-          }
-
-          .queue-action-buttons {
-            width: 100%;
-          }
-
-          .btn-compact {
-            flex: 1;
-            min-width: 0;
-          }
+        @media (max-width: 760px) {
+          .queue-content { padding: 8px; }
+          .queue-head { display: none; }
+          .queue-row { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 8px 12px; padding: 10px; align-items: start; }
+          .customer-cell { grid-row: span 2; }
+          .queue-row > div:nth-child(3) { grid-column: 2; }
+          .queue-row > div:nth-child(4) { grid-column: 1; }
+          .queue-actions { grid-column: 2; }
+          .cell-label { display: block; font-size: 10px; font-weight: 700; color: #526057; margin-bottom: 2px; }
+          .queue-sort-controls { gap: 8px; padding: 8px; }
         }
 
         @media print {
