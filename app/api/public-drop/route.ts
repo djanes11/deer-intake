@@ -1,3 +1,4 @@
+import { normalizePublicIntakeName, publicIntakeNameError } from '@/lib/publicIntakeName';
 // app/api/public-drop/route.ts
 import { NextRequest } from 'next/server';
 import { sharedRateLimit } from '@/lib/ratelimit';
@@ -44,7 +45,8 @@ function hasText(v: unknown) {
 }
 
 function publicValidationError(rawJob: Record<string, any>): string | null {
-  if (!hasText(rawJob.customer)) return 'Customer Name is required.';
+  const nameError = publicIntakeNameError(rawJob.customer);
+  if (nameError) return nameError;
   if (!is10Digits(rawJob.phone)) return 'Phone must be 10 digits.';
   if (!hasText(rawJob.address)) return 'Address is required.';
   if (!hasText(rawJob.city)) return 'City is required.';
@@ -136,13 +138,16 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     return json({ ok: false, error: error.message || 'Invalid intake selections.' }, 400);
   }
-  const customer = String(rawJob.customer || '').trim();
+  const customer = normalizePublicIntakeName(rawJob.customer);
   const phone = String(rawJob.phone || '').trim();
   const email = String(rawJob.email || '').trim();
   const processType = String(rawJob.processType || '').trim();
   const notes = String(rawJob.notes || '').trim();
 
-  if (!customer || (!phone && !email)) {
+  const nameError = publicIntakeNameError(customer);
+  if (nameError) return json({ ok: false, error: nameError }, 400);
+
+  if (!phone && !email) {
     return json({ ok: false, error: 'Name and a contact (phone or email) are required.' }, 400);
   }
 

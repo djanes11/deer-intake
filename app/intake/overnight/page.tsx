@@ -1,6 +1,7 @@
 // app/(public)/overnight/page.tsx
 'use client';
 
+import { normalizePublicIntakeName, publicIntakeNameError } from '@/lib/publicIntakeName';
 import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
 import { specialtyTakeHomeLbs, specialtyMeatLbs, specialtyQuantityError } from '@/lib/specialtyYield';
 import { Fragment, useCallback, useEffect, useMemo, useState, Suspense } from 'react';
@@ -200,7 +201,7 @@ const is10Digits = (s?: string) => !!s && /^\d{10}$/.test(s);
 
 const REQUIRED_LABELS: Record<string, string> = {
   confirmation: 'Confirmation #',
-  customer: 'Customer Name',
+  customer: 'First and last name',
   phone: 'Phone',
   email: 'Email address',
   smsConsent: 'Text message consent',
@@ -734,7 +735,8 @@ function OvernightIntakePage() {
     // Customer (everything required except email)
     const confirmationError = validateConfirmation(String(job.confirmation || ''), identifierSettings);
     if (confirmationError) e.confirmation = confirmationError;
-    if (!job.customer?.trim()) e.customer = 'Customer Name is required';
+    const nameError = publicIntakeNameError(job.customer);
+    if (nameError) e.customer = nameError;
     if (!is10Digits(job.phone)) e.phone = 'Phone must be 10 digits';
     if (job.prefEmail && !job.email?.trim()) e.email = 'Email is required when email updates are selected';
     if (requiresHuntingLicense && !job.huntingLicenseNumber?.trim()) e.huntingLicenseNumber = 'Hunting License # is required';
@@ -1244,8 +1246,10 @@ function OvernightIntakePage() {
               </div>
 
               <div className="c6">
-                <label>Customer Name</label>
+                <label htmlFor="public-customer-name">First and last name</label>
                 <input
+                  id="public-customer-name"
+                  autoComplete="name"
                   value={job.customer || ''}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -1253,17 +1257,21 @@ function OvernightIntakePage() {
                     setErrors((prev) => {
                       if (!prev.customer) return prev;
                       const n = { ...prev };
-                      if (v.trim()) delete n.customer;
-                      else n.customer = 'Customer Name is required';
+                      const error = publicIntakeNameError(v);
+                      if (error) n.customer = error;
+                      else delete n.customer;
                       return n;
                     });
                   }}
-                  placeholder="First and last name"
+                  onBlur={() => setVal('customer', normalizePublicIntakeName(job.customer))}
+                  placeholder="Example: John Smith"
+                  aria-invalid={!!errors.customer}
+                  aria-describedby={errors.customer ? 'public-customer-name-error' : undefined}
                   className={errors.customer ? 'err' : ''}
                   data-err="customer"
                   disabled={locked}
                 />
-                {errors.customer ? <div className="errText">{errors.customer}</div> : null}
+                {errors.customer ? <div id="public-customer-name-error" className="errText">{errors.customer}</div> : null}
               </div>
 
               <div className="c3">
