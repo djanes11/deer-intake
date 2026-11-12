@@ -1,4 +1,3 @@
-import { run as runDymoPrinting } from './dymo-printing.test.ts';
 import { run as runPickupQueue } from './pickup-queue.test.ts';
 import { run as runIdentifiers } from './identifiers.test.ts';
 import { run as runSiteSettings } from './site-settings.test.ts';
@@ -16,7 +15,6 @@ import { run as runTagCorrection } from './tag-correction.test.ts';
 import { run as runCheckinEmail } from './checkin-email.test.ts';
 
 const suites = [
-  ['DYMO roll routing', runDymoPrinting],
   ['pickup queue', runPickupQueue],
   ['identifiers', runIdentifiers],
   ['site settings', runSiteSettings],

@@ -1,7 +1,5 @@
 'use client';
 
-import TagPrintControls from '@/app/components/TagPrintControls';
-
 import TagCorrection from '@/app/components/TagCorrection';
 import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
 import { specialtyTakeHomeLbs, specialtyMeatLbs, specialtyQuantityError } from '@/lib/specialtyYield';
@@ -11,7 +9,7 @@ import { saveJob, getJob, tokenHeader } from '@/lib/api';
 import { resolveOrderPrices } from '@/lib/orderPrices';
 import { paymentBalance, paymentReviewMessage } from '@/lib/paymentBalance';
 import PrintSheet from '@/app/components/PrintSheet';
-import ThermalLabelSheet, { type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
@@ -2465,22 +2463,28 @@ useEffect(() => {
 
             <div className="actionsUtility">
 
-              <TagPrintControls job={job} disabled={busy} brandingName={brandingName}
-                prepareJob={async () => {
-                  if (dirty && !(await onSave())) return null;
-                  const tag = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                  if (!tag) throw new Error('A tag is required before printing labels.');
-                  const result = await getJob(tag);
-                  if (!result?.job) throw new Error('Could not load the saved intake for printing.');
-                  return result.job;
-                }}
-                onBrowserPrint={async kind => {
-                  if (dirty && !(await onSave())) return;
-                  const tag = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                  if (!tag) { setMsg('A tag is required before printing labels.'); return; }
-                  setPrintMode(kind);
-                  openBrowserPrintPreview(() => setPrintMode(''));
-                }} />
+              {canPrintAntlerLabel(job) ? (
+                <button
+                  className="btn secondaryBtn"
+                  type="button"
+                  onClick={async () => {
+                    if (dirty) {
+                      const ok = await onSave();
+                      if (!ok) return;
+                    }
+                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                    if (!tagToPrint) {
+                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                      return;
+                    }
+                    setPrintMode('antler');
+                    openBrowserPrintPreview(() => setPrintMode(''));
+                  }}
+                  disabled={busy}
+                >
+                  Antler Tag
+                </button>
+              ) : null}
 
               <button
                 className="btn secondaryBtn"
@@ -2563,22 +2567,28 @@ useEffect(() => {
                 >
                   Print Intake
                 </button>
-                <TagPrintControls job={job} disabled={busy} brandingName={brandingName}
-                prepareJob={async () => {
-                  if (dirty && !(await onSave())) return null;
-                  const tag = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                  if (!tag) throw new Error('A tag is required before printing labels.');
-                  const result = await getJob(tag);
-                  if (!result?.job) throw new Error('Could not load the saved intake for printing.');
-                  return result.job;
-                }}
-                onBrowserPrint={async kind => {
-                  if (dirty && !(await onSave())) return;
-                  const tag = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                  if (!tag) { setMsg('A tag is required before printing labels.'); return; }
-                  setPrintMode(kind);
-                  openBrowserPrintPreview(() => setPrintMode(''));
-                }} />
+                {canPrintAntlerLabel(job) ? (
+                  <button
+                    className="actionMenuBtn"
+                    type="button"
+                    onClick={async () => {
+                      if (dirty) {
+                        const ok = await onSave();
+                        if (!ok) return;
+                      }
+                      const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
+                      if (!tagToPrint) {
+                        setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
+                        return;
+                      }
+                      setPrintMode('antler');
+                      openBrowserPrintPreview(() => setPrintMode(''));
+                    }}
+                    disabled={busy}
+                  >
+                    Print Antler Tag
+                  </button>
+                ) : null}
               </div>
             </details>
           </div>

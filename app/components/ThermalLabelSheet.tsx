@@ -116,12 +116,24 @@ export default function ThermalLabelSheet({
   }, [shouldShowBarcode, tag]);
 
   const renderLabel = (labelType: RenderLabelType, index: number) => {
+    const title = labelType === 'antler' ? 'Antler Tag' : 'Deer Tag';
+    const footer =
+      labelType === 'antler'
+        ? 'Attach to antlers'
+        : 'Main deer tag';
     const customerSizeClass =
       customer.length > 40
         ? 'thermalLabel__fieldValue--tiny'
         : customer.length > 30
         ? 'thermalLabel__fieldValue--small'
         : '';
+    const fields = [
+      { label: 'Customer', value: customer, className: `thermalLabel__field--customer ${customerSizeClass}`.trim() },
+      { label: 'Conf', value: confirmation || '-' },
+      { label: 'Tag', value: tag || '-' },
+      { label: 'Phone', value: phone || '-' },
+    ];
+
     if (labelType === 'antler') {
       const antlerFields = [
         { label: 'Customer', value: customer, className: `thermalLabel__antlerField--customer ${customerSizeClass}`.trim() },
@@ -170,12 +182,41 @@ export default function ThermalLabelSheet({
     }
 
     return (
-      <div key={`deer-${index}`} className="thermalLabelRoot thermalLabelRoot--deer">
-        <div className="meatLabel">
-          <div className={`meatLabel__name ${customerSizeClass}`}>{customer}</div>
-          <div className="meatLabel__tag">Tag {tag || '-'}</div>
-          <div className="meatLabel__phone">{phone || '-'}</div>
+      <div key={`${labelType}-${index}`} className={`thermalLabelRoot thermalLabelRoot--${labelType}`}>
+        <div className={`thermalLabel thermalLabel--${labelType}`}>
+        <div className="thermalLabel__top">
+          <div className="thermalLabel__brandWrap">
+            {!logoFailed && logoUrl ? (
+              <img src={logoUrl} alt="" className="thermalLabel__logo" onError={() => setLogoFailed(true)} />
+            ) : (
+              <div className="thermalLabel__logoFallback">{brand.slice(0, 2).toUpperCase()}</div>
+            )}
+            <div className="thermalLabel__brand">{brand}</div>
+          </div>
+          <div className="thermalLabel__type">{title}</div>
         </div>
+        <div className="thermalLabel__body">
+          <div className="thermalLabel__details">
+            {fields.map((field) => (
+            <div key={field.label} className={`thermalLabel__field ${field.className || ''}`}>
+                <div className="thermalLabel__label">{field.label}</div>
+                <div className="thermalLabel__fieldValue">{field.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {shouldShowBarcode ? (
+          <div className="thermalLabel__barcodeWrap">
+            <svg data-barcode role="img" aria-label="Tag barcode" />
+          </div>
+        ) : (
+          <div className="thermalLabel__secondary">
+            <div className="thermalLabel__label">No Barcode</div>
+            <div>{tag || 'Missing tag'}</div>
+          </div>
+        )}
+        <div className="thermalLabel__footer">{footer}</div>
+      </div>
       </div>
     );
   };
@@ -591,15 +632,6 @@ export default function ThermalLabelSheet({
             border-width: 0;
           }
         }
-
-        @page thermal-label-meat { size: 2in 1in; margin: 0; }
-        .thermalLabelRoot--deer { width: 2in !important; height: 1in !important; page: thermal-label-meat; }
-        .meatLabel { width: 2in; height: 1in; padding: 1.5mm 2mm; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 1mm; color: #000; background: #fff; font-family: Arial, sans-serif; overflow: hidden; }
-        .meatLabel__name { font-size: 11pt; line-height: 1.05; font-weight: 700; overflow-wrap: anywhere; }
-        .meatLabel__name.thermalLabel__fieldValue--small { font-size: 9pt; }
-        .meatLabel__name.thermalLabel__fieldValue--tiny { font-size: 8pt; }
-        .meatLabel__tag { font-size: 16pt; line-height: 1; font-weight: 900; }
-        .meatLabel__phone { font-size: 11pt; line-height: 1; }
       `}</style>
     </div>
   );
