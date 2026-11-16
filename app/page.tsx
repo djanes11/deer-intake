@@ -726,6 +726,14 @@ function PublicLanding({ settings }: { settings: Awaited<ReturnType<typeof getPu
         note: 'Optional add-on',
         prefix: '+' as const,
       }))),
+    ...(features?.webbsEnabled !== false && Number(pricing?.webbs_add_on || 0) > 0
+      ? [{
+          label: "Webb’s Handling Fee",
+          value: Number(pricing?.webbs_add_on || 0),
+          note: "For Webb’s orders; product charges are separate.",
+          prefix: '+' as const,
+        }]
+      : []),
   ];
   const serviceHighlights = [
     {
