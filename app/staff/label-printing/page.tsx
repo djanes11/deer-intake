@@ -109,7 +109,13 @@ export default function LabelPrintingTestPage() {
         <div className="previews">
           {(['MEAT TAG', 'CRATE LABEL'] as const).map(heading => (
             <div key={heading}>
-              <div className="label-preview"><div className="kind">{heading}</div><div className="customer">{data.customer}</div><strong className="tag">Tag {data.tag}</strong><div className="phone">{data.phone}</div></div>
+              <div className={`label-preview ${heading === 'CRATE LABEL' ? 'crate' : 'meat'}`}>
+                <div className="kind">{heading}</div>
+                <strong className="tag">TAG {data.tag}</strong>
+                <div className="customer">{data.customer}</div>
+                <div className="phone">{data.phone}</div>
+                {heading === 'CRATE LABEL' ? <div className="crate-count">CRATE ____ OF ____</div> : null}
+              </div>
               <p>{heading === 'MEAT TAG' ? '1 copy' : `${settings.packages} copies`}</p>
             </div>
           ))}
@@ -131,8 +137,9 @@ export default function LabelPrintingTestPage() {
         button{padding:10px 14px;cursor:pointer;border-radius:7px;font:inherit}button:disabled{opacity:.5;cursor:default}
         .options{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.options label{flex:1;min-width:160px}
         .previews{display:flex;gap:24px;flex-wrap:wrap;margin-top:16px}.previews p{margin:6px 0}
-        .label-preview{box-sizing:border-box;width:288px;height:144px;padding:9px 12px;background:white;color:black;border:1px solid #aaa;border-radius:5px;display:grid;grid-template-rows:22px 36px 36px 24px;font-family:Arial,sans-serif;overflow:hidden}
-        .kind{font-size:14px;font-weight:700}.customer{font-size:15px;font-weight:700;line-height:17px;overflow-wrap:anywhere}.tag{font-size:22px;white-space:nowrap}.phone{font-size:15px}
+        .label-preview{box-sizing:border-box;width:288px;height:144px;padding:7px 12px;background:white;color:black;border:1px solid #aaa;border-radius:5px;display:grid;grid-template-rows:26px 40px 32px 25px;font-family:Arial,sans-serif;overflow:hidden}
+        .kind{font-size:14px;font-weight:700;border-bottom:1px solid black;margin-bottom:5px}.customer{font-size:16px;font-weight:700;line-height:17px;overflow-wrap:anywhere}.tag{font-size:25px;white-space:nowrap;align-self:center}.phone{font-size:15px}
+        .crate{grid-template-rows:26px 30px 23px 19px 25px}.crate .tag{font-size:22px}.crate .customer{font-size:15px}.crate .phone{font-size:13px}.crate-count{font-size:15px;font-weight:700;align-self:end}
         .notice{padding:12px;border:1px solid #b98532;border-radius:8px;margin:16px 0;overflow-wrap:anywhere}.muted{font-size:13px;opacity:.8}details{margin-top:20px}
       `}</style>
     </main>

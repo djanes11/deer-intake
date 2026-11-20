@@ -19,8 +19,12 @@ export async function run() {
     assert.match(xml, /<Width>1.9766666<\/Width><Height>0.90333337<\/Height>/);
     assert.match(xml, /<HasFixedLength>False<\/HasFixedLength>/);
     assert.doesNotMatch(xml, /<LabelName>Custom<\/LabelName>|TextObject1/);
-    assert.equal((xml.match(/<TextObject>/g) || []).length, 4);
-    assert.match(xml, /Tag 10001/);
+    assert.equal((xml.match(/<TextObject>/g) || []).length, 5);
+    assert.match(xml, /TAG 10001/);
+    assert.doesNotMatch(xml, /CRATE_COUNT/);
+    const crateXml = smallLabelXml(labels[1]);
+    assert.match(crateXml, /CRATE ____ OF ____/);
+    assert.equal((crateXml.match(/<TextObject>/g) || []).length, 6);
   }
   assert.throws(() => buildSmallLabelSet({ ...data, tag: 'PENDING-1' }, 2));
   assert.throws(() => buildSmallLabelSet({ ...data, customer: '' }, 2));
