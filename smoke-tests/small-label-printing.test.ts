@@ -10,6 +10,8 @@ export async function run() {
     assert.equal(labels[0].heading, 'MEAT TAG');
     assert.equal(labels.filter(l => l.heading === 'PACKAGE LABEL').length, count);
     const xml = smallLabelXml(labels[0]);
+    assert.equal(xml.startsWith('<?xml'), true, 'Web-service XML must start with the declaration, not a BOM or whitespace');
+    assert.equal(xml.charCodeAt(0), 60);
     assert.match(xml, /Anne &amp; O&apos;Connor &lt;Jr&gt;/);
     assert.match(xml, /<DYMOLabel Version="4">/);
     assert.match(xml, /<LabelName>Small30336<\/LabelName>/);

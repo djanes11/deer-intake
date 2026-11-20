@@ -61,6 +61,9 @@ export function smallLabelXml(label: SmallLabel): string {
   // The supplied file is portrait. Rotate its printable rectangle to landscape
   // while preserving the actual stock identifier and Connect v4 metadata.
   return smallLabelTemplate
+    // A saved .dymo file can start with a UTF-8 BOM. Once embedded in a JS
+    // string it becomes XML text, which the web service rejects at position 1.
+    .trimStart()
     .replace('<Orientation>Portrait</Orientation>', '<Orientation>Landscape</Orientation>')
     .replace(/<DYMORect>[\s\S]*?<\/DYMORect>/, '<DYMORect><DYMOPoint><X>0.09</X><Y>0.039999966</Y></DYMOPoint><Size><Width>1.9766666</Width><Height>0.90333337</Height></Size></DYMORect>')
     .replace(/<LabelObjects>[\s\S]*?<\/LabelObjects>/, () => '<LabelObjects>' + [
