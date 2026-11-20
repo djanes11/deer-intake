@@ -11,7 +11,13 @@ export async function run() {
     assert.equal(labels.filter(l => l.heading === 'PACKAGE LABEL').length, count);
     const xml = smallLabelXml(labels[0]);
     assert.match(xml, /Anne &amp; O&apos;Connor &lt;Jr&gt;/);
-    assert.match(xml, /<Width>2<\/Width><Height>1<\/Height>/);
+    assert.match(xml, /<DYMOLabel Version="4">/);
+    assert.match(xml, /<LabelName>Small30336<\/LabelName>/);
+    assert.match(xml, /<Orientation>Landscape<\/Orientation>/);
+    assert.match(xml, /<Width>1.9766666<\/Width><Height>0.90333337<\/Height>/);
+    assert.match(xml, /<HasFixedLength>False<\/HasFixedLength>/);
+    assert.doesNotMatch(xml, /<LabelName>Custom<\/LabelName>|TextObject1/);
+    assert.equal((xml.match(/<TextObject>/g) || []).length, 4);
     assert.match(xml, /Tag 10001/);
   }
   assert.throws(() => buildSmallLabelSet({ ...data, tag: 'PENDING-1' }, 2));

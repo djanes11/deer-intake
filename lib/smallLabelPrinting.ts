@@ -1,3 +1,5 @@
+import { smallLabelTemplate } from '@/lib/smallLabelTemplate';
+
 export type SmallLabelData = { customer: string; tag: string; phone: string };
 export type SmallLabelSettings = { printer: string; roll: 'Left' | 'Right'; packages: 2 | 3 };
 export type SmallLabel = { heading: 'MEAT TAG' | 'PACKAGE LABEL'; data: SmallLabelData };
@@ -54,19 +56,19 @@ export function smallLabelXml(label: SmallLabel): string {
       <FormattedText><FitMode>AlwaysFit</FitMode><HorizontalAlignment>Left</HorizontalAlignment><VerticalAlignment>Middle</VerticalAlignment><IsVertical>False</IsVertical>
         <LineTextSpan><TextSpan><Text>${xmlText(text)}</Text><FontInfo><FontName>Arial</FontName><FontSize>${size}</FontSize><IsBold>${bold ? 'True' : 'False'}</IsBold><IsItalic>False</IsItalic><IsUnderline>False</IsUnderline>
           <FontBrush><SolidColorBrush><Color A="1" R="0" G="0" B="0"/></SolidColorBrush></FontBrush></FontInfo></TextSpan></LineTextSpan>
-      </FormattedText><ObjectLayout><DYMOPoint><X>0.08</X><Y>${y}</Y></DYMOPoint><Size><Width>1.84</Width><Height>${height}</Height></Size></ObjectLayout>
+      </FormattedText><ObjectLayout><DYMOPoint><X>0.11</X><Y>${y}</Y></DYMOPoint><Size><Width>1.84</Width><Height>${height}</Height></Size></ObjectLayout>
     </TextObject>`;
-  return `<?xml version="1.0" encoding="utf-8"?>
-    <DesktopLabel Version="1"><DYMOLabel Version="3"><Description>Meat and package label — 2 x 1 inch</Description>
-      <Orientation>Landscape</Orientation><LabelName>Custom</LabelName><InitialLength>0</InitialLength><BorderStyle>SolidLine</BorderStyle>
-      <DYMORect><DYMOPoint><X>0</X><Y>0</Y></DYMOPoint><Size><Width>2</Width><Height>1</Height></Size></DYMORect>
-      <BorderColor><SolidColorBrush><Color A="1" R="0" G="0" B="0"/></SolidColorBrush></BorderColor><BorderThickness>1</BorderThickness><Show_Border>False</Show_Border>
-      <DynamicLayoutManager><RotationBehavior>ClearObjects</RotationBehavior><LabelObjects>
-        ${object('KIND', label.heading, 0.06, 0.14, 9, true)}
-        ${object('CUSTOMER', label.data.customer, 0.22, 0.25, 10, true)}
-        ${object('TAG', 'Tag ' + label.data.tag, 0.49, 0.25, 14, true)}
-        ${object('PHONE', label.data.phone, 0.76, 0.17, 10, false)}
-      </LabelObjects></DynamicLayoutManager></DYMOLabel><LabelApplication>Blank</LabelApplication><DataTable><Columns/><Rows/></DataTable></DesktopLabel>`;
+  // The supplied file is portrait. Rotate its printable rectangle to landscape
+  // while preserving the actual stock identifier and Connect v4 metadata.
+  return smallLabelTemplate
+    .replace('<Orientation>Portrait</Orientation>', '<Orientation>Landscape</Orientation>')
+    .replace(/<DYMORect>[\s\S]*?<\/DYMORect>/, '<DYMORect><DYMOPoint><X>0.09</X><Y>0.039999966</Y></DYMOPoint><Size><Width>1.9766666</Width><Height>0.90333337</Height></Size></DYMORect>')
+    .replace(/<LabelObjects>[\s\S]*?<\/LabelObjects>/, () => '<LabelObjects>' + [
+      object('KIND', label.heading, 0.06, 0.14, 9, true),
+      object('CUSTOMER', label.data.customer, 0.22, 0.25, 10, true),
+      object('TAG', 'Tag ' + label.data.tag, 0.49, 0.25, 14, true),
+      object('PHONE', label.data.phone, 0.76, 0.17, 10, false),
+    ].join('') + '</LabelObjects>');
 }
 
 export function withLabelTimeout<T>(promise: PromiseLike<T>, message: string, ms = 25000): Promise<T> {
