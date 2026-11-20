@@ -830,6 +830,9 @@ useEffect(() => {
 
           setJob(next);
           setSavedOrder(next);
+          // Loaded records are already saved; printing must not require a new save.
+          setLastSavedTag(String(next.tag || ''));
+          setLastSavedAt('');
           setLastSavedJson(stableStringify(snapshotJob(next))); // baseline after load
         }
       } catch (e: any) {
@@ -1241,6 +1244,8 @@ useEffect(() => {
     };
     setJob(fresh);
     setSavedOrder(null);
+    setLastSavedTag('');
+    setLastSavedAt('');
     setZipDirty(false);
     setMsg('');
     setCustomerMatch(null);
