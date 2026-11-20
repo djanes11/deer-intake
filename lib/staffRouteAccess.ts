@@ -2,7 +2,7 @@
 export function isProtectedStaffPath(path: string, publicMode = false) {
   if (path === '/') return !publicMode;
   if (path === '/intake') return true;
-  return ['/admin', '/search', '/scan', '/board', '/butcher', '/reports', '/overnight/review', '/staff/account', '/staff/team', '/faq']
+  return ['/admin', '/search', '/scan', '/board', '/butcher', '/reports', '/overnight/review', '/staff/account', '/staff/team', '/staff/label-printing', '/faq']
     .some(prefix => path === prefix || path.startsWith(prefix + '/'));
 }
 
