@@ -272,6 +272,7 @@ export default function Nav() {
                 <summary>Help</summary>
                 <div className="dropdown-menu" role="menu">
                   <Link href="/tips" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Tip Sheet</Link>
+                  <Link href="/staff/label-printing" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Printer Setup</Link>
                   <Link href="/faq" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>FAQ</Link>
                   <Link href="/help/overnight-qr" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>Public Intake QR</Link>
                   {canAccessMyAccount ? <Link href="/staff/account" onClick={(e) => closeMobileAndDropdown(e.currentTarget)}>My Account</Link> : null}

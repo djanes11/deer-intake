@@ -4,23 +4,22 @@ import { useEffect, useRef, useState } from 'react';
 import { getJob } from '@/lib/api';
 import { antlerData, directAntlerEligible, sendAntlerLabel } from '@/lib/antlerLabelPrinting';
 import {
-  buildSmallLabelSet, connectSmallLabelPrinter, readSmallLabelSettings, saveSmallLabelSettings,
+  buildSmallLabelSet, connectSmallLabelPrinter, readSmallLabelSettings,
   sendSmallLabelSet, smallLabelData, UncertainLabelPrintError,
 } from '@/lib/smallLabelPrinting';
 
-export default function SmallLabelControls({ job, disabled = false, saveFirst = false, brandingName = 'Wild Game Butcher Board' }: {
+export default function SmallLabelControls({ job, disabled = false, saveFirst = false, brandingName = 'Wild Game Butcher Board', buttonClassName = 'btn secondary' }: {
   job: Record<string, any> | null | undefined;
   disabled?: boolean;
   saveFirst?: boolean;
   brandingName?: string;
+  buttonClassName?: string;
 }) {
-  const [crates, setCrates] = useState<2 | 3>(2);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [uncertain, setUncertain] = useState(false);
   const working = useRef(false);
   const tag = smallLabelData(job || {}).tag;
-  useEffect(() => { setCrates(readSmallLabelSettings().packages); }, []);
   useEffect(() => { if (!working.current && !uncertain) setMessage(''); }, [tag, uncertain]);
 
   async function authorize() {
@@ -31,15 +30,15 @@ export default function SmallLabelControls({ job, disabled = false, saveFirst = 
     }
     if (!response.ok) throw new Error('Could not verify your staff session. No further labels were sent.');
   }
-  async function print(mode: 'set' | 'meat' | 'crate' | 'antler') {
+  async function print(mode: 'meat' | 'crate' | 'antler') {
     if (working.current || disabled || saveFirst || uncertain) return;
     working.current = true; setBusy(true); setMessage('');
     try {
       await authorize();
-      const settings = { ...readSmallLabelSettings(), packages: crates };
-      if (!settings.printer) throw new Error('Open Printer setup below and select this computer’s Twin Turbo and small-label roll first.');
+      const settings = readSmallLabelSettings();
+      if (!settings.printer) throw new Error('Open Help → Printer Setup and select this computer’s Twin Turbo and small-label roll first.');
       const displayed = smallLabelData(job || {});
-      buildSmallLabelSet(displayed, crates);
+      buildSmallLabelSet(displayed, 2);
       const result = await getJob(displayed.tag);
       if (!result.job) throw new Error('Could not load the saved deer. Refresh before printing.');
       const current = smallLabelData(result.job);
@@ -54,8 +53,8 @@ export default function SmallLabelControls({ job, disabled = false, saveFirst = 
         setMessage(`Tag ${current.tag}: antler label sent to the ${settings.roll === 'Left' ? 'right' : 'left'} roll. Check the printed label.`);
         return;
       }
-      const labels = buildSmallLabelSet(current, crates);
-      const selected = mode === 'set' ? labels : [mode === 'meat' ? labels[0] : labels[1]];
+      const labels = buildSmallLabelSet(current, 2);
+      const selected = [mode === 'meat' ? labels[0] : labels[1]];
       const count = await sendSmallLabelSet(await connectSmallLabelPrinter(), settings, selected, authorize);
       setMessage(`Tag ${current.tag}: ${count} label request(s) accepted by DYMO. Check the printed labels.`);
     } catch (error) {
@@ -63,35 +62,13 @@ export default function SmallLabelControls({ job, disabled = false, saveFirst = 
       setMessage(error instanceof Error ? error.message : 'Could not print labels.');
     } finally { working.current = false; setBusy(false); }
   }
-  function changeCount(value: 2 | 3) {
-    setCrates(value);
-    try { saveSmallLabelSettings({ ...readSmallLabelSettings(), packages: value }); }
-    catch { setMessage('Crate count changed for this page; browser settings could not be saved.'); }
-  }
   const locked = busy || disabled || saveFirst || uncertain || !tag || /^pending/i.test(tag);
-  return <div style={{ flexBasis: '100%', minWidth: 0, display: 'grid', gap: 8, marginTop: 8 }}>
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      <button className="btn secondary" type="button" disabled={locked} onClick={() => void print('set')}>
-        {busy ? 'Sending labels…' : `Print Meat + ${crates} Crate Labels`}
-      </button>
-      {directAntlerEligible(job) ? <button className="btn secondary" type="button" disabled={locked} onClick={() => void print('antler')}>Print Antler — DYMO</button> : null}
-      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-        Crates
-        <select aria-label="Crate labels per deer" value={crates} disabled={busy || uncertain} onChange={event => changeCount(Number(event.target.value) as 2 | 3)} style={{ width: 'auto', padding: '6px 8px' }}>
-          <option value={2}>2</option><option value={3}>3</option>
-        </select>
-      </label>
-      <a href="/staff/label-printing" style={{ fontSize: 13 }}>Printer setup</a>
-      <details>
-        <summary style={{ cursor: 'pointer', fontSize: 13 }}>Individual labels</summary>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-          <button className="btn secondary" type="button" disabled={locked} onClick={() => void print('meat')}>1 Meat Tag</button>
-          <button className="btn secondary" type="button" disabled={locked} onClick={() => void print('crate')}>1 Crate Label</button>
-        </div>
-      </details>
-    </div>
-    {saveFirst ? <div style={{ fontSize: 13 }}>Save this intake before printing labels.</div> : null}
-    {message ? <div role="status" style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{message}</div> : null}
-    {uncertain ? <button className="btn secondary" type="button" disabled={busy} onClick={() => { setUncertain(false); setMessage('Print only the missing labels using Individual labels.'); }}>I checked the printer and queue — unlock printing</button> : null}
-  </div>;
+  const title = saveFirst ? 'Save this intake before printing labels.' : 'Print one label using the saved printer setup';
+  return <>
+    <button className={buttonClassName} title={title} type="button" disabled={locked} onClick={() => void print('meat')}>{busy ? 'Sending…' : 'Meat Tag'}</button>
+    <button className={buttonClassName} title={title} type="button" disabled={locked} onClick={() => void print('crate')}>Crate Label</button>
+    {directAntlerEligible(job) ? <button className={buttonClassName} title={title} type="button" disabled={locked} onClick={() => void print('antler')}>Antler Tag — DYMO</button> : null}
+    {message ? <div role="status" style={{ flexBasis: '100%', fontSize: 13, overflowWrap: 'anywhere' }}>{message}</div> : null}
+    {uncertain ? <button className={buttonClassName} type="button" disabled={busy} onClick={() => { setUncertain(false); setMessage('Print only the missing labels.'); }}>I checked the printer and queue — unlock printing</button> : null}
+  </>;
 }

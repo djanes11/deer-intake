@@ -10,7 +10,7 @@ export async function run() {
   }).outputText;
   const oldFetch = globalThis.fetch;
   try {
-    for (const scenario of ['success', 'double-click', 'changed', 'reassigned', 'missing', 'unsaved', 'disabled', 'pending', 'no-printer', 'session-failure', 'uncertain']) {
+    for (const scenario of ['success', 'crate', 'double-click', 'changed', 'reassigned', 'missing', 'unsaved', 'disabled', 'pending', 'no-printer', 'session-failure', 'uncertain']) {
       let sent = 0, loaded = 0;
       const states: any[] = []; let cursor = 0;
       const job = { id: 'job-a', customer: 'Sample Customer', tag: scenario === 'pending' ? 'PENDING-1' : '10001', phone: '5555550100' };
@@ -33,7 +33,7 @@ export async function run() {
           sendSmallLabelSet: async (_sdk: any, settings: any, labels: any[]) => {
             sent++;
             assert.equal(settings.roll, 'Right');
-            assert.deepEqual(labels.map(l => l.heading), ['MEAT TAG', 'CRATE LABEL', 'CRATE LABEL']);
+            assert.deepEqual(labels.map(l => l.heading), [scenario === 'crate' ? 'CRATE LABEL' : 'MEAT TAG']);
             if (scenario === 'uncertain') throw new printing.UncertainLabelPrintError('Check printer');
             return labels.length;
           },
@@ -45,13 +45,15 @@ export async function run() {
       const nodes: any[] = [];
       const visit = (node: any) => { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) { node.forEach(visit); return; } nodes.push(node); visit(node.props?.children); };
       visit(tree);
-      const button = nodes.find(n => n.type === 'button');
+      assert.equal(nodes.some(n => n.type === 'select'), false, 'No crate count selector in toolbar');
+      assert.equal(nodes.some(n => n.type === 'a'), false, 'Printer setup belongs on its own page');
+      const button = nodes.filter(n => n.type === 'button')[scenario === 'crate' ? 1 : 0];
       button.props.onClick();
       if (scenario === 'double-click') button.props.onClick();
       for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve));
-      assert.equal(sent, ['success', 'double-click', 'uncertain'].includes(scenario) ? 1 : 0, scenario);
+      assert.equal(sent, ['success', 'crate', 'double-click', 'uncertain'].includes(scenario) ? 1 : 0, scenario);
       if (scenario === 'unsaved' || scenario === 'disabled') assert.equal(loaded, 0, scenario);
-      if (scenario === 'uncertain') assert.equal(states[3], true, 'Uncertain jobs lock further printing');
+      if (scenario === 'uncertain') assert.equal(states[2], true, 'Uncertain jobs lock further printing');
     }
   } finally { globalThis.fetch = oldFetch; }
 }

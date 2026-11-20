@@ -2437,7 +2437,6 @@ useEffect(() => {
         </fieldset>
 
         {/* Actions */}
-        <SmallLabelControls brandingName={brandingName} job={job} disabled={busy} saveFirst={dirty || !lastSavedTag} />
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>
             {msg || (dirty ? 'Unsaved changes' : '')}
@@ -2464,6 +2463,7 @@ useEffect(() => {
             </div>
 
             <div className="actionsUtility">
+              <SmallLabelControls brandingName={brandingName} job={job} disabled={busy} saveFirst={dirty || !lastSavedTag} buttonClassName="btn secondaryBtn" />
 
               {canPrintAntlerLabel(job) ? (
                 <button
@@ -2541,6 +2541,7 @@ useEffect(() => {
             <details className="actionMenu">
               <summary className="actionMenuSummary">Print Options</summary>
               <div className="actionMenuList">
+                <SmallLabelControls brandingName={brandingName} job={job} disabled={busy} saveFirst={dirty || !lastSavedTag} buttonClassName="actionMenuBtn" />
                 <button
                   className="actionMenuBtn"
                   type="button"
