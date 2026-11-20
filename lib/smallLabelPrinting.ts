@@ -2,7 +2,7 @@ import { smallLabelTemplate } from '@/lib/smallLabelTemplate';
 
 export type SmallLabelData = { customer: string; tag: string; phone: string };
 export type SmallLabelSettings = { printer: string; roll: 'Left' | 'Right'; packages: 2 | 3 };
-export type SmallLabel = { heading: 'MEAT TAG' | 'PACKAGE LABEL'; data: SmallLabelData };
+export type SmallLabel = { heading: 'MEAT TAG' | 'CRATE LABEL'; data: SmallLabelData };
 export type LabelPrinter = { name: string; isConnected: boolean; isLocal: boolean; isTwinTurbo: boolean };
 export type SmallLabelFramework = {
   init(callback: () => void): void;
@@ -33,11 +33,11 @@ export function smallLabelData(job: Record<string, unknown>): SmallLabelData {
   };
 }
 export function buildSmallLabelSet(data: SmallLabelData, packages: 2 | 3): SmallLabel[] {
-  if (packages !== 2 && packages !== 3) throw new Error('Choose 2 or 3 package labels.');
+  if (packages !== 2 && packages !== 3) throw new Error('Choose 2 or 3 crate labels.');
   if (!data.tag.trim() || /^pending/i.test(data.tag)) throw new Error('Assign a permanent tag before printing.');
   if (!data.customer.trim() || !data.phone.trim()) throw new Error('A name and phone number are required for these labels.');
   if (data.customer.length > 70 || data.tag.length > 20 || data.phone.length > 30) throw new Error('These details are too long for the small label. Check the record before printing.');
-  return [ { heading: 'MEAT TAG', data: { ...data } }, ...Array.from({ length: packages }, (): SmallLabel => ({ heading: 'PACKAGE LABEL', data: { ...data } })) ];
+  return [ { heading: 'MEAT TAG', data: { ...data } }, ...Array.from({ length: packages }, (): SmallLabel => ({ heading: 'CRATE LABEL', data: { ...data } })) ];
 }
 const xmlText = (text: string) => text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 

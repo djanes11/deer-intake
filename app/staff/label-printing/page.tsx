@@ -81,8 +81,8 @@ export default function LabelPrintingTestPage() {
   }
   return (
     <main className="label-lab">
-      <h1>Meat &amp; package label testing</h1>
-      <p>One meat tag plus {settings.packages} package labels on the small roll. Your regular antler printing remains available.</p>
+      <h1>Meat &amp; crate label testing</h1>
+      <p>One meat tag plus {settings.packages} crate labels on the small roll. Your regular antler printing remains available.</p>
       <p className="notice">Testing setup · 2 inches wide × 1 inch tall. First check one sample label on the shop computer before printing a full set.</p>
       <fieldset disabled={busy}>
         <legend>Printer setup — saved on this computer</legend>
@@ -94,7 +94,7 @@ export default function LabelPrintingTestPage() {
         </select></label>
         <div className="options">
           <label>Small-label roll<select value={settings.roll} onChange={event => updateSettings({ roll: event.target.value as 'Left' | 'Right' })}><option>Left</option><option>Right</option></select></label>
-          <label>Package labels per set<select value={settings.packages} onChange={event => updateSettings({ packages: Number(event.target.value) as 2 | 3 })}><option value={2}>2 package labels</option><option value={3}>3 package labels</option></select></label>
+          <label>Crate labels per set<select value={settings.packages} onChange={event => updateSettings({ packages: Number(event.target.value) as 2 | 3 })}><option value={2}>2 crate labels</option><option value={3}>3 crate labels</option></select></label>
         </div>
         <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('test'))}>Print 1 sample meat tag</button>
       </fieldset>
@@ -107,7 +107,7 @@ export default function LabelPrintingTestPage() {
         </form>
         <p>{sample ? 'Sample details — no customer record selected.' : `Loaded deer: ${data.tag}`}</p>
         <div className="previews">
-          {(['MEAT TAG', 'PACKAGE LABEL'] as const).map(heading => (
+          {(['MEAT TAG', 'CRATE LABEL'] as const).map(heading => (
             <div key={heading}>
               <div className="label-preview"><div className="kind">{heading}</div><div className="customer">{data.customer}</div><strong className="tag">Tag {data.tag}</strong><div className="phone">{data.phone}</div></div>
               <p>{heading === 'MEAT TAG' ? '1 copy' : `${settings.packages} copies`}</p>
@@ -116,9 +116,9 @@ export default function LabelPrintingTestPage() {
         </div>
         <p className="muted">Layout preview. Actual fit and print quality must be checked on your labels.</p>
         <div className="options">
-          <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('set'))}>Print {sample ? 'Sample ' : ''}Label Set — 1 meat + {settings.packages} package</button>
+          <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('set'))}>Print {sample ? 'Sample ' : ''}Label Set — 1 meat + {settings.packages} crate</button>
           <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('meat'))}>Meat tag only</button>
-          <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('package'))}>1 package label only</button>
+          <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('package'))}>1 crate label only</button>
         </div>
       </fieldset>
       <div role="status" aria-live="polite" className="notice">{busy ? 'Working…' : message || 'Ready to connect. No labels print until you choose a print button.'}</div>

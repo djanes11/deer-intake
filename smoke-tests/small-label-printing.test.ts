@@ -8,7 +8,7 @@ export async function run() {
     const labels = buildSmallLabelSet(data, count);
     assert.equal(labels.length, count + 1);
     assert.equal(labels[0].heading, 'MEAT TAG');
-    assert.equal(labels.filter(l => l.heading === 'PACKAGE LABEL').length, count);
+    assert.equal(labels.filter(l => l.heading === 'CRATE LABEL').length, count);
     const xml = smallLabelXml(labels[0]);
     assert.equal(xml.startsWith('<?xml'), true, 'Web-service XML must start with the declaration, not a BOM or whitespace');
     assert.equal(xml.charCodeAt(0), 60);
@@ -32,7 +32,7 @@ export async function run() {
     const sdk: SmallLabelFramework = {
       init: cb => cb(),
       getPrintersAsync: async () => [{ name: 'Twin', isConnected: scenario !== 'disconnected', isTwinTurbo: true, isLocal: true }],
-      renderLabelAsync: async xml => { calls.push('render'); if (scenario === 'render-failure' && xml.includes('PACKAGE LABEL')) throw Error('render'); return 'png'; },
+      renderLabelAsync: async xml => { calls.push('render'); if (scenario === 'render-failure' && xml.includes('CRATE LABEL')) throw Error('render'); return 'png'; },
       createLabelWriterPrintParamsXml: params => { assert.equal(params.twinTurboRoll, 'Right'); assert.equal(params.copies, 1); return ''; },
       printLabelAsync: async () => { calls.push('print'); sends++; if (scenario === 'print-failure' && sends === 2) throw Error('lost response'); return undefined; },
     };

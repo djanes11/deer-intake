@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
+import SmallLabelControls from '@/app/components/SmallLabelControls';
 import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
@@ -1182,6 +1183,7 @@ export default function SearchPage() {
                         <span>{selectedJob.intakeSheetPrintCount ? `${selectedJob.intakeSheetPrintCount} printed` : 'Labels and reprint tools'}</span>
                       </summary>
                       <div className="printOptionsList">
+                        <SmallLabelControls job={selectedJob} disabled={detailLoading || printing === selectedTag} />
                         {canPrintAntlerLabel(selectedJob) ? (
                           <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>
                             Antler Tag

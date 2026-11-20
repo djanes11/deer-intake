@@ -1,5 +1,6 @@
 import { run as runNeedsTagQueue } from './needs-tag-queue.test.ts';
 import { run as runSmallLabelPrinting } from './small-label-printing.test.ts';
+import { run as runSmallLabelControls } from './small-label-controls.test.ts';
 import { run as runPickupQueue } from './pickup-queue.test.ts';
 import { run as runIdentifiers } from './identifiers.test.ts';
 import { run as runSiteSettings } from './site-settings.test.ts';
@@ -18,6 +19,7 @@ import { run as runCheckinEmail } from './checkin-email.test.ts';
 
 const suites = [
   ['small label printing', runSmallLabelPrinting],
+  ['small label controls', runSmallLabelControls],
   ['needs tag queue', runNeedsTagQueue],
   ['pickup queue', runPickupQueue],
   ['identifiers', runIdentifiers],

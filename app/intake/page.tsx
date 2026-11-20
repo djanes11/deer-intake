@@ -9,6 +9,7 @@ import { saveJob, getJob, tokenHeader } from '@/lib/api';
 import { resolveOrderPrices } from '@/lib/orderPrices';
 import { paymentBalance, paymentReviewMessage } from '@/lib/paymentBalance';
 import PrintSheet from '@/app/components/PrintSheet';
+import SmallLabelControls from '@/app/components/SmallLabelControls';
 import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
@@ -2436,6 +2437,7 @@ useEffect(() => {
         </fieldset>
 
         {/* Actions */}
+        <SmallLabelControls job={job} disabled={busy} saveFirst={dirty || !lastSavedTag} />
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>
             {msg || (dirty ? 'Unsaved changes' : '')}

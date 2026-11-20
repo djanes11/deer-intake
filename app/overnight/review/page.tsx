@@ -4,6 +4,7 @@ import { NEEDS_TAG_COLUMNS, normRow, needsTagPayment, processingDue, sortNeedsTa
 import { formatDisplayDateTime } from '@/lib/dateFormat';
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
+import SmallLabelControls from '@/app/components/SmallLabelControls';
 import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
@@ -347,6 +348,7 @@ export default function MissingTagsPage() {
                 <button className="btn" onClick={() => printAssignedSheet(selectedTag)} disabled={!!printing}>
                   {printing === selectedTag ? 'Preparing Print...' : 'Print Full Sheet'}
                 </button>
+                <SmallLabelControls job={selectedJob} disabled={!!printing} />
                 {canPrintAntlerLabel(selectedJob) ? (
                   <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'antler')} disabled={!!printing}>
                     Antler Tag
