@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 import * as printing from '../lib/smallLabelPrinting.ts';
+import * as antlerPrinting from '../lib/antlerLabelPrinting.ts';
 
 export async function run() {
   const code = ts.transpileModule(fs.readFileSync('app/components/SmallLabelControls.tsx', 'utf8'), {
@@ -15,6 +16,7 @@ export async function run() {
       const job = { id: 'job-a', customer: 'Sample Customer', tag: scenario === 'pending' ? 'PENDING-1' : '10001', phone: '5555550100' };
       globalThis.fetch = (async () => ({ status: scenario === 'session-failure' ? 503 : 200, ok: scenario !== 'session-failure' })) as any;
       const deps: Record<string, any> = {
+        '@/lib/antlerLabelPrinting': antlerPrinting,
         'react': {
           useState: (initial: any) => { const index = cursor++; states[index] = initial; return [initial, (value: any) => { states[index] = value; }]; },
           useRef: (value: any) => ({ current: value }), useEffect: () => {},

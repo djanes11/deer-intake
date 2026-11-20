@@ -1183,11 +1183,9 @@ export default function SearchPage() {
                         <span>{selectedJob.intakeSheetPrintCount ? `${selectedJob.intakeSheetPrintCount} printed` : 'Labels and reprint tools'}</span>
                       </summary>
                       <div className="printOptionsList">
-                        <SmallLabelControls job={selectedJob} disabled={detailLoading || printing === selectedTag} />
+                        <SmallLabelControls brandingName={brandingName} job={selectedJob} disabled={detailLoading || printing === selectedTag} />
                         {canPrintAntlerLabel(selectedJob) ? (
-                          <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>
-                            Antler Tag
-                          </button>
+                          <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>Antler Tag (browser)</button>
                         ) : null}
                         {canEdit && selectedJob?.intakeSheetPrintedAt ? (
                           <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>

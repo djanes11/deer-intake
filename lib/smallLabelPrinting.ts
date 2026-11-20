@@ -43,8 +43,7 @@ const xmlText = (text: string) => text.replace(/[\u0000-\u0008\u000b\u000c\u000e
 
 // Native Connect layout, in inches. Separate text objects let long names
 // shrink independently without shrinking the tag number or label heading.
-export function smallLabelXml(label: SmallLabel): string {
-  const object = (name: string, text: string, y: number, height: number, size: number, bold: boolean) => `
+export const dymoTextObject = (name: string, text: string, y: number, height: number, size: number, bold: boolean, x = 0.11, width = 1.84) => `
     <TextObject><Name>${name}</Name>
       <Brushes><BackgroundBrush><SolidColorBrush><Color A="0" R="1" G="1" B="1"/></SolidColorBrush></BackgroundBrush>
         <BorderBrush><SolidColorBrush><Color A="1" R="0" G="0" B="0"/></SolidColorBrush></BorderBrush>
@@ -56,8 +55,11 @@ export function smallLabelXml(label: SmallLabel): string {
       <FormattedText><FitMode>AlwaysFit</FitMode><HorizontalAlignment>Left</HorizontalAlignment><VerticalAlignment>Middle</VerticalAlignment><IsVertical>False</IsVertical>
         <LineTextSpan><TextSpan><Text>${xmlText(text)}</Text><FontInfo><FontName>Arial</FontName><FontSize>${size}</FontSize><IsBold>${bold ? 'True' : 'False'}</IsBold><IsItalic>False</IsItalic><IsUnderline>False</IsUnderline>
           <FontBrush><SolidColorBrush><Color A="1" R="0" G="0" B="0"/></SolidColorBrush></FontBrush></FontInfo></TextSpan></LineTextSpan>
-      </FormattedText><ObjectLayout><DYMOPoint><X>0.11</X><Y>${y}</Y></DYMOPoint><Size><Width>1.84</Width><Height>${height}</Height></Size></ObjectLayout>
+      </FormattedText><ObjectLayout><DYMOPoint><X>${x}</X><Y>${y}</Y></DYMOPoint><Size><Width>${width}</Width><Height>${height}</Height></Size></ObjectLayout>
     </TextObject>`;
+
+export function smallLabelXml(label: SmallLabel): string {
+  const object = dymoTextObject;
   // The supplied file is portrait. Rotate its printable rectangle to landscape
   // while preserving the actual stock identifier and Connect v4 metadata.
   return smallLabelTemplate

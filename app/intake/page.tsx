@@ -2437,7 +2437,7 @@ useEffect(() => {
         </fieldset>
 
         {/* Actions */}
-        <SmallLabelControls job={job} disabled={busy} saveFirst={dirty || !lastSavedTag} />
+        <SmallLabelControls brandingName={brandingName} job={job} disabled={busy} saveFirst={dirty || !lastSavedTag} />
         <div className="actions">
           <div className={`status ${msg.startsWith('Save') ? 'ok' : msg ? 'err' : ''}`}>
             {msg || (dirty ? 'Unsaved changes' : '')}
@@ -2483,9 +2483,7 @@ useEffect(() => {
                     openBrowserPrintPreview(() => setPrintMode(''));
                   }}
                   disabled={busy}
-                >
-                  Antler Tag
-                </button>
+                >Antler Tag (browser)</button>
               ) : null}
 
               <button
@@ -2587,9 +2585,7 @@ useEffect(() => {
                       openBrowserPrintPreview(() => setPrintMode(''));
                     }}
                     disabled={busy}
-                  >
-                    Print Antler Tag
-                  </button>
+                  >Antler Tag (browser)</button>
                 ) : null}
               </div>
             </details>

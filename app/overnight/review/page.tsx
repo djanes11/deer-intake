@@ -348,11 +348,9 @@ export default function MissingTagsPage() {
                 <button className="btn" onClick={() => printAssignedSheet(selectedTag)} disabled={!!printing}>
                   {printing === selectedTag ? 'Preparing Print...' : 'Print Full Sheet'}
                 </button>
-                <SmallLabelControls job={selectedJob} disabled={!!printing} />
+                <SmallLabelControls brandingName={brandingName} job={selectedJob} disabled={!!printing} />
                 {canPrintAntlerLabel(selectedJob) ? (
-                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'antler')} disabled={!!printing}>
-                    Antler Tag
-                  </button>
+                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'antler')} disabled={!!printing}>Antler Tag (browser)</button>
                 ) : null}
               </div>
             </div>

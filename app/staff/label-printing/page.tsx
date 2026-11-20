@@ -82,7 +82,7 @@ export default function LabelPrintingTestPage() {
   return (
     <main className="label-lab">
       <h1>Meat &amp; crate label testing</h1>
-      <p>One meat tag plus {settings.packages} crate labels on the small roll. Your regular antler printing remains available.</p>
+      <p>One meat tag plus {settings.packages} crate labels on the small roll. The Print Antler — DYMO button in staff intake, Search and Needs Tag uses the opposite roll for the large antler label.</p>
       <p className="notice">Testing setup · 2 inches wide × 1 inch tall. First check one sample label on the shop computer before printing a full set.</p>
       <fieldset disabled={busy}>
         <legend>Printer setup — saved on this computer</legend>
