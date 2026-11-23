@@ -54,7 +54,6 @@ export default function SmallLabelControls({ job, disabled = false, saveFirst = 
         return;
       }
       const labels = buildSmallLabelSet(current, 2);
-      const selected = [mode === 'meat' ? labels[0] : labels[1]];
       const selected = labels.slice(1);
       const count = await sendSmallLabelSet(await connectSmallLabelPrinter(), settings, selected, authorize);
       setMessage(`Tag ${current.tag}: ${count} label request(s) accepted by DYMO. Check the printed labels.`);
