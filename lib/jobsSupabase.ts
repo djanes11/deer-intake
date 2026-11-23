@@ -1,3 +1,4 @@
+import { savedMoney } from './publicOrderPayment';
 import { sendCheckinEmailOnce } from '@/lib/checkinEmailDelivery';
 import { specialtyQuantityError } from '@/lib/specialtyYield';
 // lib/jobsSupabase.ts
@@ -801,7 +802,7 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
     !!locked.webbs_order,
     await getCurrentPricing(),
   );
-  const price = Number(locked.price_processing ?? 0) || computed;
+  const price = savedMoney(locked.price_processing) ?? computed;
   const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const branding = await getNotificationBranding(locked);
   const statusUrl = await statusPageLinkForRow(supabaseServer, locked, baseUrl);
@@ -827,12 +828,7 @@ async function trySendMeatFinishedEmail(supabaseServer: any, row: any) {
 
   await stampNotificationField(supabaseServer, locked, 'finished_email_sent_at');
 
-  if (!Number(locked.price_processing ?? 0) && computed) {
-    await withProcessorFilter(
-      supabaseServer.from('jobs').update({ price_processing: computed }).eq('tag', String(locked.tag)),
-      locked?.processor_id ? String(locked.processor_id) : null
-    );
-  }
+
 }
 
 async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
@@ -861,7 +857,7 @@ async function trySendMeatFinishedSms(supabaseServer: any, row: any) {
     !!locked.webbs_order,
     await getCurrentPricing(),
   );
-  const price = Number(locked.price_processing ?? 0) || computed;
+  const price = savedMoney(locked.price_processing) ?? computed;
   const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const branding = await getNotificationBranding(locked);
   const statusUrl = await statusPageLinkForRow(supabaseServer, locked, baseUrl);
@@ -1015,7 +1011,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
 
   const computed = await calcSpecialtyPriceForRow(supabaseServer, locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
-  const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
+  const price = savedMoney(locked.price_specialty) ?? override ?? computed;
   const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const branding = await getNotificationBranding(locked);
   const statusUrl = await statusPageLinkForRow(supabaseServer, locked, baseUrl);
@@ -1041,12 +1037,7 @@ async function trySendSpecialtyFinishedEmail(supabaseServer: any, row: any) {
 
   await stampNotificationField(supabaseServer, locked, 'specialty_finished_email_sent_at');
 
-  if (!Number(locked.price_specialty ?? 0) && price) {
-    await withProcessorFilter(
-      supabaseServer.from('jobs').update({ price_specialty: price }).eq('tag', String(locked.tag)),
-      locked?.processor_id ? String(locked.processor_id) : null
-    );
-  }
+
 }
 
 async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
@@ -1089,7 +1080,7 @@ async function trySendSpecialtyFinishedSms(supabaseServer: any, row: any) {
 
   const computed = await calcSpecialtyPriceForRow(supabaseServer, locked, await getCurrentPricing());
   const override = numOrNull(locked.specialty_price_override);
-  const price = override ?? (Number(locked.price_specialty ?? 0) || computed);
+  const price = savedMoney(locked.price_specialty) ?? override ?? computed;
   const baseUrl = await publicBaseUrlForRow(supabaseServer, locked);
   const branding = await getNotificationBranding(locked);
   const statusUrl = await statusPageLinkForRow(supabaseServer, locked, baseUrl);
@@ -1348,7 +1339,7 @@ export async function resendCustomerNotification(params: {
 
     if (event === 'meat_finished') {
       const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
-      const price = Number(row.price_processing ?? 0) || computed;
+      const price = savedMoney(row.price_processing) ?? computed;
       const branding = await getNotificationBranding(row);
       const tpl = buildFinishedEmail({
         name: String(row.customer_name || ''),
@@ -1382,7 +1373,7 @@ export async function resendCustomerNotification(params: {
     if (event === 'specialty_finished') {
       const computed = await calcSpecialtyPriceForRow(supabaseServer, row, await getCurrentPricing());
       const override = numOrNull(row.specialty_price_override);
-      const price = override ?? (Number(row.price_specialty ?? 0) || computed);
+      const price = savedMoney(row.price_specialty) ?? override ?? computed;
       const branding = await getNotificationBranding(row);
       const tpl = buildSpecialtyFinishedEmail({
         name: String(row.customer_name || ''),
@@ -1431,7 +1422,7 @@ export async function resendCustomerNotification(params: {
   }
   if (event === 'meat_finished') {
     const computed = calcProcessingPrice(row.process_type, !!row.beef_fat, !!row.webbs_order, await getCurrentPricing());
-    const price = Number(row.price_processing ?? 0) || computed;
+    const price = savedMoney(row.price_processing) ?? computed;
     const branding = await getNotificationBranding(row);
     body = buildMeatFinishedSms({
       tag: String(row.tag || ''),
@@ -1457,7 +1448,7 @@ export async function resendCustomerNotification(params: {
   if (event === 'specialty_finished') {
     const computed = await calcSpecialtyPriceForRow(supabaseServer, row, await getCurrentPricing());
     const override = numOrNull(row.specialty_price_override);
-    const price = override ?? (Number(row.price_specialty ?? 0) || computed);
+    const price = savedMoney(row.price_specialty) ?? override ?? computed;
     const branding = await getNotificationBranding(row);
     body = buildSpecialtyFinishedSms({
       tag: String(row.tag || ''),

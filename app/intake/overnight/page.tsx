@@ -2,6 +2,7 @@
 'use client';
 
 import { normalizePublicIntakeName, publicIntakeNameError } from '@/lib/publicIntakeName';
+import { publicOrderPayment } from '@/lib/publicOrderPayment';
 import SpecialtyQuantityFields from '@/app/components/SpecialtyQuantityFields';
 import { specialtyTakeHomeLbs, specialtyMeatLbs, specialtyQuantityError } from '@/lib/specialtyYield';
 import { Fragment, useCallback, useEffect, useMemo, useState, Suspense } from 'react';
@@ -290,6 +291,8 @@ function OvernightIntakePage() {
   const [showThanks, setShowThanks] = useState<boolean>(false);
   const [savedConfirmation, setSavedConfirmation] = useState('');
   const [savedPublicToken, setSavedPublicToken] = useState('');
+  const [savedPayment, setSavedPayment] = useState<Record<string, any> | null>(null);
+  const [balanceUnavailable, setBalanceUnavailable] = useState(false);
   const [webbsPaymentChoice, setWebbsPaymentChoice] = useState<'square' | 'staff' | ''>('');
   const [squarePaymentBusy, setSquarePaymentBusy] = useState(false);
   const [squarePaymentMsg, setSquarePaymentMsg] = useState('');
@@ -505,7 +508,32 @@ function OvernightIntakePage() {
   }, [job.specialtyProducts, specialtyItems, specialtyPrice]);
 
   const totalPrice = processingPrice + specialtyPrice;
-  const squareProcessingTotal = processingPrice + SQUARE_ONLINE_PAYMENT_FEE;
+  const submittedPayment = publicOrderPayment(savedPayment || {});
+  const submittedDue = submittedPayment.owedProcessing;
+  const displayedProcessing = locked ? submittedPayment.priceProcessing ?? processingPrice : processingPrice;
+  const displayedSpecialty = locked ? submittedPayment.priceSpecialty ?? specialtyPrice : specialtyPrice;
+  const displayedTotal = displayedProcessing + displayedSpecialty;
+  const squareProcessingTotal = (submittedDue ?? 0) + ((submittedDue ?? 0) > 0 ? SQUARE_ONLINE_PAYMENT_FEE : 0);
+
+  const refreshSubmittedBalance = useCallback(async () => {
+    if (!savedPublicToken) return;
+    try {
+      const response = await fetch('/api/public-status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store',
+        body: JSON.stringify({ token: savedPublicToken }), signal: AbortSignal.timeout(10000),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok || result.matches) throw new Error('Balance unavailable');
+      setSavedPayment(result); setBalanceUnavailable(false);
+    } catch { setBalanceUnavailable(true); }
+  }, [savedPublicToken]);
+  useEffect(() => {
+    if (!showThanks || !savedPublicToken) return;
+    // Refresh on return to this tab; no background polling on shared shop Wi-Fi.
+    const refresh = () => { void refreshSubmittedBalance(); };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [showThanks, savedPublicToken, refreshSubmittedBalance]);
   const processingEstimatePending = false;
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job.webbsItems), [job.webbsItems]);
   const webbsAllocations = useMemo(() => normalizeWebbsAllocations(job.webbsAllocations), [job.webbsAllocations]);
@@ -895,6 +923,8 @@ function OvernightIntakePage() {
       }
       const nextConfirmation = String(res?.confirmation || res?.job?.confirmation || job.confirmation || '').trim();
       const nextPublicToken = String(res?.publicToken || res?.job?.publicToken || '').trim();
+      setSavedPayment(res.job || null);
+      setBalanceUnavailable(!res.job);
       if (nextConfirmation) {
         setSavedConfirmation(nextConfirmation);
         setJob((p) => ({ ...p, confirmation: nextConfirmation }));
@@ -934,6 +964,7 @@ function OvernightIntakePage() {
         return;
       }
       if (res?.paid) {
+        setSavedPayment(previous => ({ ...previous, paidProcessing: true }));
         setSquarePaymentMsg(res?.message || 'Regular processing is already marked paid.');
         return;
       }
@@ -1174,11 +1205,11 @@ function OvernightIntakePage() {
             <div className="compactSummaryBar">
               <div className="compactSummaryMain">
                 <div className="compactSummaryStep">Step {stepIdx + 1} of {steps.length}: {step.title}</div>
-                <div className="compactSummaryTotal">${totalPrice.toFixed(2)}</div>
+                <div className="compactSummaryTotal">${displayedTotal.toFixed(2)}</div>
               </div>
               <div className="compactSummarySub">
-                <span>Processing ${processingPrice.toFixed(2)}</span>
-                {specialtyEnabled ? <span>Specialty ${specialtyPrice.toFixed(2)}</span> : null}
+                <span>Processing ${displayedProcessing.toFixed(2)}</span>
+                {specialtyEnabled ? <span>Specialty ${displayedSpecialty.toFixed(2)}</span> : null}
               </div>
             </div>
           ) : (
@@ -1191,8 +1222,8 @@ function OvernightIntakePage() {
                 </div>
 
                 <div className="col price">
-                  <label>Processing Estimate</label>
-                  <div className="money">{processingPrice.toFixed(2)}</div>
+                  <label>{locked ? 'Processing Price' : 'Processing Estimate'}</label>
+                  <div className="money">{displayedProcessing.toFixed(2)}</div>
                   <div className="muted" style={{ fontSize: 12 }}>
                       Base process type + selected add-ons
                   </div>
@@ -1200,8 +1231,8 @@ function OvernightIntakePage() {
 
                 {specialtyEnabled ? (
                   <div className="col price">
-                    <label>Specialty Estimate</label>
-                    <div className="money">{specialtyPrice.toFixed(2)}</div>
+                    <label>{locked ? 'Specialty Price' : 'Specialty Estimate'}</label>
+                    <div className="money">{displayedSpecialty.toFixed(2)}</div>
                     <div className="muted" style={{ fontSize: 12 }}>Based on specialty product selections</div>
                   </div>
                 ) : null}
@@ -1209,12 +1240,13 @@ function OvernightIntakePage() {
 
               <div className="row small">
                 <div className="col total">
-                  <label>Total (preview)</label>
-                  <div className="money total">{totalPrice.toFixed(2)}</div>
+                  <label>{locked ? 'Order Total' : 'Total (preview)'}</label>
+                  <div className="money total">{displayedTotal.toFixed(2)}</div>
                 </div>
               </div>
             </>
           )}
+          {locked && submittedPayment.owedTotal !== undefined ? <div className="muted">{submittedPayment.paidOverall ? 'Paid in full' : `Balance due: $${submittedPayment.owedTotal.toFixed(2)}`}</div> : null}
         </div>
 
         {/* Step: Customer */}
@@ -2142,7 +2174,7 @@ function OvernightIntakePage() {
             </div>
             <div className="reviewDesktop reviewSheetFrame" style={{ marginTop: 12 }}>
               <PrintSheet
-                job={job as any}
+                job={{ ...job, priceProcessing: processingPrice, priceSpecialty: specialtyPrice, ...(locked ? savedPayment : {}) } as any}
                 webbsEnabled={webbsEnabled}
                 smsEnabled={smsEnabled}
                 specialtyEnabled={specialtyEnabled}
@@ -2185,7 +2217,7 @@ function OvernightIntakePage() {
 
       <div className="print-only">
         <PrintSheet
-          job={job}
+          job={{ ...job, priceProcessing: processingPrice, priceSpecialty: specialtyPrice, ...(locked ? savedPayment : {}) }}
           webbsEnabled={webbsEnabled}
           smsEnabled={smsEnabled}
           specialtyEnabled={specialtyEnabled}
@@ -2331,12 +2363,14 @@ function OvernightIntakePage() {
             {job.webbsOrder ? (
               <div className="thanksWebbsNext">
                 <div className="thanksWebbsTitle">Webbs Processing Payment</div>
+                {balanceUnavailable || submittedDue === undefined ? <p>We could not confirm the current balance. Refresh the balance or contact the shop before paying.</p> : submittedDue <= 0 ? <p><strong>Processing paid — no balance due.</strong></p> : <>
+
                 <div>
                   Online card payment includes a ${SQUARE_ONLINE_PAYMENT_FEE.toFixed(2)} fee.
                   Paying staff with cash or check avoids this online card fee.
                 </div>
                 <div className="webbsPaymentBreakdown">
-                  <div><span>Regular processing</span><strong>${processingPrice.toFixed(2)}</strong></div>
+                  <div><span>Processing balance</span><strong>${(submittedDue ?? 0).toFixed(2)}</strong></div>
                   <div><span>Online card fee</span><strong>${SQUARE_ONLINE_PAYMENT_FEE.toFixed(2)}</strong></div>
                   <div className="webbsPaymentBreakdownTotal"><span>Square total</span><strong>${squareProcessingTotal.toFixed(2)}</strong></div>
                 </div>
@@ -2372,6 +2406,8 @@ function OvernightIntakePage() {
                     Choose Square to pay by card now, or choose staff payment if you will pay without using online card payment.
                   </div>
                 )}
+                </>}
+                <button type="button" className="btn secondary" onClick={() => void refreshSubmittedBalance()}>Refresh balance</button>
                 <div className="webbsPaymentFinePrint">{WEBBS_PRICE_NOTE}</div>
               </div>
             ) : (

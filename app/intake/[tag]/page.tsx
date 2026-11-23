@@ -1,3 +1,4 @@
+import { publicOrderPayment } from '@/lib/publicOrderPayment';
 // app/intake/[tag]/page.tsx — public read-only view (no actions)
 import { specialtyMeatLbs } from '@/lib/specialtyYield';
 import 'server-only';
@@ -221,10 +222,10 @@ export default async function IntakeView({
       (job as any)?.specialty_price_override ?? (job as any)?.specialtyPriceOverride
     );
 
-    const processingUsed = (processingOverride ?? processingAuto);
-    const specialtyUsed = (specialtyOverride ?? specialtyAuto);
-
-    const totalUsed = processingUsed + specialtyUsed;
+    const payment = publicOrderPayment(job, { processing: processingOverride ?? processingAuto, specialty: specialtyOverride ?? specialtyAuto });
+    const processingUsed = payment.priceProcessing ?? 0;
+    const specialtyUsed = payment.priceSpecialty ?? 0;
+    const totalUsed = payment.priceTotal ?? 0;
 
     // --- Communication Preference + Consent ---
     const prefEmail        = asBool(pick(job, ['Pref Email','prefEmail']));
@@ -257,12 +258,9 @@ export default async function IntakeView({
                 <label>Processing Price</label>
                 <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>
                   {`$${processingUsed.toFixed(2)}`}
-                  {processingOverride !== null ? ' (override)' : ''}
                 </div>
                 <div className="muted" style={{fontSize:12}}>
-                  {processingOverride !== null
-                    ? `Auto would be: $${processingAuto.toFixed(2)}`
-                    : 'Base process type + selected add-ons'}
+                  {payment.paidProc ? 'Paid / no balance due' : `Balance due: $${(payment.owedProcessing ?? 0).toFixed(2)}`}
                 </div>
               </div>
 
@@ -270,12 +268,9 @@ export default async function IntakeView({
                 <label>Specialty Price</label>
                 <div className="money" style={{ fontWeight:800, textAlign:'right', background:'#fff', border:'1px solid #d8e3f5', borderRadius:8, padding:'6px 8px', minWidth:0 }}>
                   {`$${specialtyUsed.toFixed(2)}`}
-                  {specialtyOverride !== null ? ' (override)' : ''}
                 </div>
                 <div className="muted" style={{fontSize:12}}>
-                  {specialtyOverride !== null
-                    ? `Auto would be: $${specialtyAuto.toFixed(2)}`
-                    : 'Specialty product selections'}
+                  {payment.paidSpec ? 'Paid / no balance due' : `Balance due: $${(payment.owedSpecialty ?? 0).toFixed(2)}`}
                 </div>
               </div>
             </div>
@@ -290,8 +285,9 @@ export default async function IntakeView({
               }}
             >
               <div className="col total" style={{minWidth:0}}>
-                <label>Total (preview)</label>
+                <label>Order Total</label>
                 <div className="money total" style={{ fontWeight:900, minWidth:0 }}>{`$${totalUsed.toFixed(2)}`}</div>
+                <div style={{ fontWeight: 800 }}>{payment.paidOverall ? 'Paid in full' : `Balance due: $${(payment.owedTotal ?? 0).toFixed(2)}`}</div>
               </div>
               <div className="col" style={{minWidth:0}}>
                 <label>Status</label>
@@ -454,7 +450,7 @@ export default async function IntakeView({
               <h3>Webbs</h3>
               <div className="grid" style={{display:'grid', gap:8, gridTemplateColumns:'repeat(12, 1fr)'}}>
                 <div className="c12" style={{gridColumn:'span 12'}}>
-                  <Check on={true} text="Webbs Order (+$20 fee)" />
+                  <Check on={true} text="Webbs Order (handling fee included in processing)" />
                 </div>
                 <div className="c12" style={{gridColumn:'span 12'}}>
                   <Field label="Webbs Summary" value={webbsSummaryText} />

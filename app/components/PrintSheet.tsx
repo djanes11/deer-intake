@@ -1,4 +1,6 @@
 'use client';
+
+import { publicOrderPayment } from '@/lib/publicOrderPayment';
 import { specialtyMeatLbs } from '@/lib/specialtyYield';
 import React, { useEffect, useMemo, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
@@ -236,14 +238,21 @@ export default function PrintSheet({
     return v;
   }, [job?.['Processing Price'], job?.priceProcessing, job?.processing_price, job?.price_processing]);
 
-  const processingPrice = processingOverride ?? processingStored ?? proc;
-  const processingPaid = numOrNull(jpick(job, ['amountPaidProcessing', 'amount_paid_processing'])) ?? 0;
-
   const specialtyAuto = useMemo(() => calcSpecialtyPrice(job, pricing, specialtyCatalog), [job, pricing, specialtyCatalog]);
-  const specialtyPrice = specialtyOverride ?? specialtyAuto;
-  const specialtyPaid = numOrNull(jpick(job, ['amountPaidSpecialty', 'amount_paid_specialty'])) ?? 0;
-  const processingDue = Math.max(0, processingPrice - processingPaid);
-  const specialtyDue = Math.max(0, specialtyPrice - specialtyPaid);
+  const payment = publicOrderPayment({
+    ...job,
+    priceProcessing: processingStored,
+    priceSpecialty: jpick(job, ['priceSpecialty', 'price_specialty', 'Specialty Price']),
+    paid: jpick(job, ['paid', 'Paid', 'Paid in Full', 'Paid In Full']),
+    paidProcessing: jpick(job, ['paidProcessing', 'paid_processing', 'Paid Processing']),
+    paidSpecialty: jpick(job, ['paidSpecialty', 'paid_specialty', 'Paid Specialty']),
+  }, { processing: processingOverride ?? proc, specialty: specialtyOverride ?? specialtyAuto });
+  const processingPrice = payment.priceProcessing ?? 0;
+  const specialtyPrice = payment.priceSpecialty ?? 0;
+  const processingPaid = payment.amountPaidProcessing;
+  const specialtyPaid = payment.amountPaidSpecialty;
+  const processingDue = payment.owedProcessing ?? 0;
+  const specialtyDue = payment.owedSpecialty ?? 0;
   const webbsItems = useMemo(() => normalizeWebbsOrderItems(job?.webbsItems), [job?.webbsItems]);
   const webbsAllocations = useMemo(() => normalizeWebbsAllocations(job?.webbsAllocations), [job?.webbsAllocations]);
   const webbsItemTotal = useMemo(() => webbsOrderTotalLbs(job?.webbsItems), [job?.webbsItems]);
@@ -287,9 +296,9 @@ export default function PrintSheet({
   );
   const notesText = textVal('Notes','notes');
   const hasNotes = !!notesText.trim();
-  const paidInFull = truthy('Paid','paid','Paid in Full','Paid In Full');
-  const paidProcessing = truthy('Paid Processing','paidProcessing','paid_processing');
-  const paidSpecialty = truthy('Paid Specialty','paidSpecialty','paid_specialty');
+  const paidInFull = payment.paidOverall;
+  const paidProcessing = payment.paidProc;
+  const paidSpecialty = payment.paidSpec;
 
   const totalPrice = processingPrice + specialtyPrice;
 
@@ -519,12 +528,6 @@ return () => {
               </div>
               <div className="money">{money(processingPrice)}</div>
             </div>
-            {processingOverride !== null ? (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
-                <div style={{ fontSize: 11, color: '#6b7280' }}>Auto</div>
-                <div style={{ fontSize: 11, color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{money(proc)}</div>
-              </div>
-            ) : null}
 
             <div className="splitPriceRow">
               <div className="lhs">
@@ -532,12 +535,6 @@ return () => {
               </div>
               <div className="money">{money(specialtyPrice)}</div>
             </div>
-            {specialtyOverride !== null ? (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
-                <div style={{ fontSize: 11, color: '#6b7280' }}>Auto</div>
-                <div style={{ fontSize: 11, color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{money(specialtyAuto)}</div>
-              </div>
-            ) : null}
             <div className="splitSep" />
             <div className="splitPriceRow"><div className="lhs">Total</div><div className="moneyTotal">{money(totalPrice)}</div></div>
           </div>
@@ -714,8 +711,8 @@ return () => {
           <div className="label">Payment Status</div>
           <div className="val attentionValue paymentSummary">
             <div><strong className="check">{paidInFull ? CHK : BOX}</strong> Paid in full</div>
-            <div><strong className="check">{paidProcessing ? CHK : BOX}</strong> Processing paid</div>
-            {hasSpecialty ? <div><strong className="check">{paidSpecialty ? CHK : BOX}</strong> Specialty paid</div> : null}
+            <div><strong className="check">{paidProcessing ? CHK : BOX}</strong> Processing paid — Due {money(processingDue)}</div>
+            {hasSpecialty || specialtyPrice > 0 ? <div><strong className="check">{paidSpecialty ? CHK : BOX}</strong> Specialty paid — Due {money(specialtyDue)}</div> : null}
           </div>
         </div>
         <div className="col-6 box">

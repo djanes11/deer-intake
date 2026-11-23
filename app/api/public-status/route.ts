@@ -2,7 +2,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabaseClient';
-import { specialtyPrice } from '@/lib/specialty';
+import { publicOrderPayment } from '@/lib/publicOrderPayment';
 import { getProcessorContextForHostname } from '@/lib/processorContext';
 import { sharedRateLimit } from '@/lib/ratelimit';
 import { confirmationSearchCandidates, identifierSettingsFromPublicCopy, normalizeConfirmationInput } from '@/lib/identifiers';
@@ -87,30 +87,8 @@ function toBool(v: unknown): boolean | undefined {
 }
 
 async function shapeJob(row: any, supabase: ReturnType<typeof getSupabaseServer>) {
-  const priceProcessing = toNum(row.price_processing);
-  const specialtyOverride = toNum(row.specialty_price_override);
-  const computedSpecialty = specialtyPrice(row);
-  const rawSpecialty = toNum(row.price_specialty);
-  const priceSpecialty =
-    specialtyOverride ??
-    (typeof computedSpecialty === 'number' && computedSpecialty > 0
-      ? Math.max(rawSpecialty ?? 0, computedSpecialty)
-      : rawSpecialty);
-  const rawTotal = toNum(row.price_total);
-  const computedTotal =
-    typeof priceProcessing === 'number' || typeof priceSpecialty === 'number'
-      ? (priceProcessing || 0) + (priceSpecialty || 0)
-      : undefined;
-  const priceTotal =
-    typeof computedTotal === 'number' && (rawTotal === undefined || rawTotal < computedTotal)
-      ? computedTotal
-      : rawTotal;
-
-  const paidOverall = toBool(row.paid);
-  const paidProcessing = toBool(row.paid_processing);
-  const paidSpecialty = toBool(row.paid_specialty);
-  const amountPaidProcessing = toNum(row.amount_paid_processing);
-  const amountPaidSpecialty = toNum(row.amount_paid_specialty);
+  const { priceProcessing, priceSpecialty, priceTotal, amountPaidProcessing, amountPaidSpecialty,
+    paidProc: paidProcessing, paidSpec: paidSpecialty, paidOverall } = publicOrderPayment(row);
   const publicToken = await ensurePublicToken(supabase, row);
 
   const base: any = {

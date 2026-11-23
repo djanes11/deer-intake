@@ -1,5 +1,7 @@
 'use client';
 
+import { publicOrderPayment } from '@/lib/publicOrderPayment';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { SITE, phoneHref } from '@/lib/config';
@@ -457,93 +459,14 @@ export default function StatusPage() {
       .catch(() => {});
   }, []);
 
-  const priceProcessing = toNum(res?.priceProcessing);
-  const rawPriceSpecialty = toNum(res?.priceSpecialty);
-  const amountPaidProcessing = positiveMoney(res?.amountPaidProcessing);
-  const amountPaidSpecialty = positiveMoney(res?.amountPaidSpecialty);
+  const { priceProcessing, priceSpecialty, priceTotal, amountPaidProcessing, amountPaidSpecialty,
+    paidProc, paidSpec, paidOverall, owedProcessing, owedSpecialty, owedTotal } = publicOrderPayment(res || {});
   const hasWebbsOrder = branding.webbsEnabled && !!res?.tracks?.webbsStatus;
-  const specialtyApplies =
-    branding.specialtyEnabled &&
-    (
-      (typeof rawPriceSpecialty === 'number' && rawPriceSpecialty > 0) ||
-      amountPaidSpecialty > 0 ||
-      !!res?.tracks?.specialtyStatus ||
-      (res?.paidSpecialty !== undefined && res?.paidSpecialty !== null && String(res.paidSpecialty) !== '')
-    );
-  const priceSpecialty = specialtyApplies ? rawPriceSpecialty : undefined;
-  const rawPriceTotal = toNum(res?.priceTotal);
-  const computedLineTotal =
-    typeof priceProcessing === 'number' || typeof priceSpecialty === 'number'
-      ? (priceProcessing || 0) + (priceSpecialty || 0)
-      : undefined;
-  const priceTotal =
-    typeof computedLineTotal === 'number' &&
-    (rawPriceTotal === undefined || rawPriceTotal <= 0 || computedLineTotal > rawPriceTotal)
-      ? computedLineTotal
-      : rawPriceTotal;
+  // Previously charged specialty remains visible even if new specialty orders are disabled.
+  const specialtyApplies = (priceSpecialty ?? 0) > 0 || amountPaidSpecialty > 0 || !!res?.tracks?.specialtyStatus;
+  const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some(v => v !== undefined && v !== null && String(v) !== '') || amountPaidProcessing > 0 || amountPaidSpecialty > 0;
+  const hasAnyPricing = priceProcessing !== undefined || priceSpecialty !== undefined || priceTotal !== undefined;
 
-  const rawPaidOverall = toBool(res?.paid);
-  const rawPaidProc = toBool(res?.paidProcessing);
-  const rawPaidSpec = toBool(res?.paidSpecialty);
-  const processingPaidByAmount =
-    typeof priceProcessing === 'number' &&
-    priceProcessing > 0 &&
-    amountPaidProcessing >= priceProcessing;
-  const specialtyPaidByAmount =
-    typeof priceSpecialty === 'number' &&
-    priceSpecialty > 0 &&
-    amountPaidSpecialty >= priceSpecialty;
-  const paidProc =
-    rawPaidProc !== undefined
-      ? rawPaidProc || processingPaidByAmount
-      : rawPaidOverall !== undefined && (!priceProcessing || priceProcessing <= 0)
-        ? rawPaidOverall
-        : processingPaidByAmount || undefined;
-  const paidSpec =
-    rawPaidSpec !== undefined
-      ? rawPaidSpec || specialtyPaidByAmount
-      : rawPaidOverall !== undefined && (!priceSpecialty || priceSpecialty <= 0)
-        ? rawPaidOverall
-        : specialtyPaidByAmount || undefined;
-  const paidOverallFromAmounts =
-    (typeof priceProcessing !== 'number' || priceProcessing <= 0 || processingPaidByAmount) &&
-    (!specialtyApplies || typeof priceSpecialty !== 'number' || priceSpecialty <= 0 || specialtyPaidByAmount) &&
-    ((typeof priceProcessing === 'number' && priceProcessing > 0) ||
-      (specialtyApplies && typeof priceSpecialty === 'number' && priceSpecialty > 0));
-  const paidOverall =
-    [paidProc, paidSpec].some((v) => v !== undefined)
-      ? [paidProc, paidSpec].every((v, i) =>
-          i === 1 && (!priceSpecialty || priceSpecialty <= 0) ? true : v !== false
-        ) && ([paidProc, paidSpec].some((v) => v === true) || paidOverallFromAmounts)
-      : rawPaidOverall || paidOverallFromAmounts;
-  const hasAnyPaid = [res?.paid, res?.paidProcessing, res?.paidSpecialty].some(
-    (v) => v !== undefined && v !== null && String(v) !== ''
-  ) || amountPaidProcessing > 0 || amountPaidSpecialty > 0;
-  const hasAnyPricing =
-    typeof priceProcessing === 'number' ||
-    typeof priceSpecialty === 'number' ||
-    typeof priceTotal === 'number';
-
-  const owedProcessing =
-    paidOverall === true || paidProc === true
-      ? 0
-      : typeof priceProcessing === 'number'
-        ? Math.max(0, priceProcessing - amountPaidProcessing)
-        : undefined;
-  const owedSpecialty =
-    paidOverall === true || paidSpec === true
-      ? 0
-      : typeof priceSpecialty === 'number'
-        ? Math.max(0, priceSpecialty - amountPaidSpecialty)
-        : undefined;
-  const owedTotal =
-    paidOverall === true
-      ? 0
-      : typeof owedProcessing === 'number' || typeof owedSpecialty === 'number'
-        ? (owedProcessing || 0) + (owedSpecialty || 0)
-        : typeof priceTotal === 'number'
-          ? priceTotal
-          : undefined;
   const webbsProcessingPaymentDue =
     hasWebbsOrder &&
     paidOverall !== true &&
@@ -1249,7 +1172,7 @@ function PaymentCard({ label, amount, paidAmount, paid, owed }: PaymentCardProps
       <div style={{ fontSize: 12, color: '#64748b' }}>{label}</div>
       <div style={{ fontSize: 22, fontWeight: 900 }}>{money(amount)}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Badge ok={!!paid} label={paid ? 'Paid' : 'Unpaid'} />
+        <Badge ok={!!paid} label={amount === 0 ? 'No charge' : paid ? 'Paid' : paidAmount ? 'Part paid' : 'Unpaid'} />
         {paidAmount ? <Badge ok label={`Paid ${money(paidAmount)}`} /> : null}
         {typeof owed === 'number' ? <Badge ok={owed === 0} label={owed === 0 ? 'Balance cleared' : `Owes ${money(owed)}`} /> : null}
       </div>

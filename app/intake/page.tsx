@@ -2563,7 +2563,7 @@ useEffect(() => {
       <div className="print-only">
         {printMode === 'sheet' ? (
           <PrintSheet
-            job={job}
+            job={{ ...job, priceProcessing: processingPriceUsed, priceSpecialty: specialtyPriceUsed }}
             webbsEnabled={webbsEnabled}
             smsEnabled={smsEnabled}
             specialtyEnabled={specialtyEnabled}
