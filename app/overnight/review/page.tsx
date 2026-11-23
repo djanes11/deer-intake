@@ -5,7 +5,7 @@ import { formatDisplayDateTime } from '@/lib/dateFormat';
 import { useEffect, useMemo, useState } from 'react';
 import PrintSheet from '@/app/components/PrintSheet';
 import SmallLabelControls from '@/app/components/SmallLabelControls';
-import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { getJob as fetchJobFromApi, tokenHeader } from '@/lib/api';
 import { normalizeCutOptionSettings } from '@/lib/cutOptions';
@@ -349,9 +349,7 @@ export default function MissingTagsPage() {
                   {printing === selectedTag ? 'Preparing Print...' : 'Print Full Sheet'}
                 </button>
                 <SmallLabelControls brandingName={brandingName} job={selectedJob} disabled={!!printing} />
-                {canPrintAntlerLabel(selectedJob) ? (
-                  <button className="btn secondary" onClick={() => void printAssignedLabel(selectedTag, 'antler')} disabled={!!printing}>Antler Tag (browser)</button>
-                ) : null}
+
               </div>
             </div>
             <div style={{ fontSize: 13, opacity: 0.72 }}>

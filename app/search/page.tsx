@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PrintSheet from '@/app/components/PrintSheet';
 import SmallLabelControls from '@/app/components/SmallLabelControls';
-import ThermalLabelSheet, { canPrintAntlerLabel, canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { canPrintCapeLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview, openElementPrintPreview } from '@/app/lib/browserPrint';
 import type { Job } from '@/lib/api';
 import { getJob, patchJob, searchJobs, tokenHeader } from '@/lib/api';
@@ -1184,9 +1184,7 @@ export default function SearchPage() {
                       </summary>
                       <div className="printOptionsList">
                         <SmallLabelControls brandingName={brandingName} job={selectedJob} disabled={detailLoading || printing === selectedTag} />
-                        {canPrintAntlerLabel(selectedJob) ? (
-                          <button className="btn secondary" type="button" onClick={() => selectedTag && void printLabel(selectedTag, 'antler')} disabled={!selectedTag || printing === selectedTag}>Antler Tag (browser)</button>
-                        ) : null}
+
                         {canEdit && selectedJob?.intakeSheetPrintedAt ? (
                           <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>
                             Mark Unprinted

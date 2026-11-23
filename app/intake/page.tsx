@@ -10,7 +10,7 @@ import { resolveOrderPrices } from '@/lib/orderPrices';
 import { paymentBalance, paymentReviewMessage } from '@/lib/paymentBalance';
 import PrintSheet from '@/app/components/PrintSheet';
 import SmallLabelControls from '@/app/components/SmallLabelControls';
-import ThermalLabelSheet, { canPrintAntlerLabel, type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
+import ThermalLabelSheet, { type ThermalLabelPrintMode } from '@/app/components/ThermalLabelSheet';
 import { confirmIntakePrint, openBrowserPrintPreview } from '@/app/lib/browserPrint';
 import { lookupUniqueZipByCity } from '@/app/lib/cityZip';
 import { useUnsavedChanges } from '@/lib/useUnsavedChanges';
@@ -2470,26 +2470,7 @@ useEffect(() => {
             <div className="actionsUtility">
               <SmallLabelControls brandingName={brandingName} job={job} disabled={busy} saveFirst={dirty || !lastSavedTag} buttonClassName="btn secondaryBtn" />
 
-              {canPrintAntlerLabel(job) ? (
-                <button
-                  className="btn secondaryBtn"
-                  type="button"
-                  onClick={async () => {
-                    if (dirty) {
-                      const ok = await onSave();
-                      if (!ok) return;
-                    }
-                    const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                    if (!tagToPrint) {
-                      setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                      return;
-                    }
-                    setPrintMode('antler');
-                    openBrowserPrintPreview(() => setPrintMode(''));
-                  }}
-                  disabled={busy}
-                >Antler Tag (browser)</button>
-              ) : null}
+
 
               <button
                 className="btn secondaryBtn"
@@ -2573,26 +2554,7 @@ useEffect(() => {
                 >
                   Print Intake
                 </button>
-                {canPrintAntlerLabel(job) ? (
-                  <button
-                    className="actionMenuBtn"
-                    type="button"
-                    onClick={async () => {
-                      if (dirty) {
-                        const ok = await onSave();
-                        if (!ok) return;
-                      }
-                      const tagToPrint = normalizeTagInput(String(job.tag || ''), identifierSettings);
-                      if (!tagToPrint) {
-                        setMsg(`${identifierSettings.tagLabel} is required before printing labels`);
-                        return;
-                      }
-                      setPrintMode('antler');
-                      openBrowserPrintPreview(() => setPrintMode(''));
-                    }}
-                    disabled={busy}
-                  >Antler Tag (browser)</button>
-                ) : null}
+
               </div>
             </details>
           </div>

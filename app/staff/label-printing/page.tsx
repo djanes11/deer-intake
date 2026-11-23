@@ -62,7 +62,7 @@ export default function LabelPrintingTestPage() {
     setData(next); setSample(false);
     setMessage('Deer loaded. Review the name, tag number and phone below.');
   }
-  async function print(mode: 'test' | 'meat' | 'package') {
+  async function print(mode: 'test' | 'package') {
     if (uncertain) return;
     let current = mode === 'test' ? SAMPLE : data;
     if (mode !== 'test' && !sample) {
@@ -75,14 +75,14 @@ export default function LabelPrintingTestPage() {
       }
     }
     const labels = buildSmallLabelSet(current, settings.packages);
-    const selected = [mode === 'package' ? labels[1] : labels[0]];
+    const selected = [labels[1]];
     const count = await sendSmallLabelSet(await connectSmallLabelPrinter(), settings, selected, authorize);
     setMessage(`${count} label request(s) accepted by DYMO. Check the physical labels before using them. No deer status was changed.`);
   }
   return (
     <main className="label-lab">
       <h1>Printer Setup</h1>
-      <p>Save this computer’s Twin Turbo and small-label roll here. Meat and crate buttons print one small label per click; antler tags use the opposite roll.</p>
+      <p>Save this computer’s Twin Turbo and small-label roll here. In the staff toolbar, Crate Labels (2) prints two crate labels. Antler tags use the opposite roll. The test buttons below print one label at a time.</p>
       <p className="notice">Small labels: DYMO 30336. Check one sample label after changing the printer or roll. Crate labels have blank spaces for staff to write the crate count after cutting.</p>
       <fieldset disabled={busy}>
         <legend>Printer setup — saved on this computer</legend>
@@ -95,7 +95,7 @@ export default function LabelPrintingTestPage() {
         <div className="options">
           <label>Small-label roll<select value={settings.roll} onChange={event => updateSettings({ roll: event.target.value as 'Left' | 'Right' })}><option>Left</option><option>Right</option></select></label>
         </div>
-        <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('test'))}>Print 1 sample meat tag</button>
+        <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('test'))}>Print 1 sample crate label</button>
       </fieldset>
       <fieldset disabled={busy}>
         <legend>Choose a deer</legend>
@@ -106,14 +106,14 @@ export default function LabelPrintingTestPage() {
         </form>
         <p>{sample ? 'Sample details — no customer record selected.' : `Loaded deer: ${data.tag}`}</p>
         <div className="previews">
-          {(['MEAT TAG', 'CRATE LABEL'] as const).map(heading => (
+          {(['CRATE LABEL'] as const).map(heading => (
             <div key={heading}>
-              <div className={`label-preview ${heading === 'CRATE LABEL' ? 'crate' : 'meat'}`}>
+              <div className="label-preview crate">
                 <div className="kind">{heading}</div>
                 <strong className="tag">TAG {data.tag}</strong>
                 <div className="customer">{data.customer}</div>
                 <div className="phone">{data.phone}</div>
-                {heading === 'CRATE LABEL' ? <div className="crate-count">CRATE ____ OF ____</div> : null}
+                <div className="crate-count">CRATE ____ OF ____</div>
               </div>
               <p>1 copy</p>
             </div>
@@ -121,7 +121,6 @@ export default function LabelPrintingTestPage() {
         </div>
         <p className="muted">Layout preview. Actual fit and print quality must be checked on your labels.</p>
         <div className="options">
-          <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('meat'))}>Meat tag only</button>
           <button type="button" disabled={!settings.printer || uncertain} onClick={() => void run(() => print('package'))}>1 crate label only</button>
         </div>
       </fieldset>

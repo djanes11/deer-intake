@@ -30,7 +30,7 @@ export default function SmallLabelControls({ job, disabled = false, saveFirst = 
     }
     if (!response.ok) throw new Error('Could not verify your staff session. No further labels were sent.');
   }
-  async function print(mode: 'meat' | 'crate' | 'antler') {
+  async function print(mode: 'crate' | 'antler') {
     if (working.current || disabled || saveFirst || uncertain) return;
     working.current = true; setBusy(true); setMessage('');
     try {
@@ -55,6 +55,7 @@ export default function SmallLabelControls({ job, disabled = false, saveFirst = 
       }
       const labels = buildSmallLabelSet(current, 2);
       const selected = [mode === 'meat' ? labels[0] : labels[1]];
+      const selected = labels.slice(1);
       const count = await sendSmallLabelSet(await connectSmallLabelPrinter(), settings, selected, authorize);
       setMessage(`Tag ${current.tag}: ${count} label request(s) accepted by DYMO. Check the printed labels.`);
     } catch (error) {
@@ -65,10 +66,9 @@ export default function SmallLabelControls({ job, disabled = false, saveFirst = 
   const locked = busy || disabled || saveFirst || uncertain || !tag || /^pending/i.test(tag);
   const title = saveFirst ? 'Save this intake before printing labels.' : 'Print one label using the saved printer setup';
   return <>
-    <button className={buttonClassName} title={title} type="button" disabled={locked} onClick={() => void print('meat')}>{busy ? 'Sending…' : 'Meat Tag'}</button>
-    <button className={buttonClassName} title={title} type="button" disabled={locked} onClick={() => void print('crate')}>Crate Label</button>
+    <button className={buttonClassName} title={saveFirst ? title : 'Print two crate labels using the saved printer setup'} type="button" disabled={locked} onClick={() => void print('crate')}>{busy ? 'Sending…' : 'Crate Labels (2)'}</button>
     {directAntlerEligible(job) ? <button className={buttonClassName} title={title} type="button" disabled={locked} onClick={() => void print('antler')}>Antler Tag — DYMO</button> : null}
     {message ? <div role="status" style={{ flexBasis: '100%', fontSize: 13, overflowWrap: 'anywhere' }}>{message}</div> : null}
-    {uncertain ? <button className={buttonClassName} type="button" disabled={busy} onClick={() => { setUncertain(false); setMessage('Print only the missing labels.'); }}>I checked the printer and queue — unlock printing</button> : null}
+    {uncertain ? <button className={buttonClassName} type="button" disabled={busy} onClick={() => { setUncertain(false); setMessage('Print only the missing labels. For one replacement crate label, load this deer in Help → Printer Setup and use the single crate label button.'); }}>I checked the printer and queue — unlock printing</button> : null}
   </>;
 }

@@ -33,7 +33,8 @@ export async function run() {
           sendSmallLabelSet: async (_sdk: any, settings: any, labels: any[]) => {
             sent++;
             assert.equal(settings.roll, 'Right');
-            assert.deepEqual(labels.map(l => l.heading), [scenario === 'crate' ? 'CRATE LABEL' : 'MEAT TAG']);
+            assert.deepEqual(labels.map(l => l.heading), ['CRATE LABEL', 'CRATE LABEL']);
+            assert.deepEqual(labels[0].data, labels[1].data);
             if (scenario === 'uncertain') throw new printing.UncertainLabelPrintError('Check printer');
             return labels.length;
           },
@@ -47,7 +48,7 @@ export async function run() {
       visit(tree);
       assert.equal(nodes.some(n => n.type === 'select'), false, 'No crate count selector in toolbar');
       assert.equal(nodes.some(n => n.type === 'a'), false, 'Printer setup belongs on its own page');
-      const button = nodes.filter(n => n.type === 'button')[scenario === 'crate' ? 1 : 0];
+      const button = nodes.find(n => n.type === 'button');
       button.props.onClick();
       if (scenario === 'double-click') button.props.onClick();
       for (let i = 0; i < 12; i++) await new Promise(resolve => setImmediate(resolve));
