@@ -58,8 +58,22 @@ export const dymoTextObject = (name: string, text: string, y: number, height: nu
       </FormattedText><ObjectLayout><DYMOPoint><X>${x}</X><Y>${y}</Y></DYMOPoint><Size><Width>${width}</Width><Height>${height}</Height></Size></ObjectLayout>
     </TextObject>`;
 
+export function crateNameLines(customer: string): string[] {
+  const words = customer.trim().split(/\s+/);
+  if (words.length < 2) return words;
+  // Balance the two lines without splitting any part of a person's name.
+  let split = 1;
+  let shortest = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const longest = Math.max(words.slice(0, i).join(' ').length, words.slice(i).join(' ').length);
+    if (longest < shortest) { shortest = longest; split = i; }
+  }
+  return [words.slice(0, split).join(' '), words.slice(split).join(' ')];
+}
+
 export function smallLabelXml(label: SmallLabel): string {
   const object = dymoTextObject;
+  const nameLines = crateNameLines(label.data.customer);
   // The supplied file is portrait. Rotate its printable rectangle to landscape
   // while preserving the actual stock identifier and Connect v4 metadata.
   return smallLabelTemplate
@@ -69,16 +83,17 @@ export function smallLabelXml(label: SmallLabel): string {
     .replace('<Orientation>Portrait</Orientation>', '<Orientation>Landscape</Orientation>')
     .replace(/<DYMORect>[\s\S]*?<\/DYMORect>/, '<DYMORect><DYMOPoint><X>0.09</X><Y>0.039999966</Y></DYMOPoint><Size><Width>1.9766666</Width><Height>0.90333337</Height></Size></DYMORect>')
     .replace(/<LabelObjects>[\s\S]*?<\/LabelObjects>/, () => '<LabelObjects>' + [
-      object('KIND', label.heading, 0.05, 0.15, 9, true),
-      object('DIVIDER', ' ', 0.215, 0.009, 1, false)
-        .replace('<Color A="0" R="1" G="1" B="1"/>', '<Color A="1" R="0" G="0" B="0"/>'),
       ...(label.heading === 'CRATE LABEL' ? [
-        object('TAG', 'TAG ' + label.data.tag, 0.25, 0.20, 14, true),
-        object('CUSTOMER', label.data.customer, 0.46, 0.16, 10, true),
-        object('PHONE', label.data.phone, 0.62, 0.13, 9, false),
+        ...nameLines.map((line, i) => object('CUSTOMER_' + i, line,
+          0.05 + i * 0.32, nameLines.length === 1 ? 0.64 : 0.32,
+          nameLines.length === 1 ? 44 : 28, true, 0.10, 1.94)),
+        object('TAG', label.data.tag, 0.70, 0.10, 7, false),
         // Handwritten counts intentionally do not depend on the print quantity.
-        object('CRATE_COUNT', 'CRATE ____ OF ____', 0.76, 0.18, 10, true),
+        object('CRATE_COUNT', 'CRATE ____ OF ____', 0.81, 0.13, 9, true),
       ] : [
+        object('KIND', label.heading, 0.05, 0.15, 9, true),
+        object('DIVIDER', ' ', 0.215, 0.009, 1, false)
+          .replace('<Color A="0" R="1" G="1" B="1"/>', '<Color A="1" R="0" G="0" B="0"/>'),
         object('TAG', 'TAG ' + label.data.tag, 0.27, 0.26, 16, true),
         object('CUSTOMER', label.data.customer, 0.55, 0.19, 11, true),
         object('PHONE', label.data.phone, 0.77, 0.16, 10, false),

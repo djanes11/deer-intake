@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getJob } from '@/lib/api';
 import {
-  buildSmallLabelSet, connectSmallLabelPrinter, defaultSmallLabelSettings, readSmallLabelSettings,
+  buildSmallLabelSet, crateNameLines, connectSmallLabelPrinter, defaultSmallLabelSettings, readSmallLabelSettings,
   saveSmallLabelSettings, sendSmallLabelSet, smallLabelData, smallLabelPrinters, UncertainLabelPrintError,
   type LabelPrinter, type SmallLabelData, type SmallLabelSettings,
 } from '@/lib/smallLabelPrinting';
@@ -60,7 +60,7 @@ export default function LabelPrintingTestPage() {
     const next = smallLabelData(result.job);
     buildSmallLabelSet(next, settings.packages);
     setData(next); setSample(false);
-    setMessage('Deer loaded. Review the name, tag number and phone below.');
+    setMessage('Deer loaded. Review the name and tag number below.');
   }
   async function print(mode: 'test' | 'package') {
     if (uncertain) return;
@@ -109,10 +109,8 @@ export default function LabelPrintingTestPage() {
           {(['CRATE LABEL'] as const).map(heading => (
             <div key={heading}>
               <div className="label-preview crate">
-                <div className="kind">{heading}</div>
-                <strong className="tag">TAG {data.tag}</strong>
-                <div className="customer">{data.customer}</div>
-                <div className="phone">{data.phone}</div>
+                <div className="customer">{crateNameLines(data.customer).map((line, i) => <div key={i} style={{ fontSize: Math.min(38, 420 / Math.max(1, line.length)) }}>{line}</div>)}</div>
+                <span className="tag">{data.tag}</span>
                 <div className="crate-count">CRATE ____ OF ____</div>
               </div>
               <p>1 copy</p>
@@ -135,8 +133,8 @@ export default function LabelPrintingTestPage() {
         .options{display:flex;flex-wrap:wrap;gap:12px;align-items:end}.options label{flex:1;min-width:160px}
         .previews{display:flex;gap:24px;flex-wrap:wrap;margin-top:16px}.previews p{margin:6px 0}
         .label-preview{box-sizing:border-box;width:288px;height:144px;padding:7px 12px;background:white;color:black;border:1px solid #aaa;border-radius:5px;display:grid;grid-template-rows:26px 40px 32px 25px;font-family:Arial,sans-serif;overflow:hidden}
-        .kind{font-size:14px;font-weight:700;border-bottom:1px solid black;margin-bottom:5px}.customer{font-size:16px;font-weight:700;line-height:17px;overflow-wrap:anywhere}.tag{font-size:25px;white-space:nowrap;align-self:center}.phone{font-size:15px}
-        .crate{grid-template-rows:26px 30px 23px 19px 25px}.crate .tag{font-size:22px}.crate .customer{font-size:15px}.crate .phone{font-size:13px}.crate-count{font-size:15px;font-weight:700;align-self:end}
+        .customer{font-weight:700;line-height:1.05;display:flex;flex-direction:column;justify-content:center;white-space:nowrap}.tag{font-size:10px;white-space:nowrap;align-self:center}
+        .crate{grid-template-rows:1fr 15px 20px}.crate-count{font-size:14px;font-weight:700;align-self:end}
         .notice{padding:12px;border:1px solid #b98532;border-radius:8px;margin:16px 0;overflow-wrap:anywhere}.muted{font-size:13px;opacity:.8}details{margin-top:20px}
       `}</style>
     </main>

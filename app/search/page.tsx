@@ -1175,16 +1175,15 @@ export default function SearchPage() {
                           Counter
                         </button>
                       ) : null}
+                      <SmallLabelControls brandingName={brandingName} job={selectedJob} disabled={detailLoading || printing === selectedTag} />
                     </div>
 
                     <details className="printOptionsDisclosure">
                       <summary>
                         <span>Print Options</span>
-                        <span>{selectedJob.intakeSheetPrintCount ? `${selectedJob.intakeSheetPrintCount} printed` : 'Labels and reprint tools'}</span>
+                        <span>{selectedJob.intakeSheetPrintCount ? `${selectedJob.intakeSheetPrintCount} printed` : 'Intake print tools'}</span>
                       </summary>
                       <div className="printOptionsList">
-                        <SmallLabelControls brandingName={brandingName} job={selectedJob} disabled={detailLoading || printing === selectedTag} />
-
                         {canEdit && selectedJob?.intakeSheetPrintedAt ? (
                           <button className="btn secondary" type="button" onClick={() => void markUnprinted()} disabled={!selectedJob?.intakeSheetPrintedAt}>
                             Mark Unprinted

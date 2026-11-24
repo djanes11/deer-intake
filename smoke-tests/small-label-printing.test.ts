@@ -24,7 +24,12 @@ export async function run() {
     assert.doesNotMatch(xml, /CRATE_COUNT/);
     const crateXml = smallLabelXml(labels[1]);
     assert.match(crateXml, /CRATE ____ OF ____/);
-    assert.equal((crateXml.match(/<TextObject>/g) || []).length, 6);
+    assert.equal((crateXml.match(/<TextObject>/g) || []).length, 4);
+    assert.doesNotMatch(crateXml, /CRATE LABEL|TAG 10001|PHONE|555-0100/);
+    assert.match(crateXml, /<Text>10001<\/Text>/);
+    assert.match(crateXml, /<FontSize>28<\/FontSize>/);
+    assert.match(crateXml, /Anne &amp;/);
+    assert.match(crateXml, /O&apos;Connor &lt;Jr&gt;/);
   }
   assert.throws(() => buildSmallLabelSet({ ...data, tag: 'PENDING-1' }, 2));
   assert.throws(() => buildSmallLabelSet({ ...data, customer: '' }, 2));
@@ -36,7 +41,7 @@ export async function run() {
     const sdk: SmallLabelFramework = {
       init: cb => cb(),
       getPrintersAsync: async () => [{ name: 'Twin', isConnected: scenario !== 'disconnected', isTwinTurbo: true, isLocal: true }],
-      renderLabelAsync: async xml => { calls.push('render'); if (scenario === 'render-failure' && xml.includes('CRATE LABEL')) throw Error('render'); return 'png'; },
+      renderLabelAsync: async xml => { calls.push('render'); if (scenario === 'render-failure' && xml.includes('CRATE_COUNT')) throw Error('render'); return 'png'; },
       createLabelWriterPrintParamsXml: params => { assert.equal(params.twinTurboRoll, 'Right'); assert.equal(params.copies, 1); return ''; },
       printLabelAsync: async () => { calls.push('print'); sends++; if (scenario === 'print-failure' && sends === 2) throw Error('lost response'); return undefined; },
     };
